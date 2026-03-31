@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  /* Färger */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-secondary: hsl(var(--secondary));
+  --color-accent: hsl(var(--accent));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+
+  /* Fonter */
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-heading: "Playfair Display", serif;
+  --font-decorative: "Cinzel", serif;
+
+  /* Effekter */
+  --shadow-glamour: 0 0 15px currentColor;
+}
+
+/* 1. VARIABLER */
+:root {
+  --background: 0 40% 8%;
+  --foreground: 45 40% 96%;
+  --primary: 0 75% 42%;
+  --secondary: 0 55% 28%;
+  --accent: 45 95% 55%;
+  --muted: 0 30% 15%;
+  --muted-foreground: 0 10% 65%;
+  --border: 0 30% 20%;
+}
+
+/* 2. TYPOGRAFI-KLASSER */
+
+/* Stora titeln i eventet */
+.title {
+  @apply text-3xl md:text-4xl leading-tight text-accent;
+  font-family: var(--font-decorative);
+  text-shadow: var(--shadow-glamour);
+}
+
+/* Den kursiva undertiteln */
+.subtitle {
+  @apply text-lg md:text-xl italic text-foreground/90;
+  font-family: var(--font-heading);
+}
+
+/* Datum/Tid/Plats-etiketter */
+.label {
+  @apply font-semibold text-accent mr-1;
+}
+
+.text-body {
+  @apply text-sm md:text-base leading-relaxed text-foreground/85;
+  font-family: var(--font-body);
+}
+
+/* Guld-linjen i din JSX */
+@utility gold-divider {
+  @apply h-px flex-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent;
+}
+
+@utility flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 3. GLOBALA REGLER */
+body {
+  @apply bg-background text-foreground;
+  font-family: var(--font-body);
+}
