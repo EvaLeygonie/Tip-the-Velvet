@@ -13,6 +13,7 @@ import Dresscode from "@/pages/Dresscode"
 import JoinUs from "@/pages/JoinUs"
 import AdminLogin from "@/pages/admin/AdminLogin"
 import AdminDashboard from "@/pages/admin/AdminDashboard.tsx"
+import AdminEventPlan from "@/pages/admin/AdminEventPlan.tsx"
 import Artists from "@/pages/admin/Artists"
 import ArtistDetail from "@/pages/admin/ArtistDetail"
 
@@ -31,6 +32,7 @@ const App = () => (
            <Route path="/join" element={<JoinUs />} />
            <Route path="/admin/login" element={<AdminLogin />} />
            <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+           <Route path="/admin/eventplan" element={<ProtectedRoute><AdminEventPlan /></ProtectedRoute>} />
            <Route path="/admin/artists" element={<ProtectedRoute><Artists /></ProtectedRoute>} />
            <Route path="/admin/artists/:id" element={<ProtectedRoute><ArtistDetail /></ProtectedRoute>} />
 

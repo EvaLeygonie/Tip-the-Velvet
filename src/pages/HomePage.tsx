@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const HomePage = () => {
   return (
@@ -27,6 +28,10 @@ const HomePage = () => {
         Event description
       </p>
     </div>
+
+    <Link to="/events">
+      Se våra tidigare event
+    </Link>
     </>
   )
 }
