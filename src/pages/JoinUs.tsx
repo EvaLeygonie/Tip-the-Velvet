@@ -1,9 +1,5 @@
 const JoinUs = () => {
-
-    return (
-    <>
-    </>
-  )
+  return <></>
 }
 
 export default JoinUs

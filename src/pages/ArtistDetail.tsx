@@ -1,9 +1,5 @@
 const ArtistsDetail = () => {
-
-  return (
-    <>
-    </>
-  )
+  return <></>
 }
 
 export default ArtistsDetail

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { Link } from 'react-router-dom'
 
 const NotFound = () => {
   return (
@@ -16,7 +16,7 @@ const NotFound = () => {
         </Link>
       </div>
     </main>
-  );
+  )
 }
 
 export default NotFound

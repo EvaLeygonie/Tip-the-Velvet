@@ -1,9 +1,5 @@
 const Dresscode = () => {
-
-    return (
-    <>
-    </>
-  )
+  return <></>
 }
 
 export default Dresscode

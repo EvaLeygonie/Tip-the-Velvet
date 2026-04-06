@@ -1,9 +1,5 @@
 const AdminEventPlan = () => {
-
-    return (
-    <>
-    </>
-  )
+  return <></>
 }
 
 export default AdminEventPlan

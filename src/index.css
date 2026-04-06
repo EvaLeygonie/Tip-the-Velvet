@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* Färger */
@@ -12,9 +12,9 @@
   --color-border: hsl(var(--border));
 
   /* Fonter */
-  --font-body: "Inter", system-ui, sans-serif;
-  --font-heading: "Playfair Display", serif;
-  --font-decorative: "Cinzel", serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-heading: 'Playfair Display', serif;
+  --font-decorative: 'Cinzel', serif;
 
   /* Effekter */
   --shadow-glamour: 0 0 15px currentColor;
@@ -57,7 +57,7 @@
   font-family: var(--font-body);
 }
 
-/* Guld-linjen i din JSX */
+/* Guld-linje */
 @utility gold-divider {
   @apply h-px flex-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent;
 }
@@ -72,4 +72,38 @@
 body {
   @apply bg-background text-foreground;
   font-family: var(--font-body);
+}
+
+/* 4. NAVIGATION & LAYOUT */
+
+.nav-container {
+  @apply fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6;
+  @apply bg-background/80 backdrop-blur-md border-b border-accent/20;
+}
+
+.nav-logo {
+  @apply text-xl font-bold tracking-tighter text-accent transition-transform hover:scale-105;
+  font-family: var(--font-decorative);
+  text-shadow: 0 0 10px rgba(var(--accent), 0.3);
+}
+
+.nav-link {
+  @apply text-sm font-medium text-foreground/80 transition-colors hover:text-accent;
+}
+
+.nav-link-admin {
+  @apply text-sm font-bold text-accent border border-accent/30 px-3 py-1 rounded hover:bg-accent hover:text-black transition-all;
+}
+
+.btn-lang {
+  @apply text-xs font-bold border border-foreground/20 px-2 py-1 rounded hover:border-accent hover:text-accent transition-all;
+}
+
+.btn-logout {
+  @apply text-xs font-medium text-red-500 hover:text-red-400 underline-offset-4 hover:underline transition-all;
+}
+
+/* Fix för att innehållet ska börja under den fixade navbaren */
+.main-content {
+  @apply pt-20 px-6 min-h-screen;
 }
