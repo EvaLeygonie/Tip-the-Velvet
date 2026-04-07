@@ -6,7 +6,7 @@ type Language = 'sv' | 'eng'
 interface LanguageContextType {
   language: Language
   setLanguage: (lang: Language) => void
-  t: (sv: string, eng: string) => string
+  t: (sv: string | null | undefined, eng: string | null | undefined) => string
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
@@ -14,7 +14,10 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguage] = useState<Language>('sv')
 
-  const t = (sv: string, eng: string) => (language === 'sv' ? sv : eng)
+  const t = (sv: string | null | undefined, eng: string | null | undefined) => {
+    const text = language === 'sv' ? sv : eng
+    return text ?? ''
+  }
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>

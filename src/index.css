@@ -1,26 +1,7 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  /* Färger */
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-primary: hsl(var(--primary));
-  --color-secondary: hsl(var(--secondary));
-  --color-accent: hsl(var(--accent));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-border: hsl(var(--border));
-
-  /* Fonter */
-  --font-body: 'Inter', system-ui, sans-serif;
-  --font-heading: 'Playfair Display', serif;
-  --font-decorative: 'Cinzel', serif;
-
-  /* Effekter */
-  --shadow-glamour: 0 0 15px currentColor;
-}
-
-/* 1. VARIABLER */
 :root {
   --background: 0 40% 8%;
   --foreground: 45 40% 96%;
@@ -30,80 +11,153 @@
   --muted: 0 30% 15%;
   --muted-foreground: 0 10% 65%;
   --border: 0 30% 20%;
+  --radius: 0.5rem;
 }
 
-/* 2. TYPOGRAFI-KLASSER */
-
-/* Stora titeln i eventet */
-.title {
-  @apply text-3xl md:text-4xl leading-tight text-accent;
-  font-family: var(--font-decorative);
-  text-shadow: var(--shadow-glamour);
-}
-
-/* Den kursiva undertiteln */
-.subtitle {
-  @apply text-lg md:text-xl italic text-foreground/90;
-  font-family: var(--font-heading);
-}
-
-/* Datum/Tid/Plats-etiketter */
-.label {
-  @apply font-semibold text-accent mr-1;
-}
-
-.text-body {
-  @apply text-sm md:text-base leading-relaxed text-foreground/85;
-  font-family: var(--font-body);
-}
-
-/* Guld-linje */
-@utility gold-divider {
-  @apply h-px flex-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent;
-}
-
-@utility flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 3. GLOBALA REGLER */
 body {
   @apply bg-background text-foreground;
-  font-family: var(--font-body);
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
-/* 4. NAVIGATION & LAYOUT */
+@layer components {
+  /* UTILITIES */
+  .gold-divider {
+    @apply h-px flex-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent;
+  }
 
-.nav-container {
-  @apply fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6;
-  @apply bg-background/80 backdrop-blur-md border-b border-accent/20;
-}
+  .flex-center {
+    @apply flex items-center justify-center;
+  }
 
-.nav-logo {
-  @apply text-xl font-bold tracking-tighter text-accent transition-transform hover:scale-105;
-  font-family: var(--font-decorative);
-  text-shadow: 0 0 10px rgba(var(--accent), 0.3);
-}
+  /* TYPOGRAFI */
+  .title {
+    @apply text-accent leading-tight border-none bg-transparent outline-none focus:ring-0;
+    font-family: 'Cinzel', serif;
+    text-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+  }
 
-.nav-link {
-  @apply text-sm font-medium text-foreground/80 transition-colors hover:text-accent;
-}
+  .subtitle {
+    @apply italic text-foreground/90 border-none bg-transparent outline-none focus:ring-0;
+    font-family: var(--font-heading);
+  }
 
-.nav-link-admin {
-  @apply text-sm font-bold text-accent border border-accent/30 px-3 py-1 rounded hover:bg-accent hover:text-black transition-all;
-}
+  .label {
+    @apply font-semibold text-accent mr-1;
+  }
 
-.btn-lang {
-  @apply text-xs font-bold border border-foreground/20 px-2 py-1 rounded hover:border-accent hover:text-accent transition-all;
-}
+  .text-body {
+    @apply text-sm md:text-base leading-relaxed text-foreground/85;
+    font-family: var(--font-body);
+  }
 
-.btn-logout {
-  @apply text-xs font-medium text-red-500 hover:text-red-400 underline-offset-4 hover:underline transition-all;
-}
+  /* NAVIGATION */
+  .nav-container {
+    @apply fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-background/80 backdrop-blur-md border-b border-accent/20;
+  }
 
-/* Fix för att innehållet ska börja under den fixade navbaren */
-.main-content {
-  @apply pt-20 px-6 min-h-screen;
+  .nav-logo {
+    @apply text-xl font-bold tracking-tighter text-accent transition-transform hover:scale-105;
+    font-family: 'Cinzel', serif;
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+  }
+
+  .nav-link {
+    @apply text-sm font-medium text-foreground/80 transition-colors hover:text-accent;
+  }
+
+  .nav-link-admin {
+    @apply text-sm font-bold text-accent border border-accent/30 px-3 py-1 rounded hover:bg-accent hover:text-black transition-all;
+  }
+
+  /* LAYOUT WRAPPERS */
+  .main-content {
+    @apply pt-20 px-6 min-h-screen;
+  }
+
+  .section-stack {
+    @apply space-y-12;
+  }
+
+  .page-header {
+    @apply flex flex-col md:flex-row justify-between items-start gap-8 mb-10;
+  }
+
+  .content-grid {
+    @apply grid md:grid-cols-2 gap-12 items-start;
+  }
+
+  .field-row {
+    @apply flex flex-col gap-2 w-full;
+  }
+
+  /* ADMIN / EDITOR SPECIFIKT */
+  .admin-card-bg {
+    @apply bg-black/40 border border-accent/10 rounded-lg;
+  }
+
+  .editor-container {
+    @apply max-w-6xl mx-auto p-8 pb-32 space-y-12;
+  }
+
+  /* Input-fält för Admin */
+  .input-ghost-title {
+    @apply title w-full p-0 transition-all border-none bg-transparent outline-none focus:ring-0;
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    letter-spacing: -0.02em;
+  }
+
+  .input-ghost-subtitle {
+    @apply subtitle bg-transparent border-none outline-none w-full p-0 placeholder:opacity-20 focus:ring-0;
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+  }
+
+  .input-slug-inline {
+    @apply bg-transparent border-none text-accent outline-none p-0 w-full;
+    @apply placeholder:opacity-30 focus:ring-0;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+
+  .editor-input {
+    @apply w-full bg-transparent border-b border-accent/20 py-2 text-foreground/90 outline-none transition-colors focus:border-accent;
+  }
+
+  .editor-textarea {
+    @apply w-full bg-black/20 border border-accent/10 p-4 rounded-md text-body outline-none transition-all focus:border-accent/40 focus:bg-black/40 resize-none;
+  }
+
+  .admin-select {
+    @apply bg-black/60 border border-accent/20 text-accent text-xs font-bold rounded px-3 py-2 outline-none focus:border-accent cursor-pointer uppercase tracking-widest;
+  }
+
+  /* KONTROLLPANEL & MEDIA */
+  .admin-control-panel {
+    @apply min-w-[320px] bg-black/60 p-5 rounded-lg border border-accent/20 space-y-4 shadow-2xl;
+  }
+
+  .panel-row {
+    @apply flex items-center justify-between gap-4 border-b border-accent/5 pb-2 last:border-0 last:pb-0;
+  }
+
+  .promo-upload-square {
+    @apply aspect-square w-full max-w-[300px] border-2 border-dashed border-accent/20 rounded-lg flex-center flex-col gap-4 transition-all hover:bg-accent/5 hover:border-accent/40;
+  }
+
+  /* KNAPPAR */
+  .btn-lang {
+    @apply text-xs font-bold border border-foreground/20 px-2 py-1 rounded hover:border-accent hover:text-accent transition-all;
+  }
+
+  .btn-save-fixed {
+    @apply fixed bottom-8 right-8 px-10 py-4 rounded-full font-bold transition-all z-50 uppercase tracking-widest text-sm shadow-xl;
+  }
+
+  .btn-save-active {
+    @apply bg-accent text-black cursor-pointer border border-accent/20 hover:scale-105 active:scale-95;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+  }
+
+  .btn-save-disabled {
+    @apply bg-gray-900 text-gray-700 cursor-not-allowed border border-white/5 opacity-50 shadow-inner;
+  }
 }

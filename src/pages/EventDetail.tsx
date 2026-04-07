@@ -1,16 +1,19 @@
 import { useAuth } from '@/contexts/AuthContext'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 const EventDetail = () => {
-  const { isAdmin, loading } = useAuth()
+  const { user, loading } = useAuth()
+  const { t } = useLanguage()
 
-  if (loading) return <p>Laddar...</p>
+  if (loading) return <p>{t('Laddar...', 'Loading...')}</p>
 
   return (
     <div>
       <h1>Malice in Wonderland</h1>
 
-      {/* Visas bara för Admins! */}
-      {isAdmin && <button className="bg-yellow-600 p-2 rounded">Redigera Event</button>}
+      {user && (
+        <button className="bg-yellow-600 p-2 rounded">{t('Redogera event', 'Edit Event')}</button>
+      )}
     </div>
   )
 }

@@ -16,8 +16,9 @@ import About from '@/pages/About'
 import Dresscode from '@/pages/Dresscode'
 import JoinUs from '@/pages/JoinUs'
 import AdminLogin from '@/pages/admin/AdminLogin'
-import AdminDashboard from '@/pages/admin/AdminDashboard.tsx'
-import AdminEventPlan from '@/pages/admin/AdminEventPlan.tsx'
+import AdminDashboard from '@/pages/admin/AdminDashboard'
+import EventEditor from '@/pages/admin/EventEditor'
+import AdminEventPlan from '@/pages/admin/AdminEventPlan'
 import Artists from '@/pages/Artists'
 import ArtistDetail from '@/pages/ArtistDetail'
 
@@ -52,7 +53,23 @@ const App = () => (
                 }
               />
               <Route
-                path="/admin/eventplan"
+                path="/admin/event-editor"
+                element={
+                  <ProtectedRoute>
+                    <EventEditor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/event-editor/:eventSlug"
+                element={
+                  <ProtectedRoute>
+                    <EventEditor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/event-plan"
                 element={
                   <ProtectedRoute>
                     <AdminEventPlan />

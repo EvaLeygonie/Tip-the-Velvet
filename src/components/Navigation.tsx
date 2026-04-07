@@ -14,9 +14,10 @@ const Navigation = () => {
 
   const publicLinks = [
     { to: '/', label: t('Hem', 'Home') },
-    { to: '/about', label: t('Om oss', 'About') },
     { to: '/events', label: t('Events', 'Events') },
+    { to: '/artists', label: t('Artister', 'Performers') },
     { to: '/dresscode', label: t('Klädkod', 'Dresscode') },
+    { to: '/about', label: t('Om oss', 'About') },
     { to: '/join', label: t('Joina oss', 'Join Us') },
   ]
 

@@ -33,20 +33,21 @@ export interface Event extends BaseEntity {
   title: string
   subtitle: string | null
   slug: string
-  date: string | null
+  event_start: string | null
+  event_end: string | null
   location: string | null
+  status: EventStatus
+  reveal_date: string | null
   description_sv: string | null
   description_eng: string | null
-  status: EventStatus
-  photographer: string | null
-  reveal_date: string | null
-  dresscode_link: string | null
-  ticket_url: string | null
+  image_id: string | null
   updated_at: string
   has_casting_call: boolean
+  dresscode_link: string | null
+  ticket_url: string | null
   tickets_price: number | null
   tickets_sold: number | null
-  image_id: string | null
+  photographer: string | null
   fb_album_url: string | null
   photobooth_url: string | null
 }
