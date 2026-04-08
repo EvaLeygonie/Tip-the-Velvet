@@ -94,6 +94,7 @@ export const EventEditor = () => {
       const uploadData = new FormData()
       uploadData.append('file', tempFile)
       uploadData.append('upload_preset', UPLOAD_PRESET)
+      uploadData.append('folder', 'Promo')
       uploadData.append('public_id', `Promo/${finalSlug}`)
 
       try {
@@ -150,7 +151,7 @@ export const EventEditor = () => {
 
       if (!eventSlug) navigate(`/admin/event-editor/${finalSlug}`)
     } catch (err) {
-      toast.error(getErrorMessage(err)) // Detta fixar [object Object] felet
+      toast.error(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -256,7 +257,7 @@ export const EventEditor = () => {
                   src={
                     formData.image_id.includes('http')
                       ? formData.image_id
-                      : `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${formData.image_id}`
+                      : `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/Promo/${formData.image_id}`
                   }
                   className="w-full h-full object-cover"
                   alt="Preview"
