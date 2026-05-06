@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { OldEvent, Event } from '@/types'
-import CloudinaryImage from '@/components/CloudinaryImage'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { FeaturedEventCard } from '@/components/events/featuredEventCard'
+import { ArchivedEventCard } from '@/components/events/archivedEventCard'
 
 const Events = () => {
   const [oldEvents, setOldEvents] = useState<OldEvent[]>([])
@@ -14,54 +15,107 @@ const Events = () => {
   const { t } = useLanguage()
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchAllData = async () => {
       setLoading(true)
-      const { data, error } = await supabase.from('events').select('*')
-      if (data) setEvents(data)
-      if (error) console.error(error)
+
+      const [eventsList, oldEventsList] = await Promise.all([
+        supabase.from('events').select('*').order('event_start', { ascending: false }),
+        supabase.from('old_events').select('*').order('date', { ascending: false }),
+      ])
+
+      if (eventsList.data) setEvents(eventsList.data)
+      if (oldEventsList.data) setOldEvents(oldEventsList.data)
+
+      if (eventsList.error) console.error('Events error:', eventsList.error)
+      if (oldEventsList.error) console.error('Old Events error:', oldEventsList.error)
+
       setLoading(false)
     }
-    const fetchOldEvents = async () => {
-      setLoading(true)
-      const { data, error } = await supabase.from('old_events').select('*')
-      if (data) setOldEvents(data)
-      if (error) console.error(error)
-      setLoading(false)
-    }
-    fetchEvents()
-    fetchOldEvents()
+
+    fetchAllData()
   }, [])
 
-  if (loading) return <p>{t('Laddar...', 'Loading...')}</p>
+  const upcomingEvents = events.filter((e) => e.status === 'published')
+  const pastNewEvents = events.filter((e) => e.status === 'archived')
+
+  if (loading)
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <p className="font-decorative animate-pulse text-accent">{t('Laddar...', 'Loading...')}</p>
+      </div>
+    )
 
   return (
     <>
-      <div>
-        {user && (
-          <Link to="/admin/event-editor">
-            <button className="bg-yellow-600 p-2 rounded">
-              {t('Lägg till event', 'Add Event')}
-            </button>
-          </Link>
-        )}
+      <div className="section-stack py-12">
+        {/* 1. Kommande (Featured) */}
+        <section className="container mx-auto px-4 space-y-8">
+          {/* Flex-container för att hålla Rubrik och Admin-knapp på samma rad */}
+          <div className="relative flex items-center justify-center">
+            <h2 className="font-decorative text-3xl uppercase tracking-[0.2em] text-accent text-center">
+              {t('Kommande event', 'Upcoming Events')}
+            </h2>
 
-        {events.map((event) => (
-          <div key={event.id}>
-            <h1>{event.title}</h1>
-            {event.description_sv && (
-              <p>{t(event.description_sv, event.description_eng || event.description_sv)}</p>
+            {/* Admin-knapp placerad till höger (eller vänster) om rubriken */}
+            {user && (
+              <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                <Link to="/admin/event-editor">
+                  <button className="flex items-center gap-2 px-3 py-1.5 border border-white/20 hover:border-white/50 bg-white/5 hover:bg-white/10 text-white rounded transition-all duration-300 group">
+                    <span className="text-lg">+</span>
+                    {t('Event', 'Event')}
+                  </button>
+                </Link>
+              </div>
             )}
-            <CloudinaryImage publicId={event.image_id || ''} width={400} height={300} />
           </div>
-        ))}
 
-        {oldEvents.map((event) => (
-          <div key={event.id}>
-            <h1>{event.title}</h1>
-            <p>{event.description_eng}</p>
-            <CloudinaryImage publicId={event.image_id || ''} width={400} height={300} />
+          {upcomingEvents.length > 0 ? (
+            upcomingEvents.map((e) => <FeaturedEventCard key={e.id} event={e} />)
+          ) : (
+            <FeaturedEventCard
+              event={
+                {
+                  title: t('TBA', 'TBA'),
+                  subtitle: t('Håll utkik...', 'Stay tuned...'),
+                  image_id: null,
+                } as Event
+              }
+            />
+          )}
+        </section>
+
+        {/* 2. Tidigare (Nya styrelsen) */}
+        <section className="container-wide space-y-8 mt-24">
+          <h2 className="text-center font-decorative text-2xl uppercase tracking-widest text-accent">
+            {t('Tidigare event', 'Past Events')}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {pastNewEvents.map((e) => (
+              <ArchivedEventCard key={e.id} event={e} />
+            ))}
           </div>
-        ))}
+        </section>
+
+        {/* 3. Arkiv (Gamla styrelsen) */}
+        <section className="container-wide space-y-8 mt-24">
+          <div className="text-center space-y-4">
+            <h2 className="font-decorative text-2xl uppercase tracking-widest text-accent opacity-50">
+              {t('Arkiv', 'Archive')}
+            </h2>
+            <p className="max-w-xl mx-auto text-sm italic opacity-60">
+              {t(
+                'En hyllning till klubbens historia, här kan ni se event från tidigare styrelsen innan vi tog över 2024!',
+                "A tribute to the club's history, here you can see events from the previous board before we took over in 2024!"
+              )}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {oldEvents.map((e) => (
+              <ArchivedEventCard key={e.id} event={e as unknown as Event} />
+            ))}
+          </div>
+        </section>
       </div>
     </>
   )

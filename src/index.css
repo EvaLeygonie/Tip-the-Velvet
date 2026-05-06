@@ -107,13 +107,15 @@ body {
   }
 
   .input-ghost-subtitle {
-    @apply subtitle bg-transparent border-none outline-none w-full p-0 placeholder:opacity-20 focus:ring-0;
+    @apply subtitle w-full p-0 border-none bg-transparent outline-none;
+    font-size: clamp(1.5rem, 2vw, 1rem);
+    letter-spacing: -0.02em;
     text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
   }
 
   .input-slug-inline {
     @apply bg-transparent border-none text-accent outline-none p-0 w-full;
-    @apply placeholder:opacity-30 focus:ring-0;
+    @apply placeholder:opacity-90 focus:ring-0;
     font-family: monospace;
     font-size: 0.875rem;
   }
@@ -128,6 +130,10 @@ body {
 
   .admin-select {
     @apply bg-black/60 border border-accent/20 text-accent text-xs font-bold rounded px-3 py-2 outline-none focus:border-accent cursor-pointer uppercase tracking-widest;
+  }
+
+  .admin-action-btn {
+    @apply border border-accent/20 bg-background/50 text-accent font-decorative uppercase text-[10px] tracking-widest px-3 py-1 rounded-md transition-all hover:bg-accent hover:text-black;
   }
 
   /* KONTROLLPANEL & MEDIA */

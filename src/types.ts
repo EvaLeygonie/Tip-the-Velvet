@@ -72,6 +72,7 @@ export interface OldEvent extends BaseEntity {
   description_eng: string | null
   photographer: string | null
   fb_album_url: string | null
+  pinterest_link: string | null
   image_id: string
   tickets_sold: number | null
   ticket_price: number | null

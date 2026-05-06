@@ -9,10 +9,10 @@ const EventDetail = () => {
 
   return (
     <div>
-      <h1>Malice in Wonderland</h1>
+      <h1>EventTitle</h1>
 
       {user && (
-        <button className="bg-yellow-600 p-2 rounded">{t('Redogera event', 'Edit Event')}</button>
+        <button className="bg-yellow-600 p-2 rounded">{t('Redigera event', 'Edit Event')}</button>
       )}
     </div>
   )

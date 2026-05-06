@@ -95,7 +95,7 @@ export const EventEditor = () => {
       uploadData.append('file', tempFile)
       uploadData.append('upload_preset', UPLOAD_PRESET)
       uploadData.append('folder', 'Promo')
-      uploadData.append('public_id', `Promo/${finalSlug}`)
+      uploadData.append('public_id', finalSlug)
 
       try {
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
@@ -165,7 +165,7 @@ export const EventEditor = () => {
     <div className="editor-container section-stack">
       <header className="page-header items-start gap-12">
         <div className="flex-1 space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest opacity-50">
+          <label className="label text-[10px] uppercase tracking-widest">
             {t('Event Titel', 'Event Title')}
           </label>
           <input
@@ -175,6 +175,9 @@ export const EventEditor = () => {
             placeholder="Ex: Once Upon a Time..."
             className="input-ghost-title"
           />
+          <label className="label text-[10px] uppercase tracking-widest">
+            {t('Event Undertitel', 'Event Subtitle')}
+          </label>
           <input
             type="text"
             value={formData.subtitle || ''}
@@ -186,7 +189,7 @@ export const EventEditor = () => {
 
         <div className="admin-control-panel">
           <div className="panel-row">
-            <label className="label text-[10px] uppercase tracking-tighter">Status:</label>
+            <label className="label text-[10px] uppercase">Status:</label>
             <select
               className="admin-select !w-auto !py-1"
               value={formData.status || 'draft'}
@@ -247,7 +250,7 @@ export const EventEditor = () => {
 
       <div className="content-grid">
         <div className="space-y-4">
-          <label className="label text-[10px] uppercase opacity-50 block">
+          <label className="label text-[10px] uppercase block">
             {t('Promobild:', 'Promo Image:')}
           </label>
           <div className={`promo-upload-square ${!isReadyToUpload ? 'is-locked' : 'is-active'}`}>
@@ -284,7 +287,7 @@ export const EventEditor = () => {
         {/* BESKRIVNINGAR*/}
         <div className="space-y-8">
           <div className="field-row">
-            <label className="label text-[10px] uppercase opacity-50 tracking-widest">
+            <label className="label text-[10px] uppercase tracking-widest">
               {t('Beskrivning (SV)', 'Description (SV)')}
             </label>
             <textarea
@@ -294,7 +297,7 @@ export const EventEditor = () => {
             />
           </div>
           <div className="field-row">
-            <label className="label text-[10px] uppercase opacity-50 tracking-widest">
+            <label className="label text-[10px] uppercase tracking-widest">
               {t('Beskrivning (ENG)', 'Description (ENG)')}
             </label>
             <textarea
