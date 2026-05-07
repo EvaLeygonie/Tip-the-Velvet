@@ -105,8 +105,8 @@ export const Footer = () => {
             </h4>
             <p className="text-xs text-foreground/60 font-sans">
               {t(
-                'Få senaste nytt om shower och events.',
-                'Get the latest news about shows and events.'
+                'Få senaste nyheter om oss och våra events.',
+                'Get the latest news about us and our events.'
               )}
             </p>
             <form onSubmit={handleNewsletterSubmit} className="space-y-3 pt-2">

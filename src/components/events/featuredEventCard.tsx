@@ -85,7 +85,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
             const description = event[langKey] as string
             return (
               description && (
-                <p className="text-sm leading-relaxed text-foreground/70 line-clamp-3 font-sans max-w-xl">
+                <p className="text-lg leading-relaxed text-foreground/70 line-clamp-3 font-sans max-w-xl">
                   {description}
                 </p>
               )

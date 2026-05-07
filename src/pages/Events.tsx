@@ -50,21 +50,27 @@ const Events = () => {
       <div className="section-stack py-12">
         {/* 1. Kommande (Featured) */}
         <section className="container mx-auto px-4 space-y-8">
-          <div className="relative flex items-center justify-center">
-            <h2 className="font-decorative text-3xl uppercase tracking-[0.2em] text-accent text-center">
-              {t('Kommande event', 'Upcoming Events')}
-            </h2>
+          <div className="max-w-7xl mx-auto px-6 md:px-10 mb-8">
+            <div className="grid grid-cols-3 items-center">
+              {/* Vänster kolumn - tom för att balansera upp högersidan */}
+              <div className="hidden md:block"></div>
 
-            {user && (
-              <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                <Link to="/admin/event-editor">
-                  <button className="flex items-center gap-2 px-3 py-1.5 border border-white/20 hover:border-white/50 bg-white/5 hover:bg-white/10 text-white rounded transition-all duration-300 group">
-                    <span className="text-lg">+</span>
-                    {t('Skapa Event', 'Add Event')}
-                  </button>
-                </Link>
+              {/* Mitten - Rubriken är nu perfekt centrerad */}
+              <h2 className="text-accent font-decorative text-2xl md:text-3xl uppercase tracking-[0.3em] text-center whitespace-nowrap">
+                {t('Kommande Event', 'Upcoming Events')}
+              </h2>
+
+              <div className="flex justify-end">
+                {user && (
+                  <Link to="/admin/event-editor">
+                    <button className="flex items-center gap-2 px-3 py-1.5 border border-white/20 hover:border-white/50 bg-white/5 hover:bg-white/10 text-white rounded transition-all duration-300 group">
+                      <span className="text-lg">+</span>
+                      {t('Skapa Event', 'Add Event')}
+                    </button>
+                  </Link>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           {upcomingEvents.length > 0 ? (
@@ -97,10 +103,10 @@ const Events = () => {
         {/* 3. Arkiv (Gamla styrelsen) */}
         <section className="container-wide space-y-8 mt-24">
           <div className="text-center space-y-4">
-            <h2 className="font-decorative text-2xl uppercase tracking-widest text-accent opacity-50">
+            <h2 className="font-decorative text-2xl uppercase tracking-widest text-accent ">
               {t('Arkiv', 'Archive')}
             </h2>
-            <p className="max-w-xl mx-auto text-sm italic opacity-60">
+            <p className="max-w-xl mx-auto text-lg italic opacity-80">
               {t(
                 'En hyllning till klubbens historia, här kan ni se event från tidigare styrelsen innan vi tog över 2024!',
                 "A tribute to the club's history, here you can see events from the previous board before we took over in 2024!"
