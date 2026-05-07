@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 
 export const FeaturedEventCard = ({ event }: { event: Event }) => {
   const { t } = useLanguage()
+
   return (
     <div className="relative w-full min-h-[450px] flex flex-col md:flex-row bg-black/40 border border-accent/20 rounded-xl overflow-hidden group hover:border-accent/40 transition-all duration-500">
       {/* Bild-sektion (Vänster) */}
@@ -21,9 +22,6 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
               <Sparkles className="w-16 h-16 text-accent/20 animate-pulse" />
               <Sparkles className="w-8 h-8 text-accent/40 absolute -top-2 -right-2" />
             </div>
-            <p className="font-decorative tracking-[0.3em] uppercase text-[10px] text-accent/40">
-              Mystery Performance
-            </p>
           </div>
         )}
 

@@ -50,19 +50,17 @@ const Events = () => {
       <div className="section-stack py-12">
         {/* 1. Kommande (Featured) */}
         <section className="container mx-auto px-4 space-y-8">
-          {/* Flex-container för att hålla Rubrik och Admin-knapp på samma rad */}
           <div className="relative flex items-center justify-center">
             <h2 className="font-decorative text-3xl uppercase tracking-[0.2em] text-accent text-center">
               {t('Kommande event', 'Upcoming Events')}
             </h2>
 
-            {/* Admin-knapp placerad till höger (eller vänster) om rubriken */}
             {user && (
               <div className="absolute right-0 top-1/2 -translate-y-1/2">
                 <Link to="/admin/event-editor">
                   <button className="flex items-center gap-2 px-3 py-1.5 border border-white/20 hover:border-white/50 bg-white/5 hover:bg-white/10 text-white rounded transition-all duration-300 group">
                     <span className="text-lg">+</span>
-                    {t('Event', 'Event')}
+                    {t('Skapa Event', 'Add Event')}
                   </button>
                 </Link>
               </div>
@@ -76,7 +74,7 @@ const Events = () => {
               event={
                 {
                   title: t('TBA', 'TBA'),
-                  subtitle: t('Håll utkik...', 'Stay tuned...'),
+                  subtitle: t('Annonseras snart...', 'Stay tuned...'),
                   image_id: null,
                 } as Event
               }

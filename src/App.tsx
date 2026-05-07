@@ -7,6 +7,7 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import Navigation from '@/components/Navigation'
+import {Footer} from '@/components/footer'
 
 import HomePage from '@/pages/HomePage'
 import NotFound from '@/pages/NotFound'
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
+          <Footer />
         </BrowserRouter>
       </LanguageProvider>
     </AuthProvider>
