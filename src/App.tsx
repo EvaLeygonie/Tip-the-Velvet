@@ -7,7 +7,7 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import Navigation from '@/components/Navigation'
-import {Footer} from '@/components/footer'
+import { Footer } from '@/components/footer'
 
 import HomePage from '@/pages/HomePage'
 import NotFound from '@/pages/NotFound'
@@ -29,7 +29,23 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <LanguageProvider>
-        <Toaster />
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#1d0d0d',
+              border: '1px solid rgba(212, 175, 55, 0.5)',
+              color: '#f9f7f1',
+              fontFamily: 'inherit',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              fontSize: '11px',
+              borderRadius: '6px',
+            },
+            className: 'font-decorative',
+          }}
+        />
         <BrowserRouter>
           <Navigation />
 

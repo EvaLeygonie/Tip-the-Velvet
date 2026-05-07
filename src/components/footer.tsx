@@ -1,4 +1,4 @@
-import { Mail, Sparkles, Heart, Shield } from 'lucide-react'
+import { Mail, Heart, Shield } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '@/contexts/LanguageContext'
 
