@@ -6,12 +6,14 @@ interface CloudinaryImageProps {
   publicId: string
   width?: number
   height?: number
+  className?: string
 }
 
 export default function CloudinaryImage({
   publicId,
   width = 800,
   height = 600,
+  className,
 }: CloudinaryImageProps) {
   const cld = new Cloudinary({
     cloud: {
@@ -23,5 +25,5 @@ export default function CloudinaryImage({
 
   myImage.resize(fill().width(width).height(height)).format('auto').quality('auto')
 
-  return <AdvancedImage cldImg={myImage} className="rounded-xl shadow-lg" />
+  return <AdvancedImage cldImg={myImage} className={className} />
 }
