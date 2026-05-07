@@ -23,10 +23,9 @@ export const Footer = () => {
         <div className="grid md:grid-cols-3 gap-12">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-accent" />
-              <h3 className="text-2xl font-decorative text-accent drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]">
+              <h4 className="font-decorative text-lg text-accent uppercase tracking-wider">
                 Tip the Velvet
-              </h3>
+              </h4>
             </div>
             <p className="text-foreground/70 font-sans text-sm leading-relaxed max-w-xs">
               {t(

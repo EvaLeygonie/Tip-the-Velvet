@@ -174,7 +174,7 @@ const Navigation = () => {
       )}
 
       {/* Dynamisk Spacer */}
-      <div className="h-[60px] w-full transition-all duration-500" />
+      <div className={`${user ? 'h-[80px]' : 'h-[60px]'} w-full transition-all duration-500`} />
     </>
   )
 }
