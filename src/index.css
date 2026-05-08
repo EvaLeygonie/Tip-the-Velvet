@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+@theme {
+  /* Färger */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-secondary: hsl(var(--secondary));
+  --color-accent: hsl(var(--accent));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+
+  /* Fonter */
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-heading: 'Playfair Display', serif;
+  --font-decorative: 'Cinzel', serif;
+
+  /* Effekter */
+  --shadow-glamour: 0 0 15px rgba(212, 175, 55, 0.5);
+}
+
 :root {
   --background: 0 40% 8%;
   --foreground: 45 40% 96%;
@@ -16,24 +36,27 @@
 
 body {
   @apply bg-background text-foreground;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
+/* --- KOMPONENTER --- */
 @layer components {
-  /* UTILITIES */
+  /* --- UTILITIES --- */
   .gold-divider {
     @apply h-px flex-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent;
   }
 
   .flex-center {
-    @apply flex items-center justify-center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* TYPOGRAFI */
   .title {
     @apply text-accent leading-tight border-none bg-transparent outline-none focus:ring-0;
-    font-family: 'Cinzel', serif;
-    text-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+    font-family: var(--font-decorative);
+    text-shadow: var(--shadow-glamour);
   }
 
   .subtitle {
@@ -57,7 +80,7 @@ body {
 
   .nav-logo {
     @apply text-xl font-bold tracking-tighter text-accent transition-transform hover:scale-105;
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-decorative);
     text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
   }
 
@@ -101,27 +124,19 @@ body {
 
   /* Input-fält för Admin */
   .input-ghost-title {
-    @apply title w-full p-0 transition-all border-none bg-transparent outline-none focus:ring-0;
+    @apply title w-full p-0 transition-all placeholder:opacity-20;
     font-size: clamp(2.5rem, 5vw, 4rem);
     letter-spacing: -0.02em;
   }
 
   .input-ghost-subtitle {
-    @apply subtitle w-full p-0 border-none bg-transparent outline-none;
-    font-size: clamp(1.5rem, 2vw, 1rem);
-    letter-spacing: -0.02em;
-    text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
-  }
-
-  .input-slug-inline {
-    @apply bg-transparent border-none text-accent outline-none p-0 w-full;
-    @apply placeholder:opacity-90 focus:ring-0;
-    font-family: monospace;
-    font-size: 0.875rem;
+    @apply subtitle w-full p-0 placeholder:opacity-20;
+    @apply text-lg md:text-xl;
   }
 
   .editor-input {
     @apply w-full bg-transparent border-b border-accent/20 py-2 text-foreground/90 outline-none transition-colors focus:border-accent;
+    font-family: var(--font-body);
   }
 
   .editor-textarea {
@@ -130,10 +145,6 @@ body {
 
   .admin-select {
     @apply bg-black/60 border border-accent/20 text-accent text-xs font-bold rounded px-3 py-2 outline-none focus:border-accent cursor-pointer uppercase tracking-widest;
-  }
-
-  .admin-action-btn {
-    @apply border border-accent/20 bg-background/50 text-accent font-decorative uppercase text-[10px] tracking-widest px-3 py-1 rounded-md transition-all hover:bg-accent hover:text-black;
   }
 
   /* KONTROLLPANEL & MEDIA */
@@ -156,11 +167,11 @@ body {
 
   .btn-save-fixed {
     @apply fixed bottom-8 right-8 px-10 py-4 rounded-full font-bold transition-all z-50 uppercase tracking-widest text-sm shadow-xl;
+    font-family: var(--font-body);
   }
 
   .btn-save-active {
-    @apply bg-accent text-black cursor-pointer border border-accent/20 hover:scale-105 active:scale-95;
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+    @apply bg-accent text-black cursor-pointer shadow-[0_0_20px_rgba(212,175,55,0.3)] border border-accent/20 hover:scale-105 active:scale-95;
   }
 
   .btn-save-disabled {

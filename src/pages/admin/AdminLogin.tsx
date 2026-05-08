@@ -81,7 +81,7 @@ const AdminLogin = () => {
             <div className="space-y-2">
               <label
                 htmlFor="email"
-                className="text-[10px] uppercase tracking-widest text-accent ml-1"
+                className="text-[11px] uppercase tracking-widest text-accent ml-1"
               >
                 {t('E-post', 'Email')}
               </label>
@@ -105,7 +105,7 @@ const AdminLogin = () => {
             <div className="space-y-2">
               <label
                 htmlFor="password"
-                className="text-[10px] uppercase tracking-widest text-accent ml-1"
+                className="text-[11px] uppercase tracking-widest text-accent ml-1"
               >
                 {t('Lösenord', 'Password')}
               </label>

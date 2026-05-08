@@ -56,7 +56,7 @@ const Events = () => {
               <div className="hidden md:block"></div>
 
               {/* Mitten - Rubriken är nu perfekt centrerad */}
-              <h2 className="text-accent font-decorative text-2xl md:text-3xl uppercase tracking-[0.3em] text-center whitespace-nowrap">
+              <h2 className="text-accent font-decorative text-2xl md:text-3xl uppercase tracking-widest text-center whitespace-nowrap">
                 {t('Kommande Event', 'Upcoming Events')}
               </h2>
 
@@ -103,7 +103,7 @@ const Events = () => {
         {/* 3. Arkiv (Gamla styrelsen) */}
         <section className="container-wide space-y-8 mt-24">
           <div className="text-center space-y-4">
-            <h2 className="font-decorative text-2xl uppercase tracking-widest text-accent ">
+            <h2 className="font-decorative text-2xl uppercase tracking-widest text-accent">
               {t('Arkiv', 'Archive')}
             </h2>
             <p className="max-w-xl mx-auto text-lg italic opacity-80">

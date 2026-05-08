@@ -36,7 +36,7 @@ const Navigation = () => {
   const rightLinks = [
     { to: '/dresscode', label: t('Klädkod', 'Dresscode') },
     { to: '/about', label: t('Om oss', 'About') },
-    { to: '/join', label: t('Joina oss', 'Join Us') },
+    { to: '/join', label: t('Joina oss', 'Join us') },
   ]
 
   const adminSubLinks = [
@@ -50,63 +50,63 @@ const Navigation = () => {
     <>
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled ? 'bg-[#110805] shadow-2xl py-3' : 'bg-[#110805]/80 backdrop-blur-md py-6'
+          isScrolled ? 'bg-[#110805] shadow-2xl py-2' : 'bg-[#110805]/80 backdrop-blur-md py-4'
         }`}
       >
-        <div className="max-w-[1600px] mx-auto px-8 md:px-16 flex flex-col gap-2">
-          <div className="flex items-center justify-between relative">
-            {/* MOBILMENY-KNAPP */}
-            <button className="lg:hidden text-accent" onClick={() => setIsMobileMenuOpen(true)}>
-              <Menu size={24} />
-            </button>
-
-            {/* VÄNSTER: Språkknapp */}
-            <div className="hidden lg:flex items-center flex-1 justify-start">
+        <div className="max-w-[1600px] mx-auto px-8 md:px-16 grid grid-cols-3 items-center min-h-[60px] relative">
+          {/* VÄNSTER: Språk & Vänsterlänkar */}
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-4 pr-6 border-r border-white/10">
+              <button className="lg:hidden text-accent" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu size={24} />
+              </button>
               <button
                 onClick={() => setLanguage(language === 'sv' ? 'eng' : 'sv')}
-                className="px-3 py-2 border border-accent/30 text-[10px] tracking-widest text-accent hover:bg-accent hover:text-black transition-all rounded-md uppercase font-medium"
+                className="hidden lg:block px-3 py-1.5 border border-accent/30 text-[10px] tracking-widest text-accent hover:bg-accent hover:text-black transition-all rounded-md uppercase font-medium"
               >
                 {language === 'sv' ? 'EN' : 'SV'}
               </button>
             </div>
 
-            {/* MITTEN: Logotyp */}
-            <div className="flex items-center gap-8">
-              <div className="hidden lg:flex gap-8 items-center">
-                {leftLinks.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`text-[12px] uppercase tracking-[0.3em] font-decorative transition-all ${isActive(link.to) ? 'text-accent' : 'text-foreground/80 hover:text-accent'}`}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+            <div className="hidden lg:flex items-center gap-6">
+              {leftLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`text-[12px] uppercase tracking-[0.3em] font-decorative transition-all whitespace-nowrap ${isActive(link.to) ? 'text-accent' : 'text-foreground/90 hover:text-accent'}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
 
-              <Link to="/" className="px-6 lg:px-12">
-                <img
-                  src={logoFull}
-                  alt="Logo"
-                  className={`transition-all duration-500 ${isScrolled ? 'h-[60px]' : 'h-[90px]'}`}
-                />
-              </Link>
+          {/* MITTEN: Logotyp */}
+          <div className="flex justify-center items-center">
+            <Link to="/" className="transition-all duration-500 transform">
+              <img
+                src={logoFull}
+                alt="Logo"
+                className={`transition-all duration-500 object-contain w-auto ${isScrolled ? 'h-[70px]' : 'h-[100px]'}`}
+              />
+            </Link>
+          </div>
 
-              <div className="hidden lg:flex gap-8 items-center">
-                {rightLinks.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`text-[12px] uppercase tracking-[0.3em] font-decorative transition-all ${isActive(link.to) ? 'text-accent' : 'text-foreground/80 hover:text-accent'}`}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+          {/* HÖGER: Högerlänkar & Login */}
+          <div className="flex items-center justify-end gap-8">
+            <div className="hidden lg:flex items-center gap-6">
+              {rightLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`text-[12px] uppercase tracking-[0.3em] font-decorative transition-all whitespace-nowrap ${isActive(link.to) ? 'text-accent' : 'text-foreground/90 hover:text-accent'}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
 
-            {/* HÖGER: Login-ikon */}
-            <div className="flex items-center flex-1 justify-end">
+            <div className="flex items-center gap-5 pl-6 border-l border-white/10">
               {!user ? (
                 <Link
                   to="/admin/login"
@@ -115,14 +115,20 @@ const Navigation = () => {
                   <LogIn size={21} strokeWidth={1.5} />
                 </Link>
               ) : (
-                <div className="flex items-center gap-5 pl-6 border-l border-white/10 text-foreground/40">
-                  <Link to="/admin/settings" className="hover:text-accent transition-colors">
+                <>
+                  <Link
+                    to="/admin/settings"
+                    className="text-foreground/40 hover:text-accent transition-colors"
+                  >
                     <Settings size={18} />
                   </Link>
-                  <button onClick={handleSignOut} className="hover:text-red-500 transition-colors">
+                  <button
+                    onClick={handleSignOut}
+                    className="text-foreground/40 hover:text-red-500 transition-colors"
+                  >
                     <LogOut size={18} />
                   </button>
-                </div>
+                </>
               )}
             </div>
           </div>
@@ -130,8 +136,8 @@ const Navigation = () => {
 
         {/* ADMIN SUB-NAV */}
         {user && (
-          <div className="border-t border-accent/20 p-3">
-            <div className=" mx-auto flex justify-center gap-12 pt-2">
+          <div className="border-t border-accent/20 p-3 mt-2">
+            <div className="max-w-7xl mx-auto flex justify-center gap-12 pt-2">
               {adminSubLinks.map((link) => {
                 const Icon = link.icon
                 return (
@@ -173,8 +179,10 @@ const Navigation = () => {
         </div>
       )}
 
-      {/* Dynamisk Spacer */}
-      <div className={`${user ? 'h-[80px]' : 'h-[60px]'} w-full transition-all duration-500`} />
+      {/* Dynamisk Spacer - förutom login sidan */}
+      {location.pathname !== '/admin/login' && (
+        <div className={`${user ? 'h-[120px]' : 'h-[60px]'} w-full transition-all duration-500`} />
+      )}
     </>
   )
 }
