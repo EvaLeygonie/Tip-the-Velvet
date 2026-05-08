@@ -39,11 +39,25 @@ body {
   font-family: var(--font-body);
 }
 
-/* --- KOMPONENTER --- */
 @layer components {
-  /* --- UTILITIES --- */
-  .gold-divider {
-    @apply h-px flex-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent;
+  /* LAYOUT WRAPPERS */
+  .layout-base {
+    @apply min-h-screen flex flex-col relative;
+  }
+
+  .page-standard {
+    @apply pt-24 pb-20 px-6 md:px-12 max-w-[1600px] mx-auto w-full;
+  }
+
+  .page-full {
+    @apply flex-1 w-full flex flex-col items-center justify-center pt-12 pb-12 relative;
+  }
+
+  /* LAYOUT NODES */
+
+  /* Sektions-separation */
+  .page-section {
+    @apply mt-20 space-y-10;
   }
 
   .flex-center {
@@ -52,7 +66,45 @@ body {
     justify-content: center;
   }
 
-  /* TYPOGRAFI */
+  .container-wide {
+    @apply w-full max-w-[1400px] mx-auto px-6 md:px-10 space-y-12;
+  }
+
+  /* --- GRIDS --- */
+  .card-grid {
+    @apply grid grid-cols-1 md:grid-cols-3 gap-8 w-full;
+  }
+
+  .section-header-triad {
+    @apply grid grid-cols-1 md:grid-cols-3 items-center mb-10 gap-4;
+  }
+
+  .header-side-content {
+    @apply flex justify-center md:justify-end;
+  }
+
+  .content-grid {
+    @apply grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12 items-start;
+  }
+
+  /* --- TYPOGRAFI --- */
+
+  h1 {
+    @apply text-2xl md:text-3xl font-decorative text-accent uppercase tracking-widest text-center whitespace-nowrap;
+  }
+
+  h2 {
+    @apply text-center font-decorative text-2xl uppercase tracking-widest text-accent;
+  }
+
+  h4 {
+    @apply font-decorative text-lg text-accent uppercase tracking-wider;
+  }
+
+  p {
+    @apply text-center text-lg italic opacity-80;
+  }
+
   .title {
     @apply text-accent leading-tight border-none bg-transparent outline-none focus:ring-0;
     font-family: var(--font-decorative);
@@ -73,7 +125,25 @@ body {
     font-family: var(--font-body);
   }
 
-  /* NAVIGATION */
+  /* --- LOADING & PLACEHOLDERS --- */
+  .loading-container {
+    @apply flex justify-center items-center min-h-[50vh];
+  }
+
+  .loading-text {
+    @apply font-decorative animate-pulse text-accent text-xl tracking-widest;
+  }
+
+  /* --- UTILITIES --- */
+  .gold-divider {
+    @apply h-px flex-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent;
+  }
+
+  .bg-glow-spot {
+    @apply absolute w-[40%] h-[40%] bg-accent/10 rounded-full blur-[120px] pointer-events-none;
+  }
+
+  /* --- NAVIGATION --- */
   .nav-container {
     @apply fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-background/80 backdrop-blur-md border-b border-accent/20;
   }
@@ -92,37 +162,72 @@ body {
     @apply text-sm font-bold text-accent border border-accent/30 px-3 py-1 rounded hover:bg-accent hover:text-black transition-all;
   }
 
-  /* LAYOUT WRAPPERS */
-  .main-content {
-    @apply pt-20 px-6 min-h-screen;
+  /* --- LOGIN --- */
+  .login-card {
+    @apply bg-accent/10 border border-white/10  backdrop-blur-xl p-8 md:p-10 rounded-2xl shadow-2xl;
   }
 
-  .section-stack {
-    @apply space-y-12;
+  .login-label {
+    @apply label text-[11px] uppercase tracking-widest;
   }
 
-  .page-header {
-    @apply flex flex-col md:flex-row justify-between items-start gap-8 mb-10;
+  .login-input {
+    @apply w-full bg-black/40 border border-white/5 rounded-xl py-2.5 pl-12 pr-4 text-white placeholder:text-white/30 outline-none focus:border-accent/60 transition-all;
   }
 
-  .content-grid {
-    @apply grid md:grid-cols-2 gap-12 items-start;
+  .link-back {
+    @apply w-full mt-8 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest text-white/80 hover:text-accent transition-colors;
   }
 
-  .field-row {
-    @apply flex flex-col gap-2 w-full;
+  .login-icons {
+    @apply absolute left-4 top-1/2 -translate-y-1/2 text-accent/50;
   }
 
-  /* ADMIN / EDITOR SPECIFIKT */
+  /* --- KNAPPAR --- */
+
+  .btn-save-active {
+    @apply bg-accent/80 hover:bg-accent disabled:bg-accent/50 text-black font-bold py-3 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(212,175,55,0.2)] active:scale-[0.98] mt-4 uppercase text-xs tracking-widest;
+  }
+
+  .btn-save-disabled {
+    @apply bg-white/5 text-white/20 cursor-not-allowed border border-white/5 shadow-none;
+  }
+
+  .btn-lang {
+    @apply text-xs font-bold border border-foreground/20 px-2 py-1 rounded hover:border-accent hover:text-accent transition-all;
+  }
+
+  .btn-admin {
+    @apply flex items-center gap-2 px-3 py-1.5 border border-white/20 bg-white/5 text-foreground/80 transition-all duration-300 rounded-xl hover:border-white/50 text-white;
+  }
+
+  /* --- FOOTER --- */
+  .text-footer {
+    @apply text-left not-italic opacity-100;
+    @apply text-foreground/70 font-sans text-sm leading-relaxed max-w-xs;
+  }
+
+  .link-footer {
+    @apply flex items-center gap-3 text-foreground/60 hover:text-accent transition-colors text-sm;
+  }
+
+  .copyright {
+    @apply text-[10px] text-foreground/60 font-sans uppercase tracking-[0.2em];
+  }
+
+  /* --- ADMIN / EDITOR --- */
   .admin-card-bg {
     @apply bg-black/40 border border-accent/10 rounded-lg;
   }
 
   .editor-container {
-    @apply max-w-6xl mx-auto p-8 pb-32 space-y-12;
+    @apply max-w-6xl mx-auto space-y-12;
   }
 
-  /* Input-fält för Admin */
+  .input-slug-inline {
+    @apply bg-transparent border-none outline-none text-[10px] font-mono text-accent/80 p-0 w-full;
+  }
+
   .input-ghost-title {
     @apply title w-full p-0 transition-all placeholder:opacity-20;
     font-size: clamp(2.5rem, 5vw, 4rem);
@@ -147,7 +252,7 @@ body {
     @apply bg-black/60 border border-accent/20 text-accent text-xs font-bold rounded px-3 py-2 outline-none focus:border-accent cursor-pointer uppercase tracking-widest;
   }
 
-  /* KONTROLLPANEL & MEDIA */
+  /* --- KONTROLLPANEL & MEDIA --- */
   .admin-control-panel {
     @apply min-w-[320px] bg-black/60 p-5 rounded-lg border border-accent/20 space-y-4 shadow-2xl;
   }
@@ -158,23 +263,5 @@ body {
 
   .promo-upload-square {
     @apply aspect-square w-full max-w-[300px] border-2 border-dashed border-accent/20 rounded-lg flex-center flex-col gap-4 transition-all hover:bg-accent/5 hover:border-accent/40;
-  }
-
-  /* KNAPPAR */
-  .btn-lang {
-    @apply text-xs font-bold border border-foreground/20 px-2 py-1 rounded hover:border-accent hover:text-accent transition-all;
-  }
-
-  .btn-save-fixed {
-    @apply fixed bottom-8 right-8 px-10 py-4 rounded-full font-bold transition-all z-50 uppercase tracking-widest text-sm shadow-xl;
-    font-family: var(--font-body);
-  }
-
-  .btn-save-active {
-    @apply bg-accent text-black cursor-pointer shadow-[0_0_20px_rgba(212,175,55,0.3)] border border-accent/20 hover:scale-105 active:scale-95;
-  }
-
-  .btn-save-disabled {
-    @apply bg-gray-900 text-gray-700 cursor-not-allowed border border-white/5 opacity-50 shadow-inner;
   }
 }

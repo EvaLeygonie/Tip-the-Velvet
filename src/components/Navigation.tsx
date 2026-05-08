@@ -179,10 +179,8 @@ const Navigation = () => {
         </div>
       )}
 
-      {/* Dynamisk Spacer - förutom login sidan */}
-      {location.pathname !== '/admin/login' && (
-        <div className={`${user ? 'h-[120px]' : 'h-[60px]'} w-full transition-all duration-500`} />
-      )}
+      {/* Dynamisk Spacer */}
+      <div className={`${user ? 'h-[140px]' : 'h-[100px]'} w-full transition-all duration-500`} />
     </>
   )
 }

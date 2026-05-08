@@ -162,188 +162,202 @@ export const EventEditor = () => {
   const liveSlug = formData.slug || createSlug(formData.title || '')
 
   return (
-    <div className="editor-container section-stack">
-      <header className="page-header items-start gap-12">
-        <div className="flex-1 space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest">
-            {t('Event Titel', 'Event Title')}
-          </label>
-          <input
-            type="text"
-            value={formData.title || ''}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="Ex: Once Upon a Time..."
-            className="input-ghost-title"
-          />
-          <label className="label text-[10px] uppercase tracking-widest">
-            {t('Event Undertitel', 'Event Subtitle')}
-          </label>
-          <input
-            type="text"
-            value={formData.subtitle || ''}
-            onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-            placeholder="Ex: A Fairytale Ball..."
-            className="input-ghost-subtitle"
-          />
-        </div>
-
-        <div className="admin-control-panel">
-          <div className="panel-row">
-            <label className="label text-[10px] uppercase">Status:</label>
-            <select
-              className="admin-select !w-auto !py-1"
-              value={formData.status || 'draft'}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as EventStatus })}
-            >
-              <option value="draft">{t('Utkast', 'Draft')}</option>
-              <option value="published">{t('Publicerat', 'Published')}</option>
-              <option value="archived">{t('Arkiverat', 'Archived')}</option>
-              <option value="cancelled">{t('Avbokat', 'Cancelled')}</option>
-            </select>
+    <div className="page-standard">
+      <div className="editor-container">
+        <h1>
+          {eventSlug
+            ? t('Redigera Event', 'Edit Event')
+            : t('Skapa Nytt Event', 'Create New Event')}
+        </h1>
+        <header className="flex flex-col lg:flex-row justify-between items-start gap-12 text-left">
+          <div className="flex-1 space-y-2">
+            <label className="label text-[10px] uppercase tracking-widest">
+              {t('Event Titel', 'Event Title')}
+            </label>
+            <input
+              type="text"
+              value={formData.title || ''}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Ex: Once Upon a Time..."
+              className="input-ghost-title"
+            />
+            <label className="label text-[10px] uppercase tracking-widest">
+              {t('Event Undertitel', 'Event Subtitle')}
+            </label>
+            <input
+              type="text"
+              value={formData.subtitle || ''}
+              onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+              placeholder="Ex: A Fairytale Ball..."
+              className="input-ghost-subtitle"
+            />
           </div>
 
-          <div className="panel-row">
-            <label className="label text-[10px] uppercase">URL:</label>
-            <div className="flex items-center gap-1 bg-black/40 px-3 py-1 rounded border border-accent/10 flex-1">
-              <span className="text-[10px] opacity-40 font-mono">/</span>
+          <div className="admin-control-panel w-full lg:w-80 shrink-0">
+            <div className="panel-row">
+              <label className="label text-[10px] uppercase">Status:</label>
+              <select
+                className="admin-select !w-auto !py-1"
+                value={formData.status || 'draft'}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.target.value as EventStatus })
+                }
+              >
+                <option value="draft">{t('Utkast', 'Draft')}</option>
+                <option value="published">{t('Publicerat', 'Published')}</option>
+                <option value="archived">{t('Arkiverat', 'Archived')}</option>
+                <option value="cancelled">{t('Avbokat', 'Cancelled')}</option>
+              </select>
+            </div>
+
+            <div className="panel-row">
+              <label className="label text-[10px] uppercase">URL:</label>
+              <div className="flex items-center gap-1 bg-black/40 px-3 py-1 rounded border border-accent/10 flex-1">
+                <span className="text-[10px] opacity-40 font-mono">/</span>
+                <input
+                  className="input-slug-inline text-right flex-1"
+                  value={liveSlug}
+                  onChange={(e) => setFormData({ ...formData, slug: createSlug(e.target.value) })}
+                  placeholder="url-slug"
+                />
+              </div>
+            </div>
+
+            <div className="panel-row">
+              <label className="label text-[10px] uppercase">{t('Startar:', 'Starts:')}</label>
               <input
-                className="input-slug-inline text-right flex-1"
-                value={liveSlug}
-                onChange={(e) => setFormData({ ...formData, slug: createSlug(e.target.value) })}
-                placeholder="url-slug"
+                type="datetime-local"
+                className="editor-input !border-none !py-0 !text-right text-xs"
+                value={formData.event_start || ''}
+                onChange={(e) => setFormData({ ...formData, event_start: e.target.value })}
+              />
+            </div>
+            <div className="panel-row">
+              <label className="label text-[10px] uppercase">{t('Slutar:', 'Ends:')}</label>
+              <input
+                type="datetime-local"
+                className="editor-input !border-none !py-0 !text-right text-xs"
+                value={formData.event_end || ''}
+                onChange={(e) => setFormData({ ...formData, event_end: e.target.value })}
+              />
+            </div>
+
+            <div className="panel-row">
+              <label className="label text-[10px] uppercase">{t('Plats:', 'Location:')}</label>
+              <input
+                className="editor-input !border-none !py-0 !text-right text-xs"
+                placeholder={t('Plats...', 'Location...')}
+                value={formData.location || ''}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               />
             </div>
           </div>
+        </header>
 
-          <div className="panel-row">
-            <label className="label text-[10px] uppercase">{t('Startar:', 'Starts:')}</label>
-            <input
-              type="datetime-local"
-              className="editor-input !border-none !py-0 !text-right text-xs"
-              value={formData.event_start || ''}
-              onChange={(e) => setFormData({ ...formData, event_start: e.target.value })}
-            />
-          </div>
-          <div className="panel-row">
-            <label className="label text-[10px] uppercase">{t('Slutar:', 'Ends:')}</label>
-            <input
-              type="datetime-local"
-              className="editor-input !border-none !py-0 !text-right text-xs"
-              value={formData.event_end || ''}
-              onChange={(e) => setFormData({ ...formData, event_end: e.target.value })}
-            />
-          </div>
+        <div className="gold-divider" />
 
-          <div className="panel-row">
-            <label className="label text-[10px] uppercase">{t('Plats:', 'Location:')}</label>
-            <input
-              className="editor-input !border-none !py-0 !text-right text-xs"
-              placeholder="Plats..."
-              value={formData.location || ''}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            />
-          </div>
-        </div>
-      </header>
-
-      <div className="gold-divider" />
-
-      <div className="content-grid">
-        <div className="space-y-4">
-          <label className="label text-[10px] uppercase block">
-            {t('Promobild:', 'Promo Image:')}
-          </label>
-          <div className={`promo-upload-square ${!isReadyToUpload ? 'is-locked' : 'is-active'}`}>
-            {formData.image_id ? (
-              <div className="text-center p-4">
-                <img
-                  src={
-                    formData.image_id.includes('http')
-                      ? formData.image_id
-                      : `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/Promo/${formData.image_id}`
-                  }
-                  className="w-full h-full object-cover"
-                  alt="Preview"
-                />
-                <label htmlFor="image-up" className="btn-lang cursor-pointer hover:bg-accent/10">
-                  {t('Byt bild', 'Change Image')}
+        <div className="content-grid">
+          <div className="space-y-4">
+            <label className="label text-[10px] uppercase block">
+              {t('Promobild:', 'Promo Image:')}
+            </label>
+            <div className={`promo-upload-square ${!isReadyToUpload ? 'is-locked' : 'is-active'}`}>
+              {formData.image_id ? (
+                <div className="text-center p-4">
+                  <img
+                    src={
+                      formData.image_id.includes('http')
+                        ? formData.image_id
+                        : `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/Promo/${formData.image_id}`
+                    }
+                    className="w-full h-full object-cover"
+                    alt="Preview"
+                  />
+                  <label htmlFor="image-up" className="btn-lang cursor-pointer hover:bg-accent/10">
+                    {t('Byt bild', 'Change Image')}
+                  </label>
+                </div>
+              ) : (
+                <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
+                  {uploading ? 'Laddar...' : 'Välj Bild'}
                 </label>
-              </div>
-            ) : (
-              <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
-                {uploading ? 'Laddar...' : 'Välj Bild'}
-              </label>
-            )}
-            <input type="file" id="image-up" className="hidden" onChange={handleImageUpload} />
+              )}
+              <input type="file" id="image-up" className="hidden" onChange={handleImageUpload} />
+            </div>
+            <p className="text-[10px] italic opacity-40 max-w-[280px]">
+              {t(
+                'Denna bild används som huvudposter. Du kan byta ut den mot ett foto efter eventet.',
+                'This image is used as the main poster. You can replace it with a photo after the event.'
+              )}
+            </p>
           </div>
-          <p className="text-[10px] italic opacity-40 max-w-[280px]">
-            {t(
-              'Denna bild används som huvudposter. Du kan byta ut den mot ett foto efter eventet.',
-              'This image is used as the main poster. You can replace it with a photo after the event.'
-            )}
-          </p>
+
+          {/* BESKRIVNINGAR*/}
+          <div className="space-y-8">
+            <div className="field-row">
+              <label className="label text-[10px] uppercase tracking-widest">
+                {t('Beskrivning (SV)', 'Description (SV)')}
+              </label>
+              <textarea
+                className="editor-textarea h-40"
+                value={formData.description_sv || ''}
+                onChange={(e) => setFormData({ ...formData, description_sv: e.target.value })}
+              />
+            </div>
+            <div className="field-row">
+              <label className="label text-[10px] uppercase tracking-widest">
+                {t('Beskrivning (ENG)', 'Description (ENG)')}
+              </label>
+              <textarea
+                className="editor-textarea h-40"
+                value={formData.description_eng || ''}
+                onChange={(e) => setFormData({ ...formData, description_eng: e.target.value })}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* BESKRIVNINGAR*/}
-        <div className="space-y-8">
-          <div className="field-row">
-            <label className="label text-[10px] uppercase tracking-widest">
-              {t('Beskrivning (SV)', 'Description (SV)')}
-            </label>
-            <textarea
-              className="editor-textarea h-40"
-              value={formData.description_sv || ''}
-              onChange={(e) => setFormData({ ...formData, description_sv: e.target.value })}
-            />
+        {/* AVANCERAT */}
+        <details className="admin-card-bg p-6 group transition-all">
+          <summary className="label cursor-pointer flex items-center gap-3 select-none">
+            <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+            {t('Fler detaljer', 'More details')}
+          </summary>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 pt-6 border-t border-white/5">
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">{t('Pris', 'Price')}</label>
+              <input
+                type="number"
+                className="editor-input"
+                value={formData.tickets_price || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, tickets_price: Number(e.target.value) })
+                }
+              />
+            </div>
+
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
+              <input
+                className="editor-input"
+                value={formData.photographer || ''}
+                onChange={(e) => setFormData({ ...formData, photographer: e.target.value })}
+              />
+            </div>
           </div>
-          <div className="field-row">
-            <label className="label text-[10px] uppercase tracking-widest">
-              {t('Beskrivning (ENG)', 'Description (ENG)')}
-            </label>
-            <textarea
-              className="editor-textarea h-40"
-              value={formData.description_eng || ''}
-              onChange={(e) => setFormData({ ...formData, description_eng: e.target.value })}
-            />
-          </div>
+        </details>
+
+        <div className="flex justify-end mt-12 pb-12">
+          <button
+            onClick={handleSave}
+            disabled={loading || !isReadyToUpload}
+            className={`px-10 py-4 rounded-full font-bold transition-all uppercase tracking-widest text-sm shadow-xl
+              ${!isReadyToUpload ? 'btn-save-disabled' : 'btn-save-active'}`}
+          >
+            {loading ? t('Sparar...', 'Saving...') : t('Spara Event', 'Save Event')}
+          </button>
         </div>
       </div>
-
-      {/* AVANCERAT */}
-      <details className="admin-card-bg p-4 group">
-        <summary className="label cursor-pointer flex items-center gap-2 select-none">
-          <span className="group-open:rotate-90 transition-transform">▶</span>
-          {t('Fler detaljer', 'More details')}
-        </summary>
-        <div className="details-content content-grid mt-6 pt-4 border-t border-accent/5">
-          <div className="field-row">
-            <label className="label text-[10px] uppercase">{t('Pris', 'Price')}</label>
-            <input
-              type="number"
-              className="editor-input"
-              value={formData.tickets_price || ''}
-              onChange={(e) => setFormData({ ...formData, tickets_price: Number(e.target.value) })}
-            />
-          </div>
-
-          <div className="field-row">
-            <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
-            <input
-              className="editor-input"
-              value={formData.photographer || ''}
-              onChange={(e) => setFormData({ ...formData, photographer: e.target.value })}
-            />
-          </div>
-        </div>
-      </details>
-
-      <button
-        onClick={handleSave}
-        disabled={loading || !isReadyToUpload}
-        className={`btn-save-fixed ${!isReadyToUpload ? 'btn-save-disabled' : 'btn-save-active'}`}
-      >
-        {loading ? t('Sparar...', 'Saving...') : t('Spara Event', 'Save Event')}
-      </button>
     </div>
   )
 }

@@ -34,9 +34,9 @@ const App = () => (
           position="bottom-right"
           toastOptions={{
             style: {
-              background: '#f0c729',
+              background: '#1d0d0d',
               border: '1px solid rgba(212, 175, 55, 0.5)',
-              color: '#1d0d0d',
+              color: '#f9f7f1',
               fontFamily: 'inherit',
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
@@ -49,7 +49,7 @@ const App = () => (
         <BrowserRouter>
           <Navigation />
 
-          <main className="main-content">
+          <main className="layout-base">
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/events" element={<Events />} />
