@@ -1,19 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { createSlug } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
+import useEyeDropper from 'use-eye-dropper'
 import { toast } from 'sonner'
 import type { Event, CreateEventInput, EventStatus } from '@/types'
-
-const getErrorMessage = (err: unknown): string => {
-  if (typeof err === 'string') return err
-
-  if (err instanceof Error) return err.message
-
-  return 'Ett oväntat fel uppstod'
-}
 
 export const EventEditor = () => {
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -25,6 +18,19 @@ export const EventEditor = () => {
 
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+
+  const { open, isSupported } = useEyeDropper()
+  const handlePickColor = useCallback(() => {
+    const openPicker = async () => {
+      try {
+        const color = await open()
+        setFormData((prev) => ({ ...prev, glow_color: color.sRGBHex }))
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    openPicker()
+  }, [open])
 
   const [formData, setFormData] = useState<Partial<Event>>({
     title: '',
@@ -46,6 +52,7 @@ export const EventEditor = () => {
     photographer: null,
     fb_album_url: null,
     photobooth_url: null,
+    glow_color: '#D4AF37',
   })
 
   useEffect(() => {
@@ -60,10 +67,18 @@ export const EventEditor = () => {
             .single()
 
           if (error) throw error
-          if (data) setFormData(data)
+          if (data) {
+            const formattedData = {
+              ...data,
+              event_start: data.event_start ? data.event_start.substring(0, 16) : null,
+              event_end: data.event_end ? data.event_end.substring(0, 16) : null,
+              reveal_date: data.reveal_date ? data.reveal_date.substring(0, 16) : null,
+            }
+            setFormData(formattedData)
+          }
         } catch (err) {
           toast.error(t('Kunde inte ladda eventet', 'Failed to load event'))
-          console.error(getErrorMessage(err))
+          console.log(err)
         } finally {
           setLoading(false)
         }
@@ -113,7 +128,7 @@ export const EventEditor = () => {
         setLoading(false)
         setUploading(false)
         toast.error(t('Kunde inte ladda upp bilden', 'Cloudinary upload failed'))
-        console.error(getErrorMessage(err))
+        console.log(err)
       } finally {
         setUploading(false)
       }
@@ -123,9 +138,9 @@ export const EventEditor = () => {
       title: formData.title,
       subtitle: formData.subtitle || null,
       slug: finalSlug,
-      event_start: formData.event_start ? new Date(formData.event_start).toISOString() : null,
-      event_end: formData.event_end ? new Date(formData.event_end).toISOString() : null,
-      reveal_date: formData.reveal_date ? new Date(formData.reveal_date).toISOString() : null,
+      event_start: formData.event_start || null,
+      event_end: formData.event_end || null,
+      reveal_date: formData.reveal_date || null,
       location: formData.location || null,
       status: formData.status || 'draft',
       description_sv: formData.description_sv || null,
@@ -139,6 +154,7 @@ export const EventEditor = () => {
       photographer: formData.photographer || null,
       fb_album_url: formData.fb_album_url || null,
       photobooth_url: formData.photobooth_url || null,
+      glow_color: formData.glow_color,
     }
 
     try {
@@ -152,7 +168,8 @@ export const EventEditor = () => {
 
       if (!eventSlug) navigate(`/admin/event-editor/${finalSlug}`)
     } catch (err) {
-      toast.error(getErrorMessage(err))
+      toast.error(t('Kunde inte spara eventet', 'Failed to save event'))
+      console.log(err)
     } finally {
       setLoading(false)
     }
@@ -276,11 +293,17 @@ export const EventEditor = () => {
                 <div className="text-center p-4">
                   <img
                     src={
-                      formData.image_id.includes('http')
+                      formData.image_id?.startsWith('blob:') ||
+                      formData.image_id?.startsWith('http')
                         ? formData.image_id
-                        : `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/Promo/${formData.image_id}`
+                        : `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/v1/Promo/${formData.image_id}`
                     }
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh]"
+                    style={{
+                      boxShadow: `0 0 10px 1px ${formData.glow_color}, 0 0 25px 5px rgba(0, 0, 0, 0.5)`,
+                      borderColor: formData.glow_color,
+                      outlineColor: `${formData.glow_color}50`,
+                    }}
                     alt="Preview"
                   />
                   <label htmlFor="image-up" className="btn-lang cursor-pointer hover:bg-accent/10">
@@ -294,32 +317,79 @@ export const EventEditor = () => {
               )}
               <input type="file" id="image-up" className="hidden" onChange={handleImageUpload} />
             </div>
-            <p className="text-[10px] italic opacity-40 max-w-[280px]">
-              {t(
-                'Denna bild används som huvudposter. Du kan byta ut den mot ett foto efter eventet.',
-                'This image is used as the main poster. You can replace it with a photo after the event.'
-              )}
-            </p>
+            <div className="admin-card-bg p-4 space-y-3">
+              <label className="label text-[10px] uppercase tracking-widest block">
+                {t('Glow Färg (Hex)', 'Glow Color (Hex)')}
+              </label>
+
+              <div className="flex items-center gap-3">
+                {isSupported() ? (
+                  <button
+                    type="button"
+                    onClick={handlePickColor}
+                    className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md transition-all group"
+                    title={t('Hämta färg från bild', 'Pick color from image')}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-accent group-hover:scale-110 transition-transform"
+                    >
+                      <path d="m2 22 1-1h3l9-9" />
+                      <path d="M3 21v-3l9-9" />
+                      <path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l-3-3Z" />
+                    </svg>
+                  </button>
+                ) : (
+                  <span className="text-[11px]">
+                    {t(
+                      'EyeDropper API stöds inte av denna webbläsare',
+                      'EyeDropper API not supported in this browser'
+                    )}
+                  </span>
+                )}
+                <input
+                  type="text"
+                  placeholder="#D4AF37"
+                  className="editor-input !py-2 font-mono text-xs flex-1"
+                  value={formData.glow_color || ''}
+                  onChange={(e) => setFormData({ ...formData, glow_color: e.target.value })}
+                />
+                <div
+                  className="w-10 h-10 rounded-md border border-white/20 shadow-lg"
+                  style={{
+                    backgroundColor: formData.glow_color,
+                    boxShadow: formData.glow_color ? `0 0 15px ${formData.glow_color}` : 'none',
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* BESKRIVNINGAR*/}
-          <div className="space-y-8">
-            <div className="field-row">
-              <label className="label text-[10px] uppercase tracking-widest">
+          <div className="flex flex-col gap-6 h-full">
+            <div className="flex flex-col flex-1 min-h-0">
+              <label className="label text-[10px] uppercase tracking-widest mb-4">
                 {t('Beskrivning (SV)', 'Description (SV)')}
               </label>
               <textarea
-                className="editor-textarea h-40"
+                className="editor-textarea flex-1 min-h-[150px] resize-none"
                 value={formData.description_sv || ''}
                 onChange={(e) => setFormData({ ...formData, description_sv: e.target.value })}
               />
             </div>
-            <div className="field-row">
-              <label className="label text-[10px] uppercase tracking-widest">
+            <div className="flex flex-col flex-1 min-h-0">
+              <label className="label text-[10px] uppercase tracking-widest mb-4">
                 {t('Beskrivning (ENG)', 'Description (ENG)')}
               </label>
               <textarea
-                className="editor-textarea h-40"
+                className="editor-textarea flex-1 min-h-[150px] resize-none"
                 value={formData.description_eng || ''}
                 onChange={(e) => setFormData({ ...formData, description_eng: e.target.value })}
               />
@@ -327,7 +397,6 @@ export const EventEditor = () => {
           </div>
         </div>
 
-        {/* AVANCERAT */}
         <details className="admin-card-bg p-6 group transition-all">
           <summary className="label cursor-pointer flex items-center gap-3 select-none">
             <span className="group-open:rotate-90 transition-transform inline-block">▶</span>

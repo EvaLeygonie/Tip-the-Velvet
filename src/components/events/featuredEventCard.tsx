@@ -44,7 +44,6 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
   return (
     <div className="bg-[#110805] border border-accent/10 rounded-2xl overflow-hidden shadow-2xl p-6 md:p-10 w-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center gap-10 md:gap-16">
-        {/* VÄNSTER: Bild-container */}
         <div className="md:col-span-6 flex justify-center md:justify-start">
           <div
             className="relative aspect-square w-auto h-full rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01]
@@ -67,7 +66,6 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
           </div>
         </div>
 
-        {/* Innehåll (Höger) */}
         <div className="md:col-span-7 space-y-6 flex flex-col justify-center">
           <div className="space-y-2">
             <h1 className="text-4xl md:text-5xl font-decorative text-accent drop-shadow-[0_0_20px_currentColor] mb-3 leading-tight !text-left">
@@ -92,7 +90,6 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
             )
           })()}
 
-          {/* Info & Knappar */}
           <div className="space-y-6">
             <div className="flex flex-wrap gap-6 text-sm text-foreground/60 justify-start">
               <div className="flex items-center gap-2">

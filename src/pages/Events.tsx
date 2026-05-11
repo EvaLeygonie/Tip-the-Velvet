@@ -51,7 +51,6 @@ const Events = () => {
         <section className="container-wide">
           <div>
             <div className="section-header-triad">
-              {/* Vänster kolumn - tom för att balansera upp högersidan */}
               <div className="hidden md:block"></div>
 
               <h1>{t('Kommande Event', 'Upcoming Events')}</h1>
@@ -84,7 +83,6 @@ const Events = () => {
           )}
         </section>
 
-        {/* 2. Tidigare (Nya styrelsen) */}
         <section className="container-wide page-section">
           <h2>{t('Tidigare event', 'Past Events')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -94,7 +92,6 @@ const Events = () => {
           </div>
         </section>
 
-        {/* 3. Arkiv (Gamla styrelsen) */}
         <section className="container-wide page-section">
           <div className="text-center space-y-4">
             <h2>{t('Arkiv', 'Archive')}</h2>

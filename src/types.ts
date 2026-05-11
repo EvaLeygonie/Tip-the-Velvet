@@ -50,7 +50,7 @@ export interface Event extends BaseEntity {
   photographer: string | null
   fb_album_url: string | null
   photobooth_url: string | null
-  glow_color?: string
+  glow_color?: string | undefined
 }
 
 export interface EventImage extends BaseEntity {

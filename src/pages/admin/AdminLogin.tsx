@@ -60,12 +60,10 @@ const AdminLogin = () => {
 
   return (
     <div className="page-full">
-      {/* Dekorativa element för atmosfär */}
       <div className="bg-glow-spot top-[-10%] left-[-10%]" />
       <div className="bg-glow-spot bottom-[-10%] right-[-10%]" />
 
       <div className="w-full max-w-md z-10">
-        {/* Logo & Header */}
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl mb-2 tracking-wide">Tip the Velvet</h1>
           <p className="text-[10px] uppercase tracking-[0.4em] text-accent/70 font-medium">
@@ -73,7 +71,6 @@ const AdminLogin = () => {
           </p>
         </div>
 
-        {/* Login Card */}
         <div className="login-card">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
@@ -125,7 +122,6 @@ const AdminLogin = () => {
           </button>
         </div>
 
-        {/* Footer info */}
         <p className="copyright mt-8">
           &copy; {new Date().getFullYear()} Tip the Velvet • Restricted Access
         </p>
