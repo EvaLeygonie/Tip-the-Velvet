@@ -48,17 +48,15 @@ const Events = () => {
   return (
     <>
       <div className="page-standard">
-        {/* 1. Kommande (Featured) */}
         <section className="container-wide">
           <div>
             <div className="section-header-triad">
               {/* Vänster kolumn - tom för att balansera upp högersidan */}
               <div className="hidden md:block"></div>
 
-              {/* Mitten - Rubriken är nu perfekt centrerad */}
               <h1>{t('Kommande Event', 'Upcoming Events')}</h1>
 
-              <div className="header-side-content">
+              <div className="header-side-content md:justify-end">
                 {user && (
                   <Link to="/admin/event-editor">
                     <button className="btn-admin">

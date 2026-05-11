@@ -70,11 +70,11 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
         {/* Innehåll (Höger) */}
         <div className="md:col-span-7 space-y-6 flex flex-col justify-center">
           <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-decorative text-accent drop-shadow-[0_0_20px_currentColor] mb-3 leading-tight">
+            <h1 className="text-4xl md:text-5xl font-decorative text-accent drop-shadow-[0_0_20px_currentColor] mb-3 leading-tight !text-left">
               {event.title}
             </h1>
             {event.subtitle && (
-              <p className="text-lg md:text-xl font-playfair italic text-foreground/80 leading-snug">
+              <p className="text-lg md:text-xl font-playfair italic text-foreground/80 leading-snug !text-left">
                 {event.subtitle}
               </p>
             )}
@@ -85,7 +85,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
             const description = event[langKey] as string
             return (
               description && (
-                <p className="text-lg leading-relaxed text-foreground/70 line-clamp-3 font-sans max-w-xl">
+                <p className="text-lg leading-relaxed text-foreground/70 line-clamp-3 font-sans max-w-xl !text-left">
                   {description}
                 </p>
               )
@@ -94,7 +94,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
 
           {/* Info & Knappar */}
           <div className="space-y-6">
-            <div className="flex flex-wrap gap-6 text-sm text-foreground/60">
+            <div className="flex flex-wrap gap-6 text-sm text-foreground/60 justify-start">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-accent" />
                 <span>{event.event_start ? formatDate(event.event_start) : 'TBA'}</span>
@@ -105,7 +105,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 justify-start">
               <Link
                 to={`/events/${event.slug}`}
                 className="relative z-10 bg-red-950 hover:bg-red-900 text-red-100 border border-red-500/40 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-[0_0_15px_rgba(153,27,27,0.4)] min-w-[140px] min-h-[44px] rounded-md"
@@ -121,7 +121,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
                   href={event.ticket_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-save-active !static px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md"
+                  className="relative z-10 bg-accent/80 hover:bg-accent text-background border-accent px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-[0_0_20px_rgba(212,175,55,0.2)] min-w-[140px] min-h-[44px] rounded-md"
                 >
                   <Ticket className="w-4 h-4 shrink-0" />
                   <span className="font-decorative tracking-wider uppercase text-xs whitespace-nowrap">

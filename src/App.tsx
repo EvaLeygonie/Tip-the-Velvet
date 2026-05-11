@@ -9,6 +9,7 @@ import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import Navigation from '@/components/Navigation'
 import { Footer } from '@/components/footer'
 
+import ScrollToTop from '@/components/ScrollToTop'
 import HomePage from '@/pages/HomePage'
 import NotFound from '@/pages/NotFound'
 import Events from '@/pages/Events'
@@ -48,7 +49,7 @@ const App = () => (
         />
         <BrowserRouter>
           <Navigation />
-
+          <ScrollToTop />
           <main className="layout-base">
             <Routes>
               <Route path="/" element={<HomePage />} />

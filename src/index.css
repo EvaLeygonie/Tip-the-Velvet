@@ -80,7 +80,7 @@ body {
   }
 
   .header-side-content {
-    @apply flex justify-center md:justify-end;
+    @apply flex justify-center;
   }
 
   .content-grid {

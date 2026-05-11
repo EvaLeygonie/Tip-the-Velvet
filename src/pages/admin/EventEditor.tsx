@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { createSlug } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -164,11 +165,20 @@ export const EventEditor = () => {
   return (
     <div className="page-standard">
       <div className="editor-container">
-        <h1>
-          {eventSlug
-            ? t('Redigera Event', 'Edit Event')
-            : t('Skapa Nytt Event', 'Create New Event')}
-        </h1>
+        <div className="section-header-triad">
+          <div className="header-side-content md:justify-start">
+            <Link to="/events">
+              <ArrowLeft className="text-accent hover:scale-105 " />
+            </Link>
+          </div>
+          <h1>
+            {eventSlug
+              ? t('Redigera Event', 'Edit Event')
+              : t('Skapa Nytt Event', 'Create New Event')}
+          </h1>
+          <div className="hidden md:block"></div>
+        </div>
+
         <header className="flex flex-col lg:flex-row justify-between items-start gap-12 text-left">
           <div className="flex-1 space-y-2">
             <label className="label text-[10px] uppercase tracking-widest">
