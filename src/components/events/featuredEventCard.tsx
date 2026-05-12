@@ -106,7 +106,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
 
             <div className="flex flex-wrap gap-4 justify-start">
               <Link
-                to={`/events/${event.slug}`}
+                to={`/events/event/${event.slug}`}
                 className="relative z-10 bg-red-950 hover:bg-red-900 text-red-100 border border-red-500/40 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-[0_0_15px_rgba(153,27,27,0.4)] min-w-[140px] min-h-[44px] rounded-md"
               >
                 <Sparkles className="w-4 h-4 text-red-400 shrink-0" />

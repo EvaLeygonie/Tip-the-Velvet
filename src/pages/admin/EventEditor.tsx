@@ -14,7 +14,7 @@ export const EventEditor = () => {
 
   const { t } = useLanguage()
   const navigate = useNavigate()
-  const { eventSlug } = useParams()
+  const { slug } = useParams()
   const { open, isSupported } = useEyeDropper()
 
   const [loading, setLoading] = useState(false)
@@ -47,14 +47,14 @@ export const EventEditor = () => {
   })
 
   useEffect(() => {
-    if (eventSlug) {
+    if (slug) {
       const fetchEvent = async () => {
         setLoading(true)
         try {
           const { data, error } = await supabase
             .from('events')
             .select('*')
-            .eq('slug', eventSlug)
+            .eq('slug', slug)
             .single()
 
           if (error) throw error
@@ -74,7 +74,7 @@ export const EventEditor = () => {
       }
       fetchEvent()
     }
-  }, [eventSlug, t])
+  }, [slug, t])
 
   const handlePickColor = useCallback(() => {
     const openPicker = async () => {
@@ -159,15 +159,15 @@ export const EventEditor = () => {
     }
 
     try {
-      const { error } = eventSlug
-        ? await supabase.from('events').update(payload).eq('slug', eventSlug)
+      const { error } = slug
+        ? await supabase.from('events').update(payload).eq('slug', slug)
         : await supabase.from('events').insert([payload]).select().single()
 
       if (error) throw error
 
-      toast.success(eventSlug ? t('Uppdaterat!', 'Updated!') : t('Skapat!', 'Created!'))
+      toast.success(slug ? t('Uppdaterat!', 'Updated!') : t('Skapat!', 'Created!'))
 
-      if (!eventSlug) navigate(`/admin/event-editor/${finalSlug}`)
+      if (!slug) navigate(`/admin/event-editor/${finalSlug}`)
     } catch (err) {
       toast.error(t('Kunde inte spara eventet', 'Failed to save event'))
       console.log(err)
@@ -186,13 +186,11 @@ export const EventEditor = () => {
         <div className="section-header-triad">
           <div className="header-side-content md:justify-start">
             <Link to="/events">
-              <ArrowLeft className="text-accent hover:scale-105 " />
+              <ArrowLeft className="text-accent hover:scale-105" />
             </Link>
           </div>
           <h1>
-            {eventSlug
-              ? t('Redigera Event', 'Edit Event')
-              : t('Skapa Nytt Event', 'Create New Event')}
+            {slug ? t('Redigera Event', 'Edit Event') : t('Skapa Nytt Event', 'Create New Event')}
           </h1>
           <div className="hidden md:block"></div>
         </div>

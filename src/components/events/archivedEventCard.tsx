@@ -4,18 +4,14 @@ import CloudinaryImage from '@/components/CloudinaryImage'
 import type { Event, OldEvent } from '@/types'
 import { formatDate } from '@/lib/utils'
 
-export const ArchivedEventCard = ({
-  event,
-  baseUrl = '/events/',
-}: {
-  event: Event | OldEvent
-  baseUrl?: string
-}) => {
-  const dateValue = 'date' in event ? event.date : event.event_start
+export const ArchivedEventCard = ({ event }: { event: Event | OldEvent }) => {
+  const isOldEvent = 'date' in event
+  const dateValue = isOldEvent ? event.date : event.event_start
+  const type = isOldEvent ? 'old' : 'event'
 
   return (
     <Link
-      to={`${baseUrl}${event.slug}`}
+      to={`/events/${type}/${event.slug}`}
       className="group relative flex flex-col bg-card-bg border border-accent/10 rounded-lg overflow-hidden hover:-translate-y-2 transition-all duration-500 shadow-xl"
     >
       <div className="relative aspect-video overflow-hidden">
@@ -39,7 +35,6 @@ export const ArchivedEventCard = ({
         <h3 className="text-xl font-decorative text-accent group-hover:text-white transition-colors">
           {event.title}
         </h3>
-
         <div className="flex items-center gap-2 text-xs opacity-60 font-sans tracking-widest uppercase">
           <Calendar className="w-3 h-3 text-accent" />
           <span>{formatDate(dateValue)}</span>

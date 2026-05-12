@@ -54,12 +54,12 @@ const App = () => (
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/events" element={<Events />} />
-              <Route path="/events/:eventSlug" element={<EventDetail />} />
+              <Route path="/events/:type/:slug" element={<EventDetail />} />
               <Route path="/about" element={<About />} />
               <Route path="/dresscode" element={<Dresscode />} />
               <Route path="/join" element={<JoinUs />} />
               <Route path="/artists" element={<Artists />} />
-              <Route path="/artists/:artistSlug" element={<ArtistDetail />} />
+              <Route path="/artists/:slug" element={<ArtistDetail />} />
 
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route
@@ -79,7 +79,7 @@ const App = () => (
                 }
               />
               <Route
-                path="/admin/event-editor/:eventSlug"
+                path="/admin/event-editor/:slug"
                 element={
                   <ProtectedRoute>
                     <EventEditor />
