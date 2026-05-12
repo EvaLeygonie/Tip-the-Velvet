@@ -1,36 +1,25 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { createSlug } from '@/lib/utils'
-import { useLanguage } from '@/contexts/LanguageContext'
-import useEyeDropper from 'use-eye-dropper'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import useEyeDropper from 'use-eye-dropper'
+import { useLanguage } from '@/contexts/LanguageContext'
 import type { Event, CreateEventInput, EventStatus } from '@/types'
+import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
 
 export const EventEditor = () => {
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
   const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 
   const { t } = useLanguage()
-  const { eventSlug } = useParams()
   const navigate = useNavigate()
+  const { eventSlug } = useParams()
+  const { open, isSupported } = useEyeDropper()
 
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
-
-  const { open, isSupported } = useEyeDropper()
-  const handlePickColor = useCallback(() => {
-    const openPicker = async () => {
-      try {
-        const color = await open()
-        setFormData((prev) => ({ ...prev, glow_color: color.sRGBHex }))
-      } catch (e) {
-        console.log(e)
-      }
-    }
-    openPicker()
-  }, [open])
+  const [tempFile, setTempFile] = useState<File | null>(null)
 
   const [formData, setFormData] = useState<Partial<Event>>({
     title: '',
@@ -38,8 +27,8 @@ export const EventEditor = () => {
     slug: '',
     event_start: null,
     event_end: null,
-    location: null,
     reveal_date: null,
+    location: null,
     status: 'draft',
     description_sv: null,
     description_eng: null,
@@ -68,13 +57,12 @@ export const EventEditor = () => {
 
           if (error) throw error
           if (data) {
-            const formattedData = {
+            setFormData({
               ...data,
-              event_start: data.event_start ? data.event_start.substring(0, 16) : null,
-              event_end: data.event_end ? data.event_end.substring(0, 16) : null,
-              reveal_date: data.reveal_date ? data.reveal_date.substring(0, 16) : null,
-            }
-            setFormData(formattedData)
+              event_start: data.event_start ? utcToLocal(data.event_start) : null,
+              event_end: data.event_end ? utcToLocal(data.event_end) : null,
+              reveal_date: data.reveal_date ? utcToLocal(data.reveal_date) : null,
+            })
           }
         } catch (err) {
           toast.error(t('Kunde inte ladda eventet', 'Failed to load event'))
@@ -87,7 +75,17 @@ export const EventEditor = () => {
     }
   }, [eventSlug, t])
 
-  const [tempFile, setTempFile] = useState<File | null>(null)
+  const handlePickColor = useCallback(() => {
+    const openPicker = async () => {
+      try {
+        const color = await open()
+        setFormData((prev) => ({ ...prev, glow_color: color.sRGBHex }))
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    openPicker()
+  }, [open])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -138,9 +136,9 @@ export const EventEditor = () => {
       title: formData.title,
       subtitle: formData.subtitle || null,
       slug: finalSlug,
-      event_start: formData.event_start || null,
-      event_end: formData.event_end || null,
-      reveal_date: formData.reveal_date || null,
+      event_start: formData.event_start ? localToUtc(formData.event_start) : null,
+      event_end: formData.event_end ? localToUtc(formData.event_end) : null,
+      reveal_date: formData.reveal_date ? localToUtc(formData.reveal_date) : null,
       location: formData.location || null,
       status: formData.status || 'draft',
       description_sv: formData.description_sv || null,
@@ -196,6 +194,7 @@ export const EventEditor = () => {
           <div className="hidden md:block"></div>
         </div>
 
+        {/* TITEL */}
         <header className="flex flex-col lg:flex-row justify-between items-start gap-12 text-left">
           <div className="flex-1 space-y-2">
             <label className="label text-[10px] uppercase tracking-widest">
@@ -220,6 +219,7 @@ export const EventEditor = () => {
             />
           </div>
 
+          {/* PRACTICAL DETAILS */}
           <div className="admin-control-panel w-full lg:w-80 shrink-0">
             <div className="panel-row">
               <label className="label text-[10px] uppercase">Status:</label>
@@ -283,21 +283,17 @@ export const EventEditor = () => {
 
         <div className="gold-divider" />
 
+        {/* PROMO IMAGE */}
         <div className="content-grid">
           <div className="space-y-4">
             <label className="label text-[10px] uppercase block">
               {t('Promobild:', 'Promo Image:')}
             </label>
             <div className={`promo-upload-square ${!isReadyToUpload ? 'is-locked' : 'is-active'}`}>
-              {formData.image_id ? (
+              {formData.image_id && CLOUD_NAME ? (
                 <div className="text-center p-4">
                   <img
-                    src={
-                      formData.image_id?.startsWith('blob:') ||
-                      formData.image_id?.startsWith('http')
-                        ? formData.image_id
-                        : `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/v1/Promo/${formData.image_id}`
-                    }
+                    src={getImageSrc(formData.image_id, CLOUD_NAME)}
                     className="w-full h-full object-cover relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh]"
                     style={{
                       boxShadow: `0 0 10px 1px ${formData.glow_color}, 0 0 25px 5px rgba(0, 0, 0, 0.5)`,

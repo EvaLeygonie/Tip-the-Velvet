@@ -44,7 +44,8 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
   return (
     <div className="bg-[#110805] border border-accent/10 rounded-2xl overflow-hidden shadow-2xl p-6 md:p-10 w-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center gap-10 md:gap-16">
-        <div className="md:col-span-6 flex justify-center md:justify-start">
+        {/* Image Container */}
+        <div className="w-full md:w-1/2 shrink-0 flex justify-center md:justify-start">
           <div
             className="relative aspect-square w-auto h-full rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01]
             max-h-[60vh] md:max-h-[70vh]"
@@ -66,7 +67,8 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
           </div>
         </div>
 
-        <div className="md:col-span-7 space-y-6 flex flex-col justify-center">
+        {/* Event Details */}
+        <div className="min-w-0 flex-1 space-y-6 flex flex-col justify-center">
           <div className="space-y-2">
             <h1 className="text-4xl md:text-5xl font-decorative text-accent drop-shadow-[0_0_20px_currentColor] mb-3 leading-tight !text-left">
               {event.title}
@@ -118,7 +120,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
                   href={event.ticket_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="relative z-10 bg-accent/80 hover:bg-accent text-background border-accent px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-[0_0_20px_rgba(212,175,55,0.2)] min-w-[140px] min-h-[44px] rounded-md"
+                  className="relative z-10 bg-accent/80 hover:bg-accent text-background border border-accent/20 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-[0_0_20px_rgba(212,175,55,0.2)] min-w-[140px] min-h-[44px] rounded-md"
                 >
                   <Ticket className="w-4 h-4 shrink-0" />
                   <span className="font-decorative tracking-wider uppercase text-xs whitespace-nowrap">

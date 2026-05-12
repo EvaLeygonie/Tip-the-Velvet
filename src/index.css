@@ -90,7 +90,7 @@ body {
   /* --- TYPOGRAFI --- */
 
   h1 {
-    @apply text-2xl md:text-3xl font-decorative text-accent uppercase tracking-widest text-center whitespace-nowrap;
+    @apply text-2xl md:text-3xl font-decorative text-accent uppercase tracking-widest text-center;
   }
 
   h2 {
