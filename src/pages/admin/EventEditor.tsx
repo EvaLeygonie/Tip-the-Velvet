@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Eye, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -34,10 +34,12 @@ export const EventEditor = () => {
     description_eng: null,
     image_id: null,
     has_casting_call: false,
+    casting_call_deadline: null,
     dresscode_link: null,
     ticket_url: null,
     tickets_price: null,
     tickets_sold: null,
+    available_tickets: null,
     photographer: null,
     fb_album_url: null,
     photobooth_url: null,
@@ -61,7 +63,6 @@ export const EventEditor = () => {
               ...data,
               event_start: data.event_start ? utcToLocal(data.event_start) : null,
               event_end: data.event_end ? utcToLocal(data.event_end) : null,
-              reveal_date: data.reveal_date ? utcToLocal(data.reveal_date) : null,
             })
           }
         } catch (err) {
@@ -138,17 +139,19 @@ export const EventEditor = () => {
       slug: finalSlug,
       event_start: formData.event_start ? localToUtc(formData.event_start) : null,
       event_end: formData.event_end ? localToUtc(formData.event_end) : null,
-      reveal_date: formData.reveal_date ? localToUtc(formData.reveal_date) : null,
+      reveal_date: formData.reveal_date || null,
+      casting_call_deadline: formData.casting_call_deadline || null,
+      has_casting_call: formData.has_casting_call || false,
       location: formData.location || null,
       status: formData.status || 'draft',
       description_sv: formData.description_sv || null,
       description_eng: formData.description_eng || null,
       image_id: finalImageId || null,
-      has_casting_call: formData.has_casting_call || false,
       dresscode_link: formData.dresscode_link || null,
       ticket_url: formData.ticket_url || null,
       tickets_price: formData.tickets_price || null,
       tickets_sold: formData.tickets_sold || null,
+      available_tickets: formData.available_tickets || null,
       photographer: formData.photographer || null,
       fb_album_url: formData.fb_album_url || null,
       photobooth_url: formData.photobooth_url || null,
@@ -194,32 +197,88 @@ export const EventEditor = () => {
           <div className="hidden md:block"></div>
         </div>
 
-        {/* TITEL */}
         <header className="flex flex-col lg:flex-row justify-between items-start gap-12 text-left">
-          <div className="flex-1 space-y-2">
-            <label className="label text-[10px] uppercase tracking-widest">
-              {t('Event Titel', 'Event Title')}
-            </label>
-            <input
-              type="text"
-              value={formData.title || ''}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Ex: Once Upon a Time..."
-              className="input-ghost-title"
-            />
-            <label className="label text-[10px] uppercase tracking-widest">
-              {t('Event Undertitel', 'Event Subtitle')}
-            </label>
-            <input
-              type="text"
-              value={formData.subtitle || ''}
-              onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-              placeholder="Ex: A Fairytale Ball..."
-              className="input-ghost-subtitle"
-            />
+          {/* LEFT COLUMN: title + subtitle + reveal/casting stacked */}
+          <div className="flex-1 flex flex-col justify-between gap-6 self-stretch">
+            {/* TITLE & SUBTITLE */}
+            <div className="space-y-2">
+              <label className="label text-[10px] uppercase tracking-widest">
+                {t('Event Titel', 'Event Title')}
+              </label>
+              <input
+                type="text"
+                value={formData.title || ''}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Ex: Once Upon a Time..."
+                className="input-ghost-title"
+              />
+              <label className="label text-[10px] uppercase tracking-widest">
+                {t('Event Undertitel', 'Event Subtitle')}
+              </label>
+              <input
+                type="text"
+                value={formData.subtitle || ''}
+                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                placeholder="Ex: A Fairytale Ball..."
+                className="input-ghost-subtitle"
+              />
+            </div>
+
+            {/* REVEAL & CASTING CALL */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-black/20 border border-accent/10 rounded-xl px-6 py-4 mt-auto">
+              {/* Reveal Date */}
+              <div className="flex items-center gap-3">
+                <Eye className="w-4 h-4 text-accent shrink-0" />
+                <label className="label text-[10px] uppercase whitespace-nowrap">
+                  {t('Publiceras:', 'Reveal Date:')}
+                </label>
+                <input
+                  type="date"
+                  className="editor-input !border-none !py-0 text-xs flex-1"
+                  value={formData.reveal_date || ''}
+                  onChange={(e) => setFormData({ ...formData, reveal_date: e.target.value })}
+                />
+              </div>
+
+              <div className="w-px h-8 bg-accent/10 hidden md:block" />
+
+              {/* Casting Call toggle + deadline */}
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4 text-accent shrink-0" />
+                <label className="label text-[10px] uppercase whitespace-nowrap">
+                  {t('Casting Call:', 'Casting Call:')}
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, has_casting_call: !formData.has_casting_call })
+                  }
+                  className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
+                    formData.has_casting_call ? 'bg-accent' : 'bg-white/10'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${
+                      formData.has_casting_call ? 'left-5' : 'left-0.5'
+                    }`}
+                  />
+                </button>
+                {formData.has_casting_call && (
+                  <input
+                    type="date"
+                    className="editor-input !border-none !py-0 text-xs flex-1"
+                    placeholder={t('Deadline...', 'Deadline...')}
+                    value={formData.casting_call_deadline || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, casting_call_deadline: e.target.value })
+                    }
+                  />
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* PRACTICAL DETAILS */}
+          {/* RIGHT COLUMN: PRACTICAL INFO */}
           <div className="admin-control-panel w-full lg:w-80 shrink-0">
             <div className="panel-row">
               <label className="label text-[10px] uppercase">Status:</label>
@@ -236,7 +295,6 @@ export const EventEditor = () => {
                 <option value="cancelled">{t('Avbokat', 'Cancelled')}</option>
               </select>
             </div>
-
             <div className="panel-row">
               <label className="label text-[10px] uppercase">URL:</label>
               <div className="flex items-center gap-1 bg-black/40 px-3 py-1 rounded border border-accent/10 flex-1">
@@ -250,13 +308,31 @@ export const EventEditor = () => {
               </div>
             </div>
 
+            {/* TIME & PLACE */}
             <div className="panel-row">
               <label className="label text-[10px] uppercase">{t('Startar:', 'Starts:')}</label>
               <input
                 type="datetime-local"
                 className="editor-input !border-none !py-0 !text-right text-xs"
                 value={formData.event_start || ''}
-                onChange={(e) => setFormData({ ...formData, event_start: e.target.value })}
+                onChange={(e) => {
+                  const newStart = e.target.value
+                  if (!formData.event_end && newStart) {
+                    const [datePart] = newStart.split('T')
+                    const [year, month, day] = datePart.split('-').map(Number)
+
+                    // Räkna ut nästa dag utan Date-konstruktor
+                    const date = new Date(Date.UTC(year, month - 1, day + 1))
+                    const nextYear = date.getUTCFullYear()
+                    const nextMonth = String(date.getUTCMonth() + 1).padStart(2, '0')
+                    const nextDay = String(date.getUTCDate()).padStart(2, '0')
+
+                    const endDate = `${nextYear}-${nextMonth}-${nextDay}T02:00`
+                    setFormData({ ...formData, event_start: newStart, event_end: endDate })
+                  } else {
+                    setFormData({ ...formData, event_start: newStart })
+                  }
+                }}
               />
             </div>
             <div className="panel-row">
@@ -268,7 +344,6 @@ export const EventEditor = () => {
                 onChange={(e) => setFormData({ ...formData, event_end: e.target.value })}
               />
             </div>
-
             <div className="panel-row">
               <label className="label text-[10px] uppercase">{t('Plats:', 'Location:')}</label>
               <input
@@ -393,6 +468,7 @@ export const EventEditor = () => {
           </div>
         </div>
 
+        {/* MORE DETAILS */}
         <details className="admin-card-bg p-6 group transition-all">
           <summary className="label cursor-pointer flex items-center gap-3 select-none">
             <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
@@ -412,11 +488,80 @@ export const EventEditor = () => {
             </div>
 
             <div className="field-row">
+              <label className="label text-[10px] uppercase">
+                {t('Biljettlänk', 'Ticket Link')}
+              </label>
+              <input
+                type="text"
+                className="editor-input"
+                value={formData.ticket_url || ''}
+                onChange={(e) => setFormData({ ...formData, ticket_url: e.target.value })}
+              />
+            </div>
+
+            <div className="field-row">
               <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
               <input
                 className="editor-input"
                 value={formData.photographer || ''}
                 onChange={(e) => setFormData({ ...formData, photographer: e.target.value })}
+              />
+            </div>
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">
+                {t('Pinterest länk', 'Pinterest Link')}
+              </label>
+              <input
+                type="text"
+                className="editor-input"
+                value={formData.dresscode_link || ''}
+                onChange={(e) => setFormData({ ...formData, dresscode_link: e.target.value })}
+              />
+            </div>
+
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">
+                {t('Facebook album', 'Facebook Album')}
+              </label>
+              <input
+                className="editor-input"
+                value={formData.fb_album_url || ''}
+                onChange={(e) => setFormData({ ...formData, fb_album_url: e.target.value })}
+              />
+            </div>
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">
+                {t('Fotohörna länk', 'Photo Booth Link')}
+              </label>
+              <input
+                className="editor-input"
+                value={formData.photobooth_url || ''}
+                onChange={(e) => setFormData({ ...formData, photobooth_url: e.target.value })}
+              />
+            </div>
+
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">
+                {t('Sålda biljetter', 'Tickets Sold')}
+              </label>
+              <input
+                type="number"
+                className="editor-input"
+                value={formData.tickets_sold || ''}
+                onChange={(e) => setFormData({ ...formData, tickets_sold: Number(e.target.value) })}
+              />
+            </div>
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">
+                {t('Tillgängliga biljetter', 'Available Tickets')}
+              </label>
+              <input
+                type="number"
+                className="editor-input"
+                value={formData.available_tickets || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, available_tickets: Number(e.target.value) })
+                }
               />
             </div>
           </div>

@@ -46,23 +46,21 @@ export const localToUtc = (localString: string): string => {
   const [year, month, day] = datePart.split('-').map(Number)
   const [hours, minutes] = timePart.split(':').map(Number)
 
-  const localDate = new Date(Date.UTC(year, month - 1, day, hours, minutes))
-  const offsetMs =
-    localDate.getTime() -
-    new Date(
-      new Intl.DateTimeFormat('en-US', {
-        timeZone: TZ,
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: false,
-      })
-        .format(localDate)
-        .replace(/(\d+)\/(\d+)\/(\d+),\s(\d+):(\d+):(\d+)/, '$3-$1-$2T$4:$5:$6')
-    ).getTime()
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes))
 
-  return new Date(localDate.getTime() + offsetMs).toISOString()
+  const stockholmParts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(utcDate)
+
+  const p = Object.fromEntries(stockholmParts.map(({ type, value }) => [type, Number(value)]))
+  const stockholmAsUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute)
+  const offsetMs = stockholmAsUtc - utcDate.getTime()
+
+  return new Date(utcDate.getTime() - offsetMs).toISOString()
 }

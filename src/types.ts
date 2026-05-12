@@ -43,10 +43,12 @@ export interface Event extends BaseEntity {
   image_id: string | null
   updated_at: string
   has_casting_call: boolean
+  casting_call_deadline: string | null
   dresscode_link: string | null
   ticket_url: string | null
   tickets_price: number | null
   tickets_sold: number | null
+  available_tickets: number | null
   photographer: string | null
   fb_album_url: string | null
   photobooth_url: string | null

@@ -266,13 +266,14 @@ body {
 
   /* --- DateTime picker --- */
 
-  input[type='datetime-local'] {
+  input[type='datetime-local'],
+  input[type='date'] {
     position: relative;
     min-height: 2.5rem;
   }
 
-  /* Tvingar fram kalenderikonen och gör den vit/guld */
-  input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  input[type='datetime-local']::-webkit-calendar-picker-indicator,
+  input[type='date']::-webkit-calendar-picker-indicator {
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="gold" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>');
     cursor: pointer;
     filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.5));
@@ -280,12 +281,13 @@ body {
     transition: opacity 0.2s;
   }
 
-  input[type='datetime-local']::-webkit-calendar-picker-indicator:hover {
+  input[type='datetime-local']::-webkit-calendar-picker-indicator:hover,
+  input[type='date']::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
   }
 
-  /* Gör hela fältet klickbart i vissa webbläsare */
-  input[type='datetime-local']::-webkit-datetime-edit {
+  input[type='datetime-local']::-webkit-datetime-edit,
+  input[type='date']::-webkit-datetime-edit {
     @apply font-mono text-xs uppercase tracking-tighter;
   }
 }
