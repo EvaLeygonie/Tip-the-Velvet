@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-import { getCloudinaryImagesByTag } from './cloudinaryService'
 import type {
   Event,
   EventImage,
@@ -232,42 +231,4 @@ export const deleteOldEventImage = async (imageId: string) => {
     console.error('Could not delete old event image:', error.message)
     throw error
   }
-}
-
-//=== SYNC ===///
-
-// CLoudinary => Supabase
-export const syncImagesToEvent = async (eventId: string, slug: string, altText: string) => {
-  const imageIds = await getCloudinaryImagesByTag(slug)
-  const rowsToInsert = imageIds.map((imageId: string) => ({
-    event_id: eventId,
-    event_slug: slug,
-    image_id: imageId,
-    alt_text: altText,
-  }))
-
-  const { data, error } = await supabase.from('old_event_images').insert(rowsToInsert).select('*')
-
-  if (error) {
-    console.error('Could not sync rows to Supabase:', error.message)
-    throw error
-  }
-  return data.length // Antal bilder som synkats
-}
-
-export const syncOldImagesToEvent = async (eventId: string, slug: string) => {
-  const imageIds = await getCloudinaryImagesByTag(slug)
-  const rowsToInsert = imageIds.map((imageId: string) => ({
-    old_event_id: eventId,
-    event_slug: slug,
-    image_id: imageId,
-  }))
-
-  const { data, error } = await supabase.from('old_event_images').insert(rowsToInsert).select('*')
-
-  if (error) {
-    console.error('Could not sync rows to Supabase:', error.message)
-    throw error
-  }
-  return data.length // Antal bilder som synkats
 }
