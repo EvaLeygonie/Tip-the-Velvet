@@ -265,7 +265,7 @@ export const EventEditor = () => {
                   <input
                     type="date"
                     className="editor-input !border-none !py-0 text-xs flex-1"
-                    placeholder={t('Deadline...', 'Deadline...')}
+                    placeholder="Deadline..."
                     value={formData.casting_call_deadline || ''}
                     onChange={(e) =>
                       setFormData({ ...formData, casting_call_deadline: e.target.value })
@@ -314,22 +314,7 @@ export const EventEditor = () => {
                 className="editor-input !border-none !py-0 !text-right text-xs"
                 value={formData.event_start || ''}
                 onChange={(e) => {
-                  const newStart = e.target.value
-                  if (!formData.event_end && newStart) {
-                    const [datePart] = newStart.split('T')
-                    const [year, month, day] = datePart.split('-').map(Number)
-
-                    // Räkna ut nästa dag utan Date-konstruktor
-                    const date = new Date(Date.UTC(year, month - 1, day + 1))
-                    const nextYear = date.getUTCFullYear()
-                    const nextMonth = String(date.getUTCMonth() + 1).padStart(2, '0')
-                    const nextDay = String(date.getUTCDate()).padStart(2, '0')
-
-                    const endDate = `${nextYear}-${nextMonth}-${nextDay}T02:00`
-                    setFormData({ ...formData, event_start: newStart, event_end: endDate })
-                  } else {
-                    setFormData({ ...formData, event_start: newStart })
-                  }
+                  setFormData({ ...formData, event_start: e.target.value })
                 }}
               />
             </div>

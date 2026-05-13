@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+// import { supabase } from '@/lib/supabase'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Link, useParams } from 'react-router-dom'
-import type { Event, EventImage, OldEvent, OldEventImage } from '@/types'
-import { getEventWithImages, getOldEventWithImages } from '@/services/eventService'
-import { syncOldEventImages } from '@/services/cloudinaryService'
+import type { Event, OldEvent, EventImage } from '@/types'
+import { getEventWithImages } from '@/services/eventService'
 import { ArrowLeft, Images } from 'lucide-react'
-import { toast } from 'sonner'
+// import { syncImagesFromCloudinary } from '@/services/cloudinaryService'
+// import { toast } from 'sonner'
 
 const EventDetail = () => {
   const { user } = useAuth()
@@ -18,24 +18,19 @@ const EventDetail = () => {
   const isOldEvent = type === 'old'
 
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
-  const [images, setImages] = useState<EventImage[] | OldEventImage[]>([])
-  const [syncing, setSyncing] = useState(false)
-  const [synced, setSynced] = useState(false)
+  const [images, setImages] = useState<EventImage[]>([])
+  // const [syncing, setSyncing] = useState(false)
+  // const [synced, setSynced] = useState(false)
 
   useEffect(() => {
+    console.log('Fetching event with slug:', slug, 'isOldEvent:', isOldEvent)
     const fetchEvent = async () => {
       if (!slug) return
       setLoading(true)
       try {
-        if (isOldEvent) {
-          const data = await getOldEventWithImages(slug)
-          setEvent(data)
-          setImages(data.old_event_images || [])
-        } else {
-          const data = await getEventWithImages(slug)
-          setEvent(data)
-          setImages(data.event_images || [])
-        }
+        const data = await getEventWithImages(slug, isOldEvent)
+        setEvent(data)
+        setImages(data.images || [])
       } catch (err) {
         console.error('Error fetching event:', err)
       } finally {
@@ -47,30 +42,32 @@ const EventDetail = () => {
 
   if (loading) return <p>{t('Laddar...', 'Loading...')}</p>
 
-  const handleSyncImages = async () => {
-    if (!event || !isOldEvent) return
-    setSyncing(true)
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) throw new Error(t('Inte inloggad', 'Not logged in'))
+  // const handleSyncImages = async () => {
+  //   if (!event || !isOldEvent) return
+  //   setSyncing(true)
+  //   try {
+  //     const {
+  //       data: { session },
+  //     } = await supabase.auth.getSession()
+  //     if (!session) throw new Error(t('Inte inloggad', 'Not logged in'))
 
-      const result = await syncOldEventImages(event.id, event.slug, session.access_token)
-      toast.success(
-        t(
-          `${result.inserted} bilder synkade! (${result.skipped} redan importerade)`,
-          `${result.inserted} images synced! (${result.skipped} already imported)`
-        )
-      )
-      setSynced(true)
-    } catch (err) {
-      toast.error(t('Synkning misslyckades', 'Syncing failed'))
-      console.error(err)
-    } finally {
-      setSyncing(false)
-    }
-  }
+  //     const result = await syncImagesFromCloudinary(session.access_token, event.slug, {
+  //       event_id: event.id,
+  //     })
+  //     toast.success(
+  //       t(
+  //         `${result.inserted} bilder synkade! (${result.skipped} redan importerade)`,
+  //         `${result.inserted} images synced! (${result.skipped} already imported)`
+  //       )
+  //     )
+  //     setSynced(true)
+  //   } catch (err) {
+  //     toast.error(t('Synkning misslyckades', 'Syncing failed'))
+  //     console.error(err)
+  //   } finally {
+  //     setSyncing(false)
+  //   }
+  // }
 
   return (
     <div className="page-standard">
@@ -81,7 +78,7 @@ const EventDetail = () => {
               <ArrowLeft className="text-accent hover:scale-105" />
             </Link>
           </div>
-          <h1>{event?.title || t('Event title not found', 'Event title not found')}</h1>
+          <h1>{event?.title || t('Event hittades inte', 'Event not found')}</h1>
 
           <div className="header-side-content md:justify-end">
             {user && !isOldEvent && (
@@ -101,20 +98,20 @@ const EventDetail = () => {
       <section className="page-section">
         <div className="section-header-triad">
           <div className="header-side-content md:justify-start">
-            {user && isOldEvent && !synced && (
+            {/* {user && isOldEvent && !synced && (
               <button onClick={handleSyncImages} disabled={syncing} className="btn-admin">
                 {syncing ? t('Synkar...', 'Syncing...') : t('↓ Synka bilder', '↓ Sync images')}
               </button>
-            )}
+            )} */}
           </div>
           <h2>{t('Bilder', 'Photos')}</h2>
 
           <div className="header-side-content md:justify-end">
-            {user && (
+            {/* {user && (
               <button onClick={handleSyncImages} className="btn-admin">
                 {t('Redigera galleri', 'Edit gallery')}
               </button>
-            )}
+            )} */}
           </div>
         </div>
 

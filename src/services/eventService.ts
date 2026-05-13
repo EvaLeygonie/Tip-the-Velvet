@@ -1,109 +1,52 @@
 import { supabase } from '@/lib/supabase'
-import type {
-  Event,
-  EventImage,
-  CreateEventInput,
-  CreateEventImageInput,
-  OldEvent,
-  OldEventImage,
-  CreateOldEventImageInput,
-  CreateOldEventInput,
-} from '@/types'
+import type { Event, CreateEventInput, CreateEventImageInput } from '@/types'
+import { deleteFromCloudinary } from './cloudinaryService'
 
 //=== READ ===///
 
-export const getEvents = async (): Promise<OldEvent[]> => {
+//! Probably not needed
+export const fetchEvents = async (isOldEvent: boolean) => {
+  const table = isOldEvent ? 'old_events' : 'events'
+  const orderColumn = isOldEvent ? 'date' : 'event_start'
   const { data, error } = await supabase
-    .from('events')
+    .from(table)
     .select('*')
-    .order('date', { ascending: false })
-
-  if (error) {
-    console.error('Could not fetch events:', error.message)
-    throw error
-  }
+    .order(orderColumn, { ascending: false })
+  if (error) throw error
   return data || []
 }
 
-export const getImageGalleryBySlug = async (slug: string) => {
+export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
+  const table = isOldEvent ? 'old_events' : 'events'
+  const imagesRelation = isOldEvent ? 'old_event_images' : 'event_images'
+
   const { data, error } = await supabase
-    .from('event_images')
+    .from(table)
+    .select(`*, ${imagesRelation}(*)`)
+    .eq('slug', slug)
+    .eq(`${imagesRelation}.is_visible`, true)
+    .single()
+
+  if (error) throw error
+
+  return {
+    ...data,
+    images: data[imagesRelation] || [],
+  }
+}
+
+export const getImageGalleryBySlug = async (slug: string, isOldEvent: boolean) => {
+  const table = isOldEvent ? 'old_event_images' : 'event_images'
+
+  const { data, error } = await supabase
+    .from(table)
     .select('*')
     .eq('event_slug', slug)
     .eq('is_visible', true)
+    .order('display_order', { ascending: true })
 
-  if (error) {
-    console.error('Could not fetch image gallery:', error.message)
-    throw error
-  }
+  if (error) throw error
   return data || []
-}
-
-export const getEventWithImages = async (slug: string) => {
-  const { data, error } = await supabase
-    .from('events')
-    .select(
-      `
-      *,
-      event_images (*)
-    `
-    )
-    .eq('slug', slug)
-    .eq('event_images.is_visible', true)
-    .single()
-
-  if (error) {
-    console.error('Could not fetch events with images:', error.message)
-    throw error
-  }
-  return data
-}
-
-export const getOldEvents = async (): Promise<OldEvent[]> => {
-  const { data, error } = await supabase
-    .from('old_events')
-    .select('*')
-    .order('date', { ascending: false })
-
-  if (error) {
-    console.error('Could not old fetch events:', error.message)
-    throw error
-  }
-  return data || []
-}
-
-export const getOldImageGalleryBySlug = async (slug: string) => {
-  const { data, error } = await supabase
-    .from('old_event_images')
-    .select('*')
-    .eq('event_slug', slug)
-    .eq('is_visible', true)
-
-  if (error) {
-    console.error('Could not fetch old image gallery:', error.message)
-    throw error
-  }
-  return data || []
-}
-
-export const getOldEventWithImages = async (slug: string) => {
-  const { data, error } = await supabase
-    .from('old_events')
-    .select(
-      `
-      *,
-      old_event_images (*)
-    `
-    )
-    .eq('slug', slug)
-    .eq('old_event_images.is_visible', true)
-    .single()
-
-  if (error) {
-    console.error('Could not fetch old events with images:', error.message)
-    throw error
-  }
-  return data
 }
 
 //=== CREATE ===///
@@ -111,124 +54,66 @@ export const getOldEventWithImages = async (slug: string) => {
 export const createEvent = async (eventData: CreateEventInput): Promise<Event> => {
   const { data, error } = await supabase.from('events').insert([eventData]).single()
 
-  if (error) {
-    console.error('Could not create event:', error.message)
-    throw error
-  }
+  if (error) throw error
   return data
 }
 
-export const createEventImage = async (eventData: CreateEventImageInput): Promise<EventImage> => {
-  const { data, error } = await supabase.from('event_images').insert([eventData]).single()
-  if (error) {
-    console.error('Could not create event image:', error.message)
-    throw error
-  }
-  return data
-}
+export const createEventImage = async (eventData: CreateEventImageInput, isOldEvent: boolean) => {
+  const table = isOldEvent ? 'old_event_images' : 'event_images'
 
-export const createOldEventImage = async (
-  eventData: CreateOldEventImageInput
-): Promise<OldEventImage> => {
-  const { data, error } = await supabase.from('old_event_images').insert([eventData]).single()
+  const { data, error } = await supabase.from(table).insert([eventData]).single()
 
-  if (error) {
-    console.error('Could not create old event image:', error.message)
-    throw error
-  }
+  if (error) throw error
   return data
 }
 
 //=== UPDATE ===///
 
-export const updateEvent = async (id: string, updatedData: Partial<CreateEventInput>) => {
-  const { data, error } = await supabase.from('events').update(updatedData).eq('id', id).single()
-
-  if (error) {
-    console.error('Could not update events:', error.message)
-    throw error
-  }
-  return data
-}
-
-export const ToggleEventImageVisibility = async (id: string, isVisible: boolean) => {
+// Generic update — works for any table, matches on id
+export const updateRecord = async (
+  table: string,
+  id: string,
+  updatedData: Record<string, unknown>
+) => {
   const { data, error } = await supabase
-    .from('event_images')
-    .update({ is_visible: isVisible })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Could not update image visibility:', error.message)
-    throw error
-  }
-  return data
-}
-
-export const ToggleOldEventImageVisibility = async (id: string, isVisible: boolean) => {
-  const { data, error } = await supabase
-    .from('old_event_images')
-    .update({ is_visible: isVisible })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Could not toggle old event image visibility:', error.message)
-    throw error
-  }
-  return data
-}
-
-export const updateOldEvent = async (id: string, updatedData: Partial<CreateOldEventInput>) => {
-  const { data, error } = await supabase
-    .from('old_events')
+    .from(table)
     .update(updatedData)
     .eq('id', id)
+    .select()
     .single()
-
-  if (error) {
-    console.error('Could not update old event:', error.message)
-    throw error
-  }
+  if (error) throw error
   return data
 }
+
+export const updateEvent = (id: string, updatedData: Partial<CreateEventInput>) =>
+  updateRecord('events', id, updatedData as Record<string, unknown>)
+
+export const toggleImageVisibility = (id: string, isVisible: boolean, isOldEvent: boolean) =>
+  updateRecord(isOldEvent ? 'old_event_images' : 'event_images', id, { is_visible: isVisible })
+
+export const updateImageOrder = (id: string, displayOrder: number, isOldEvent: boolean) =>
+  updateRecord(isOldEvent ? 'old_event_images' : 'event_images', id, {
+    display_order: displayOrder,
+  })
 
 //=== DELETE ===///
 
-export const deleteEvent = async (id: string) => {
-  const { error } = await supabase.from('events').delete().eq('id', id)
+//generic delete — works for any table, matches on id
+export const deleteRecord = async (id: string, table: string) => {
+  const { error } = await supabase.from(table).delete().eq('id', id)
 
-  if (error) {
-    console.error('Could not delete event:', error.message)
-    throw error
-  }
+  if (error) throw error
 }
 
-export const deleteEventImage = async (imageId: string) => {
-  const { error } = await supabase.from('event_images').delete().eq('id', imageId)
+export const deleteImageEverywhere = async (
+  imageId: string, // Supabase row id
+  publicId: string, // Cloudinary public_id
+  isOldEvent: boolean,
+  accessToken: string
+) => {
+  const table = isOldEvent ? 'old_event_images' : 'event_images'
+  const { error } = await supabase.from(table).delete().eq('id', imageId)
+  if (error) throw error
 
-  if (error) {
-    console.error('Could not delete event image:', error.message)
-    throw error
-  }
-}
-
-export const deleteOldEvent = async (id: string) => {
-  const { error } = await supabase.from('old_events').delete().eq('id', id)
-
-  if (error) {
-    console.error('Could not delete old event:', error.message)
-    throw error
-  }
-}
-
-export const deleteOldEventImage = async (imageId: string) => {
-  const { error } = await supabase.from('old_event_images').delete().eq('id', imageId)
-
-  if (error) {
-    console.error('Could not delete old event image:', error.message)
-    throw error
-  }
+  await deleteFromCloudinary(publicId, accessToken)
 }

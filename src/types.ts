@@ -55,17 +55,7 @@ export interface Event extends BaseEntity {
   glow_color?: string | undefined
 }
 
-export interface EventImage extends BaseEntity {
-  event_id: string
-  event_slug: string
-  image_id: string
-  alt_text: string | null
-  is_visible: boolean
-}
-
 export type CreateEventInput = Omit<Event, keyof BaseEntity | 'updated_at'>
-
-export type CreateEventImageInput = Omit<EventImage, keyof BaseEntity>
 
 export interface OldEvent extends BaseEntity {
   title: string
@@ -81,16 +71,15 @@ export interface OldEvent extends BaseEntity {
   ticket_price: number | null
 }
 
-export interface OldEventImage extends BaseEntity {
-  old_event_id: string
+export interface EventImage extends BaseEntity {
+  event_id: string
   event_slug: string
   image_id: string
   is_visible: boolean
+  display_order: number
 }
 
-export type CreateOldEventImageInput = Omit<OldEventImage, keyof BaseEntity>
-
-export type CreateOldEventInput = Omit<OldEvent, keyof BaseEntity>
+export type CreateEventImageInput = Omit<EventImage, keyof BaseEntity>
 
 //=== PERFORMERS ===///
 
