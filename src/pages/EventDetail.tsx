@@ -19,11 +19,11 @@ const EventDetail = () => {
 
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
+  const sortedImages = [...images].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
   // const [syncing, setSyncing] = useState(false)
   // const [synced, setSynced] = useState(false)
 
   useEffect(() => {
-    console.log('Fetching event with slug:', slug, 'isOldEvent:', isOldEvent)
     const fetchEvent = async () => {
       if (!slug) return
       setLoading(true)
@@ -83,10 +83,7 @@ const EventDetail = () => {
           <div className="header-side-content md:justify-end">
             {user && !isOldEvent && (
               <Link to={`/admin/event-editor/${slug}`}>
-                <button className="btn-admin">
-                  <span className="text-lg">+</span>
-                  {t('Redigera Event', 'Edit Event')}
-                </button>
+                <button className="btn-admin">{t('Redigera Event', 'Edit Event')}</button>
               </Link>
             )}
           </div>
@@ -124,7 +121,7 @@ const EventDetail = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {images.map((img) => (
+            {sortedImages.map((img) => (
               <div
                 key={img.id}
                 className="aspect-square rounded-lg overflow-hidden border border-accent/10 hover:border-accent/40 transition-all hover:scale-[1.02]"

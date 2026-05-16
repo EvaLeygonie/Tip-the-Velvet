@@ -12,13 +12,13 @@ export interface CloudinaryResource {
 export const uploadToCloudinary = async (
   file: File,
   folder: string,
-  tags: string[]
+  slug: string
 ): Promise<string> => {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', UPLOAD_PRESET)
   formData.append('folder', folder)
-  tags.forEach((tag) => formData.append('tags', tag))
+  formData.append('tags', slug)
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
     method: 'POST',
