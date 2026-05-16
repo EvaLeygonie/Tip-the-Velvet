@@ -34,7 +34,7 @@ export const uploadToCloudinary = async (
 export const syncImagesFromCloudinary = async (
   accessToken: string,
   eventSlug: string,
-  ids: { old_event_id: string } | { event_id: string }
+  eventId: string
 ): Promise<{ total: number; inserted: number; skipped: number }> => {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/import-cloudinary-album`, {
     method: 'POST',
@@ -43,7 +43,7 @@ export const syncImagesFromCloudinary = async (
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
-      ...ids,
+      event_id: eventId,
       event_slug: eventSlug,
       kind: 'tag',
       value: eventSlug,

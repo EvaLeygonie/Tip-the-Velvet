@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-// import { supabase } from '@/lib/supabase'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -7,8 +6,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { Event, OldEvent, EventImage } from '@/types'
 import { getEventWithImages } from '@/services/eventService'
 import { ArrowLeft, Images } from 'lucide-react'
-// import { syncImagesFromCloudinary } from '@/services/cloudinaryService'
-// import { toast } from 'sonner'
+import GalleryEditor from '@/components/events/GalleryEditor'
 
 const EventDetail = () => {
   const { user } = useAuth()
@@ -20,8 +18,7 @@ const EventDetail = () => {
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
   const sortedImages = [...images].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-  // const [syncing, setSyncing] = useState(false)
-  // const [synced, setSynced] = useState(false)
+  // const [isGalleryOpen, setIsGalleryOpen] = useState(false)
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -41,33 +38,6 @@ const EventDetail = () => {
   }, [slug, isOldEvent])
 
   if (loading) return <p>{t('Laddar...', 'Loading...')}</p>
-
-  // const handleSyncImages = async () => {
-  //   if (!event || !isOldEvent) return
-  //   setSyncing(true)
-  //   try {
-  //     const {
-  //       data: { session },
-  //     } = await supabase.auth.getSession()
-  //     if (!session) throw new Error(t('Inte inloggad', 'Not logged in'))
-
-  //     const result = await syncImagesFromCloudinary(session.access_token, event.slug, {
-  //       event_id: event.id,
-  //     })
-  //     toast.success(
-  //       t(
-  //         `${result.inserted} bilder synkade! (${result.skipped} redan importerade)`,
-  //         `${result.inserted} images synced! (${result.skipped} already imported)`
-  //       )
-  //     )
-  //     setSynced(true)
-  //   } catch (err) {
-  //     toast.error(t('Synkning misslyckades', 'Syncing failed'))
-  //     console.error(err)
-  //   } finally {
-  //     setSyncing(false)
-  //   }
-  // }
 
   return (
     <div className="page-standard">
@@ -93,33 +63,44 @@ const EventDetail = () => {
 
       {/* GALLERY */}
       <section className="page-section">
-        <div className="section-header-triad">
-          <div className="header-side-content md:justify-start">
-            {/* {user && isOldEvent && !synced && (
-              <button onClick={handleSyncImages} disabled={syncing} className="btn-admin">
-                {syncing ? t('Synkar...', 'Syncing...') : t('↓ Synka bilder', '↓ Sync images')}
-              </button>
-            )} */}
-          </div>
-          <h2>{t('Bilder', 'Photos')}</h2>
+        <div className="editor-container">
+          <div className="section-header-triad">
+            <div className="header-side-content md:justify-start"></div>
+            <h2>{t('Bilder', 'Photos')}</h2>
 
-          <div className="header-side-content md:justify-end">
-            {/* {user && (
-              <button onClick={handleSyncImages} className="btn-admin">
-                {t('Redigera galleri', 'Edit gallery')}
-              </button>
-            )} */}
+            {/* <div className="header-side-content md:justify-end">
+              {user && (
+                <button onClick={() => setIsGalleryOpen(!isGalleryOpen)} className="btn-admin">
+                  {isGalleryOpen ? t('Klar', 'Done') : t('Redigera galleri', 'Edit gallery')}
+                </button>
+              )}
+            </div> */}
           </div>
         </div>
 
-        {images.length === 0 ? (
+        {user && event && (
+          <GalleryEditor
+            images={images}
+            event={event}
+            isOldEvent={isOldEvent}
+            onUpdate={() => {
+              getEventWithImages(slug!, isOldEvent)
+                .then((data) => setImages(data.images || []))
+                .catch((err) => console.error('Error refreshing images:', err))
+            }}
+          />
+        )}
+
+        {images.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-foreground/30">
             <Images className="w-12 h-12" />
             <p className="font-decorative uppercase tracking-widest text-sm">
               {t('Inga bilder uppladdade ännu', 'No photos uploaded yet')}
             </p>
           </div>
-        ) : (
+        )}
+
+        {!user && images.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {sortedImages.map((img) => (
               <div
