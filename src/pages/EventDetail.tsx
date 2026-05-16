@@ -17,8 +17,9 @@ const EventDetail = () => {
 
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
-  const sortedImages = [...images].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-  // const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const sortedImages = [...images]
+    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    .filter((img) => img.is_visible)
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -64,18 +65,7 @@ const EventDetail = () => {
       {/* GALLERY */}
       <section className="page-section">
         <div className="editor-container">
-          <div className="section-header-triad">
-            <div className="header-side-content md:justify-start"></div>
-            <h2>{t('Bilder', 'Photos')}</h2>
-
-            {/* <div className="header-side-content md:justify-end">
-              {user && (
-                <button onClick={() => setIsGalleryOpen(!isGalleryOpen)} className="btn-admin">
-                  {isGalleryOpen ? t('Klar', 'Done') : t('Redigera galleri', 'Edit gallery')}
-                </button>
-              )}
-            </div> */}
-          </div>
+          <h2>{t('Bilder', 'Photos')}</h2>
         </div>
 
         {user && event && (

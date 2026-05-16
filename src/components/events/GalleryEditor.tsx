@@ -122,7 +122,7 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
                   publicId={img.image_id}
                   width={400}
                   height={400}
-                  className="w-full h-full object-cover rounded-lg"
+                  className={'  w-full h-full object-cover ' + (img.is_visible ? '' : 'opacity-30')}
                 />
 
                 {/* Visibility toggle */}

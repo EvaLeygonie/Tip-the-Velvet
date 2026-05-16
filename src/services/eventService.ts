@@ -24,7 +24,6 @@ export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
     .from(table)
     .select(`*, ${imagesRelation}(*)`)
     .eq('slug', slug)
-    .eq(`${imagesRelation}.is_visible`, true)
     .single()
 
   if (error) throw error
@@ -33,20 +32,6 @@ export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
     ...data,
     images: data[imagesRelation] || [],
   }
-}
-
-export const getImageGalleryBySlug = async (slug: string, isOldEvent: boolean) => {
-  const table = isOldEvent ? 'old_event_images' : 'event_images'
-
-  const { data, error } = await supabase
-    .from(table)
-    .select('*')
-    .eq('event_slug', slug)
-    .eq('is_visible', true)
-    .order('display_order', { ascending: true })
-
-  if (error) throw error
-  return data || []
 }
 
 //=== CREATE ===///
