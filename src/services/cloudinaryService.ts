@@ -20,6 +20,15 @@ export const uploadToCloudinary = async (
   formData.append('folder', folder)
   formData.append('tags', slug)
 
+  console.log('Uploading to Cloudinary:', {
+    cloudName: CLOUD_NAME,
+    uploadPreset: UPLOAD_PRESET,
+    folder,
+    slug,
+    fileName: file.name,
+    fileSize: file.size,
+  })
+
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
     method: 'POST',
     body: formData,
@@ -27,33 +36,6 @@ export const uploadToCloudinary = async (
   if (!res.ok) throw new Error('Uppladdning misslyckades')
   const data = await res.json()
   return data.public_id
-}
-
-// Sync event images from Cloudinary to Supabase via edge function
-//! Probably useless now
-export const syncImagesFromCloudinary = async (
-  accessToken: string,
-  eventSlug: string,
-  eventId: string
-): Promise<{ total: number; inserted: number; skipped: number }> => {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/import-cloudinary-album`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      event_id: eventId,
-      event_slug: eventSlug,
-      kind: 'tag',
-      value: eventSlug,
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.error || 'Synkning misslyckades')
-  }
-  return res.json()
 }
 
 //===DELETE===//

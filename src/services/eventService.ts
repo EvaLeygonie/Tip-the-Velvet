@@ -90,9 +90,9 @@ export const deleteRecord = async (id: string, table: string) => {
   if (error) throw error
 }
 
-export const deleteImageEverywhere = async (
-  imageId: string, // Supabase row id
-  publicId: string, // Cloudinary public_id
+export const deleteEventImage = async (
+  imageId: string,
+  publicId: string,
   isOldEvent: boolean,
   accessToken: string
 ) => {

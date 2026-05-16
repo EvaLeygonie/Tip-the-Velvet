@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react'
-import CloudinaryImage from '@/components/CloudinaryImage'
-import { createEventImage, toggleImageVisibility } from '@/services/eventService'
-import { uploadToCloudinary } from '@/services/cloudinaryService'
-import { buildEventFolderName } from '@/lib/utils'
-import { Eye, EyeOff, Upload } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import type { Event, OldEvent, EventImage } from '@/types'
+import { createEventImage, toggleImageVisibility, deleteEventImage } from '@/services/eventService'
+import { uploadToCloudinary } from '@/services/cloudinaryService'
+import CloudinaryImage from '@/components/CloudinaryImage'
+import { buildEventFolderName } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { Eye, EyeOff, Upload, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface GalleryEditorProps {
@@ -69,6 +70,32 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
       toast(
         t('Något gick fel vid ändring av synlighet', 'Something went wrong toggling visibility')
       )
+    }
+  }
+
+  const handleDelete = async (img: EventImage) => {
+    if (
+      !confirm(
+        t(
+          'Är du säker på att du vill radera den här bilden?',
+          'Are you sure you want to delete this image?'
+        )
+      )
+    )
+      return
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session) throw new Error(t('Inte inloggad', 'Not logged in'))
+
+    try {
+      await deleteEventImage(img.id, img.image_id, isOldEvent, session.access_token)
+      toast.success(t('Bild raderad!', 'Image deleted!'))
+      onUpdate()
+    } catch (err) {
+      console.error('Delete image error:', err)
+      toast(t('Något gick fel vid radering av bilden', 'Something went wrong deleting the image'))
     }
   }
 
@@ -136,6 +163,12 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
                 </button>
 
                 {/* Delete button */}
+                <button
+                  onClick={() => handleDelete(img)}
+                  className="absolute top-2 left-2 p-1 rounded-full transition-all bg-red-900/80 hover:bg-red-600 text-red-200"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             ))}
           </div>
