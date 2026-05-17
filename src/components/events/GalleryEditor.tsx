@@ -1,7 +1,12 @@
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Event, OldEvent, EventImage } from '@/types'
-import { createEventImage, toggleImageVisibility, deleteEventImage } from '@/services/eventService'
+import {
+  createEventImage,
+  toggleImageVisibility,
+  deleteEventImage,
+  purgeOrphanedImages,
+} from '@/services/eventService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { buildEventFolderName, compressImage } from '@/lib/utils'
@@ -27,6 +32,17 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([event.slug])
 
+  const handlePurge = async () => {
+    try {
+      const count = await purgeOrphanedImages(event.slug, isOldEvent)
+      toast.success(t(`${count} trasiga rader borttagna`, `${count} orphaned rows removed`))
+      onUpdate()
+    } catch (err) {
+      toast.error(t('Rensning misslyckades', 'Purge failed'))
+      console.error(err)
+    }
+  }
+
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()
@@ -36,7 +52,6 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
       }
       setTagInput('')
     }
-    // Delete last tag on backspace if input is empty (but not the event slug)
     if (e.key === 'Backspace' && tagInput === '' && tags.length > 1) {
       setTags(tags.slice(0, -1))
     }
@@ -53,7 +68,6 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
   }
 
   const BATCH_SIZE = 4
-
   const handleUpload = async (files: FileList) => {
     if (!files.length) return
     setUploading(true)
@@ -145,6 +159,10 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
   return (
     <div className="space-y-4">
       <div className="editor-container">
+        <button onClick={handlePurge} className="btn-admin text-xs">
+          {t('Rensa trasiga bilder', 'Remove orphaned images')}
+        </button>
+
         {/* Tag editor */}
         <div className="flex flex-wrap items-center gap-2 border-b border-accent/20 pb-3 mb-4">
           {tags.map((tag) => (

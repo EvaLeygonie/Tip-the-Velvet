@@ -6,6 +6,17 @@ export interface CloudinaryResource {
   public_id: string
 }
 
+//=== READ ===///
+
+export const getCloudinaryImagesByTag = async (tag: string) => {
+  const response = await fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${tag}.json`)
+
+  if (!response.ok) throw new Error('Hämtning av bilder misslyckades')
+
+  const data = await response.json()
+  return data.resources.map((img: CloudinaryResource) => img.public_id)
+}
+
 //===CREATE===//
 
 // Upload single file
