@@ -6,7 +6,7 @@ import { uploadToCloudinary } from '@/services/cloudinaryService'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { buildEventFolderName, compressImage } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { Eye, EyeOff, Upload, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, Upload, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface GalleryEditorProps {
@@ -17,11 +17,35 @@ interface GalleryEditorProps {
 }
 
 const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorProps) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { t } = useLanguage()
+
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
-  const inputRef = useRef<HTMLInputElement>(null)
-  const { t } = useLanguage()
+
+  const [tagInput, setTagInput] = useState('')
+  const [tags, setTags] = useState<string[]>([event.slug])
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      const newTag = tagInput.trim().toLowerCase().replace(/\s+/g, '-')
+      if (newTag && !tags.includes(newTag)) {
+        setTags([...tags, newTag])
+      }
+      setTagInput('')
+    }
+    // Delete last tag on backspace if input is empty (but not the event slug)
+    if (e.key === 'Backspace' && tagInput === '' && tags.length > 1) {
+      setTags(tags.slice(0, -1))
+    }
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    if (tagToRemove === event.slug) return // protect event slug
+    setTags(tags.filter((t) => t !== tagToRemove))
+  }
 
   const getEventDate = () => {
     if (isOldEvent) return 'date' in event ? event.date : null
@@ -49,7 +73,7 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
           try {
             const fileToUpload = file.size > 9 * 1024 * 1024 ? await compressImage(file) : file
 
-            const publicId = await uploadToCloudinary(fileToUpload, folder, event.slug || '')
+            const publicId = await uploadToCloudinary(fileToUpload, folder, tags)
             await createEventImage(
               {
                 event_id: event.id,
@@ -65,7 +89,6 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
             console.error('Failed:', file.name, err)
             failed++
           } finally {
-            // Update progress after each file regardless of success/fail
             setProgress((prev) => ({ ...prev, current: prev.current + 1 }))
           }
         })
@@ -122,6 +145,40 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
   return (
     <div className="space-y-4">
       <div className="editor-container">
+        {/* Tag editor */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-accent/20 pb-3 mb-4">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider ${
+                tag === event.slug
+                  ? 'bg-accent/20 text-accent border border-accent/30' // event slug — gold
+                  : 'bg-white/10 text-foreground/70 border border-white/10' // extra tags — neutral
+              }`}
+            >
+              {tag}
+              {tag !== event.slug && (
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="text-foreground/40 hover:text-foreground ml-1"
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </span>
+          ))}
+
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+            placeholder={t('Lägg till tagg...', 'Add tag...')}
+            className="flex-1 min-w-[120px] bg-transparent outline-none text-xs text-foreground/60 placeholder:text-foreground/30 font-mono"
+          />
+        </div>
+
         {/* Upload zone */}
         <div
           onDragOver={(e) => {

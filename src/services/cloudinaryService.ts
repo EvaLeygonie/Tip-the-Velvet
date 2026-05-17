@@ -12,19 +12,19 @@ export interface CloudinaryResource {
 export const uploadToCloudinary = async (
   file: File,
   folder: string,
-  slug: string
+  tags: string[]
 ): Promise<string> => {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', UPLOAD_PRESET)
   formData.append('folder', folder)
-  formData.append('tags', slug)
+  formData.append('tags', tags.join(','))
 
   console.log('Uploading to Cloudinary:', {
     cloudName: CLOUD_NAME,
     uploadPreset: UPLOAD_PRESET,
     folder,
-    slug,
+    tags,
     fileName: file.name,
     fileSize: file.size,
   })
