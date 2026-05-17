@@ -1,12 +1,7 @@
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Event, OldEvent, EventImage } from '@/types'
-import {
-  createEventImage,
-  toggleImageVisibility,
-  deleteEventImage,
-  purgeOrphanedImages,
-} from '@/services/eventService'
+import { createEventImage, toggleImageVisibility, deleteEventImage } from '@/services/eventService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { buildEventFolderName, compressImage } from '@/lib/utils'
@@ -32,17 +27,6 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([event.slug])
 
-  const handlePurge = async () => {
-    try {
-      const count = await purgeOrphanedImages(event.slug, isOldEvent)
-      toast.success(t(`${count} trasiga rader borttagna`, `${count} orphaned rows removed`))
-      onUpdate()
-    } catch (err) {
-      toast.error(t('Rensning misslyckades', 'Purge failed'))
-      console.error(err)
-    }
-  }
-
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()
@@ -67,47 +51,43 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
     return 'event_start' in event ? event.event_start : null
   }
 
-  const BATCH_SIZE = 4
   const handleUpload = async (files: FileList) => {
     if (!files.length) return
     setUploading(true)
     setProgress({ current: 0, total: files.length })
 
     const folder = buildEventFolderName(isOldEvent, event.title, getEventDate() || '')
+
     const fileArray = Array.from(files)
 
     let succeeded = 0
     let failed = 0
 
-    for (let i = 0; i < fileArray.length; i += BATCH_SIZE) {
-      const batch = fileArray.slice(i, i + BATCH_SIZE)
+    await Promise.allSettled(
+      fileArray.map(async (file) => {
+        try {
+          const fileToUpload = await compressImage(file)
 
-      await Promise.allSettled(
-        batch.map(async (file) => {
-          try {
-            const fileToUpload = file.size > 9 * 1024 * 1024 ? await compressImage(file) : file
-
-            const publicId = await uploadToCloudinary(fileToUpload, folder, tags)
-            await createEventImage(
-              {
-                event_id: event.id,
-                event_slug: event.slug || '',
-                image_id: publicId,
-                is_visible: true,
-                display_order: images.length + succeeded,
-              },
-              isOldEvent
-            )
-            succeeded++
-          } catch (err) {
-            console.error('Failed:', file.name, err)
-            failed++
-          } finally {
-            setProgress((prev) => ({ ...prev, current: prev.current + 1 }))
-          }
-        })
-      )
-    }
+          const publicId = await uploadToCloudinary(fileToUpload, folder, tags)
+          await createEventImage(
+            {
+              event_id: event.id,
+              event_slug: event.slug || '',
+              image_id: publicId,
+              is_visible: true,
+              display_order: images.length + succeeded,
+            },
+            isOldEvent
+          )
+          succeeded++
+        } catch (err) {
+          console.error('Failed:', file.name, err)
+          failed++
+        } finally {
+          setProgress((prev) => ({ ...prev, current: prev.current + 1 }))
+        }
+      })
+    )
 
     if (succeeded > 0)
       toast.success(t(`${succeeded} bilder uppladdade!`, `${succeeded} images uploaded!`))
@@ -159,10 +139,6 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
   return (
     <div className="space-y-4">
       <div className="editor-container">
-        <button onClick={handlePurge} className="btn-admin text-xs">
-          {t('Rensa trasiga bilder', 'Remove orphaned images')}
-        </button>
-
         {/* Tag editor */}
         <div className="flex flex-wrap items-center gap-2 border-b border-accent/20 pb-3 mb-4">
           {tags.map((tag) => (

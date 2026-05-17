@@ -22,6 +22,42 @@ export const getImageSrc = (imageId: string, CLOUD_NAME: string) => {
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${imageId}`
 }
 
+export const compressImage = (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.src = URL.createObjectURL(file)
+
+    img.onload = () => {
+      URL.revokeObjectURL(img.src)
+
+      const maxWidth = 2000
+      let width = img.width
+      let height = img.height
+
+      if (width > maxWidth) {
+        height = (maxWidth / width) * height
+        width = maxWidth
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+
+      const ctx = canvas.getContext('2d')
+      ctx?.drawImage(img, 0, 0, width, height)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error('Kunde inte göra bilden mindre'))
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        0.85
+      )
+    }
+    img.onerror = reject
+  })
+}
 export const formatDate = (dateString: string | null) => {
   if (!dateString) return 'TBA'
   const date = new Date(dateString)
@@ -43,39 +79,4 @@ export const utcToLocal = (utcString: string): string => {
 export const localToUtc = (localString: string): string => {
   if (!localString) return ''
   return new Date(localString).toISOString()
-}
-
-export const compressImage = (file: File): Promise<File> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const canvas = document.createElement('canvas')
-      let { width, height } = img
-
-      // Scale down if needed
-      const maxPx = 4000
-      if (width > maxPx || height > maxPx) {
-        const ratio = Math.min(maxPx / width, maxPx / height)
-        width = Math.round(width * ratio)
-        height = Math.round(height * ratio)
-      }
-
-      canvas.width = width
-      canvas.height = height
-      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject(new Error('Compression failed'))
-          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
-        },
-        'image/jpeg',
-        0.85 // quality 85% — good balance of size and quality
-      )
-    }
-    img.onerror = reject
-    img.src = url
-  })
 }

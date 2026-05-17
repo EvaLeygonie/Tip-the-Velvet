@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import type { OldEvent, Event } from '@/types'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { FeaturedEventCard } from '@/components/events/featuredEventCard'
 import { ArchivedEventCard } from '@/components/events/archivedEventCard'
+import { fetchEvents } from '@/services/eventService'
 
 const Events = () => {
   const [oldEvents, setOldEvents] = useState<OldEvent[]>([])
@@ -17,19 +17,18 @@ const Events = () => {
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true)
-
-      const [eventsList, oldEventsList] = await Promise.all([
-        supabase.from('events').select('*').order('event_start', { ascending: false }),
-        supabase.from('old_events').select('*').order('date', { ascending: false }),
-      ])
-
-      if (eventsList.data) setEvents(eventsList.data)
-      if (oldEventsList.data) setOldEvents(oldEventsList.data)
-
-      if (eventsList.error) console.error('Events error:', eventsList.error)
-      if (oldEventsList.error) console.error('Old Events error:', oldEventsList.error)
-
-      setLoading(false)
+      try {
+        const [eventsList, oldEventsList] = await Promise.all([
+          fetchEvents(false),
+          fetchEvents(true),
+        ])
+        setEvents(eventsList)
+        setOldEvents(oldEventsList)
+      } catch (err) {
+        console.error('Error fetching events:', err)
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchAllData()
