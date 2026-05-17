@@ -44,3 +44,38 @@ export const localToUtc = (localString: string): string => {
   if (!localString) return ''
   return new Date(localString).toISOString()
 }
+
+export const compressImage = (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      let { width, height } = img
+
+      // Scale down if needed
+      const maxPx = 4000
+      if (width > maxPx || height > maxPx) {
+        const ratio = Math.min(maxPx / width, maxPx / height)
+        width = Math.round(width * ratio)
+        height = Math.round(height * ratio)
+      }
+
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error('Compression failed'))
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        0.85 // quality 85% — good balance of size and quality
+      )
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}

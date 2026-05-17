@@ -4,7 +4,7 @@ import type { Event, OldEvent, EventImage } from '@/types'
 import { createEventImage, toggleImageVisibility, deleteEventImage } from '@/services/eventService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import CloudinaryImage from '@/components/CloudinaryImage'
-import { buildEventFolderName } from '@/lib/utils'
+import { buildEventFolderName, compressImage } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Eye, EyeOff, Upload, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -19,6 +19,7 @@ interface GalleryEditorProps {
 const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorProps) => {
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [progress, setProgress] = useState({ current: 0, total: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const { t } = useLanguage()
 
@@ -27,37 +28,56 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
     return 'event_start' in event ? event.event_start : null
   }
 
+  const BATCH_SIZE = 4
+
   const handleUpload = async (files: FileList) => {
     if (!files.length) return
     setUploading(true)
+    setProgress({ current: 0, total: files.length })
 
     const folder = buildEventFolderName(isOldEvent, event.title, getEventDate() || '')
+    const fileArray = Array.from(files)
 
-    const results = await Promise.allSettled(
-      Array.from(files).map(async (file) => {
-        const publicId = uploadToCloudinary(file, folder, event.slug || '')
+    let succeeded = 0
+    let failed = 0
 
-        const id = await publicId
-        return createEventImage(
-          {
-            event_id: event.id,
-            event_slug: event.slug || '',
-            image_id: id,
-            is_visible: true,
-            display_order: images.length,
-          },
-          isOldEvent
-        )
-      })
-    )
+    for (let i = 0; i < fileArray.length; i += BATCH_SIZE) {
+      const batch = fileArray.slice(i, i + BATCH_SIZE)
 
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length
-    const failed = results.filter((r) => r.status === 'rejected').length
+      await Promise.allSettled(
+        batch.map(async (file) => {
+          try {
+            const fileToUpload = file.size > 9 * 1024 * 1024 ? await compressImage(file) : file
+
+            const publicId = await uploadToCloudinary(fileToUpload, folder, event.slug || '')
+            await createEventImage(
+              {
+                event_id: event.id,
+                event_slug: event.slug || '',
+                image_id: publicId,
+                is_visible: true,
+                display_order: images.length + succeeded,
+              },
+              isOldEvent
+            )
+            succeeded++
+          } catch (err) {
+            console.error('Failed:', file.name, err)
+            failed++
+          } finally {
+            // Update progress after each file regardless of success/fail
+            setProgress((prev) => ({ ...prev, current: prev.current + 1 }))
+          }
+        })
+      )
+    }
+
     if (succeeded > 0)
       toast.success(t(`${succeeded} bilder uppladdade!`, `${succeeded} images uploaded!`))
     if (failed > 0) toast.error(t(`${failed} misslyckades`, `${failed} failed`))
 
     setUploading(false)
+    setProgress({ current: 0, total: 0 })
     onUpdate()
   }
 
@@ -124,9 +144,22 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
           <Upload className="w-8 h-8 text-accent/50 mx-auto mb-3" />
           <p className="font-decorative uppercase tracking-widest text-sm text-foreground/50">
             {uploading
-              ? t('Laddar upp...', 'Uploading...')
+              ? t(
+                  `Laddar upp ${progress.current} av ${progress.total}...`,
+                  `Uploading ${progress.current} of ${progress.total}...`
+                )
               : t('Dra hit eller klicka för att ladda upp', 'Drag here or click to upload')}
           </p>
+
+          {/* Progress bar */}
+          {uploading && progress.total > 0 && (
+            <div className="w-full bg-white/10 rounded-full h-1.5 mt-4">
+              <div
+                className="bg-accent h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+              />
+            </div>
+          )}
           <input
             ref={inputRef}
             type="file"
