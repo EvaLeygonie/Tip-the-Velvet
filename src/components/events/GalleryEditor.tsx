@@ -17,9 +17,9 @@ interface GalleryEditorProps {
 }
 
 const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorProps) => {
-  const inputRef = useRef<HTMLInputElement>(null)
   const { t } = useLanguage()
 
+  const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
@@ -42,7 +42,7 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
   }
 
   const removeTag = (tagToRemove: string) => {
-    if (tagToRemove === event.slug) return // protect event slug
+    if (tagToRemove === event.slug) return
     setTags(tags.filter((t) => t !== tagToRemove))
   }
 
@@ -146,8 +146,8 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
               key={tag}
               className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider ${
                 tag === event.slug
-                  ? 'bg-accent/20 text-accent border border-accent/30' // event slug — gold
-                  : 'bg-white/10 text-foreground/70 border border-white/10' // extra tags — neutral
+                  ? 'bg-accent/20 text-accent border border-accent/30'
+                  : 'bg-white/10 text-foreground/70 border border-white/10'
               }`}
             >
               {tag}
@@ -211,6 +211,7 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
               />
             </div>
           )}
+
           <input
             ref={inputRef}
             type="file"

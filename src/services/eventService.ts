@@ -4,7 +4,6 @@ import { deleteFromCloudinary } from './cloudinaryService'
 
 //=== READ ===///
 
-//! Probably not needed
 export const fetchEvents = async (isOldEvent: boolean) => {
   const table = isOldEvent ? 'old_events' : 'events'
   const orderColumn = isOldEvent ? 'date' : 'event_start'
@@ -83,7 +82,7 @@ export const updateImageOrder = (id: string, displayOrder: number, isOldEvent: b
 
 //=== DELETE ===///
 
-//generic delete — works for any table, matches on id
+//delete for any table, matches on id
 export const deleteRecord = async (id: string, table: string) => {
   const { error } = await supabase.from(table).delete().eq('id', id)
 
