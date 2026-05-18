@@ -1,3 +1,5 @@
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+
 export const createSlug = (text: string) => {
   return text
     .toLowerCase()
@@ -17,7 +19,7 @@ export const buildEventFolderName = (
   return `${base}/${date} ${eventTitle}`
 }
 
-export const getImageSrc = (imageId: string, CLOUD_NAME: string) => {
+export const getImageSrc = (imageId: string) => {
   if (imageId.startsWith('blob:') || imageId.startsWith('http')) return imageId
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${imageId}`
 }

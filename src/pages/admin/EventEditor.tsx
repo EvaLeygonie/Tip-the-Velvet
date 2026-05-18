@@ -351,7 +351,7 @@ export const EventEditor = () => {
               {formData.image_id && CLOUD_NAME ? (
                 <div className="text-center p-4">
                   <img
-                    src={getImageSrc(formData.image_id, CLOUD_NAME)}
+                    src={getImageSrc(formData.image_id)}
                     className="w-full h-full object-cover relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh]"
                     style={{
                       boxShadow: `0 0 10px 1px ${formData.glow_color}, 0 0 25px 5px rgba(0, 0, 0, 0.5)`,

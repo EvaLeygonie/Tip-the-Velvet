@@ -5,27 +5,32 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { Link, useParams } from 'react-router-dom'
 import type { Event, OldEvent, EventImage } from '@/types'
 import { getEventWithImages } from '@/services/eventService'
-import { ArrowLeft, ChevronRight, ChevronLeft, X, Images } from 'lucide-react'
 import GalleryEditor from '@/components/events/GalleryEditor'
+import { ArrowLeft, Images } from 'lucide-react'
+import * as React from 'react'
+import Lightbox from 'yet-another-react-lightbox'
+import 'yet-another-react-lightbox/styles.css'
+import { getImageSrc } from '@/lib/utils'
 
 const EventDetail = () => {
   const { user } = useAuth()
-  const [loading, setLoading] = useState(true)
   const { t } = useLanguage()
   const { slug, type } = useParams()
   const isOldEvent = type === 'old'
+  const [loading, setLoading] = useState(true)
 
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
+  const [open, setOpen] = React.useState(false)
+
   const sortedImages = [...images]
     .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
     .filter((img) => img.is_visible)
 
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  const openLightbox = (index: number) => setLightboxIndex(index)
-  const closeLightbox = () => setLightboxIndex(null)
-  const prevImage = () => setLightboxIndex((i) => (i! > 0 ? i! - 1 : sortedImages.length - 1))
-  const nextImage = () => setLightboxIndex((i) => (i! < sortedImages.length - 1 ? i! + 1 : 0))
+  const lightBoxSlides = sortedImages.map((img) => ({
+    src: getImageSrc(img.image_id),
+    alt: img.event_slug,
+  }))
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -43,22 +48,6 @@ const EventDetail = () => {
     }
     fetchEvent()
   }, [slug, isOldEvent])
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setLightboxIndex(null)
-      }
-      if (e.key === 'ArrowLeft') {
-        setLightboxIndex((i) => (i === null ? null : i > 0 ? i - 1 : sortedImages.length - 1))
-      }
-      if (e.key === 'ArrowRight') {
-        setLightboxIndex((i) => (i === null ? null : i < sortedImages.length - 1 ? i + 1 : 0))
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [sortedImages.length])
 
   if (loading) return <p>{t('Laddar...', 'Loading...')}</p>
 
@@ -114,10 +103,10 @@ const EventDetail = () => {
 
         {!user && images.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {sortedImages.map((img, index) => (
+            {sortedImages.map((img) => (
               <div
                 key={img.id}
-                onClick={() => openLightbox(index)}
+                onClick={() => setOpen(true)}
                 className="aspect-square rounded-lg overflow-hidden border border-accent/10 hover:border-accent/40 transition-all hover:scale-[1.02]"
               >
                 <CloudinaryImage
@@ -132,52 +121,7 @@ const EventDetail = () => {
         )}
       </section>
 
-      {lightboxIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
-          onClick={closeLightbox}
-        >
-          <button
-            onClick={closeLightbox}
-            className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
-          >
-            <X size={32} />
-          </button>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              prevImage()
-            }}
-            className="absolute left-4 text-white/60 hover:text-white transition-colors p-2"
-          >
-            <ChevronLeft size={40} />
-          </button>
-
-          <div className="max-w-5xl max-h-[90vh] mx-16" onClick={(e) => e.stopPropagation()}>
-            <CloudinaryImage
-              publicId={sortedImages[lightboxIndex].image_id}
-              width={1920}
-              height={1920}
-              fit={true}
-              className="max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg"
-            />
-            <p className="text-center text-white/30 text-xs font-mono mt-3 tracking-widest">
-              {lightboxIndex + 1} / {sortedImages.length}
-            </p>
-          </div>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              nextImage()
-            }}
-            className="absolute right-4 text-white/60 hover:text-white transition-colors p-2"
-          >
-            <ChevronRight size={40} />
-          </button>
-        </div>
-      )}
+      <Lightbox open={open} close={() => setOpen(false)} slides={lightBoxSlides} />
     </div>
   )
 }
