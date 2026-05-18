@@ -1,26 +1,20 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { toast } from 'sonner'
 import { Lock, Mail, ArrowLeft } from 'lucide-react'
 
 const AdminLogin = () => {
-  const navigate = useNavigate()
-  const { user } = useAuth()
   const { t } = useLanguage()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      navigate('/admin')
-    }
-  }, [user, navigate])
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
 
@@ -33,7 +27,14 @@ const AdminLogin = () => {
       if (error) throw error
 
       toast.success(t('Välkommen tillbaka!', 'Welcome back!'))
-      navigate('/admin')
+
+      const redirectTo = searchParams.get('redirectTo')
+
+      if (redirectTo) {
+        navigate(redirectTo)
+      } else {
+        navigate('/admin')
+      }
     } catch (error: unknown) {
       let errorMessage = t('Ett oväntat fel uppstod', 'An unexpected error occurred')
 

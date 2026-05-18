@@ -58,6 +58,7 @@ export const compressImage = (file: File): Promise<File> => {
     img.onerror = reject
   })
 }
+
 export const formatDate = (dateString: string | null) => {
   if (!dateString) return 'TBA'
   const date = new Date(dateString)

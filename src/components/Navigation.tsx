@@ -109,7 +109,7 @@ const Navigation = () => {
             <div className="flex items-center gap-5 pl-6 border-l border-white/10">
               {!user ? (
                 <Link
-                  to="/admin/login"
+                  to={`/admin/login?redirectTo=${encodeURIComponent(location.pathname)}`}
                   className="text-accent/60 hover:text-accent transition-all p-2"
                 >
                   <LogIn size={21} strokeWidth={1.5} />

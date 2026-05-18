@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Event, CreateEventInput, CreateEventImageInput } from '@/types'
 import { deleteFromCloudinary } from './cloudinaryService'
+import { updateRecord } from './generalService'
 
 //=== READ ===///
 
@@ -53,22 +54,6 @@ export const createEventImage = async (eventData: CreateEventImageInput, isOldEv
 
 //=== UPDATE ===///
 
-// Generic update — works for any table, matches on id
-export const updateRecord = async (
-  table: string,
-  id: string,
-  updatedData: Record<string, unknown>
-) => {
-  const { data, error } = await supabase
-    .from(table)
-    .update(updatedData)
-    .eq('id', id)
-    .select()
-    .single()
-  if (error) throw error
-  return data
-}
-
 export const updateEvent = (id: string, updatedData: Partial<CreateEventInput>) =>
   updateRecord('events', id, updatedData as Record<string, unknown>)
 
@@ -81,13 +66,6 @@ export const updateImageOrder = (id: string, displayOrder: number, isOldEvent: b
   })
 
 //=== DELETE ===///
-
-//delete for any table, matches on id
-export const deleteRecord = async (id: string, table: string) => {
-  const { error } = await supabase.from(table).delete().eq('id', id)
-
-  if (error) throw error
-}
 
 export const deleteEventImage = async (
   imageId: string,

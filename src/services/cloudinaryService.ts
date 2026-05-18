@@ -19,7 +19,6 @@ export const getCloudinaryImagesByTag = async (tag: string) => {
 
 //===CREATE===//
 
-// Upload single file
 export const uploadToCloudinary = async (
   file: File,
   folder: string,
@@ -30,15 +29,6 @@ export const uploadToCloudinary = async (
   formData.append('upload_preset', UPLOAD_PRESET)
   formData.append('folder', folder)
   formData.append('tags', tags.join(','))
-
-  console.log('Uploading to Cloudinary:', {
-    cloudName: CLOUD_NAME,
-    uploadPreset: UPLOAD_PRESET,
-    folder,
-    tags,
-    fileName: file.name,
-    fileSize: file.size,
-  })
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
     method: 'POST',

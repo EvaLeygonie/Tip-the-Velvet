@@ -3,7 +3,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '@/lib/supabase'
 import { type User } from '@supabase/supabase-js'
 
-// 1. Definiera vad vår Context ska innehålla
 export interface AuthContextType {
   user: User | null
   loading: boolean
