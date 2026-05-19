@@ -196,7 +196,6 @@ export const EventEditor = () => {
         </div>
 
         <header className="flex flex-col lg:flex-row justify-between items-start gap-12 text-left">
-          {/* LEFT COLUMN: title + subtitle + reveal/casting stacked */}
           <div className="flex-1 flex flex-col justify-between gap-6 self-stretch">
             {/* TITLE & SUBTITLE */}
             <div className="space-y-2">
@@ -224,7 +223,6 @@ export const EventEditor = () => {
 
             {/* REVEAL & CASTING CALL */}
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-black/20 border border-accent/10 rounded-xl px-6 py-4 mt-auto">
-              {/* Reveal Date */}
               <div className="flex items-center gap-3">
                 <Eye className="w-4 h-4 text-accent shrink-0" />
                 <label className="label text-[10px] uppercase whitespace-nowrap">
@@ -262,15 +260,20 @@ export const EventEditor = () => {
                   />
                 </button>
                 {formData.has_casting_call && (
-                  <input
-                    type="date"
-                    className="editor-input !border-none !py-0 text-xs flex-1"
-                    placeholder="Deadline..."
-                    value={formData.casting_call_deadline || ''}
-                    onChange={(e) =>
-                      setFormData({ ...formData, casting_call_deadline: e.target.value })
-                    }
-                  />
+                  <>
+                    <label className="label text-[10px] uppercase whitespace-nowrap">
+                      Deadline:{' '}
+                    </label>
+                    <input
+                      type="date"
+                      className="editor-input !border-none !py-0 text-xs flex-1"
+                      placeholder="Deadline..."
+                      value={formData.casting_call_deadline || ''}
+                      onChange={(e) =>
+                        setFormData({ ...formData, casting_call_deadline: e.target.value })
+                      }
+                    />
+                  </>
                 )}
               </div>
             </div>

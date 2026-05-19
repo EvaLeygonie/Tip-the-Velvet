@@ -21,7 +21,8 @@ const EventDetail = () => {
 
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
-  const [open, setOpen] = React.useState(false)
+  const [index, setIndex] = useState<number>(-1)
+  //* -1 istället för false => Betyder att lightboxen är stängd!
 
   const sortedImages = [...images]
     .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
@@ -103,10 +104,10 @@ const EventDetail = () => {
 
         {!user && images.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {sortedImages.map((img) => (
+            {sortedImages.map((img, idx) => (
               <div
                 key={img.id}
-                onClick={() => setOpen(true)}
+                onClick={() => setIndex(idx)}
                 className="aspect-square rounded-lg overflow-hidden border border-accent/10 hover:border-accent/40 transition-all hover:scale-[1.02]"
               >
                 <CloudinaryImage
@@ -121,7 +122,12 @@ const EventDetail = () => {
         )}
       </section>
 
-      <Lightbox open={open} close={() => setOpen(false)} slides={lightBoxSlides} />
+      <Lightbox
+        open={index >= 0}
+        index={index}
+        close={() => setIndex(-1)}
+        slides={lightBoxSlides}
+      />
     </div>
   )
 }

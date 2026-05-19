@@ -57,25 +57,26 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
     setProgress({ current: 0, total: files.length })
 
     const folder = buildEventFolderName(isOldEvent, event.title, getEventDate() || '')
-
     const fileArray = Array.from(files)
 
     let succeeded = 0
     let failed = 0
 
+    const baseOrder = images.length
+
     await Promise.allSettled(
-      fileArray.map(async (file) => {
+      fileArray.map(async (file, index) => {
         try {
           const fileToUpload = await compressImage(file)
-
           const publicId = await uploadToCloudinary(fileToUpload, folder, tags)
+
           await createEventImage(
             {
               event_id: event.id,
               event_slug: event.slug || '',
               image_id: publicId,
               is_visible: true,
-              display_order: images.length + succeeded,
+              display_order: baseOrder + index,
             },
             isOldEvent
           )
