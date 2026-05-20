@@ -61,13 +61,25 @@ export const compressImage = (file: File): Promise<File> => {
   })
 }
 
-export const formatDate = (dateString: string | null) => {
+export const formatDate = (language: string, dateString: string | null) => {
   if (!dateString) return 'TBA'
   const date = new Date(dateString)
-  return date.toLocaleDateString('sv-SE', {
+  return date.toLocaleDateString(language === 'sv' ? 'sv-SE' : 'en-US', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+  })
+}
+
+export const formatDateTime = (language: string, dateStr: string | null) => {
+  if (!dateStr) return 'TBA'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString(language === 'sv' ? 'sv-SE' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
 

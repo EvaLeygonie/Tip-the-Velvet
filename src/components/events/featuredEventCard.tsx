@@ -6,7 +6,7 @@ import { formatDate } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 export const FeaturedEventCard = ({ event }: { event: Event }) => {
-  const { t } = useLanguage()
+  const { language, t } = useLanguage()
   const isTBA = event.title === 'TBA'
   const glowColor = event.glow_color || '#D4AF37'
   const glowStyle = {
@@ -96,7 +96,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
             <div className="flex flex-wrap gap-6 text-sm text-foreground/60 justify-start">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-accent" />
-                <span>{event.event_start ? formatDate(event.event_start) : 'TBA'}</span>
+                <span>{formatDate(language, event.event_start)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-accent" />

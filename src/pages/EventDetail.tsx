@@ -62,6 +62,7 @@ export const EventDetail = () => {
               <ArrowLeft className="text-accent hover:scale-105" />
             </Link>
           </div>
+
           <h1>{event?.title || t('Event hittades inte', 'Event not found')}</h1>
 
           <div className="header-side-content md:justify-end">

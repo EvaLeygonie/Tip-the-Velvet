@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import type { Event, OldEvent } from '@/types'
 import { formatDate } from '@/lib/utils'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 export const ArchivedEventCard = ({ event }: { event: Event | OldEvent }) => {
+  const { language } = useLanguage()
   const isOldEvent = 'date' in event
   const dateValue = isOldEvent ? event.date : event.event_start
   const type = isOldEvent ? 'old' : 'event'
@@ -37,7 +39,7 @@ export const ArchivedEventCard = ({ event }: { event: Event | OldEvent }) => {
         </h3>
         <div className="flex items-center gap-2 text-xs opacity-60 font-sans tracking-widest uppercase">
           <Calendar className="w-3 h-3 text-accent" />
-          <span>{formatDate(dateValue)}</span>
+          <span>{formatDate(language, dateValue)}</span>
         </div>
       </div>
     </Link>
