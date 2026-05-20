@@ -56,19 +56,23 @@ const Navigation = () => {
         <div className="max-w-[1600px] mx-auto px-8 md:px-16 grid grid-cols-3 items-center min-h-[60px] relative">
           {/* VÄNSTER: Språk & Vänsterlänkar */}
           <div className="flex items-center gap-8">
-            <div className="flex items-center gap-4 pr-6 border-r border-white/10">
-              <button className="lg:hidden text-accent" onClick={() => setIsMobileMenuOpen(true)}>
-                <Menu size={24} />
+            <div className="relative flex items-center gap-4 pr-6 after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-8 after:bg-white/10">
+              <button
+                className="xl:hidden text-accent p-2 -ml-2"
+                onClick={() => setIsMobileMenuOpen(true)}
+              >
+                <Menu size={22} />
               </button>
+
               <button
                 onClick={() => setLanguage(language === 'sv' ? 'eng' : 'sv')}
-                className="hidden lg:block px-3 py-1.5 border border-accent/30 text-[10px] tracking-widest text-accent hover:bg-accent hover:text-black transition-all rounded-md uppercase font-medium"
+                className="px-2 py-1 border border-accent/30 text-[10px] tracking-widest text-accent hover:bg-accent hover:text-black transition-all rounded-md uppercase font-medium"
               >
                 {language === 'sv' ? 'EN' : 'SV'}
               </button>
             </div>
 
-            <div className="hidden lg:flex items-center gap-6">
+            <div className="hidden xl:flex items-center gap-6">
               {leftLinks.map((link) => (
                 <Link
                   key={link.to}
@@ -94,7 +98,7 @@ const Navigation = () => {
 
           {/* HÖGER: Högerlänkar & Login */}
           <div className="flex items-center justify-end gap-8">
-            <div className="hidden lg:flex items-center gap-6">
+            <div className="hidden xl:flex items-center gap-6">
               {rightLinks.map((link) => (
                 <Link
                   key={link.to}
@@ -106,7 +110,7 @@ const Navigation = () => {
               ))}
             </div>
 
-            <div className="flex items-center gap-5 pl-6 border-l border-white/10">
+            <div className="relative flex items-center gap-3 pl-6 after:absolute after:left-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-8 after:bg-white/10">
               {!user ? (
                 <Link
                   to={`/admin/login?redirectTo=${encodeURIComponent(location.pathname)}`}
@@ -136,7 +140,7 @@ const Navigation = () => {
 
         {/* ADMIN SUB-NAV */}
         {user && (
-          <div className="border-t border-accent/20 p-3 mt-2">
+          <div className="hidden xl:block border-t border-accent/20 p-3 mt-2">
             <div className="max-w-7xl mx-auto flex justify-center gap-12 pt-2">
               {adminSubLinks.map((link) => {
                 const Icon = link.icon
@@ -158,23 +162,52 @@ const Navigation = () => {
 
       {/* MOBIL MENY OVERLAY */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-[#110805] z-[100] flex flex-col p-8 lg:hidden">
-          <div className="flex justify-end mb-12">
-            <button onClick={() => setIsMobileMenuOpen(false)} className="text-accent">
+        <div className="fixed inset-0 bg-[#110805]/95 backdrop-blur-lg z-[100] flex flex-col p-8 xl:hidden overflow-y-auto">
+          <div className="flex justify-end mb-6">
+            <button onClick={() => setIsMobileMenuOpen(false)} className="text-accent p-2">
               <X size={32} />
             </button>
           </div>
-          <div className="flex flex-col gap-8 items-center text-center">
+
+          <div className="flex flex-col gap-6 items-center text-center my-auto py-6">
+            {/* Publika länkar */}
             {[...leftLinks, ...rightLinks].map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="text-2xl font-decorative uppercase tracking-[0.2em] text-accent"
+                className={`text-xl font-decorative uppercase tracking-[0.2em] transition-colors ${isActive(link.to) ? 'text-accent' : 'text-foreground/80'}`}
               >
                 {link.label}
               </Link>
             ))}
+
+            {/* Administrativa länkar i mobilmenyn vid inloggat läge */}
+            {user && (
+              <>
+                <div className="w-24 h-px bg-accent/20 my-4" />
+                <p className="text-[10px] uppercase font-mono tracking-[0.3em] text-accent/50 mb-2">
+                  Backstage Admin
+                </p>
+
+                <div className="grid grid-cols-1 gap-4 w-full max-w-xs">
+                  {adminSubLinks.map((link) => {
+                    const Icon = link.icon
+                    return (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={`flex items-center justify-center gap-3 py-2 px-4 rounded-xl border border-accent/10 bg-accent/5 text-xs uppercase tracking-[0.15em] transition-all ${isActive(link.to) ? 'text-accent border-accent/40 bg-accent/10' : 'text-accent/80'}`}
+                      >
+                        <Icon size={14} strokeWidth={1.5} />
+                        {link.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
