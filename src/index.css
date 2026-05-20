@@ -46,7 +46,7 @@ body {
   }
 
   .page-standard {
-    @apply pt-24 pb-20 px-6 md:px-12 max-w-[1600px] mx-auto w-full;
+    @apply pt-20 pb-20 px-6 md:px-12 max-w-[1600px] mx-auto w-full;
   }
 
   .page-full {

@@ -59,8 +59,9 @@ export type CreateEventInput = Omit<Event, keyof BaseEntity | 'updated_at'>
 
 export interface OldEvent extends BaseEntity {
   title: string
-  date: string
   slug: string
+  date: string
+  location: string
   description_sv: string | null
   description_eng: string | null
   photographer: string | null

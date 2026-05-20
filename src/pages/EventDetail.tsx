@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { Event, OldEvent, EventImage } from '@/types'
 import { getEventWithImages } from '@/services/eventService'
 import { GalleryEditor } from '@/components/events/GalleryEditor'
-import { ArrowLeft, Images } from 'lucide-react'
+import { ArrowLeft, Images, ExternalLink } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 import { getImageSrc } from '@/lib/utils'
@@ -75,27 +75,38 @@ export const EventDetail = () => {
       </div>
       <div className="gold-divider" />
 
-      {isOldEvent ? (
-        <OldEventInfo event={event as OldEvent}></OldEventInfo>
-      ) : (
-        <EventInfo event={event as Event}></EventInfo>
-      )}
+      <div className="max-w-3xl mx-auto space-y-8 text-center my-12">
+        {isOldEvent ? (
+          <OldEventInfo event={event as OldEvent}></OldEventInfo>
+        ) : (
+          <EventInfo event={event as Event}></EventInfo>
+        )}
 
-      {event &&
-        (() => {
-          const langKey = `description_${t('sv', 'eng')}` as keyof typeof event
-          const description = event[langKey] as string
-          return (
-            description && (
-              <p className="text-lg leading-relaxed text-foreground/70 line-clamp-3 font-sans max-w-xl !text-left">
-                {description}
-              </p>
-            )
-          )
-        })()}
+        {event &&
+          (() => {
+            const langKey = `description_${t('sv', 'eng')}` as keyof typeof event
+            const description = event[langKey] as string
+            return description && <p>{description}</p>
+          })()}
+
+        {event?.fb_album_url && (
+          <div className="pt-2">
+            <a
+              href={event.fb_album_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-2.5 border border-accent/40 bg-accent/5 hover:bg-accent hover:text-black text-accent text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300"
+            >
+              <ExternalLink size={14} />
+              {t('Se Facebook-album', 'View Facebook Album')}
+            </a>
+          </div>
+        )}
+      </div>
+      <div className="gold-divider" />
 
       {/* GALLERY */}
-      <section className="page-section">
+      <section className="page-section mt-10">
         <div className="editor-container">
           <h2>{t('Bilder', 'Photos')}</h2>
         </div>
