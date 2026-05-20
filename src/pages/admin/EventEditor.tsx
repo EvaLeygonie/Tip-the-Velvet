@@ -35,7 +35,7 @@ export const EventEditor = () => {
     image_id: null,
     has_casting_call: false,
     casting_call_deadline: null,
-    dresscode_link: null,
+    pinterest_link: null,
     ticket_url: null,
     tickets_price: null,
     tickets_sold: null,
@@ -147,7 +147,7 @@ export const EventEditor = () => {
       description_sv: formData.description_sv || null,
       description_eng: formData.description_eng || null,
       image_id: finalImageId || null,
-      dresscode_link: formData.dresscode_link || null,
+      pinterest_link: formData.pinterest_link || null,
       ticket_url: formData.ticket_url || null,
       tickets_price: formData.tickets_price || null,
       tickets_sold: formData.tickets_sold || null,
@@ -185,7 +185,7 @@ export const EventEditor = () => {
       <div className="editor-container">
         <div className="section-header-triad">
           <div className="header-side-content md:justify-start">
-            <Link to="/events">
+            <Link to={slug ? `/events/event/${slug}` : '/events'}>
               <ArrowLeft className="text-accent hover:scale-105" />
             </Link>
           </div>
@@ -500,8 +500,8 @@ export const EventEditor = () => {
               <input
                 type="text"
                 className="editor-input"
-                value={formData.dresscode_link || ''}
-                onChange={(e) => setFormData({ ...formData, dresscode_link: e.target.value })}
+                value={formData.pinterest_link || ''}
+                onChange={(e) => setFormData({ ...formData, pinterest_link: e.target.value })}
               />
             </div>
 

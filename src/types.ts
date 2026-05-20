@@ -44,7 +44,7 @@ export interface Event extends BaseEntity {
   updated_at: string
   has_casting_call: boolean
   casting_call_deadline: string | null
-  dresscode_link: string | null
+  pinterest_link: string | null
   ticket_url: string | null
   tickets_price: number | null
   tickets_sold: number | null

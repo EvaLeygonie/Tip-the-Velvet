@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Ticket, Sparkles, UserPlus, Camera } from 'lucide-react'
+import { Calendar, MapPin, Ticket, Sparkles, UserPlus, ExternalLink } from 'lucide-react'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { formatDateTime } from '@/lib/utils'
 import type { Event } from '@/types'
@@ -17,83 +17,81 @@ export const EventInfo = ({ event }: { event: Event }) => {
     outlineColor: `${glowColor}50`,
   }
 
-  const isCastingOpen = event.casting_call_deadline
-    ? new Date(event.casting_call_deadline) > new Date()
-    : true
+  const upcomingEvent = event.event_end ? new Date(event.event_end) > new Date() : true
 
   return (
-    <div className="w-full max-w-5xl mx-auto my-6 text-left">
-      <div className="flex flex-col md:flex-row items-center md:items-start gap-12 md:gap-16">
-        {/* VÄNSTER: Den eleganta, mindre promobilden */}
-        <div className="w-full sm:w-2/3 md:w-[350px] shrink-0">
+    <div className="w-full max-w-4xl mx-auto my-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center">
+        {/* PROMO IMAGE */}
+        <div className="flex justify-center w-full">
           <div
-            className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden border transition-all duration-500 hover:scale-[1.02]"
+            className="relative aspect-square w-full max-w-[380px] md:max-w-[420px] rounded-2xl overflow-hidden border transition-all duration-500 hover:scale-[1.01]"
             style={glowStyle}
           >
             {event.image_id ? (
               <CloudinaryImage
                 publicId={event.image_id}
-                width={700}
-                height={933}
+                width={800}
+                height={800}
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="h-full w-full flex flex-col items-center justify-center bg-black/40">
-                <Sparkles className="w-12 h-12 text-accent/20 animate-pulse" />
+              <div className="h-full w-full flex items-center justify-center bg-black/40">
+                <Sparkles className="w-12 h-12 text-accent/20" />
               </div>
             )}
-            {/* Subtilt inre guldsken */}
-            <div className="absolute inset-0 border border-white/5 rounded-2xl pointer-events-none" />
           </div>
         </div>
 
-        {/* HÖGER: Text, Subtitle & Dynamiska handlingsknappar */}
-        <div className="flex-1 space-y-8 py-2 w-full text-center md:text-left">
-          {/* Titlar sammanlänkade */}
-          <div className="space-y-3">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-decorative text-accent tracking-wide leading-tight drop-shadow-[0_0_15px_rgba(212,175,55,0.2)] !text-center md:!text-left">
-              {event.title}
-            </h1>
-            {event.subtitle && (
-              <p className="text-xl md:text-2xl font-heading italic text-foreground/70 tracking-wide font-light !text-center md:!text-left">
-                {event.subtitle}
-              </p>
-            )}
-          </div>
-
-          <div className="h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent md:from-accent/20 md:to-transparent" />
-
-          {/* Metadata Grid */}
-          <div className="flex flex-col sm:flex-row justify-center md:justify-start gap-6 text-sm md:text-base font-body text-foreground/80">
-            <div className="flex items-center justify-center md:justify-start gap-3">
-              <Calendar className="w-5 h-5 text-accent shrink-0" strokeWidth={1.5} />
-              <span>{formatDateTime(language, event?.event_start)}</span>
-            </div>
-
-            <div className="flex items-center justify-center md:justify-start gap-3">
-              <MapPin className="w-5 h-5 text-accent shrink-0" strokeWidth={1.5} />
-              <span>{event.location || 'TBA'}</span>
-            </div>
-
-            {event.photographer && (
-              <div className="flex items-center justify-center md:justify-start gap-3">
-                <Camera className="w-5 h-5 text-accent shrink-0" strokeWidth={1.5} />
-                <span className="italic">
-                  {t('Foto:', 'Photo:')} {event.photographer}
+        {/* INFO */}
+        <div className="space-y-6 w-full max-w-[450px] mx-auto md:mx-0 text-left">
+          <div className="bg-black/20 border border-accent/5 rounded-2xl p-6 md:p-8 space-y-4 max-w-lg mx-auto text-left text-sm md:text-base font-body">
+            <div className="flex items-start gap-4 border-b border-white/5 pb-3">
+              <Calendar className="w-5 h-5 text-accent shrink-0 mt-0.5" strokeWidth={1.5} />
+              <div>
+                <span className="block text-[11px] uppercase tracking-widest text-accent font-semibold mb-0.5">
+                  {t('Start:', 'Starts:')}
+                </span>
+                <span className="text-foreground/90">
+                  {formatDateTime(language, event.event_start)}
                 </span>
               </div>
+            </div>
+
+            {event.event_end && (
+              <div className="flex items-start gap-4 border-b border-white/5 pb-3">
+                <Calendar className="w-5 h-5 text-accent/70 shrink-0 mt-0.5" strokeWidth={1.5} />
+                <div>
+                  <span className="block text-[11px] uppercase tracking-widest text-accent/70 font-semibold mb-0.5">
+                    {t('Slut:', 'Ends:')}
+                  </span>
+                  <span className="text-foreground/80">
+                    {formatDateTime(language, event.event_end)}
+                  </span>
+                </div>
+              </div>
             )}
+
+            <div className="flex items-start gap-4">
+              <MapPin className="w-5 h-5 text-accent shrink-0 mt-0.5" strokeWidth={1.5} />
+              <div>
+                <span className="block text-[11px] uppercase tracking-widest text-accent font-semibold mb-0.5">
+                  {t('Plats:', 'Venue:')}
+                </span>
+                <span className="text-foreground/90">{event.location || 'TBA'}</span>
+              </div>
+            </div>
           </div>
 
           {/* LINKS */}
-          <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-4">
-            {/* TICKETS */}
-            {event.ticket_url && (
+          <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+            {/* BILJETTER */}
+            {event.ticket_url && upcomingEvent && (
               <a
                 href={event.ticket_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 bg-accent text-background font-bold px-6 py-3 text-xs uppercase tracking-widest rounded-xl transition-all duration-300 hover:scale-105 hover:bg-accent/90 shadow-[0_0_25px_rgba(212,175,55,0.25)]"
+                className="btn-gold"
               >
                 <Ticket className="w-4 h-4" />
                 {t('Köp Biljetter', 'Get Tickets')}
@@ -101,27 +99,59 @@ export const EventInfo = ({ event }: { event: Event }) => {
             )}
 
             {/* CASTING CALL */}
-            {event.has_casting_call && isCastingOpen && (
+            {event.has_casting_call && (
               <Link
                 to="/casting-call"
-                className="inline-flex items-center gap-2.5 text-accent border border-accent/40 bg-accent/5 font-semibold px-6 py-3 text-xs uppercase tracking-widest rounded-xl transition-all duration-300 hover:scale-105 hover:bg-accent hover:text-black"
+                className="inline-flex items-center gap-2.5 bg-red-950 hover:bg-red-900 text-red-100 border border-red-500/30 px-6 py-3.5 text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300 hover:scale-105 shadow-[0_0_25px_rgba(153,27,27,0.2)]"
               >
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-4 h-4 text-red-400" />
                 {t('Sök Casting', 'Apply for Casting')}
-              </Link>
-            )}
-
-            {/* DRESSCODE */}
-            {event.dresscode_link && (
-              <Link
-                to="/dresscode"
-                className="inline-flex items-center gap-2.5 bg-white/5 text-foreground/70 border border-white/10 font-medium px-5 py-3 text-xs uppercase tracking-widest rounded-xl transition-all duration-300 hover:border-white/30 hover:text-foreground"
-              >
-                {t('Klädkod', 'Dresscode')}
               </Link>
             )}
           </div>
         </div>
+      </div>
+
+      {/* DRESSCODE */}
+      <div className="pt-8 pb-6">
+        <div className="gold-divider" />
+      </div>
+      <div className="max-w-3xl mx-auto bg-gradient-to-b from-black/40 to-black/20 border border-accent/10 rounded-2xl p-6 md:p-6 text-center backdrop-blur-sm shadow-xl space-y-3 mt-4 transition-all duration-300 hover:border-accent/20">
+        <p className="text-sm md:text-base font-body text-foreground/90 leading-relaxed tracking-wide">
+          {t(
+            'Osäker på vad du ska ha på dig? Kolla in vår ',
+            "Don't know what to wear? Check out our "
+          )}
+          <Link
+            to="/dresscode"
+            className="text-accent underline underline-offset-4 hover:text-accent/80 transition-colors font-medium"
+          >
+            {t('klädkod', 'dresscode')}
+          </Link>
+          {event.pinterest_link && (
+            <>
+              {t(' eller denna ', ' or this ')}
+              <a
+                href={event.pinterest_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 hover:text-accent/80 transition-colors font-medium inline-flex items-center gap-1"
+              >
+                {t('Pinterest-anslagstavla', 'Pinterest board')}
+                <ExternalLink size={13} className="opacity-80" />
+              </a>
+              {t(' för inspiration', ' for inspiration')}
+            </>
+          )}
+          !
+        </p>
+
+        <p className="text-xs md:text-sm text-foreground/40 font-body italic pt-1 tracking-wide">
+          {t(
+            'Du är alltid välkommen att kontakta oss via e-post eller sociala medier om du har frågor eller funderingar!',
+            "You're always welcome to contact us via email or social media if you have questions or doubts!"
+          )}
+        </p>
       </div>
     </div>
   )

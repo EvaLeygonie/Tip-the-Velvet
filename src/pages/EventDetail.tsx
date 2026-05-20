@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { Event, OldEvent, EventImage } from '@/types'
 import { getEventWithImages } from '@/services/eventService'
 import { GalleryEditor } from '@/components/events/GalleryEditor'
-import { ArrowLeft, Images, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Images, ExternalLink, Camera } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 import { getImageSrc } from '@/lib/utils'
@@ -23,7 +23,7 @@ export const EventDetail = () => {
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
   const [index, setIndex] = useState<number>(-1)
-  //* -1 istället för false => Betyder att lightboxen är stängd!
+  //* -1 istället för false => lightboxen är stängd!
 
   const sortedImages = [...images]
     .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
@@ -63,7 +63,17 @@ export const EventDetail = () => {
             </Link>
           </div>
 
-          <h1>{event?.title || t('Event hittades inte', 'Event not found')}</h1>
+          <div className="text-center space-y-2">
+            <h1 className="drop-shadow-[0_0_20px_currentColor]">
+              {event?.title || t('Event hittades inte', 'Event not found')}
+            </h1>
+
+            {event && !isOldEvent && 'subtitle' in event && event.subtitle && (
+              <h2 className="font-heading text-foreground/70 text-sm md:text-base tracking-wide mt-1">
+                {event.subtitle}
+              </h2>
+            )}
+          </div>
 
           <div className="header-side-content md:justify-end">
             {user && !isOldEvent && (
@@ -74,21 +84,22 @@ export const EventDetail = () => {
           </div>
         </div>
       </div>
-      <div className="gold-divider" />
 
       <div className="max-w-3xl mx-auto space-y-8 text-center my-12">
-        {isOldEvent ? (
-          <OldEventInfo event={event as OldEvent}></OldEventInfo>
-        ) : (
-          <EventInfo event={event as Event}></EventInfo>
-        )}
-
         {event &&
           (() => {
             const langKey = `description_${t('sv', 'eng')}` as keyof typeof event
             const description = event[langKey] as string
             return description && <p>{description}</p>
           })()}
+
+        <div className="gold-divider" />
+
+        {isOldEvent ? (
+          <OldEventInfo event={event as OldEvent}></OldEventInfo>
+        ) : (
+          <EventInfo event={event as Event}></EventInfo>
+        )}
 
         {event?.fb_album_url && (
           <div className="pt-2">
@@ -108,8 +119,17 @@ export const EventDetail = () => {
 
       {/* GALLERY */}
       <section className="page-section mt-10">
-        <div className="editor-container">
-          <h2>{t('Bilder', 'Photos')}</h2>
+        <div className="editor-container text-center space-y-1 mb-4">
+          <h2 className="m-0 p-0">{t('Bilder', 'Photos')}</h2>
+          {/* FOTOGRAF */}
+          {event?.photographer && (
+            <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-foreground/60 italic font-body">
+              <Camera size={14} className="text-accent/70" />
+              <span>
+                {t('Fotograf:', 'Photographer:')} {event.photographer}
+              </span>
+            </div>
+          )}
         </div>
 
         {user && event && (
