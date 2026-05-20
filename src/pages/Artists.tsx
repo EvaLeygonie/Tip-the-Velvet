@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 
-const Artists = () => {
+export const Artists = () => {
   const { t } = useLanguage()
   return (
     <>
@@ -16,5 +16,3 @@ const Artists = () => {
     </>
   )
 }
-
-export default Artists

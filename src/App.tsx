@@ -6,27 +6,27 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LanguageProvider } from './contexts/LanguageContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
-import Navigation from '@/components/Navigation'
+import { Navigation } from '@/components/Navigation'
 import { Footer } from '@/components/footer'
 
-import ScrollToTop from '@/components/ScrollToTop'
-import HomePage from '@/pages/HomePage'
-import NotFound from '@/pages/NotFound'
-import Events from '@/pages/Events'
-import EventDetail from '@/pages/EventDetail.tsx'
-import About from '@/pages/About'
-import Dresscode from '@/pages/Dresscode'
-import JoinUs from '@/pages/JoinUs'
-import AdminLogin from '@/pages/admin/AdminLogin'
-import AdminDashboard from '@/pages/admin/AdminDashboard'
-import EventEditor from '@/pages/admin/EventEditor'
-import AdminEventPlan from '@/pages/admin/AdminEventPlan'
-import Artists from '@/pages/Artists'
-import ArtistDetail from '@/pages/ArtistDetail'
+import { ScrollToTop } from '@/components/ScrollToTop'
+import { HomePage } from '@/pages/HomePage'
+import { NotFound } from '@/pages/NotFound'
+import { Events } from '@/pages/Events'
+import { EventDetail } from '@/pages/EventDetail.tsx'
+import { About } from '@/pages/About'
+import { Dresscode } from '@/pages/Dresscode'
+import { JoinUs } from '@/pages/JoinUs'
+import { AdminLogin } from '@/pages/admin/AdminLogin'
+import { AdminDashboard } from '@/pages/admin/AdminDashboard'
+import { EventEditor } from '@/pages/admin/EventEditor'
+import { AdminEventPlan } from '@/pages/admin/AdminEventPlan'
+import { Artists } from '@/pages/Artists'
+import { ArtistDetail } from '@/pages/ArtistDetail'
 
 const queryClient = new QueryClient()
 
-const App = () => (
+export const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <LanguageProvider>
@@ -104,5 +104,3 @@ const App = () => (
     </AuthProvider>
   </QueryClientProvider>
 )
-
-export default App

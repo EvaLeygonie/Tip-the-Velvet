@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 
-const Dresscode = () => {
+export const Dresscode = () => {
   const { t } = useLanguage()
   return (
     <>
@@ -16,5 +16,3 @@ const Dresscode = () => {
     </>
   )
 }
-
-export default Dresscode

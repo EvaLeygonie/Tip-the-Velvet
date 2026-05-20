@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Settings, LogOut, BarChart3, ClipboardList, Users, Menu, X, LogIn } from 'lucide-react'
 import logoFull from '@/assets/tipthevelvet_logo_transparent.png'
 
-const Navigation = () => {
+export const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { user, signOut } = useAuth()
@@ -217,5 +217,3 @@ const Navigation = () => {
     </>
   )
 }
-
-export default Navigation

@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 
-const About = () => {
+export const About = () => {
   const { t } = useLanguage()
   return (
     <>
@@ -16,5 +16,3 @@ const About = () => {
     </>
   )
 }
-
-export default About

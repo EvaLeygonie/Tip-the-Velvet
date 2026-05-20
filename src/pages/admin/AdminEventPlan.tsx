@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 
-const AdminEventPlan = () => {
+export const AdminEventPlan = () => {
   const { t } = useLanguage()
   return (
     <>
@@ -16,5 +16,3 @@ const AdminEventPlan = () => {
     </>
   )
 }
-
-export default AdminEventPlan

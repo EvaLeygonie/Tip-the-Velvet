@@ -16,7 +16,7 @@ interface GalleryEditorProps {
   onUpdate: () => void
 }
 
-const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorProps) => {
+export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorProps) => {
   const { t } = useLanguage()
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -263,5 +263,3 @@ const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorPro
     </div>
   )
 }
-
-export default GalleryEditor

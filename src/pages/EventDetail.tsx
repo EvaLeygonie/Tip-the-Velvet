@@ -5,14 +5,15 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { Link, useParams } from 'react-router-dom'
 import type { Event, OldEvent, EventImage } from '@/types'
 import { getEventWithImages } from '@/services/eventService'
-import GalleryEditor from '@/components/events/GalleryEditor'
+import { GalleryEditor } from '@/components/events/GalleryEditor'
 import { ArrowLeft, Images } from 'lucide-react'
-import * as React from 'react'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 import { getImageSrc } from '@/lib/utils'
+import { EventInfo } from '@/components/events/EventInfo'
+import { OldEventInfo } from '@/components/events/OldEventInfo'
 
-const EventDetail = () => {
+export const EventDetail = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
   const { slug, type } = useParams()
@@ -74,6 +75,25 @@ const EventDetail = () => {
       </div>
       <div className="gold-divider" />
 
+      {isOldEvent ? (
+        <OldEventInfo event={event as OldEvent}></OldEventInfo>
+      ) : (
+        <EventInfo event={event as Event}></EventInfo>
+      )}
+
+      {event &&
+        (() => {
+          const langKey = `description_${t('sv', 'eng')}` as keyof typeof event
+          const description = event[langKey] as string
+          return (
+            description && (
+              <p className="text-lg leading-relaxed text-foreground/70 line-clamp-3 font-sans max-w-xl !text-left">
+                {description}
+              </p>
+            )
+          )
+        })()}
+
       {/* GALLERY */}
       <section className="page-section">
         <div className="editor-container">
@@ -131,5 +151,3 @@ const EventDetail = () => {
     </div>
   )
 }
-
-export default EventDetail

@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react'
 // import { useLanguage } from '@/contexts/LanguageContext';
 // import { useAuth } from '@/contexts/AuthContext';
 
-const HomePage = () => {
+export const HomePage = () => {
   return (
     <>
       <div className="p-8 md:p-12 space-y-4">
@@ -17,24 +17,7 @@ const HomePage = () => {
           <Sparkles className="w-4 h-4 text-accent" />
           <div className="gold-divider" />
         </div>
-
-        {/* Eventdetaljer */}
-        <div className="space-y-1.5 text-body">
-          <p>
-            <span className="event-label">Date:</span> Date
-          </p>
-          <p>
-            <span className="event-label">Time:</span> 19.00 – 2.00
-          </p>
-          <p>
-            <span className="event-label">Location:</span> Location
-          </p>
-        </div>
-
-        <p className="text-body opacity-90">Event description</p>
       </div>
     </>
   )
 }
-
-export default HomePage

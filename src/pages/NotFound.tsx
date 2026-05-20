@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useLanguage } from '@/contexts/LanguageContext'
 
-const NotFound = () => {
+export const NotFound = () => {
   const { t } = useLanguage()
   return (
     <main className="flex-center min-h-screen bg-background text-center p-4">
@@ -27,5 +27,3 @@ const NotFound = () => {
     </main>
   )
 }
-
-export default NotFound

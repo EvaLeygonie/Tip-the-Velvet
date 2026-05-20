@@ -567,5 +567,3 @@ export const EventEditor = () => {
     </div>
   )
 }
-
-export default EventEditor

@@ -7,7 +7,7 @@ import { FeaturedEventCard } from '@/components/events/featuredEventCard'
 import { ArchivedEventCard } from '@/components/events/archivedEventCard'
 import { fetchEvents } from '@/services/eventService'
 
-const Events = () => {
+export const Events = () => {
   const [oldEvents, setOldEvents] = useState<OldEvent[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
@@ -112,5 +112,3 @@ const Events = () => {
     </>
   )
 }
-
-export default Events

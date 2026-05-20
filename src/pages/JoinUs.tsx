@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 
-const JoinUs = () => {
+export const JoinUs = () => {
   const { t } = useLanguage()
   return (
     <>
@@ -16,5 +16,3 @@ const JoinUs = () => {
     </>
   )
 }
-
-export default JoinUs

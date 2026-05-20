@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 
-const AdminDashboard = () => {
+export const AdminDashboard = () => {
   const { t } = useLanguage()
   return (
     <>
@@ -30,5 +30,3 @@ const AdminDashboard = () => {
     </>
   )
 }
-
-export default AdminDashboard

@@ -5,7 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { toast } from 'sonner'
 import { Lock, Mail, ArrowLeft } from 'lucide-react'
 
-const AdminLogin = () => {
+export const AdminLogin = () => {
   const { t } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -130,5 +130,3 @@ const AdminLogin = () => {
     </div>
   )
 }
-
-export default AdminLogin
