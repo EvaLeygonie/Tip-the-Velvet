@@ -14,6 +14,7 @@ import { HomePage } from '@/pages/HomePage'
 import { NotFound } from '@/pages/NotFound'
 import { Events } from '@/pages/Events'
 import { EventDetail } from '@/pages/EventDetail.tsx'
+import { CastingCall } from './pages/CastingCall'
 import { About } from '@/pages/About'
 import { Dresscode } from '@/pages/Dresscode'
 import { JoinUs } from '@/pages/JoinUs'
@@ -55,6 +56,7 @@ export const App = () => (
               <Route path="/" element={<HomePage />} />
               <Route path="/events" element={<Events />} />
               <Route path="/events/:type/:slug" element={<EventDetail />} />
+              <Route path="/casting-call" element={<CastingCall />} />
               <Route path="/about" element={<About />} />
               <Route path="/dresscode" element={<Dresscode />} />
               <Route path="/join" element={<JoinUs />} />

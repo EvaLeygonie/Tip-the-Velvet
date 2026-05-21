@@ -20,8 +20,8 @@ export const EventInfo = ({ event }: { event: Event }) => {
   const upcomingEvent = event.event_end ? new Date(event.event_end) > new Date() : true
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center">
+    <div className="w-full space-y-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 items-center">
         {/* PROMO IMAGE */}
         <div className="flex justify-center w-full">
           <div
@@ -45,7 +45,7 @@ export const EventInfo = ({ event }: { event: Event }) => {
 
         {/* INFO */}
         <div className="space-y-6 w-full max-w-[450px] mx-auto md:mx-0 text-left">
-          <div className="bg-black/20 border border-accent/5 rounded-2xl p-6 md:p-8 space-y-4 max-w-lg mx-auto text-left text-sm md:text-base font-body">
+          <div className="bg-black/20 border border-accent/5 rounded-2xl p-6 md:p-8 space-y-4 text-left text-sm md:text-base font-body shadow-xl backdrop-blur-sm">
             <div className="flex items-start gap-4 border-b border-white/5 pb-3">
               <Calendar className="w-5 h-5 text-accent shrink-0 mt-0.5" strokeWidth={1.5} />
               <div>
@@ -60,9 +60,9 @@ export const EventInfo = ({ event }: { event: Event }) => {
 
             {event.event_end && (
               <div className="flex items-start gap-4 border-b border-white/5 pb-3">
-                <Calendar className="w-5 h-5 text-accent/70 shrink-0 mt-0.5" strokeWidth={1.5} />
+                <Calendar className="w-5 h-5 text-accent shrink-0 mt-0.5" strokeWidth={1.5} />
                 <div>
-                  <span className="block text-[11px] uppercase tracking-widest text-accent/70 font-semibold mb-0.5">
+                  <span className="block text-[11px] uppercase tracking-widest text-accent font-semibold mb-0.5">
                     {t('Slut:', 'Ends:')}
                   </span>
                   <span className="text-foreground/80">
@@ -113,10 +113,10 @@ export const EventInfo = ({ event }: { event: Event }) => {
       </div>
 
       {/* DRESSCODE */}
-      <div className="pt-8 pb-6">
+      <div className="pt-4">
         <div className="gold-divider" />
       </div>
-      <div className="max-w-3xl mx-auto bg-gradient-to-b from-black/40 to-black/20 border border-accent/10 rounded-2xl p-6 md:p-6 text-center backdrop-blur-sm shadow-xl space-y-3 mt-4 transition-all duration-300 hover:border-accent/20">
+      <div className="mx-auto bg-gradient-to-b from-black/40 to-black/20 border border-accent/10 rounded-2xl p-6 md:p-6 text-center backdrop-blur-sm shadow-xl space-y-3 mt-4 transition-all duration-300 hover:border-accent/20">
         <p className="text-sm md:text-base font-body text-foreground/90 leading-relaxed tracking-wide">
           {t(
             'Osäker på vad du ska ha på dig? Kolla in vår ',

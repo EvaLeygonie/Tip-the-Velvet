@@ -85,12 +85,18 @@ export const EventDetail = () => {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto space-y-8 text-center my-12">
+      <div className="max-w-5xl mx-auto space-y-10 px-4 my-12">
         {event &&
           (() => {
             const langKey = `description_${t('sv', 'eng')}` as keyof typeof event
             const description = event[langKey] as string
-            return description && <p>{description}</p>
+            return (
+              description && (
+                <p className="text-base md:text-lg text-foreground/80 font-body leading-relaxed mx-auto text-center">
+                  {description}
+                </p>
+              )
+            )
           })()}
 
         <div className="gold-divider" />
@@ -102,7 +108,7 @@ export const EventDetail = () => {
         )}
 
         {event?.fb_album_url && (
-          <div className="pt-2">
+          <div className="pt-2 flex justify-center">
             <a
               href={event.fb_album_url}
               target="_blank"
@@ -155,7 +161,7 @@ export const EventDetail = () => {
         )}
 
         {!user && images.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {sortedImages.map((img, idx) => (
               <div
                 key={img.id}
