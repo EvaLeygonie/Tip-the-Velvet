@@ -20,7 +20,7 @@ export const Footer = () => {
   }
 
   return (
-    <footer className="p-14 bg-black/40 border-t border-accent/20 relative mt-24">
+    <footer className="p-14 bg-black/40 border-t border-accent/20 relative">
       <div className="gold-divider absolute top-0 left-0 right-0" />
 
       <div className="container mx-auto px-6">
