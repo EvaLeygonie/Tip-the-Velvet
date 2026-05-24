@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Event, OldEvent, EventImage } from '@/types'
+import type { Event, OldEvent, EventImage } from '@/types/types'
 import { createEventImage, toggleImageVisibility, deleteEventImage } from '@/services/eventService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import CloudinaryImage from '@/components/CloudinaryImage'

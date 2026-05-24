@@ -1,7 +1,7 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Calendar, MapPin, Camera } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import type { OldEvent } from '@/types'
+import type { OldEvent } from '@/types/types'
 
 export const OldEventInfo = ({ event }: { event: OldEvent }) => {
   const { language } = useLanguage()

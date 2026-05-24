@@ -1,7 +1,7 @@
 import { Calendar, MapPin, Ticket, Sparkles, UserPlus, ExternalLink } from 'lucide-react'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { formatDateTime } from '@/lib/utils'
-import type { Event } from '@/types'
+import type { Event } from '@/types/types'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Link } from 'react-router-dom'
 

@@ -5,7 +5,7 @@ import { ArrowLeft, Eye, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
-import type { Event, CreateEventInput, EventStatus } from '@/types'
+import type { Event, CreateEventInput, EventStatus } from '@/types/types'
 import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
 
 export const EventEditor = () => {
@@ -134,29 +134,13 @@ export const EventEditor = () => {
     }
 
     const payload: CreateEventInput = {
-      title: formData.title,
-      subtitle: formData.subtitle || null,
-      slug: finalSlug,
-      event_start: formData.event_start ? localToUtc(formData.event_start) : null,
-      event_end: formData.event_end ? localToUtc(formData.event_end) : null,
-      reveal_date: formData.reveal_date || null,
-      casting_call_deadline: formData.casting_call_deadline || null,
-      has_casting_call: formData.has_casting_call || false,
-      location: formData.location || null,
-      status: formData.status || 'draft',
-      description_sv: formData.description_sv || null,
-      description_eng: formData.description_eng || null,
-      image_id: finalImageId || null,
-      pinterest_link: formData.pinterest_link || null,
-      ticket_url: formData.ticket_url || null,
-      tickets_price: formData.tickets_price || null,
-      tickets_sold: formData.tickets_sold || null,
-      available_tickets: formData.available_tickets || null,
-      photographer: formData.photographer || null,
-      fb_album_url: formData.fb_album_url || null,
-      photobooth_url: formData.photobooth_url || null,
-      glow_color: formData.glow_color,
-    }
+    ...formData,
+    title: formData.title || '',
+    slug: finalSlug,
+    image_id: finalImageId,
+    event_start: formData.event_start ? localToUtc(formData.event_start) : null,
+    event_end: formData.event_end ? localToUtc(formData.event_end) : null,
+  }
 
     try {
       const { error } = slug
@@ -358,7 +342,7 @@ export const EventEditor = () => {
                     className="w-full h-full object-cover relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh]"
                     style={{
                       boxShadow: `0 0 10px 1px ${formData.glow_color}, 0 0 25px 5px rgba(0, 0, 0, 0.5)`,
-                      borderColor: formData.glow_color,
+                      borderColor: formData.glow_color || '#D4AF37',
                       outlineColor: `${formData.glow_color}50`,
                     }}
                     alt="Preview"
@@ -422,7 +406,7 @@ export const EventEditor = () => {
                 <div
                   className="w-10 h-10 rounded-md border border-white/20 shadow-lg"
                   style={{
-                    backgroundColor: formData.glow_color,
+                    backgroundColor: formData.glow_color || '#D4AF37',
                     boxShadow: formData.glow_color ? `0 0 15px ${formData.glow_color}` : 'none',
                   }}
                 />

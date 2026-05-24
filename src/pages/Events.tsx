@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { OldEvent, Event } from '@/types'
+import type { OldEvent, Event } from '@/types/types'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'

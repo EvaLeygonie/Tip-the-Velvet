@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { Event, CreateEventInput, CreateEventImageInput } from '@/types'
+import type { Event, CreateEventInput, CreateEventImageInput } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRecord } from './generalService'
 

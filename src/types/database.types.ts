@@ -48,7 +48,8 @@ export type Database = {
       }
       casting_applications: {
         Row: {
-          act_description: string | null
+          act_description_eng: string | null
+          act_description_sv: string | null
           act_title: string
           admin_notes: string | null
           agreed_to_terms: boolean
@@ -58,8 +59,11 @@ export type Database = {
           display_order: number | null
           email: string
           event_id: string
+          facebook_link: string | null
           id: string
+          instagram_link: string | null
           language: Database["public"]["Enums"]["language"]
+          other_link: string | null
           performer_name: string
           promo_image_id: string | null
           promo_text_eng: string | null
@@ -68,7 +72,8 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
-          act_description?: string | null
+          act_description_eng?: string | null
+          act_description_sv?: string | null
           act_title: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
@@ -78,8 +83,11 @@ export type Database = {
           display_order?: number | null
           email: string
           event_id: string
+          facebook_link?: string | null
           id?: string
+          instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
+          other_link?: string | null
           performer_name: string
           promo_image_id?: string | null
           promo_text_eng?: string | null
@@ -88,7 +96,8 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
-          act_description?: string | null
+          act_description_eng?: string | null
+          act_description_sv?: string | null
           act_title?: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
@@ -98,8 +107,11 @@ export type Database = {
           display_order?: number | null
           email?: string
           event_id?: string
+          facebook_link?: string | null
           id?: string
+          instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
+          other_link?: string | null
           performer_name?: string
           promo_image_id?: string | null
           promo_text_eng?: string | null
@@ -529,13 +541,15 @@ export type Database = {
           country: string | null
           created_at: string
           email: string | null
+          facebook_link: string | null
           id: string
           image_id: string | null
+          instagram_link: string | null
           language: Database["public"]["Enums"]["language"]
           name: string
+          other_link: string | null
           phone: string | null
           slug: string
-          social_links: Json | null
         }
         Insert: {
           bio_eng?: string | null
@@ -544,13 +558,15 @@ export type Database = {
           country?: string | null
           created_at?: string
           email?: string | null
+          facebook_link?: string | null
           id?: string
           image_id?: string | null
+          instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
           name: string
+          other_link?: string | null
           phone?: string | null
           slug: string
-          social_links?: Json | null
         }
         Update: {
           bio_eng?: string | null
@@ -559,13 +575,15 @@ export type Database = {
           country?: string | null
           created_at?: string
           email?: string | null
+          facebook_link?: string | null
           id?: string
           image_id?: string | null
+          instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
           name?: string
+          other_link?: string | null
           phone?: string | null
           slug?: string
-          social_links?: Json | null
         }
         Relationships: []
       }
