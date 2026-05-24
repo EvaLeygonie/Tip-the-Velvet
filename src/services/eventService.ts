@@ -1,11 +1,13 @@
 import { supabase } from '@/lib/supabase'
-import type { Event, CreateEventInput, CreateEventImageInput } from '@/types/types'
+import type { Event, OldEvent, CreateEventInput, CreateEventImageInput } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
 
 //=== READ ===///
 
-export const fetchEvents = async (isOldEvent: boolean) => {
+export async function fetchEvents(isOldEvent: false): Promise<Event[]>
+export async function fetchEvents(isOldEvent: true): Promise<OldEvent[]>
+export async function fetchEvents(isOldEvent: boolean): Promise<Event[] | OldEvent[]> {
   const table = isOldEvent ? 'old_events' : 'events'
   const orderColumn = isOldEvent ? 'date' : 'event_start'
   const { data, error } = await supabase
@@ -13,7 +15,7 @@ export const fetchEvents = async (isOldEvent: boolean) => {
     .select('*')
     .order(orderColumn, { ascending: false })
   if (error) throw error
-  return data || []
+  return (data || []) as Event[] | OldEvent[]
 }
 
 export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {

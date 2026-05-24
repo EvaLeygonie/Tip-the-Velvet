@@ -1,9 +1,20 @@
 import { supabase } from '@/lib/supabase'
-import type { CastingApplication, CreateCastingApplicationInput } from '@/types/types'
+import type { CastingApplication, CreateCastingApplicationInput, Event } from '@/types/types'
 
 //=== READ ===///
 
-export const getApplicationsFroEvent = async (eventId: string): Promise<CastingApplication[]> => {
+export const getEventWithCasting = async(): Promise<Event[]> => {
+  const { data, error } = await supabase
+  .from('events')
+  .select('*')
+  .eq('has_casting_call', true)
+  .order('casting_call_deadline', {ascending: false})
+
+  if(error) throw error
+  return data ||[]
+}
+
+export const getApplicationsFromEvent = async (eventId: string): Promise<CastingApplication[]> => {
   const { data, error } = await supabase
   .from('casting_applications')
   .select('*')

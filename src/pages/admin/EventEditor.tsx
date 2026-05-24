@@ -23,28 +23,11 @@ export const EventEditor = () => {
   const [tempFile, setTempFile] = useState<File | null>(null)
 
   const [formData, setFormData] = useState<Partial<Event>>({
-    title: '',
-    subtitle: null,
-    slug: '',
-    event_start: null,
-    event_end: null,
-    reveal_date: null,
-    location: null,
-    status: 'draft',
-    description_sv: null,
-    description_eng: null,
-    image_id: null,
-    has_casting_call: false,
-    casting_call_deadline: null,
-    pinterest_link: null,
-    ticket_url: null,
-    tickets_price: null,
-    tickets_sold: null,
-    available_tickets: null,
-    photographer: null,
-    fb_album_url: null,
-    photobooth_url: null,
-    glow_color: '#D4AF37',
+   title: '',
+  slug: '',
+  status: 'draft',
+  has_casting_call: false,
+  glow_color: '#D4AF37',
   })
 
   useEffect(() => {
