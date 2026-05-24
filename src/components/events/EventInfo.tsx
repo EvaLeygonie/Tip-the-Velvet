@@ -102,10 +102,10 @@ export const EventInfo = ({ event }: { event: Event }) => {
             {event.has_casting_call && (
               <Link
                 to="/casting-call"
-                className="inline-flex items-center gap-2.5 bg-red-950 hover:bg-red-900 text-red-100 border border-red-500/30 px-6 py-3.5 text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300 hover:scale-105 shadow-[0_0_25px_rgba(153,27,27,0.2)]"
+                className="btn-red"
               >
                 <UserPlus className="w-4 h-4 text-red-400" />
-                {t('Sök Casting', 'Apply for Casting')}
+                Casting Call
               </Link>
             )}
           </div>

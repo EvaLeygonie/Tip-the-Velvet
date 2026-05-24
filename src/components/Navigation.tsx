@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import { Settings, LogOut, BarChart3, ClipboardList, Users, Menu, X, LogIn } from 'lucide-react'
-import logoFull from '@/assets/tipthevelvet_logo_transparent.png'
+import logoFull from '@/assets/header-logo.png'
 
 export const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false)
