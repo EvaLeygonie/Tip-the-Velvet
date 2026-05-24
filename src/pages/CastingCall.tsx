@@ -1,7 +1,9 @@
+// import { useState } from "react";
 import { useLanguage } from '@/contexts/LanguageContext'
 
 export const CastingCall = () => {
   const { t } = useLanguage()
+
   return (
     <>
       <div className="page-standard">
