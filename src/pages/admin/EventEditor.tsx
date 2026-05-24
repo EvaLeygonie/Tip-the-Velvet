@@ -7,6 +7,7 @@ import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { Event, CreateEventInput, EventStatus } from '@/types/types'
 import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
+import { deleteRow } from '@/services/databaseService'
 
 export const EventEditor = () => {
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -158,6 +159,24 @@ export const EventEditor = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDelete = async () => {
+    deleteRow("events", formData.id || '')
+
+    const confirmed = window.confirm(
+    t('Är du säker på att du vill radera detta event?', 'Are you sure you want to delete this event?')
+  )
+  if (!confirmed) return
+
+  try {
+    await deleteRow('events', formData.id || '')
+    toast.success(t('Event raderat!', 'Event deleted!'))
+    navigate('/events')
+  } catch (err) {
+    toast.error(t('Kunde inte radera eventet', 'Failed to delete event'))
+    console.error(err)
+  }
   }
 
   const isReadyToUpload = formData.title && formData.title.trim().length > 2
@@ -537,12 +556,19 @@ export const EventEditor = () => {
           </div>
         </details>
 
-        <div className="flex justify-end mt-12 pb-12">
+        <div className="flex justify-end mt-12 pb-12 gap-6">
+          {formData.id &&
+          <button
+            onClick={handleDelete}
+            className="btn-red"
+          >
+            {t('Radera Event', 'Delete Event')}
+          </button>
+          }
           <button
             onClick={handleSave}
             disabled={loading || !isReadyToUpload}
-            className={`px-10 py-4 rounded-full font-bold transition-all uppercase tracking-widest text-sm shadow-xl
-              ${!isReadyToUpload ? 'btn-save-disabled' : 'btn-save-active'}`}
+            className={!isReadyToUpload ? 'btn-gold opacity-30 cursor-not-allowed' : 'btn-gold'}
           >
             {loading ? t('Sparar...', 'Saving...') : t('Spara Event', 'Save Event')}
           </button>

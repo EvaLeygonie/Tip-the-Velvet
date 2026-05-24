@@ -31,7 +31,7 @@ export const EventDetail = () => {
 
   const lightBoxSlides = sortedImages.map((img) => ({
     src: getImageSrc(img.image_id),
-    alt: img.event_slug,
+    alt: img.event_slug || '',
   }))
 
   useEffect(() => {

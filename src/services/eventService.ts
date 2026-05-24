@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Event, CreateEventInput, CreateEventImageInput } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
-import { updateRecord } from './generalService'
+import { updateRow } from './databaseService'
 
 //=== READ ===///
 
@@ -17,20 +17,32 @@ export const fetchEvents = async (isOldEvent: boolean) => {
 }
 
 export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
-  const table = isOldEvent ? 'old_events' : 'events'
-  const imagesRelation = isOldEvent ? 'old_event_images' : 'event_images'
+  if (isOldEvent) {
+    const { data, error } = await supabase
+      .from('old_events')
+      .select('*, old_event_images(*)')
+      .eq('slug', slug)
+      .single()
 
-  const { data, error } = await supabase
-    .from(table)
-    .select(`*, ${imagesRelation}(*)`)
-    .eq('slug', slug)
-    .single()
+    if (error) throw error
 
-  if (error) throw error
+    return {
+      ...data,
+      images: data.old_event_images || [],
+    }
+  } else {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*, event_images(*)')
+      .eq('slug', slug)
+      .single()
 
-  return {
-    ...data,
-    images: data[imagesRelation] || [],
+    if (error) throw error
+
+    return {
+      ...data,
+      images: data.event_images || [],
+    }
   }
 }
 
@@ -55,13 +67,13 @@ export const createEventImage = async (eventData: CreateEventImageInput, isOldEv
 //=== UPDATE ===///
 
 export const updateEvent = (id: string, updatedData: Partial<CreateEventInput>) =>
-  updateRecord('events', id, updatedData as Record<string, unknown>)
+  updateRow('events', id, updatedData as Record<string, unknown>)
 
 export const toggleImageVisibility = (id: string, isVisible: boolean, isOldEvent: boolean) =>
-  updateRecord(isOldEvent ? 'old_event_images' : 'event_images', id, { is_visible: isVisible })
+  updateRow(isOldEvent ? 'old_event_images' : 'event_images', id, { is_visible: isVisible })
 
 export const updateImageOrder = (id: string, displayOrder: number, isOldEvent: boolean) =>
-  updateRecord(isOldEvent ? 'old_event_images' : 'event_images', id, {
+  updateRow(isOldEvent ? 'old_event_images' : 'event_images', id, {
     display_order: displayOrder,
   })
 

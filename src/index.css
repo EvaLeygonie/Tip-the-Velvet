@@ -185,15 +185,7 @@ body {
 
   /* --- KNAPPAR --- */
 
-  .btn-save-active {
-    @apply bg-accent/80 hover:bg-accent disabled:bg-accent/50 text-black font-bold py-3 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(212,175,55,0.2)] active:scale-[0.98] mt-4 uppercase text-xs tracking-widest;
-  }
-
-  .btn-save-disabled {
-    @apply bg-white/5 text-white/20 cursor-not-allowed border border-white/5 shadow-none;
-  }
-
-  .btn-lang {
+   .btn-lang {
     @apply text-xs font-bold border border-foreground/20 px-2 py-1 rounded hover:border-accent hover:text-accent transition-all;
   }
 
