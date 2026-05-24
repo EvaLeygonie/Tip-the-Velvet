@@ -23,11 +23,11 @@ export const EventEditor = () => {
   const [tempFile, setTempFile] = useState<File | null>(null)
 
   const [formData, setFormData] = useState<Partial<Event>>({
-   title: '',
-  slug: '',
-  status: 'draft',
-  has_casting_call: false,
-  glow_color: '#D4AF37',
+    title: '',
+    slug: '',
+    status: 'draft',
+    has_casting_call: false,
+    glow_color: '#D4AF37',
   })
 
   useEffect(() => {
@@ -118,13 +118,13 @@ export const EventEditor = () => {
     }
 
     const payload: CreateEventInput = {
-    ...formData,
-    title: formData.title || '',
-    slug: finalSlug,
-    image_id: finalImageId,
-    event_start: formData.event_start ? localToUtc(formData.event_start) : null,
-    event_end: formData.event_end ? localToUtc(formData.event_end) : null,
-  }
+      ...formData,
+      title: formData.title || '',
+      slug: finalSlug,
+      image_id: finalImageId,
+      event_start: formData.event_start ? localToUtc(formData.event_start) : null,
+      event_end: formData.event_end ? localToUtc(formData.event_end) : null,
+    }
 
     try {
       const { error } = slug
@@ -145,21 +145,24 @@ export const EventEditor = () => {
   }
 
   const handleDelete = async () => {
-    deleteRow("events", formData.id || '')
+    deleteRow('events', formData.id || '')
 
     const confirmed = window.confirm(
-    t('Är du säker på att du vill radera detta event?', 'Are you sure you want to delete this event?')
-  )
-  if (!confirmed) return
+      t(
+        'Är du säker på att du vill radera detta event?',
+        'Are you sure you want to delete this event?'
+      )
+    )
+    if (!confirmed) return
 
-  try {
-    await deleteRow('events', formData.id || '')
-    toast.success(t('Event raderat!', 'Event deleted!'))
-    navigate('/events')
-  } catch (err) {
-    toast.error(t('Kunde inte radera eventet', 'Failed to delete event'))
-    console.error(err)
-  }
+    try {
+      await deleteRow('events', formData.id || '')
+      toast.success(t('Event raderat!', 'Event deleted!'))
+      navigate('/events')
+    } catch (err) {
+      toast.error(t('Kunde inte radera eventet', 'Failed to delete event'))
+      console.error(err)
+    }
   }
 
   const isReadyToUpload = formData.title && formData.title.trim().length > 2
@@ -540,14 +543,11 @@ export const EventEditor = () => {
         </details>
 
         <div className="flex justify-end mt-12 pb-12 gap-6">
-          {formData.id &&
-          <button
-            onClick={handleDelete}
-            className="btn-red"
-          >
-            {t('Radera Event', 'Delete Event')}
-          </button>
-          }
+          {formData.id && (
+            <button onClick={handleDelete} className="btn-red">
+              {t('Radera Event', 'Delete Event')}
+            </button>
+          )}
           <button
             onClick={handleSave}
             disabled={loading || !isReadyToUpload}

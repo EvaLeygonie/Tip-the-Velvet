@@ -69,6 +69,7 @@ export type Database = {
           promo_text_eng: string | null
           promo_text_sv: string | null
           review_status: Database["public"]["Enums"]["casting_review_status"]
+          slug: string | null
           video_url: string | null
         }
         Insert: {
@@ -93,6 +94,7 @@ export type Database = {
           promo_text_eng?: string | null
           promo_text_sv?: string | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
+          slug?: string | null
           video_url?: string | null
         }
         Update: {
@@ -117,6 +119,7 @@ export type Database = {
           promo_text_eng?: string | null
           promo_text_sv?: string | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
+          slug?: string | null
           video_url?: string | null
         }
         Relationships: [
