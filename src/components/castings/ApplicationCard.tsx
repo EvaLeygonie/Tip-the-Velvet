@@ -8,12 +8,12 @@ import { Calendar, MapPin, Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export const ApplicationCard = ({ event }: { event: Event }) => {
-  const { language: siteLanguage, t } = useLanguage()
-  const [submitting, setSubmitting] = useState(false)
+  const { language: siteLanguage, t, setLanguage } = useLanguage()
+
+  const preferredLang = siteLanguage === 'eng' ? 'eng' : 'sv'
   const [agreed, setAgreed] = useState(false)
-  const [preferredLang, setPreferredLang] = useState<'sv' | 'eng'>(
-    siteLanguage === 'eng' ? 'eng' : 'sv'
-  )
+  const [submitting, setSubmitting] = useState(false)
+
   const [uploading, setUploading] = useState(false)
   const [tempFile, setTempFile] = useState<File | null>(null)
 
@@ -37,6 +37,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     other_link: '',
     agreed_to_terms: false,
   })
+
+  const handleLanguageChange = (lang: 'sv' | 'eng') => {
+    setLanguage(lang)
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -255,7 +259,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
                 type="radio"
                 name="preferred_lang"
                 checked={preferredLang === 'sv'}
-                onChange={() => setPreferredLang('sv')}
+                onChange={() => handleLanguageChange('sv')}
                 className="accent-accent"
               />
               <span>Svenska</span>
@@ -265,7 +269,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
                 type="radio"
                 name="preferred_lang"
                 checked={preferredLang === 'eng'}
-                onChange={() => setPreferredLang('eng')}
+                onChange={() => handleLanguageChange('eng')}
                 className="accent-accent"
               />
               <span>English</span>
