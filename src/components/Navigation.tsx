@@ -120,15 +120,12 @@ export const Navigation = () => {
                 </Link>
               ) : (
                 <>
-                  <Link
-                    to="/admin/settings"
-                    className="text-foreground/40 hover:text-accent transition-colors"
-                  >
+                  <Link to="/admin/settings" className="nav-icon-btn">
                     <Settings size={18} />
                   </Link>
                   <button
                     onClick={handleSignOut}
-                    className="text-foreground/40 hover:text-red-500 transition-colors"
+                    className="nav-icon-btn hover:text-red-500 transition-colors"
                   >
                     <LogOut size={18} />
                   </button>

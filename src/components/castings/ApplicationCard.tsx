@@ -130,14 +130,14 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
   return (
     <div className="bg-card/80 backdrop-blur-sm shadow-[0_10px_50px_hsl(0_60%_5%/0.6)] border border-accent/20 p-6 rounded-xl text-left">
-      <div className="mb-6">
+      <div className="mb-6 text-center flex flex-col items-center">
         <div className="text-3xl font-decorative text-accent drop-shadow-[0_0_15px_currentColor]">
           {event.title}
         </div>
         {event.subtitle && (
           <div className="text-foreground/60 text-base font-playfair mt-1">{event.subtitle}</div>
         )}
-        <div className="flex flex-wrap gap-4 pt-2 text-sm text-foreground/70">
+        <div className="flex flex-wrap justify-center gap-4 pt-3 text-sm text-foreground/70">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4 text-accent" />
             {formatDate(preferredLang, event.event_start)}
@@ -148,17 +148,15 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </span>
         </div>
       </div>
-
       <div className="space-y-5">
         <div className="space-y-2">
           <label className="label text-[10px] uppercase tracking-widest block">Artist Name *</label>
           <input
             type="text"
             name="performer_name"
-            placeholder="Your artist / stage name"
+            placeholder={t('Ditt artist namn', 'Your artist / stage name')}
             value={formData.performer_name}
             onChange={handleChange}
-            className="w-full bg-background p-3 rounded-lg border border-accent/20"
           />
         </div>
 
@@ -167,10 +165,9 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           <input
             type="email"
             name="email"
-            placeholder="your@email.com"
+            placeholder={t('ditt@mail.com', 'your@email.com')}
             value={formData.email}
             onChange={handleChange}
-            className="w-full bg-background p-3 rounded-lg border border-accent/20"
           />
         </div>
 
@@ -179,10 +176,9 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           <input
             type="text"
             name="act_title"
-            placeholder="Name of your act"
+            placeholder={t('Titel på din akt', 'Name of your act')}
             value={formData.act_title || ''}
             onChange={handleChange}
-            className="w-full bg-background p-3 rounded-lg border border-accent/20"
           />
         </div>
 
@@ -192,11 +188,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </label>
           <textarea
             name="act_description_sv"
-            placeholder="Berätta om ditt nummer..."
+            placeholder={t('Berätta om ditt nummer', 'Tell us about your act')}
             rows={4}
             value={formData.act_description_sv || ''}
             onChange={handleChange}
-            className="w-full bg-background p-3 rounded-lg border border-accent/20 resize-none"
           />
         </div>
 
@@ -207,10 +202,9 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           <input
             type="url"
             name="video_url"
-            placeholder="https://youtube.com/..."
+            placeholder={t('En video länk till din akt', 'A video link to your act')}
             value={formData.video_url || ''}
             onChange={handleChange}
-            className="w-full bg-background p-3 rounded-lg border border-accent/20"
           />
         </div>
 
@@ -284,7 +278,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-1 accent-accent"
+            className="mt-1"
           />
           <label className="text-sm text-foreground/80 leading-relaxed cursor-pointer">
             {t(

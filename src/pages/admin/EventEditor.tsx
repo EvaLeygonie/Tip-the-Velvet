@@ -465,7 +465,6 @@ export const EventEditor = () => {
                 {t('Biljettlänk', 'Ticket Link')}
               </label>
               <input
-                type="text"
                 name="ticket_url"
                 className="editor-input"
                 value={formData.ticket_url || ''}
@@ -476,7 +475,6 @@ export const EventEditor = () => {
             <div className="field-row">
               <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
               <input
-                type="text"
                 name="photographer"
                 className="editor-input"
                 value={formData.photographer || ''}
@@ -488,7 +486,6 @@ export const EventEditor = () => {
                 {t('Pinterest länk', 'Pinterest Link')}
               </label>
               <input
-                type="text"
                 name="pinterest_link"
                 className="editor-input"
                 value={formData.pinterest_link || ''}
