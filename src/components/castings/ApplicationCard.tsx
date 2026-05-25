@@ -1,16 +1,13 @@
-import type { Event, CreateCastingApplicationInput, CastingApplication } from '@/types/types'
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { toast } from 'sonner'
-import { createSlug } from '@/lib/utils'
+import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
+import type { Event, CreateCastingApplicationInput } from '@/types/types'
 import { submitCastingApplication } from '@/services/castingService'
-import { formatDate, getImageSrc } from '@/lib/utils'
+import { uploadToCloudinary } from '@/services/cloudinaryService'
 import { Calendar, MapPin, Send, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export const ApplicationCard = ({ event }: { event: Event }) => {
-  const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-  const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-
   const { language: siteLanguage, t } = useLanguage()
   const [submitting, setSubmitting] = useState(false)
   const [agreed, setAgreed] = useState(false)
@@ -19,6 +16,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   )
   const [uploading, setUploading] = useState(false)
   const [tempFile, setTempFile] = useState<File | null>(null)
+
   const [formData, setFormData] = useState<CreateCastingApplicationInput>({
     event_id: event.id,
     performer_name: '',
@@ -29,7 +27,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     video_url: '',
     slug: '',
     promo_image_id: null,
-    promo_image_id: '',
     promo_text_sv: '',
     promo_text_eng: '',
     language: preferredLang,
@@ -38,95 +35,70 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     facebook_link: '',
     instagram_link: '',
     other_link: '',
-    agreed_to_terms: false
+    agreed_to_terms: false,
   })
 
-  const [promoImageId, setPromoImageId] = useState<string | null>(null)
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+  }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !CLOUD_NAME || !UPLOAD_PRESET) return
+    if (!file) return
     const previewUrl = URL.createObjectURL(file)
 
     setTempFile(file)
     setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!agreed) return toast.error(t('Acceptera termer tack', 'Please agree to the terms'))
+    if (!formData.promo_image_id)
+      return toast(t('Ladda upp en promobild.', 'Please upload a promo picture.'))
+    if (!formData.performer_name)
+      return toast.error(t('Artistnamn krävs', 'Artist name is required'))
+
+    setSubmitting(true)
     const artistSlug = createSlug(formData.performer_name)
     const actSlug = createSlug(formData.act_title)
-
-    if (!agreed) {
-      toast(t('Acceptera termer tack', "Please agree to the terms"));
-      return;
-    }
-
-     if (!promoImageId) {
-      toast( t("Ladda upp en promobild", "Please upload a promo picture"));
-      return;
-    }
-
-    setPromoImageId(formData.promo_image_id || '')
+    let finalImageId = formData.promo_image_id
 
     if (tempFile) {
       setUploading(true)
-      const uploadData = new FormData()
-      uploadData.append('file', tempFile)
-      uploadData.append('upload_preset', UPLOAD_PRESET)
-      uploadData.append('folder', 'Casting Calls')
-      uploadData.append('public_id', artistSlug)
-
       try {
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-          method: 'POST',
-          body: uploadData,
-        })
-
-        if (!res.ok) throw new Error('Upload failed')
-
-        const data = await res.json()
-        setPromoImageId(data.public_id)
+        finalImageId = await uploadToCloudinary(tempFile, 'Casting Calls', [
+          'casting-call',
+          artistSlug,
+          actSlug,
+        ])
         setTempFile(null)
       } catch (err) {
-        setUploading(false)
         toast.error(t('Kunde inte ladda upp bilden', 'Cloudinary upload failed'))
-        console.log(err)
+        console.error(err)
+        setSubmitting(false)
+        return
       } finally {
         setUploading(false)
       }
     }
-
     const payload: CreateCastingApplicationInput = {
       ...formData,
       event_id: event.id,
       performer_name: formData.performer_name.trim(),
-      act_title: formData.act_title.trim(),
-      act_description_sv: formData.act_description_sv || null,
-      act_description_eng: formData.act_description_eng || null,
-      video_url: formData.video_url || null,
+      act_title: formData.act_title?.trim() || '',
       slug: actSlug,
       email: formData.email.trim(),
-      promo_image_id: promoImageId,
-      promo_text_sv: formData.promo_text_sv || null,
-      promo_text_eng: formData.promo_text_eng || null,
+      promo_image_id: finalImageId,
       language: preferredLang,
-      city: formData.city,
-      country: formData.country,
-      facebook_link: formData.facebook_link || null,
-      instagram_link: formData.instagram_link || null,
-      other_link: formData.other_link || null,
       agreed_to_terms: true,
     }
 
     try {
       submitCastingApplication(payload)
+      toast.success(t('Ansökan skickad!', 'Application submitted!'))
 
-      toast(
-        t(
-          'Ansökan skickad! Vi återkommer nör vi har granskat den!',
-          "Application submitted! We'll review your application and get back to you."
-        )
-      )
       setFormData({
         event_id: event.id,
         performer_name: '',
@@ -137,7 +109,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         video_url: '',
         slug: '',
         promo_image_id: null,
-        promo_image_id: '',
         promo_text_sv: '',
         promo_text_eng: '',
         language: preferredLang,
@@ -146,12 +117,11 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         facebook_link: '',
         instagram_link: '',
         other_link: '',
-        agreed_to_terms: false
+        agreed_to_terms: false,
       })
-      setPromoImageId(null)
       setAgreed(false)
     } catch (err) {
-      toast(t('Någonting gick fel!', 'Something went wrong!'))
+      toast.error(t('Någonting gick fel!', 'Something went wrong!'))
       console.error(err)
     } finally {
       setSubmitting(false)
@@ -159,21 +129,18 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   }
 
   return (
-    <>
-  <div className="bg-card/80 backdrop-blur-sm shadow-[0_10px_50px_hsl(0_60%_5%/0.6)] border-accent/20">
-      <div>
+    <div className="bg-card/80 backdrop-blur-sm shadow-[0_10px_50px_hsl(0_60%_5%/0.6)] border border-accent/20 p-6 rounded-xl text-left">
+      <div className="mb-6">
         <div className="text-3xl font-decorative text-accent drop-shadow-[0_0_15px_currentColor]">
           {event.title}
         </div>
         {event.subtitle && (
-          <div className="text-foreground/60 text-base font-playfair">
-            {event.subtitle}
-          </div>
+          <div className="text-foreground/60 text-base font-playfair mt-1">{event.subtitle}</div>
         )}
         <div className="flex flex-wrap gap-4 pt-2 text-sm text-foreground/70">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4 text-accent" />
-            {formatDate(new Date(event.event_start), "MMMM d, yyyy")}
+            {formatDate(preferredLang, event.event_start)}
           </span>
           <span className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4 text-accent" />
@@ -181,185 +148,168 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </span>
         </div>
       </div>
-      <div>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <label htmlFor={`performer_name-${event.id}`}>Artist Name *</label>
-            <input
-              id={`performer_name-${event.id}`}
-              name="performer_name"
-              placeholder="Your artist / stage name"
-              required
-              value={formData.performer_name}
-              onChange={handleSubmit}
-              className="bg-background"
-            />
-          </div>
 
-          <div className="space-y-2">
-            <label htmlFor={`email-${event.id}`}>Email *</label>
-            <input
-              id={`email-${event.id}`}
-              name="email"
-              type="email"
-              placeholder="your@email.com"
-              required
-              value={formData.email}
-              onChange={handleChange}
-              className="bg-background"
-            />
-          </div>
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <label className="label text-[10px] uppercase tracking-widest block">Artist Name *</label>
+          <input
+            type="text"
+            name="performer_name"
+            placeholder="Your artist / stage name"
+            value={formData.performer_name}
+            onChange={handleChange}
+            className="w-full bg-background p-3 rounded-lg border border-accent/20"
+          />
+        </div>
 
-          <div className="space-y-2">
-            <label htmlFor={`act_title-${event.id}`}>Act Title *</label>
-            <input
-              id={`act_title-${event.id}`}
-              name="act_title"
-              placeholder="Name of your act"
-              required
-              value={formData.act_title}
-              onChange={handleChange}
-              className="bg-background"
-            />
-          </div>
+        <div className="space-y-2">
+          <label className="label text-[10px] uppercase tracking-widest block">Email *</label>
+          <input
+            type="email"
+            name="email"
+            placeholder="your@email.com"
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full bg-background p-3 rounded-lg border border-accent/20"
+          />
+        </div>
 
-          <div className="space-y-2">
-            <label htmlFor={`act_description-${event.id}`}>Act Description *</label>
-            <Textarea
-              id={`act_description-${event.id}`}
-              name="act_description"
-              placeholder="Tell us about your act – style, music, theme, duration..."
-              required
-              rows={4}
-              value={formData.act_description}
-              onChange={handleChange}
-              className="bg-background resize-none"
-            />
-          </div>
+        <div className="space-y-2">
+          <label className="label text-[10px] uppercase tracking-widest block">Act Title *</label>
+          <input
+            type="text"
+            name="act_title"
+            placeholder="Name of your act"
+            value={formData.act_title || ''}
+            onChange={handleChange}
+            className="w-full bg-background p-3 rounded-lg border border-accent/20"
+          />
+        </div>
 
-          <div className="space-y-2">
-            <label htmlFor={`video_url-${event.id}`}>Video Link (optional)</label>
-            <input
-              id={`video_url-${event.id}`}
-              name="video_url"
-              type="url"
-              placeholder="https://youtube.com/..."
-              value={formData.video_url}
-              onChange={handleChange}
-              className="bg-background"
-            />
-          </div>
+        <div className="space-y-2">
+          <label className="label text-[10px] uppercase tracking-widest block">
+            Act Description (SV) *
+          </label>
+          <textarea
+            name="act_description_sv"
+            placeholder="Berätta om ditt nummer..."
+            rows={4}
+            value={formData.act_description_sv || ''}
+            onChange={handleChange}
+            className="w-full bg-background p-3 rounded-lg border border-accent/20 resize-none"
+          />
+        </div>
 
-         <div className="content-grid">
-                   <div className="space-y-4">
-                     <label className="label text-[10px] uppercase block">
-                       {t('Promobild:', 'Promo Image:')}
-                     </label>
-                     <div className={`promo-upload-square ${!isReadyToUpload ? 'is-locked' : 'is-active'}`}>
-                       {formData.promo_image_id && CLOUD_NAME ? (
-                         <div className="text-center p-4">
-                           <img
-                             src={getImageSrc(formData.promo_image_id)}
-                             className="w-full h-full object-cover relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh]"
-                             alt="Preview"
-                           />
-                           <label htmlFor="image-up" className="btn-lang cursor-pointer hover:bg-accent/10">
-                             {t('Byt bild', 'Change Image')}
-                           </label>
-                         </div>
-                       ) : (
-                         <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
-                           {uploading ? 'Laddar...' : 'Välj Bild'}
-                         </label>
-                       )}
-                       <input type="file" id="image-up" className="hidden" onChange={handleImageUpload} />
-                     </div>
+        <div className="space-y-2">
+          <label className="label text-[10px] uppercase tracking-widest block">
+            Video Link (optional)
+          </label>
+          <input
+            type="url"
+            name="video_url"
+            placeholder="https://youtube.com/..."
+            value={formData.video_url || ''}
+            onChange={handleChange}
+            className="w-full bg-background p-3 rounded-lg border border-accent/20"
+          />
+        </div>
 
-          <div className="space-y-2">
-            <label htmlFor={`promo_text_sv-${event.id}`}>{t("Promo-text (svenska)", "Promo Text (Swedish)")} ({t("valfritt", "optional")})</label>
-            <Textarea
-              id={`promo_text_sv-${event.id}`}
-              name="promo_text_sv"
-              placeholder={t("Kort bio / promotext vi kan publicera om du blir uttagen...", "Short bio / promo text we can publish if you're selected...")}
-              rows={3}
-              value={formData.promo_text_sv}
-              onChange={handleChange}
-              className="bg-background resize-none"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor={`promo_text_eng-${event.id}`}>{t("Promo-text (engelska)", "Promo Text (English)")} ({t("valfritt", "optional")})</label>
-            <Textarea
-              id={`promo_text_eng-${event.id}`}
-              name="promo_text_eng"
-              placeholder="Short bio / promo text we can publish if you're selected..."
-              rows={3}
-              value={formData.promo_text_eng}
-              onChange={handleChange}
-              className="bg-background resize-none"
-            />
-          </div>
-
-
-          <div className="space-y-3">
-            <label>{t("Föredraget kommunikationsspråk", "Preferred communication language")}</label>
-            <RadioGroup
-              value={preferredLang}
-              onValueChange={(v) => setPreferredLang(v as "sv" | "eng")}
-              className="flex gap-6"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="sv" id={`lang-sv-${event.id}`} />
-                <label htmlFor={`lang-sv-${event.id}`} className="cursor-pointer font-normal">
-                  Svenska
+        <div className="space-y-4">
+          <label className="label text-[10px] uppercase block">
+            {t('Promobild:', 'Promo Image:')}
+          </label>
+          <div className="border-2 border-dashed border-accent/20 rounded-xl p-4 text-center">
+            {formData.promo_image_id ? (
+              <div className="space-y-3">
+                <img
+                  src={getImageSrc(formData.promo_image_id)}
+                  className="w-full max-h-[300px] object-cover rounded-lg mx-auto"
+                  alt="Preview"
+                />
+                <label
+                  htmlFor="image-up"
+                  className="btn-lang cursor-pointer inline-block bg-accent/10 px-4 py-2 rounded-lg"
+                >
+                  {t('Byt bild', 'Change Image')}
                 </label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="eng" id={`lang-eng-${event.id}`} />
-                <label htmlFor={`lang-eng-${event.id}`} className="cursor-pointer font-normal">
-                  English
-                </label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="flex items-start space-x-3 pt-2">
-            <Checkbox
-              id={`terms-${event.id}`}
-              checked={agreed}
-              onCheckedChange={(v) => setAgreed(v === true)}
+            ) : (
+              <label
+                htmlFor="image-up"
+                className="cursor-pointer inline-block bg-accent/20 px-6 py-3 rounded-lg"
+              >
+                {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
+              </label>
+            )}
+            <input
+              type="file"
+              id="image-up"
+              className="hidden"
+              accept="image/*"
+              onChange={handleImageUpload}
             />
-            <label htmlFor={`terms-${event.id}`} className="text-sm text-foreground/80 leading-relaxed cursor-pointer">
-              {t(
-                "Jag godkänner att informationen jag skickar in sparas i databasen. Om du vill att vi raderar din information kan du när som helst skicka ett mejl till ",
-                "I agree that the information I submit will be saved in the database. If you want your data removed, you can send us an email at any time at "
-              )}
-              <a href="mailto:velvet.gbg@gmail.com" className="text-accent hover:underline">
-                velvet.gbg@gmail.com
-              </a>
-              .
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="label text-[10px] uppercase tracking-widest block">
+            {t('Kommunikationsspråk', 'Language')}
+          </label>
+          <div className="flex gap-6">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="preferred_lang"
+                checked={preferredLang === 'sv'}
+                onChange={() => setPreferredLang('sv')}
+                className="accent-accent"
+              />
+              <span>Svenska</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="preferred_lang"
+                checked={preferredLang === 'eng'}
+                onChange={() => setPreferredLang('eng')}
+                className="accent-accent"
+              />
+              <span>English</span>
             </label>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            className="w-full"
-            disabled={submitting || !agreed}
-          >
-            {submitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Submit Application
-              </>
+        <div className="flex items-start space-x-3 pt-2">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-1 accent-accent"
+          />
+          <label className="text-sm text-foreground/80 leading-relaxed cursor-pointer">
+            {t(
+              'Jag godkänner att informationen jag skickar in sparas i en databas. Jag kan närsomhelt kontakta Tip the Velvet för att min information ska raderas.',
+              'I agree to this information being saved in a database. I can contact Tip the Velvet at any time to have my information deleted.'
             )}
-          </button>
-        </form>
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="w-full btn-gold flex items-center justify-center gap-2 py-3 disabled:opacity-50"
+          disabled={submitting || !agreed}
+        >
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <Send className="h-4 w-4" />
+              {t('Skicka ansökan', 'Submit Application')}
+            </>
+          )}
+        </button>
       </div>
     </div>
-    </div>
-    </>
   )
 }

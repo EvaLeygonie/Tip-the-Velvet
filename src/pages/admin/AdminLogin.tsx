@@ -110,7 +110,7 @@ export const AdminLogin = () => {
               </div>
             </div>
 
-            <button type="submit" disabled={isLoading} className="btn-save-active w-full">
+            <button type="submit" disabled={isLoading} className="btn-gold w-full">
               {isLoading
                 ? t('Öppnar ridån...', 'Opening the curtain...')
                 : t('Lyft på ridån', 'Enter backstage')}

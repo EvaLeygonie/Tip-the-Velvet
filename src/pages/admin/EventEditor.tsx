@@ -5,14 +5,12 @@ import { ArrowLeft, Eye, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
-import type { Event, CreateEventInput, EventStatus } from '@/types/types'
+import type { Event, CreateEventInput } from '@/types/types'
 import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
 import { deleteRow } from '@/services/databaseService'
+import { uploadToCloudinary } from '@/services/cloudinaryService'
 
 export const EventEditor = () => {
-  const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-  const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-
   const { t } = useLanguage()
   const navigate = useNavigate()
   const { slug } = useParams()
@@ -74,11 +72,17 @@ export const EventEditor = () => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !CLOUD_NAME || !UPLOAD_PRESET) return
+    if (!file) return
     const previewUrl = URL.createObjectURL(file)
 
     setTempFile(file)
     setFormData((prev) => ({ ...prev, image_id: previewUrl }))
+  }
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
   const handleSave = async () => {
@@ -90,28 +94,15 @@ export const EventEditor = () => {
 
     if (tempFile) {
       setUploading(true)
-      const uploadData = new FormData()
-      uploadData.append('file', tempFile)
-      uploadData.append('upload_preset', UPLOAD_PRESET)
-      uploadData.append('folder', 'Promo')
-      uploadData.append('public_id', finalSlug)
-
       try {
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-          method: 'POST',
-          body: uploadData,
-        })
-
-        if (!res.ok) throw new Error('Upload failed')
-
-        const data = await res.json()
-        finalImageId = data.public_id
+        finalImageId = await uploadToCloudinary(tempFile, 'Promo', [finalSlug])
         setTempFile(null)
       } catch (err) {
         setLoading(false)
         setUploading(false)
         toast.error(t('Kunde inte ladda upp bilden', 'Cloudinary upload failed'))
-        console.log(err)
+        console.error(err)
+        return
       } finally {
         setUploading(false)
       }
@@ -193,8 +184,9 @@ export const EventEditor = () => {
               </label>
               <input
                 type="text"
+                name="title"
                 value={formData.title || ''}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={handleChange}
                 placeholder="Ex: Once Upon a Time..."
                 className="input-ghost-title"
               />
@@ -203,8 +195,9 @@ export const EventEditor = () => {
               </label>
               <input
                 type="text"
+                name="subtitle"
                 value={formData.subtitle || ''}
-                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                onChange={handleChange}
                 placeholder="Ex: A Fairytale Ball..."
                 className="input-ghost-subtitle"
               />
@@ -219,9 +212,10 @@ export const EventEditor = () => {
                 </label>
                 <input
                   type="date"
-                  className="editor-input !border-none !py-0 text-xs flex-1"
+                  name="reveal_date"
                   value={formData.reveal_date || ''}
-                  onChange={(e) => setFormData({ ...formData, reveal_date: e.target.value })}
+                  onChange={handleChange}
+                  className="editor-input !border-none !py-0 text-xs flex-1"
                 />
               </div>
 
@@ -255,12 +249,11 @@ export const EventEditor = () => {
                     </label>
                     <input
                       type="date"
-                      className="editor-input !border-none !py-0 text-xs flex-1"
+                      name="casting_call_deadline"
                       placeholder="Deadline..."
                       value={formData.casting_call_deadline || ''}
-                      onChange={(e) =>
-                        setFormData({ ...formData, casting_call_deadline: e.target.value })
-                      }
+                      onChange={handleChange}
+                      className="editor-input !border-none !py-0 text-xs flex-1"
                     />
                   </>
                 )}
@@ -273,11 +266,10 @@ export const EventEditor = () => {
             <div className="panel-row">
               <label className="label text-[10px] uppercase">Status:</label>
               <select
-                className="admin-select !w-auto !py-1"
+                name="status"
                 value={formData.status || 'draft'}
-                onChange={(e) =>
-                  setFormData({ ...formData, status: e.target.value as EventStatus })
-                }
+                onChange={handleChange}
+                className="admin-select !w-auto !py-1"
               >
                 <option value="draft">{t('Utkast', 'Draft')}</option>
                 <option value="published">{t('Publicerat', 'Published')}</option>
@@ -290,10 +282,11 @@ export const EventEditor = () => {
               <div className="flex items-center gap-1 bg-black/40 px-3 py-1 rounded border border-accent/10 flex-1">
                 <span className="text-[10px] opacity-40 font-mono">/</span>
                 <input
-                  className="input-slug-inline text-right flex-1"
+                  name="slug"
                   value={liveSlug}
                   onChange={(e) => setFormData({ ...formData, slug: createSlug(e.target.value) })}
                   placeholder="url-slug"
+                  className="input-slug-inline text-right flex-1"
                 />
               </div>
             </div>
@@ -303,29 +296,30 @@ export const EventEditor = () => {
               <label className="label text-[10px] uppercase">{t('Startar:', 'Starts:')}</label>
               <input
                 type="datetime-local"
-                className="editor-input !border-none !py-0 !text-right text-xs"
+                name="event_start"
                 value={formData.event_start || ''}
-                onChange={(e) => {
-                  setFormData({ ...formData, event_start: e.target.value })
-                }}
+                onChange={handleChange}
+                className="editor-input !border-none !py-0 !text-right text-xs"
               />
             </div>
             <div className="panel-row">
               <label className="label text-[10px] uppercase">{t('Slutar:', 'Ends:')}</label>
               <input
                 type="datetime-local"
-                className="editor-input !border-none !py-0 !text-right text-xs"
+                name="event_end"
                 value={formData.event_end || ''}
-                onChange={(e) => setFormData({ ...formData, event_end: e.target.value })}
+                onChange={handleChange}
+                className="editor-input !border-none !py-0 !text-right text-xs"
               />
             </div>
             <div className="panel-row">
               <label className="label text-[10px] uppercase">{t('Plats:', 'Location:')}</label>
               <input
-                className="editor-input !border-none !py-0 !text-right text-xs"
-                placeholder={t('Plats...', 'Location...')}
+                name="location"
                 value={formData.location || ''}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                onChange={handleChange}
+                placeholder={t('Plats...', 'Location...')}
+                className="editor-input !border-none !py-0 !text-right text-xs"
               />
             </div>
           </div>
@@ -340,7 +334,7 @@ export const EventEditor = () => {
               {t('Promobild:', 'Promo Image:')}
             </label>
             <div className={`promo-upload-square ${!isReadyToUpload ? 'is-locked' : 'is-active'}`}>
-              {formData.image_id && CLOUD_NAME ? (
+              {formData.image_id ? (
                 <div className="text-center p-4">
                   <img
                     src={getImageSrc(formData.image_id)}
@@ -403,10 +397,11 @@ export const EventEditor = () => {
                 )}
                 <input
                   type="text"
+                  name="glow_color"
+                  value={formData.glow_color || ''}
+                  onChange={handleChange}
                   placeholder="#D4AF37"
                   className="editor-input !py-2 font-mono text-xs flex-1"
-                  value={formData.glow_color || ''}
-                  onChange={(e) => setFormData({ ...formData, glow_color: e.target.value })}
                 />
                 <div
                   className="w-10 h-10 rounded-md border border-white/20 shadow-lg"
@@ -425,9 +420,10 @@ export const EventEditor = () => {
                 {t('Beskrivning (SV)', 'Description (SV)')}
               </label>
               <textarea
-                className="editor-textarea flex-1 min-h-[150px] resize-none"
+                name="description_sv"
                 value={formData.description_sv || ''}
-                onChange={(e) => setFormData({ ...formData, description_sv: e.target.value })}
+                onChange={handleChange}
+                className="editor-textarea flex-1 min-h-[150px] resize-none"
               />
             </div>
             <div className="flex flex-col flex-1 min-h-0">
@@ -435,9 +431,10 @@ export const EventEditor = () => {
                 {t('Beskrivning (ENG)', 'Description (ENG)')}
               </label>
               <textarea
-                className="editor-textarea flex-1 min-h-[150px] resize-none"
+                name="description_eng"
                 value={formData.description_eng || ''}
-                onChange={(e) => setFormData({ ...formData, description_eng: e.target.value })}
+                onChange={handleChange}
+                className="editor-textarea flex-1 min-h-[150px] resize-none"
               />
             </div>
           </div>
@@ -454,6 +451,7 @@ export const EventEditor = () => {
               <label className="label text-[10px] uppercase">{t('Pris', 'Price')}</label>
               <input
                 type="number"
+                name="tickets_price"
                 className="editor-input"
                 value={formData.tickets_price || ''}
                 onChange={(e) =>
@@ -468,18 +466,21 @@ export const EventEditor = () => {
               </label>
               <input
                 type="text"
+                name="ticket_url"
                 className="editor-input"
                 value={formData.ticket_url || ''}
-                onChange={(e) => setFormData({ ...formData, ticket_url: e.target.value })}
+                onChange={handleChange}
               />
             </div>
 
             <div className="field-row">
               <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
               <input
+                type="text"
+                name="photographer"
                 className="editor-input"
                 value={formData.photographer || ''}
-                onChange={(e) => setFormData({ ...formData, photographer: e.target.value })}
+                onChange={handleChange}
               />
             </div>
             <div className="field-row">
@@ -488,9 +489,10 @@ export const EventEditor = () => {
               </label>
               <input
                 type="text"
+                name="pinterest_link"
                 className="editor-input"
                 value={formData.pinterest_link || ''}
-                onChange={(e) => setFormData({ ...formData, pinterest_link: e.target.value })}
+                onChange={handleChange}
               />
             </div>
 
@@ -499,9 +501,10 @@ export const EventEditor = () => {
                 {t('Facebook album', 'Facebook Album')}
               </label>
               <input
+                name="fb_album_url"
                 className="editor-input"
                 value={formData.fb_album_url || ''}
-                onChange={(e) => setFormData({ ...formData, fb_album_url: e.target.value })}
+                onChange={handleChange}
               />
             </div>
             <div className="field-row">
@@ -509,9 +512,10 @@ export const EventEditor = () => {
                 {t('Fotohörna länk', 'Photo Booth Link')}
               </label>
               <input
+                name="photobooth_url"
                 className="editor-input"
                 value={formData.photobooth_url || ''}
-                onChange={(e) => setFormData({ ...formData, photobooth_url: e.target.value })}
+                onChange={handleChange}
               />
             </div>
 

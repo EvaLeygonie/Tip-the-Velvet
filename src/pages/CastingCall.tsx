@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import type { Event } from '@/types/types'
 import { getEventWithCasting } from '@/services/castingService'
 import { ApplicationCard } from '@/components/castings/ApplicationCard'
+import { Mail } from 'lucide-react'
 
 export const CastingCall = () => {
   const { t } = useLanguage()
@@ -35,7 +36,21 @@ export const CastingCall = () => {
     <>
       <div className="page-standard">
         <h1>Casting Call</h1>
-        <section className="py-20 bg-background relative overflow-hidden">
+        <section className="py-10 bg-background relative overflow-hidden">
+          <span>
+            <p>
+              {t(
+                'Om du har frågor kring vad vi letar efter för ett specifikt event, mail oss gärna på:',
+                'If you have questions about what we are looking for for a particular event, feel free to contact us at:'
+              )}
+            </p>
+            <p>
+              <a href="mailto:velvet.gbg@gmail.com" className="link-footer pb-6">
+                <Mail className="w-4 h-4" />
+                <span>velvet.gbg@gmail.com</span>
+              </a>
+            </p>
+          </span>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/10 rounded-full blur-3xl" />
           <div className="container mx-auto px-4 relative z-10">
             {castingEvents.length === 0 ? (

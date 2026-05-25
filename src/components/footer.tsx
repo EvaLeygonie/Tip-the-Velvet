@@ -80,7 +80,7 @@ export const Footer = () => {
                 </svg>
                 <span>Tip the Velvet Burlesque Club</span>
               </a>
-              <a href="mailto:hello@tipthevelvet.se" className="link-footer">
+              <a href="mailto:velvet.gbg@gmail.com" className="link-footer">
                 <Mail className="w-4 h-4" />
                 <span>velvet.gbg@gmail.com</span>
               </a>
