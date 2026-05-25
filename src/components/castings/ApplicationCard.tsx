@@ -37,6 +37,15 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      toast.error(
+        t('Bilden är för stor. Maxstorlek är 5MB.', 'Image is too large. Maximum size is 5MB.')
+      )
+      return
+    }
+
     const previewUrl = URL.createObjectURL(file)
 
     setTempFile(file)
@@ -95,6 +104,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         event_id: event.id,
         language: preferredLang,
         agreed_to_terms: false,
+        performer_name: '',
         act_title: '',
         email: '',
         promo_image_id: null,
