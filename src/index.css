@@ -238,7 +238,7 @@ body {
   .btn-gold {
     @apply relative z-10 bg-accent/80 hover:bg-accent text-background border border-border px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-[0_0_20px_rgba(212,175,55,0.2)] min-w-[140px] min-h-[44px] rounded-md;
     font-family: var(--font-decorative);
-    @apply uppercase tracking-widest font-semibold text-xs;
+    @apply uppercase tracking-widest font-medium text-xs;
   }
 
   .btn-red {

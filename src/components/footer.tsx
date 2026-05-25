@@ -95,13 +95,8 @@ export const Footer = () => {
               )}
             </p>
             <form onSubmit={handleNewsletterSubmit} className="space-y-3 pt-2">
-              <input
-                type="email"
-                placeholder={t('Din e-post', 'Your email')}
-                required
-                className="login-input  border-accent/20 px-4 py-2 text-sm focus:border-accent/50 transition-colors"
-              />
-              <button type="submit" className="btn-save-active w-full py-2.5">
+              <input type="email" placeholder={t('Din e-post', 'Your email')} required />
+              <button type="submit" className="btn-gold w-full py-2.5">
                 {t('Prenumerera', 'Subscribe')}
               </button>
             </form>
