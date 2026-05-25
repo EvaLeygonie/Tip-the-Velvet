@@ -222,22 +222,27 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         {/* PROMO IMAGE & TEXT */}
-        <div className="content-grid">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
+          <div className="flex flex-col space-y-3">
             <label className="label text-[10px] uppercase block">
               {t('Promobild:', 'Promo Image:')}
             </label>
-            <div className="promo-upload-square is-active">
+            <div className="promo-upload-square is-active relative flex flex-col items-center justify-center overflow-hidden w-full h-full min-h-[300px]">
               {formData.promo_image_id ? (
-                <div className="space-y-3">
+                <div className="absolute inset-0 group">
                   <img
                     src={getImageSrc(formData.promo_image_id)}
-                    className="promo-image"
+                    className="w-full h-full object-cover rounded-lg"
                     alt="Preview"
                   />
-                  <label htmlFor="image-up" className="btn-lang cursor-pointer hover:bg-accent/10">
-                    {t('Byt bild', 'Change Image')}
-                  </label>
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <label
+                      htmlFor="image-up"
+                      className="btn-lang cursor-pointer bg-accent text-black font-semibold px-4 py-2 rounded-lg text-xs uppercase tracking-wider"
+                    >
+                      {t('Byt bild', 'Change Image')}
+                    </label>
+                  </div>
                 </div>
               ) : (
                 <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
@@ -253,7 +258,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               />
             </div>
           </div>
-          <div className="space-y-2">
+
+          <div className="flex flex-col space-y-2 h-full">
             <label className="label text-[10px] uppercase tracking-widest block">
               {t('Promo text (SV)', 'Promo text (ENG) *')}
             </label>
@@ -266,7 +272,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               rows={4}
               value={formData.promo_text || ''}
               onChange={handleChange}
-              className="flex"
+              className="w-full flex-1 min-h-[300px] h-full resize-none box-border"
             />
           </div>
         </div>
