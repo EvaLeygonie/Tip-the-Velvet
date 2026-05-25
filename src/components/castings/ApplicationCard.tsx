@@ -8,34 +8,22 @@ import { Calendar, MapPin, Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export const ApplicationCard = ({ event }: { event: Event }) => {
-  const { language: siteLanguage, t, setLanguage } = useLanguage()
+  const { language, t, setLanguage } = useLanguage()
 
-  const preferredLang = siteLanguage === 'eng' ? 'eng' : 'sv'
+  const preferredLang = language === 'eng' ? 'eng' : 'sv'
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const [uploading, setUploading] = useState(false)
   const [tempFile, setTempFile] = useState<File | null>(null)
 
-  const [formData, setFormData] = useState<CreateCastingApplicationInput>({
+  const [formData, setFormData] = useState<Partial<CreateCastingApplicationInput>>({
     event_id: event.id,
-    performer_name: '',
-    email: '',
-    act_title: '',
-    act_description_sv: '',
-    act_description_eng: '',
-    video_url: '',
-    slug: '',
-    promo_image_id: null,
-    promo_text_sv: '',
-    promo_text_eng: '',
     language: preferredLang,
-    city: '',
-    country: '',
-    facebook_link: '',
-    instagram_link: '',
-    other_link: '',
     agreed_to_terms: false,
+    act_title: '',
+    email: '',
+    promo_image_id: null,
   })
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
@@ -58,15 +46,15 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!agreed) return toast.error(t('Acceptera termer tack', 'Please agree to the terms'))
+    if (!agreed) return toast.error(t('Acceptera termer tack.', 'Please agree to the terms.'))
     if (!formData.promo_image_id)
       return toast(t('Ladda upp en promobild.', 'Please upload a promo picture.'))
     if (!formData.performer_name)
-      return toast.error(t('Artistnamn krävs', 'Artist name is required'))
+      return toast.error(t('Artistnamn krävs.', 'Artist name is required.'))
 
     setSubmitting(true)
     const artistSlug = createSlug(formData.performer_name)
-    const actSlug = createSlug(formData.act_title)
+    const actSlug = createSlug(formData.act_title || '')
     let finalImageId = formData.promo_image_id
 
     if (tempFile) {
@@ -93,7 +81,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       performer_name: formData.performer_name.trim(),
       act_title: formData.act_title?.trim() || '',
       slug: actSlug,
-      email: formData.email.trim(),
+      email: formData.email?.trim() || '',
       promo_image_id: finalImageId,
       language: preferredLang,
       agreed_to_terms: true,
@@ -105,23 +93,11 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
       setFormData({
         event_id: event.id,
-        performer_name: '',
-        email: '',
-        act_title: '',
-        act_description_sv: '',
-        act_description_eng: '',
-        video_url: '',
-        slug: '',
-        promo_image_id: null,
-        promo_text_sv: '',
-        promo_text_eng: '',
         language: preferredLang,
-        city: '',
-        country: '',
-        facebook_link: '',
-        instagram_link: '',
-        other_link: '',
         agreed_to_terms: false,
+        act_title: '',
+        email: '',
+        promo_image_id: null,
       })
       setAgreed(false)
     } catch (err) {
@@ -134,6 +110,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
   return (
     <div className="bg-card/80 backdrop-blur-sm shadow-[0_10px_50px_hsl(0_60%_5%/0.6)] border border-accent/20 p-6 rounded-xl text-left">
+      {/* EVENT INFO */}
       <div className="mb-6 text-center flex flex-col items-center">
         <div className="text-3xl font-decorative text-accent drop-shadow-[0_0_15px_currentColor]">
           {event.title}
@@ -152,9 +129,89 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </span>
         </div>
       </div>
+
+      <div className="gold-divider" />
+
       <div className="space-y-5">
+        {/* LANGUAGE & EMAIL */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+          <div className="space-y-3">
+            <label className="label text-[10px] uppercase tracking-widest block">
+              {t('Kommunikationsspråk', 'Preferred Language')}
+            </label>
+            <div className="gap-6 h-[46px] flex items-center">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="preferred_lang"
+                  checked={preferredLang === 'sv'}
+                  onChange={() => handleLanguageChange('sv')}
+                  className="accent-accent"
+                />
+                <span>Svenska</span>
+              </label>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="preferred_lang"
+                  checked={preferredLang === 'eng'}
+                  onChange={() => handleLanguageChange('eng')}
+                  className="accent-accent"
+                />
+                <span>English</span>
+              </label>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="label text-[10px] uppercase tracking-widest block">Email *</label>
+            <input
+              type="email"
+              name="email"
+              placeholder={t('ditt@mail.com', 'your@email.com')}
+              value={formData.email}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        {/* COUNTRY & CITY */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="label text-[10px] uppercase tracking-widest block">
+              {t('Din hemmastad', 'Your city of residence *')}
+            </label>
+            <input
+              type="text"
+              name="city"
+              placeholder={t('t.ex. Göteborg', 'e.g. Gothenburg')}
+              value={formData.city || ''}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="label text-[10px] uppercase tracking-widest block">
+              {t('Land', 'Country *')}
+            </label>
+            <input
+              type="text"
+              name="country"
+              placeholder={t('t.ex. Sverige', 'e.g. Sweden')}
+              value={formData.country || ''}
+              onChange={handleChange}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="gold-divider" />
+
+        {/* ARTIST INFO */}
         <div className="space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest block">Artist Name *</label>
+          <label className="label text-[10px] uppercase tracking-widest block">
+            {t('Artistnamn', 'Artist Name *')}
+          </label>
           <input
             type="text"
             name="performer_name"
@@ -164,19 +221,62 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest block">Email *</label>
-          <input
-            type="email"
-            name="email"
-            placeholder={t('ditt@mail.com', 'your@email.com')}
-            value={formData.email}
-            onChange={handleChange}
-          />
+        {/* PROMO IMAGE & TEXT */}
+        <div className="content-grid">
+          <div className="space-y-4">
+            <label className="label text-[10px] uppercase block">
+              {t('Promobild:', 'Promo Image:')}
+            </label>
+            <div className="promo-upload-square is-active">
+              {formData.promo_image_id ? (
+                <div className="space-y-3">
+                  <img
+                    src={getImageSrc(formData.promo_image_id)}
+                    className="promo-image"
+                    alt="Preview"
+                  />
+                  <label htmlFor="image-up" className="btn-lang cursor-pointer hover:bg-accent/10">
+                    {t('Byt bild', 'Change Image')}
+                  </label>
+                </div>
+              ) : (
+                <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
+                  {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
+                </label>
+              )}
+              <input
+                type="file"
+                id="image-up"
+                className="hidden"
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="label text-[10px] uppercase tracking-widest block">
+              {t('Promo text (SV)', 'Promo text (ENG) *')}
+            </label>
+            <textarea
+              name="promo_text"
+              placeholder={t(
+                'Presentera dig själv som artist! Din promo text kommer delas till sociala medier om du blir vald för att uppträda hos oss.',
+                'Introduce yourself as a performer! Your promo text will be shared on social media if you become part of the lineup.'
+              )}
+              rows={4}
+              value={formData.promo_text || ''}
+              onChange={handleChange}
+              className="flex"
+            />
+          </div>
         </div>
 
+        <div className="gold-divider" />
+
         <div className="space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest block">Act Title *</label>
+          <label className="label text-[10px] uppercase tracking-widest block">
+            {t('Akt titel', 'Act Title *')}
+          </label>
           <input
             type="text"
             name="act_title"
@@ -188,13 +288,16 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="space-y-2">
           <label className="label text-[10px] uppercase tracking-widest block">
-            Act Description (SV) *
+            {t('Act beksrivning (SV)', 'Act Description (ENG) *')}
           </label>
           <textarea
-            name="act_description_sv"
-            placeholder={t('Berätta om ditt nummer', 'Tell us about your act')}
+            name="act_description"
+            placeholder={t(
+              'Berätta om ditt nummer (på svenska)',
+              'Tell us about your act (in english)'
+            )}
             rows={4}
-            value={formData.act_description_sv || ''}
+            value={formData.act_description || ''}
             onChange={handleChange}
           />
         </div>
@@ -212,71 +315,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           />
         </div>
 
-        <div className="space-y-4">
-          <label className="label text-[10px] uppercase block">
-            {t('Promobild:', 'Promo Image:')}
-          </label>
-          <div className="border-2 border-dashed border-accent/20 rounded-xl p-4 text-center">
-            {formData.promo_image_id ? (
-              <div className="space-y-3">
-                <img
-                  src={getImageSrc(formData.promo_image_id)}
-                  className="w-full max-h-[300px] object-cover rounded-lg mx-auto"
-                  alt="Preview"
-                />
-                <label
-                  htmlFor="image-up"
-                  className="btn-lang cursor-pointer inline-block bg-accent/10 px-4 py-2 rounded-lg"
-                >
-                  {t('Byt bild', 'Change Image')}
-                </label>
-              </div>
-            ) : (
-              <label
-                htmlFor="image-up"
-                className="cursor-pointer inline-block bg-accent/20 px-6 py-3 rounded-lg"
-              >
-                {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
-              </label>
-            )}
-            <input
-              type="file"
-              id="image-up"
-              className="hidden"
-              accept="image/*"
-              onChange={handleImageUpload}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <label className="label text-[10px] uppercase tracking-widest block">
-            {t('Kommunikationsspråk', 'Language')}
-          </label>
-          <div className="flex gap-6">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                name="preferred_lang"
-                checked={preferredLang === 'sv'}
-                onChange={() => handleLanguageChange('sv')}
-                className="accent-accent"
-              />
-              <span>Svenska</span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                name="preferred_lang"
-                checked={preferredLang === 'eng'}
-                onChange={() => handleLanguageChange('eng')}
-                className="accent-accent"
-              />
-              <span>English</span>
-            </label>
-          </div>
-        </div>
-
+        {/* GDPR */}
         <div className="flex items-start space-x-3 pt-2">
           <input
             type="checkbox"

@@ -48,8 +48,7 @@ export type Database = {
       }
       casting_applications: {
         Row: {
-          act_description_eng: string | null
-          act_description_sv: string | null
+          act_description: string | null
           act_title: string
           admin_notes: string | null
           agreed_to_terms: boolean
@@ -66,15 +65,13 @@ export type Database = {
           other_link: string | null
           performer_name: string
           promo_image_id: string | null
-          promo_text_eng: string | null
-          promo_text_sv: string | null
+          promo_text: string | null
           review_status: Database["public"]["Enums"]["casting_review_status"]
           slug: string | null
           video_url: string | null
         }
         Insert: {
-          act_description_eng?: string | null
-          act_description_sv?: string | null
+          act_description?: string | null
           act_title: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
@@ -91,15 +88,13 @@ export type Database = {
           other_link?: string | null
           performer_name: string
           promo_image_id?: string | null
-          promo_text_eng?: string | null
-          promo_text_sv?: string | null
+          promo_text?: string | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
           slug?: string | null
           video_url?: string | null
         }
         Update: {
-          act_description_eng?: string | null
-          act_description_sv?: string | null
+          act_description?: string | null
           act_title?: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
@@ -116,8 +111,7 @@ export type Database = {
           other_link?: string | null
           performer_name?: string
           promo_image_id?: string | null
-          promo_text_eng?: string | null
-          promo_text_sv?: string | null
+          promo_text?: string | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
           slug?: string | null
           video_url?: string | null

@@ -338,7 +338,7 @@ export const EventEditor = () => {
                 <div className="text-center p-4">
                   <img
                     src={getImageSrc(formData.image_id)}
-                    className="w-full h-full object-cover relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh]"
+                    className="promo-image border-2"
                     style={{
                       boxShadow: `0 0 10px 1px ${formData.glow_color}, 0 0 25px 5px rgba(0, 0, 0, 0.5)`,
                       borderColor: formData.glow_color || '#D4AF37',
@@ -352,7 +352,7 @@ export const EventEditor = () => {
                 </div>
               ) : (
                 <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
-                  {uploading ? 'Laddar...' : 'Välj Bild'}
+                  {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
                 </label>
               )}
               <input type="file" id="image-up" className="hidden" onChange={handleImageUpload} />

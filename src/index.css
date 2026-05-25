@@ -323,6 +323,10 @@ body {
     @apply flex items-center justify-between gap-4 border-b border-accent/5 pb-2 last:border-0 last:pb-0;
   }
 
+  .promo-image {
+    @apply h-full object-cover relative aspect-square rounded-xl overflow-hidden transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh];
+  }
+
   .promo-upload-square {
     @apply aspect-square w-full max-w-[300px] border-2 border-dashed border-accent/20 rounded-lg flex-center flex-col gap-4 transition-all hover:bg-accent/5 hover:border-accent/40;
   }
