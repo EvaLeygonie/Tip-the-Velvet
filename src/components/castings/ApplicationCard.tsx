@@ -97,7 +97,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     }
 
     try {
-      submitCastingApplication(payload)
+      await submitCastingApplication(payload)
       toast.success(t('Ansökan skickad!', 'Application submitted!'))
 
       setFormData({
