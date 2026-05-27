@@ -81,15 +81,10 @@ export const updateImageOrder = (id: string, displayOrder: number, isOldEvent: b
 
 //=== DELETE ===///
 
-export const deleteEventImage = async (
-  imageId: string,
-  publicId: string,
-  isOldEvent: boolean,
-  accessToken: string
-) => {
+export const deleteEventImage = async (imageId: string, publicId: string, isOldEvent: boolean) => {
   const table = isOldEvent ? 'old_event_images' : 'event_images'
   const { error } = await supabase.from(table).delete().eq('id', imageId)
   if (error) throw error
 
-  await deleteFromCloudinary(publicId, accessToken)
+  await deleteFromCloudinary(publicId)
 }

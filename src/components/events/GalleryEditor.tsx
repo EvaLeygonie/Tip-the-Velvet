@@ -128,7 +128,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
     if (!session) throw new Error(t('Inte inloggad', 'Not logged in'))
 
     try {
-      await deleteEventImage(img.id, img.image_id, isOldEvent, session.access_token)
+      await deleteEventImage(img.id, img.image_id, isOldEvent)
       toast.success(t('Bild raderad!', 'Image deleted!'))
       onUpdate()
     } catch (err) {

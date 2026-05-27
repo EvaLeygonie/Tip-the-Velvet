@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -23,7 +23,6 @@ export const EventDetail = () => {
   const [event, setEvent] = useState<Event | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
   const [index, setIndex] = useState<number>(-1)
-  //* -1 istället för false => lightboxen är stängd!
 
   const sortedImages = [...images]
     .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
@@ -34,22 +33,38 @@ export const EventDetail = () => {
     alt: img.event_slug || '',
   }))
 
+  const loadEventData = useCallback(async () => {
+    if (!slug) return
+
+    try {
+      const data = (await getEventWithImages(slug, isOldEvent)) as (Event | OldEvent) & {
+        images?: EventImage[]
+      }
+
+      setEvent(data)
+      setImages(data.images || [])
+    } catch (err) {
+      console.error('Error fetching event:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [slug, isOldEvent])
+
   useEffect(() => {
-    const fetchEvent = async () => {
-      if (!slug) return
-      setLoading(true)
-      try {
-        const data = await getEventWithImages(slug, isOldEvent)
-        setEvent(data)
-        setImages(data.images || [])
-      } catch (err) {
-        console.error('Error fetching event:', err)
-      } finally {
-        setLoading(false)
+    let isMounted = true
+
+    const fetchData = async () => {
+      if (isMounted) {
+        await loadEventData()
       }
     }
-    fetchEvent()
-  }, [slug, isOldEvent])
+
+    fetchData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [loadEventData])
 
   if (loading) return <p>{t('Laddar...', 'Loading...')}</p>
 
@@ -106,28 +121,42 @@ export const EventDetail = () => {
         ) : (
           <EventInfo event={event as Event}></EventInfo>
         )}
-
         {event?.fb_album_url && (
-          <div className="pt-2 flex justify-center">
+          <div className="flex justify-center">
             <a
               href={event.fb_album_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-2.5 border border-accent/40 bg-accent/5 hover:bg-accent hover:text-black text-accent text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300"
+              className="btn-gold-outline"
             >
               <ExternalLink size={14} />
               {t('Se Facebook-album', 'View Facebook Album')}
             </a>
           </div>
         )}
+        {/* FACEBOOK LÄNK */}
+        {event && 'facebook_event' in event && event.facebook_event && !event.fb_album_url && (
+          <div className="flex justify-center">
+            <a
+              href={event.facebook_event}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-gold-outline"
+            >
+              <ExternalLink size={14} />
+              {t('Se Facebook-event', 'View Facebook Event')}
+            </a>
+          </div>
+        )}
       </div>
+
       <div className="gold-divider" />
 
       {/* GALLERY */}
       <section className="page-section mt-10">
         <div className="editor-container text-center space-y-1 mb-4">
           <h2 className="m-0 p-0">{t('Bilder', 'Photos')}</h2>
-          {/* FOTOGRAF */}
+          {/* FOTOGRAPHER */}
           {event?.photographer && (
             <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-foreground/60 italic font-body">
               <Camera size={14} className="text-accent/70" />
@@ -143,11 +172,7 @@ export const EventDetail = () => {
             images={images}
             event={event}
             isOldEvent={isOldEvent}
-            onUpdate={() => {
-              getEventWithImages(slug!, isOldEvent)
-                .then((data) => setImages(data.images || []))
-                .catch((err) => console.error('Error refreshing images:', err))
-            }}
+            onUpdate={loadEventData}
           />
         )}
 

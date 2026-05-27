@@ -58,7 +58,6 @@ export type Database = {
           display_order: number | null
           email: string
           event_id: string
-          facebook_link: string | null
           id: string
           instagram_link: string | null
           language: Database["public"]["Enums"]["language"]
@@ -81,7 +80,6 @@ export type Database = {
           display_order?: number | null
           email: string
           event_id: string
-          facebook_link?: string | null
           id?: string
           instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
@@ -104,7 +102,6 @@ export type Database = {
           display_order?: number | null
           email?: string
           event_id?: string
-          facebook_link?: string | null
           id?: string
           instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
@@ -287,6 +284,7 @@ export type Database = {
           description_sv: string | null
           event_end: string | null
           event_start: string | null
+          facebook_event: string | null
           fb_album_url: string | null
           glow_color: string | null
           has_casting_call: boolean
@@ -314,6 +312,7 @@ export type Database = {
           description_sv?: string | null
           event_end?: string | null
           event_start?: string | null
+          facebook_event?: string | null
           fb_album_url?: string | null
           glow_color?: string | null
           has_casting_call?: boolean
@@ -341,6 +340,7 @@ export type Database = {
           description_sv?: string | null
           event_end?: string | null
           event_start?: string | null
+          facebook_event?: string | null
           fb_album_url?: string | null
           glow_color?: string | null
           has_casting_call?: boolean
@@ -538,7 +538,6 @@ export type Database = {
           country: string | null
           created_at: string
           email: string | null
-          facebook_link: string | null
           id: string
           image_id: string | null
           instagram_link: string | null
@@ -555,7 +554,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           email?: string | null
-          facebook_link?: string | null
           id?: string
           image_id?: string | null
           instagram_link?: string | null
@@ -572,7 +570,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           email?: string | null
-          facebook_link?: string | null
           id?: string
           image_id?: string | null
           instagram_link?: string | null

@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import type { Event, CreateEventInput } from '@/types/types'
 import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
 import { deleteRow } from '@/services/databaseService'
-import { uploadToCloudinary } from '@/services/cloudinaryService'
+import { uploadToCloudinary, deleteFromCloudinary } from '@/services/cloudinaryService'
 
 export const EventEditor = () => {
   const { t } = useLanguage()
@@ -19,6 +19,7 @@ export const EventEditor = () => {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [tempFile, setTempFile] = useState<File | null>(null)
+  const [oldImageId, setOldImageId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<Partial<Event>>({
     title: '',
@@ -46,6 +47,7 @@ export const EventEditor = () => {
               event_start: data.event_start ? utcToLocal(data.event_start) : null,
               event_end: data.event_end ? utcToLocal(data.event_end) : null,
             })
+            setOldImageId(data.image_id)
           }
         } catch (err) {
           toast.error(t('Kunde inte ladda eventet', 'Failed to load event'))
@@ -94,8 +96,18 @@ export const EventEditor = () => {
 
     if (tempFile) {
       setUploading(true)
+
       try {
-        finalImageId = await uploadToCloudinary(tempFile, 'Promo', [finalSlug])
+        if (oldImageId) {
+          try {
+            await deleteFromCloudinary(oldImageId)
+          } catch (err) {
+            console.error('Kunde inte radera den gammal bild:', err)
+          }
+        }
+
+        finalImageId = await uploadToCloudinary(tempFile, 'Promo', [finalSlug], finalSlug)
+        setOldImageId(finalImageId)
         setTempFile(null)
       } catch (err) {
         setLoading(false)
@@ -136,8 +148,6 @@ export const EventEditor = () => {
   }
 
   const handleDelete = async () => {
-    deleteRow('events', formData.id || '')
-
     const confirmed = window.confirm(
       t(
         'Är du säker på att du vill radera detta event?',
@@ -145,9 +155,19 @@ export const EventEditor = () => {
       )
     )
     if (!confirmed) return
+    setLoading(true)
 
     try {
+      if (oldImageId) {
+        try {
+          await deleteFromCloudinary(oldImageId)
+        } catch (cloudinaryErr) {
+          console.error('Cloudinary delete failed:', cloudinaryErr)
+        }
+      }
+
       await deleteRow('events', formData.id || '')
+
       toast.success(t('Event raderat!', 'Event deleted!'))
       navigate('/events')
     } catch (err) {
@@ -473,15 +493,6 @@ export const EventEditor = () => {
             </div>
 
             <div className="field-row">
-              <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
-              <input
-                name="photographer"
-                className="editor-input"
-                value={formData.photographer || ''}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="field-row">
               <label className="label text-[10px] uppercase">
                 {t('Pinterest länk', 'Pinterest Link')}
               </label>
@@ -492,7 +503,25 @@ export const EventEditor = () => {
                 onChange={handleChange}
               />
             </div>
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">Facebook Event</label>
+              <input
+                name="facebook_event"
+                className="editor-input"
+                value={formData.facebook_event || ''}
+                onChange={handleChange}
+              />
+            </div>
 
+            <div className="field-row">
+              <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
+              <input
+                name="photographer"
+                className="editor-input"
+                value={formData.photographer || ''}
+                onChange={handleChange}
+              />
+            </div>
             <div className="field-row">
               <label className="label text-[10px] uppercase">
                 {t('Facebook album', 'Facebook Album')}
@@ -501,17 +530,6 @@ export const EventEditor = () => {
                 name="fb_album_url"
                 className="editor-input"
                 value={formData.fb_album_url || ''}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="field-row">
-              <label className="label text-[10px] uppercase">
-                {t('Fotohörna länk', 'Photo Booth Link')}
-              </label>
-              <input
-                name="photobooth_url"
-                className="editor-input"
-                value={formData.photobooth_url || ''}
                 onChange={handleChange}
               />
             </div>

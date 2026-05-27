@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabase'
+
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
@@ -22,13 +24,16 @@ export const getCloudinaryImagesByTag = async (tag: string) => {
 export const uploadToCloudinary = async (
   file: File,
   folder: string,
-  tags: string[]
+  tags: string[],
+  publicId?: string
 ): Promise<string> => {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', UPLOAD_PRESET)
   formData.append('folder', folder)
   formData.append('tags', tags.join(','))
+
+  if (publicId) formData.append('public_id', publicId)
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
     method: 'POST',
@@ -42,15 +47,16 @@ export const uploadToCloudinary = async (
 //===DELETE===//
 
 // Via Supabase edge function
-export const deleteFromCloudinary = async (
-  publicId: string,
-  accessToken: string
-): Promise<void> => {
+export const deleteFromCloudinary = async (publicId: string): Promise<void> => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not logged in')
   const res = await fetch(`${SUPABASE_URL}/functions/v1/cloudinary-delete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({ public_id: publicId }),
   })

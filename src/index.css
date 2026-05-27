@@ -121,6 +121,14 @@ body {
     font-family: var(--font-body);
   }
 
+  .text-info {
+    @apply text-sm md:text-base font-body text-foreground/90 leading-relaxed tracking-wide;
+  }
+
+  .gold-link {
+    @apply text-accent underline underline-offset-4 hover:text-accent/80 transition-colors font-medium inline-flex items-center gap-1;
+  }
+
   /* --- LOADING & PLACEHOLDERS --- */
   .loading-container {
     @apply flex justify-center items-center min-h-[50vh];
@@ -245,6 +253,10 @@ body {
     @apply relative z-10 bg-red-950 hover:bg-red-900 text-red-100 border border-red-500/40 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-[0_0_15px_rgba(153,27,27,0.4)] min-w-[140px] min-h-[44px] rounded-md;
     font-family: var(--font-decorative);
     @apply uppercase tracking-widest font-medium text-xs;
+  }
+
+  .btn-gold-outline {
+    @apply inline-flex items-center gap-2 px-6 py-2.5 border border-accent/40 bg-accent/5 hover:bg-accent hover:text-black text-accent text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300;
   }
 
   .btn-admin {

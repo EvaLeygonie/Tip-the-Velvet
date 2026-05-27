@@ -69,11 +69,12 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     if (tempFile) {
       setUploading(true)
       try {
-        finalImageId = await uploadToCloudinary(tempFile, 'Casting Calls', [
-          'casting-call',
-          artistSlug,
-          actSlug,
-        ])
+        finalImageId = await uploadToCloudinary(
+          tempFile,
+          'Casting Calls',
+          ['casting-call', artistSlug, actSlug],
+          `${artistSlug}-${actSlug}`
+        )
         setTempFile(null)
       } catch (err) {
         toast.error(t('Kunde inte ladda upp bilden', 'Cloudinary upload failed'))
@@ -235,7 +236,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
           <div className="flex flex-col space-y-3">
             <label className="label text-[10px] uppercase block">
-              {t('Promobild:', 'Promo Image:')}
+              {t('Promobild *', 'Promo Image *')}
             </label>
             <div className="promo-upload-square is-active relative flex flex-col items-center justify-center overflow-hidden w-full h-full min-h-[300px]">
               {formData.promo_image_id ? (
@@ -271,7 +272,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
           <div className="flex flex-col space-y-2 h-full">
             <label className="label text-[10px] uppercase tracking-widest block">
-              {t('Promo text (SV)', 'Promo text (ENG) *')}
+              {t('Promo text (SV) *', 'Promo text (ENG) *')}
             </label>
             <textarea
               name="promo_text"
@@ -291,7 +292,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="space-y-2">
           <label className="label text-[10px] uppercase tracking-widest block">
-            {t('Akt titel', 'Act Title *')}
+            {t('Akt titel *', 'Act Title *')}
           </label>
           <input
             type="text"
@@ -304,7 +305,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="space-y-2">
           <label className="label text-[10px] uppercase tracking-widest block">
-            {t('Act beksrivning (SV)', 'Act Description (ENG) *')}
+            {t('Act beksrivning (SV) *', 'Act Description (ENG) *')}
           </label>
           <textarea
             name="act_description"
@@ -320,7 +321,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="space-y-2">
           <label className="label text-[10px] uppercase tracking-widest block">
-            Video Link (optional)
+            {t('Video Link (friviligt)', 'Video Link (optional)')}
           </label>
           <input
             type="url"
@@ -329,6 +330,39 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             value={formData.video_url || ''}
             onChange={handleChange}
           />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="label text-[10px] uppercase tracking-widest block">
+              {t('Instagram (friviligt)', 'Instagram (optional)')}
+            </label>
+            <input
+              type="text"
+              name="instagram_link"
+              placeholder={t('Din instagram profil', 'Your instagram profile')}
+              value={formData.instagram_link || ''}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="label text-[10px] uppercase tracking-widest block">
+              {t('Annan länk (friviligt)', 'Other link (optional)')}
+            </label>
+            <input
+              type="text"
+              name="other_link"
+              placeholder={t(
+                'I.e webbsida, annan social media',
+                'e.g. website, other social media'
+              )}
+              value={formData.other_link || ''}
+              onChange={handleChange}
+              required
+            />
+          </div>
         </div>
 
         {/* GDPR */}

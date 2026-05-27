@@ -84,31 +84,30 @@ export const EventInfo = ({ event }: { event: Event }) => {
           </div>
 
           {/* LINKS */}
-          <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-            {/* BILJETTER */}
-            {event.ticket_url && upcomingEvent && (
-              <a
-                href={event.ticket_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-gold"
-              >
-                <Ticket className="w-4 h-4" />
-                {t('Köp Biljetter', 'Get Tickets')}
-              </a>
-            )}
+          {upcomingEvent && (
+            <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+              {/* BILJETTER */}
+              {event.ticket_url && (
+                <a
+                  href={event.ticket_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-gold"
+                >
+                  <Ticket className="w-4 h-4" />
+                  {t('Köp Biljetter', 'Get Tickets')}
+                </a>
+              )}
 
-            {/* CASTING CALL */}
-            {event.has_casting_call && (
-              <Link
-                to="/casting-call"
-                className="btn-red"
-              >
-                <UserPlus className="w-4 h-4 text-red-400" />
-                Casting Call
-              </Link>
-            )}
-          </div>
+              {/* CASTING CALL */}
+              {event.has_casting_call && (
+                <Link to="/casting-call" className="btn-red">
+                  <UserPlus className="w-4 h-4 text-red-400" />
+                  Casting Call
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -117,15 +116,12 @@ export const EventInfo = ({ event }: { event: Event }) => {
         <div className="gold-divider" />
       </div>
       <div className="mx-auto bg-gradient-to-b from-black/40 to-black/20 border border-accent/10 rounded-2xl p-6 md:p-6 text-center backdrop-blur-sm shadow-xl space-y-3 mt-4 transition-all duration-300 hover:border-accent/20">
-        <p className="text-sm md:text-base font-body text-foreground/90 leading-relaxed tracking-wide">
+        <p className="text-info">
           {t(
             'Osäker på vad du ska ha på dig? Kolla in vår ',
             "Don't know what to wear? Check out our "
           )}
-          <Link
-            to="/dresscode"
-            className="text-accent underline underline-offset-4 hover:text-accent/80 transition-colors font-medium"
-          >
+          <Link to="/dresscode" className="gold-link">
             {t('klädkod', 'dresscode')}
           </Link>
           {event.pinterest_link && (
@@ -135,7 +131,7 @@ export const EventInfo = ({ event }: { event: Event }) => {
                 href={event.pinterest_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent underline underline-offset-4 hover:text-accent/80 transition-colors font-medium inline-flex items-center gap-1"
+                className="gold-link"
               >
                 {t('Pinterest-anslagstavla', 'Pinterest board')}
                 <ExternalLink size={13} className="opacity-80" />
@@ -146,7 +142,7 @@ export const EventInfo = ({ event }: { event: Event }) => {
           !
         </p>
 
-        <p className="text-xs md:text-sm text-foreground/40 font-body italic pt-1 tracking-wide">
+        <p className="text-info">
           {t(
             'Du är alltid välkommen att kontakta oss via e-post eller sociala medier om du har frågor eller funderingar!',
             "You're always welcome to contact us via email or social media if you have questions or doubts!"
