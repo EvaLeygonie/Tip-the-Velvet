@@ -375,8 +375,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           />
           <label className="text-sm text-foreground/80 leading-relaxed cursor-pointer">
             {t(
-              'Jag godkänner att informationen jag skickar in sparas i en databas. Jag kan närsomhelt kontakta Tip the Velvet för att min information ska raderas.',
-              'I agree to this information being saved in a database. I can contact Tip the Velvet at any time to have my information deleted.'
+              'Genom att skicka in formuläret godkänner du att Tip the Velvet (ekonomisk förening) sparar dena information och mediefiler i syfte att hantera artistbokningar. Vi delar aldrig din data med tredje part, och du kan när som helst kontakta oss för att få dina uppgifter raderade.',
+              'By submitting this form, you agree to Tip the Velvet (economic association) storing your information and media files for the purpose of managing artist bookings. We never share your data with third parties, and you can contact us at any time to have your information deleted.'
             )}
           </label>
         </div>

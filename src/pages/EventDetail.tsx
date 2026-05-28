@@ -100,14 +100,14 @@ export const EventDetail = () => {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto space-y-10 px-4 my-12">
+      <div className="max-w-5xl mx-auto space-y-10 px-10 my-12">
         {event &&
           (() => {
             const langKey = `description_${t('sv', 'eng')}` as keyof typeof event
             const description = event[langKey] as string
             return (
               description && (
-                <p className="text-base md:text-lg text-foreground/80 font-body leading-relaxed mx-auto text-center">
+                <p className="text-base md:text-lg text-foreground/80 font-body leading-relaxed mx-auto text-center whitespace-pre-line">
                   {description}
                 </p>
               )
