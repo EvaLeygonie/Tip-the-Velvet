@@ -36,8 +36,8 @@ export const HomePage = () => {
           {/* TEXT */}
           <p className="text-lg md:text-xl lg:text-2xl text-foreground/90 max-w-2xl mx-auto font-body leading-relaxed tracking-wide">
             {t(
-              'Sveriges äldsta burlesqueklubb, med hem i Göteborg. Där elegans möter egenmakt, och varje kropp berättar en historia.',
-              "Sweden's oldest burlesque club, located in Gothenburg. Where elegance meets empowerment, and every body tells a story."
+              'Sveriges äldsta burlesqueklubb, i Göteborg. Där kreativitet möter egenmakt, och varje kropp berättar en historia.',
+              "Sweden's oldest burlesque club, located in Gothenburg. Where creativity meets empowerment, and every body tells a story."
             )}
           </p>
 

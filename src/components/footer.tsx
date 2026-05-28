@@ -5,7 +5,9 @@ import { useLanguage } from '@/contexts/LanguageContext'
 export const Footer = () => {
   const { t } = useLanguage()
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [status, setStatus] = useState<
+    'idle' | 'loading' | 'success' | 'error' | 'already_subscribed'
+  >('idle')
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -18,7 +20,14 @@ export const Footer = () => {
         body: JSON.stringify({ email }),
       })
 
-      if (!response.ok) throw new Error('Subscription failed')
+      if (!response.ok) {
+        const data = await response.json()
+        if (data.error === 'already_subscribed') {
+          setStatus('already_subscribed')
+          return
+        }
+        throw new Error('Subscription failed')
+      }
 
       setStatus('success')
       setEmail('')
@@ -102,45 +111,50 @@ export const Footer = () => {
           <div className="space-y-4">
             <h4>{t('Nyhetsbrev', 'Newsletter')}</h4>
 
-            {status === 'success' ? (
-              <p className="text-sm text-gold animate-fade-in font-medium max-w-[250px] leading-relaxed">
-                {t(
-                  'Tack! Håll utkik i din inkorg efter en bekräftelse.',
-                  'Thank you! Please check your inbox for a confirmation.'
-                )}
-              </p>
-            ) : (
-              <form onSubmit={handleSubscribe} className="space-y-3 max-w-xs">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full !py-2.5 !min-h-0 text-xs text-white focus:outline-none"
-                  placeholder={t('Din e-post', 'Your email')}
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={status === 'loading'}
-                  className="btn-gold w-full !py-2 !min-h-0"
-                >
-                  {status === 'loading' ? '...' : t('Prenumerera', 'Subscribe')}
-                </button>
+            <form onSubmit={handleSubscribe} className="space-y-3 max-w-xs">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full !py-2.5 !min-h-0 text-xs text-white focus:outline-none"
+                placeholder={t('Din e-post', 'Your email')}
+                required
+              />
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className="btn-gold w-full !py-2 !min-h-0"
+              >
+                {status === 'loading' ? '...' : t('Prenumerera', 'Subscribe')}
+              </button>
 
-                {status === 'error' && (
-                  <p className="text-[11px] text-red-400 font-medium mt-1">
-                    {t('Något gick fel, försök igen.', 'Something went wrong, please try again.')}
-                  </p>
-                )}
-
+              {status === 'success' ? (
+                <p className="text-sm text-gold animate-fade-in font-medium max-w-[250px] leading-relaxed">
+                  {t(
+                    'Tack! Du är nu prenumerant på vårt nyhetsbrev! ✦',
+                    'Thank you! You are now subscribed to our newsletter! ✦'
+                  )}
+                </p>
+              ) : status === 'already_subscribed' ? (
+                <p className="text-sm text-gold animate-fade-in font-medium max-w-[250px] leading-relaxed">
+                  {t(
+                    'Du prenumererar redan på vårt nyhetsbrev! ✦',
+                    'You are already subscribed to our newsletter! ✦'
+                  )}
+                </p>
+              ) : status === 'error' ? (
+                <p className="text-[11px] text-red-400 font-medium mt-1">
+                  {t('Något gick fel, försök igen.', 'Something went wrong, please try again.')}
+                </p>
+              ) : (
                 <p className="text-[10px] text-gray-500 leading-tight opacity-80 mt-1">
                   {t(
                     'Dina uppgifter hanteras säkert av Tip the Velvet.',
                     'Your details are securely managed by Tip the Velvet.'
                   )}
                 </p>
-              </form>
-            )}
+              )}
+            </form>
           </div>
         </div>
 
