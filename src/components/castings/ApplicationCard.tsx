@@ -52,6 +52,20 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
   }
 
+  const sendCastingEmail = async (name: string, email: string) => {
+    try {
+      const response = await fetch('/api/casting-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email }),
+      })
+      return response.ok
+    } catch (error) {
+      console.error('Nätverksfel vid sändning av mail:', error)
+      return false
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -97,9 +111,11 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       agreed_to_terms: true,
     }
 
+    const applicantName = formData.performer_name.trim()
+    const applicantEmail = formData.email?.trim() || ''
+
     try {
       await submitCastingApplication(payload)
-      toast.success(t('Ansökan skickad!', 'Application submitted!'))
 
       setFormData({
         event_id: event.id,
@@ -111,6 +127,25 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         promo_image_id: null,
       })
       setAgreed(false)
+
+      const emailSuccess = await sendCastingEmail(applicantName, applicantEmail)
+
+      if (emailSuccess) {
+        toast.success(
+          t(
+            'Ansökan skickad! Kolla din inkorg efter en bekräftelse.',
+            'Application submitted! Please check your inbox for a confirmation.'
+          )
+        )
+      } else {
+        toast.success(
+          t(
+            'Kunde inte skicka bekräftelsemail, men din ansökan är sparad.',
+            'Could not send confirmation email, but your application is saved.'
+          ),
+          { duration: 5000 }
+        )
+      }
     } catch (err) {
       toast.error(t('Någonting gick fel!', 'Something went wrong!'))
       console.error(err)

@@ -1,8 +1,32 @@
 import { Mail, Heart } from 'lucide-react'
+import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 export const Footer = () => {
   const { t } = useLanguage()
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus('loading')
+
+    try {
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      if (!response.ok) throw new Error('Subscription failed')
+
+      setStatus('success')
+      setEmail('')
+    } catch (error) {
+      console.error(error)
+      setStatus('error')
+    }
+  }
 
   return (
     <footer className="p-14 bg-black/40 border-t border-accent/20 relative">
@@ -77,47 +101,46 @@ export const Footer = () => {
           {/* RIGHT: Newsletter */}
           <div className="space-y-4">
             <h4>{t('Nyhetsbrev', 'Newsletter')}</h4>
-            {/* <p className="text-footer">
-              {t(
-                'Få senaste nyheter om oss och våra events.',
-                'Get the latest news about us and our events.'
-              )}
-            </p> */}
-            <form
-              action="https://tipthevelvet.us13.list-manage.com/subscribe/post?u=69d382b382d66cec58e138edd&id=657e07b437&f_id=007203e9f0"
-              method="post"
-              target="_blank"
-              className="space-y-3 max-w-xs"
-            >
-              <input
-                type="email"
-                className="w-full !py-2.5 !min-h-0 text-xs text-white focus:outline-none"
-                placeholder={t('Din e-post', 'Your email')}
-                required
-              />
-              <button type="submit" className="btn-gold w-full !py-2 !min-h-0">
-                {t('Prenumerera', 'Subscribe')}
-              </button>
 
-              {/* Hidden field to avoid spam(Mailchimp requirement) */}
-              <div style={{ position: 'absolute', left: '-5000px' }} aria-hidden="true">
-                <input
-                  type="text"
-                  name="b_69d382b382d66cec58e138edd_657e07b437"
-                  tabIndex={-1}
-                  value=""
-                  readOnly
-                />
-              </div>
-
-              {/* GDPR */}
-              <p className="text-[10px] text-gray-400/80 leading-relaxed mt-2">
+            {status === 'success' ? (
+              <p className="text-sm text-gold animate-fade-in font-medium max-w-[250px] leading-relaxed">
                 {t(
-                  'Godkänns i enlighet med Mailchimps villkor.',
-                  'Approved in accordance with Mailchimp terms.'
+                  'Tack! Håll utkik i din inkorg efter en bekräftelse.',
+                  'Thank you! Please check your inbox for a confirmation.'
                 )}
               </p>
-            </form>
+            ) : (
+              <form onSubmit={handleSubscribe} className="space-y-3 max-w-xs">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full !py-2.5 !min-h-0 text-xs text-white focus:outline-none"
+                  placeholder={t('Din e-post', 'Your email')}
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={status === 'loading'}
+                  className="btn-gold w-full !py-2 !min-h-0"
+                >
+                  {status === 'loading' ? '...' : t('Prenumerera', 'Subscribe')}
+                </button>
+
+                {status === 'error' && (
+                  <p className="text-[11px] text-red-400 font-medium mt-1">
+                    {t('Något gick fel, försök igen.', 'Something went wrong, please try again.')}
+                  </p>
+                )}
+
+                <p className="text-[10px] text-gray-500 leading-tight opacity-80 mt-1">
+                  {t(
+                    'Dina uppgifter hanteras säkert av Tip the Velvet.',
+                    'Your details are securely managed by Tip the Velvet.'
+                  )}
+                </p>
+              </form>
+            )}
           </div>
         </div>
 
