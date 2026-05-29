@@ -10,20 +10,6 @@ export const Footer = () => {
     'idle' | 'loading' | 'success' | 'error' | 'already_subscribed'
   >('idle')
 
-  const sendConfirmationEmail = async (email: string, language: string) => {
-    try {
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, language }),
-      })
-      return response.ok
-    } catch (error) {
-      console.error('Nätverksfel vid sändning av mail:', error)
-      return false
-    }
-  }
-
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
     setStatus('loading')
@@ -32,34 +18,32 @@ export const Footer = () => {
       const response = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, language }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const data = await response.json()
         if (data.error === 'already_subscribed') {
           setStatus('already_subscribed')
           return
         }
-        throw new Error('Subscription failed')
+        throw new Error(data.error || 'Subscription failed')
       }
 
-      const emailSuccess = await sendConfirmationEmail(email, language)
-
-      if (emailSuccess) {
+      if (data.mailSent) {
         toast.success(
           t(
-            'Ansökan skickad! Kolla din inkorg efter en bekräftelse.',
-            'Application submitted! Please check your inbox for a confirmation.'
+            'Nyhetsbrev prenumererat! Kolla din inkorg efter en bekräftelse.',
+            'Newsletter subscribed! Please check your inbox for a confirmation.'
           )
         )
       } else {
         toast.success(
           t(
-            'Kunde inte skicka bekräftelsemail, men din ansökan är sparad.',
-            'Could not send confirmation email, but your application is saved.'
-          ),
-          { duration: 5000 }
+            'Du är registrerad! (Kunde dock inte skicka bekräftelsemailet just nu).',
+            'You are subscribed! (However, confirmation email could not be sent right now).'
+          )
         )
       }
 
