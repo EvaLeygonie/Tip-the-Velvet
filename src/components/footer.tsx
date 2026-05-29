@@ -1,13 +1,28 @@
 import { Mail, Heart } from 'lucide-react'
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { toast } from 'sonner'
 
 export const Footer = () => {
-  const { t } = useLanguage()
+  const { language, t } = useLanguage()
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<
     'idle' | 'loading' | 'success' | 'error' | 'already_subscribed'
   >('idle')
+
+  const sendConfirmationEmail = async (email: string, language: string) => {
+    try {
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, language }),
+      })
+      return response.ok
+    } catch (error) {
+      console.error('Nätverksfel vid sändning av mail:', error)
+      return false
+    }
+  }
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,6 +42,25 @@ export const Footer = () => {
           return
         }
         throw new Error('Subscription failed')
+      }
+
+      const emailSuccess = await sendConfirmationEmail(email, language)
+
+      if (emailSuccess) {
+        toast.success(
+          t(
+            'Ansökan skickad! Kolla din inkorg efter en bekräftelse.',
+            'Application submitted! Please check your inbox for a confirmation.'
+          )
+        )
+      } else {
+        toast.success(
+          t(
+            'Kunde inte skicka bekräftelsemail, men din ansökan är sparad.',
+            'Could not send confirmation email, but your application is saved.'
+          ),
+          { duration: 5000 }
+        )
       }
 
       setStatus('success')
@@ -147,7 +181,7 @@ export const Footer = () => {
                   {t('Något gick fel, försök igen.', 'Something went wrong, please try again.')}
                 </p>
               ) : (
-                <p className="text-[12px] text-accent-500 leading-tight mt-1">
+                <p className="text-[12px] text-foreground/60 leading-tight mt-1">
                   {t(
                     'Dina uppgifter hanteras säkert av Tip the Velvet.',
                     'Your details are securely managed by Tip the Velvet.'
