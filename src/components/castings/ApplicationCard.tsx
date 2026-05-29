@@ -4,7 +4,7 @@ import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
 import type { Event, CreateCastingApplicationInput } from '@/types/types'
 import { submitCastingApplication } from '@/services/castingService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
-import { Calendar, MapPin, Send, Loader2 } from 'lucide-react'
+import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { toast } from 'sonner'
 
 export const ApplicationCard = ({ event }: { event: Event }) => {
@@ -52,12 +52,17 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
   }
 
-  const sendCastingEmail = async (name: string, email: string) => {
+  const sendCastingEmail = async (
+    name: string,
+    email: string,
+    language: string,
+    deadline: string
+  ) => {
     try {
       const response = await fetch('/api/casting-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, language, deadline }),
       })
       return response.ok
     } catch (error) {
@@ -113,6 +118,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
     const applicantName = formData.performer_name.trim()
     const applicantEmail = formData.email?.trim() || ''
+    const applicantLanguage = preferredLang
+    const deadline = event.casting_call_deadline
+      ? formatDate(preferredLang, event.casting_call_deadline)
+      : ''
 
     try {
       await submitCastingApplication(payload)
@@ -128,7 +137,12 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       })
       setAgreed(false)
 
-      const emailSuccess = await sendCastingEmail(applicantName, applicantEmail)
+      const emailSuccess = await sendCastingEmail(
+        applicantName,
+        applicantEmail,
+        applicantLanguage,
+        deadline
+      )
 
       if (emailSuccess) {
         toast.success(
@@ -172,6 +186,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           <span className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4 text-accent" />
             {event.location}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <BellDot className="h-4 w-4 text-accent" />
+            Deadline: {formatDate(preferredLang, event.casting_call_deadline)}
           </span>
         </div>
       </div>
@@ -224,7 +242,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="label text-[10px] uppercase tracking-widest block">
-              {t('Din hemmastad', 'Your city of residence *')}
+              {t('Din hemmastad *', 'Your city of residence *')}
             </label>
             <input
               type="text"
@@ -238,7 +256,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
           <div className="space-y-2">
             <label className="label text-[10px] uppercase tracking-widest block">
-              {t('Land', 'Country *')}
+              {t('Land *', 'Country *')}
             </label>
             <input
               type="text"
@@ -256,7 +274,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         {/* ARTIST INFO */}
         <div className="space-y-2">
           <label className="label text-[10px] uppercase tracking-widest block">
-            {t('Artistnamn', 'Artist Name *')}
+            {t('Artistnamn *', 'Artist Name *')}
           </label>
           <input
             type="text"

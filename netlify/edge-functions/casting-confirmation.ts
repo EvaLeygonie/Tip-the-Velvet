@@ -13,10 +13,11 @@ export default async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, name, language } = (await req.json()) as {
+    const { email, name, language, deadline } = (await req.json()) as {
       email?: string
       name?: string
       language?: string
+      deadline?: string
     }
 
     if (!email || !name) {
@@ -66,11 +67,11 @@ export default async (req: Request): Promise<Response> => {
                   isSv
                     ? `
                   <p style="margin-bottom: 20px;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill uppträda hos oss!</p>
-                  <p style="margin-bottom: 20px;">Vi går igenom alla ansökningar löpande, och kommer att svara dig/er på denna adressen oavsett om svaret är postitivt eller ej.</p>
+                  <p style="margin-bottom: 20px;">Vi återkommer efter casting deadline (${deadline}), när vi har granskat alla ansökningar.</p>
                 `
                     : `
-                  <p style="margin-bottom: 20px;">We have successfully received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to perform on our stage!</p>
-                  <p style="margin-bottom: 20px;">We reviews all applications continuously. We'll get back to you on this email adress regardless of the outcome.</p>
+                  <p style="margin-bottom: 20px;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to perform on our stage!</p>
+                  <p style="margin-bottom: 20px;">We will get back to you after the casting call deadline (${deadline}), once we've reviewed all applications.</p>
                 `
                 }
               </div>

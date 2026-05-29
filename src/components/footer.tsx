@@ -129,14 +129,14 @@ export const Footer = () => {
               </button>
 
               {status === 'success' ? (
-                <p className="text-sm text-gold animate-fade-in font-medium max-w-[250px] leading-relaxed">
+                <p className="text-[11px] text-accent-500 leading-tight mt-1">
                   {t(
                     'Tack! Du är nu prenumerant på vårt nyhetsbrev! ✦',
                     'Thank you! You are now subscribed to our newsletter! ✦'
                   )}
                 </p>
               ) : status === 'already_subscribed' ? (
-                <p className="text-sm text-gold animate-fade-in font-medium max-w-[250px] leading-relaxed">
+                <p className="text-[11px] text-accent-500 leading-tight mt-1">
                   {t(
                     'Du prenumererar redan på vårt nyhetsbrev! ✦',
                     'You are already subscribed to our newsletter! ✦'
@@ -147,7 +147,7 @@ export const Footer = () => {
                   {t('Något gick fel, försök igen.', 'Something went wrong, please try again.')}
                 </p>
               ) : (
-                <p className="text-[10px] text-gray-500 leading-tight opacity-80 mt-1">
+                <p className="text-[11px] text-gray-500 leading-tight mt-1">
                   {t(
                     'Dina uppgifter hanteras säkert av Tip the Velvet.',
                     'Your details are securely managed by Tip the Velvet.'
