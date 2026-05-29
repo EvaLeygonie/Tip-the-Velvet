@@ -104,6 +104,10 @@ body {
     @apply text-center text-lg italic opacity-80;
   }
 
+  .p-clean {
+    @apply text-left text-sm not-italic text-foreground/80 block tracking-normal normal-case;
+  }
+
   .title {
     @apply text-accent leading-tight border-none bg-transparent outline-none focus:ring-0;
     font-family: var(--font-decorative);

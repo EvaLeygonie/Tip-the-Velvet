@@ -123,7 +123,7 @@ export const AdminLogin = () => {
           </button>
         </div>
 
-        <p className="copyright mt-8">
+        <p className="p-clean text-center text-xs mt-8 opacity-50">
           &copy; {new Date().getFullYear()} Tip the Velvet • Restricted Access
         </p>
       </div>

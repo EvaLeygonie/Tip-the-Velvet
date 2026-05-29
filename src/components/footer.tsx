@@ -56,31 +56,31 @@ export const Footer = () => {
   }
 
   return (
-    <footer className="p-14 bg-black/40 border-t border-accent/20 relative">
+    <footer className="p-14 bg-black/65 border-t border-accent/20 relative" aria-label="Footer">
       <div className="gold-divider absolute top-0 left-0 right-0" />
 
-      {/* LEFT: information */}
       <div className="container mx-auto px-6">
-        <div className="grid md:grid-cols-3 gap-12 text-left">
+        <div className="grid md:grid-cols-3 gap-12 text-left items-start">
+          {/* LEFT: information */}
           <div className="space-y-4">
             <h4>Tip the Velvet</h4>
-            <p className="text-footer">
+            <div className="text-footer text-base md:max-w-xs">
               {t(
                 'Sveriges äldsta burlesqueklubb, med hem i Göteborg, som hyllat mångfald och konstnärligt uttryck sedan 2008.',
                 "Sweden's oldest burlesque club, located in Gothenburg, celebrating diversity and artistic expression since 2008."
               )}
-            </p>
+            </div>
           </div>
 
           {/* MIDDLE: Contact */}
           <div className="space-y-4">
             <h4>{t('Följ Oss', 'Connect With Us')}</h4>
-            <div className="flex flex-col gap-3">
+            <nav className="flex flex-col gap-3" aria-label="Sociala medier länklista">
               <a
                 href="https://instagram.com/tipthevelvetburlesque"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="link-footer"
+                className="link-footer text-sm hover:text-accent focus-visible:underline outline-none transition-colors"
               >
                 <svg
                   width="18"
@@ -91,6 +91,7 @@ export const Footer = () => {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  aria-hidden="true"
                 >
                   <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
                   <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
@@ -102,7 +103,7 @@ export const Footer = () => {
                 href="https://www.facebook.com/tipthevelvet"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="link-footer"
+                className="link-footer text-sm hover:text-accent focus-visible:underline outline-none transition-colors"
               >
                 <svg
                   width="18"
@@ -113,75 +114,90 @@ export const Footer = () => {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  aria-hidden="true"
                 >
                   <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                 </svg>
                 <span>Tip the Velvet Burlesque Club</span>
               </a>
-              <a href="mailto:velvet.gbg@gmail.com" className="link-footer">
-                <Mail className="w-4 h-4" />
+              <a
+                href="mailto:velvet.gbg@gmail.com"
+                className="link-footer text-sm hover:text-accent focus-visible:underline outline-none transition-colors"
+              >
+                <Mail className="w-4 h-4" aria-hidden="true" />
                 <span>velvet.gbg@gmail.com</span>
               </a>
-            </div>
+            </nav>
           </div>
 
           {/* RIGHT: Newsletter */}
           <div className="space-y-4">
-            <h4>{t('Nyhetsbrev', 'Newsletter')}</h4>
+            <h4 id="newsletter-heading">{t('Nyhetsbrev', 'Newsletter')}</h4>
 
-            <form onSubmit={handleSubscribe} className="space-y-3 max-w-xs">
+            <form
+              onSubmit={handleSubscribe}
+              className="space-y-3 max-w-xs"
+              aria-labelledby="newsletter-heading"
+            >
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full !py-2.5 !min-h-0 text-xs text-white focus:outline-none"
+                className="!py-2 !min-h-0 text-sm text-foreground bg-background"
                 placeholder={t('Din e-post', 'Your email')}
+                aria-label={t('E-postadress för nyhetsbrev', 'Email address for newsletter')}
                 required
               />
               <button
                 type="submit"
                 disabled={status === 'loading'}
-                className="btn-gold w-full !py-2 !min-h-0"
+                className="!py-2 !min-h-0 btn-gold w-full"
               >
                 {status === 'loading' ? '...' : t('Prenumerera', 'Subscribe')}
               </button>
 
-              {status === 'success' ? (
-                <p className="text-[12px] text-amber-500 leading-tight mt-1">
-                  {t(
-                    'Tack! Du är nu prenumerant på vårt nyhetsbrev! ✦',
-                    'Thank you! You are now subscribed to our newsletter! ✦'
-                  )}
-                </p>
-              ) : status === 'already_subscribed' ? (
-                <p className="text-[12px] text-amber-500 leading-tight mt-1">
-                  {t(
-                    'Du prenumererar redan på vårt nyhetsbrev! ✦',
-                    'You are already subscribed to our newsletter! ✦'
-                  )}
-                </p>
-              ) : status === 'error' ? (
-                <p className="text-[12px] text-red-400 leading-tight mt-1">
-                  {t('Något gick fel, försök igen.', 'Something went wrong, please try again.')}
-                </p>
-              ) : (
-                <p className="text-[12px] text-foreground/60 leading-tight mt-1">
-                  {t(
-                    'Dina uppgifter hanteras säkert av Tip the Velvet.',
-                    'Your details are securely managed by Tip the Velvet.'
-                  )}
-                </p>
-              )}
+              <div className="min-h-[20px] font-body text-sm text-foreground/70 leading-relaxed mt-2 text-center">
+                {status === 'success' && (
+                  <span className="text-accent block">
+                    {t(
+                      'Tack! Du är nu prenumerant på vårt nyhetsbrev! ✦',
+                      'Thank you! You are now subscribed to our newsletter! ✦'
+                    )}
+                  </span>
+                )}
+                {status === 'already_subscribed' && (
+                  <span className="text-accent block">
+                    {t(
+                      'Du prenumererar redan på vårt nyhetsbrev! ✦',
+                      'You are already subscribed to our newsletter! ✦'
+                    )}
+                  </span>
+                )}
+                {status === 'error' && (
+                  <span className="text-red-400 block">
+                    {t('Något gick fel, försök igen.', 'Something went wrong, please try again.')}
+                  </span>
+                )}
+                {status === 'idle' && (
+                  <span className="block">
+                    {t(
+                      'Dina uppgifter hanteras säkert av Tip the Velvet.',
+                      'Your info is securely managed by Tip the Velvet.'
+                    )}
+                  </span>
+                )}
+              </div>
             </form>
           </div>
         </div>
 
-        <div className="mt-16 pt-8 border-t border-accent/10">
-          <p className="copyright">
+        {/* BOTTOM: Copyright */}
+        <div className="mt-16 pt-8 border-t border-accent/10 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="copyright text-xs text-foreground/80 text-center md:text-left">
             &copy; {new Date().getFullYear()} Tip the Velvet. {t('Gjord med', 'Made with')}{' '}
-            <Heart className="inline w-3 h-3 text-accent mx-1" /> {t('i Göteborg', 'in Gothenburg')}
-            .
-          </p>
+            <Heart className="inline w-3 h-3 text-accent mx-1" aria-hidden="true" />{' '}
+            {t('i Göteborg', 'in Gothenburg')}.
+          </div>
         </div>
       </div>
     </footer>
