@@ -46,7 +46,7 @@ body {
   }
 
   .page-standard {
-    @apply pt-20 pb-20 px-6 md:px-12 max-w-[1600px] mx-auto w-full;
+    @apply py-20 px-6 md:px-12 max-w-[1600px] mx-auto w-full;
   }
 
   .page-full {
@@ -341,10 +341,7 @@ body {
     @apply border backdrop-blur-xl p-8 md:p-10 rounded-2xl shadow-2xl;
     background-color: rgba(212, 175, 55, 0.1);
     border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .login-label {
-    @apply label text-[11px] uppercase tracking-widest block mb-2;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   }
 
   input.login-input {
@@ -367,7 +364,7 @@ body {
   }
 
   .link-back {
-    @apply w-full mt-8 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest hover:text-accent transition-colors bg-transparent border-none outline-none cursor-pointer;
+    @apply w-full mt-8 flex items-center justify-center gap-2 text-[12px] uppercase tracking-widest hover:text-accent transition-colors bg-transparent border-none outline-none cursor-pointer;
     @apply text-white/80;
   }
 
@@ -467,8 +464,12 @@ body {
       inset 0 0 30px rgba(187, 27, 27, 0.1);
   }
 
-  .form-label {
-    @apply block text-xs font-body font-bold uppercase tracking-widest text-foreground/90 mb-2;
+  .form-label-gold {
+    @apply text-xs font-body font-bold uppercase tracking-widest text-accent/90;
+  }
+
+  .form-label-block {
+    @apply form-label-gold block mb-2;
   }
 
   /* -- DRESSCODE -- */
@@ -530,8 +531,8 @@ body {
 
   /* --- KONTROLLPANEL & MEDIA --- */
   .admin-control-panel {
-    @apply min-w-[320px] p-5 rounded-lg border space-y-4 shadow-2xl;
-    background-color: rgba(0, 0, 0, 0.6);
+    @apply min-w-[320px] p-6 rounded-lg border space-y-4 shadow-2xl;
+    background-color: rgba(0, 0, 0, 0.5);
     border-color: rgba(212, 175, 55, 0.2);
   }
 
@@ -541,11 +542,15 @@ body {
   }
 
   .promo-image {
-    @apply h-full object-cover relative aspect-square rounded-xl overflow-hidden transition-all duration-300 hover:scale-[1.01] max-h-[60vh] md:max-h-[70vh];
+    @apply w-full h-full object-cover rounded-xl transition-transform duration-500;
+  }
+
+  .promo-image-change {
+    @apply absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm;
   }
 
   .promo-upload-square {
-    @apply aspect-square w-full max-w-[300px] border-2 border-dashed rounded-lg flex-center flex-col gap-4 transition-all hover:bg-accent/5 hover:border-accent/40;
+    @apply aspect-square w-full max-w-[300px] border-2 border-dashed flex-center gap-4 transition-all relative flex flex-col items-center justify-center overflow-hidden rounded-xl min-h-[300px] hover:bg-accent/5 hover:border-accent/40;
     border-color: rgba(212, 175, 55, 0.2);
   }
 }

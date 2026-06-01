@@ -193,13 +193,11 @@ export const EventEditor = () => {
           <div className="hidden md:block"></div>
         </div>
 
-        <header className="flex flex-col lg:flex-row justify-between items-start gap-12 text-left">
-          <div className="flex-1 flex flex-col justify-between gap-6 self-stretch">
+        <header className="flex flex-col lg:flex-row justify-between items-stretch gap-8 text-left">
+          <div className="flex-1 flex flex-col justify-between gap-6">
             {/* TITLE & SUBTITLE */}
             <div className="space-y-2">
-              <label className="label text-[10px] uppercase tracking-widest">
-                {t('Event Titel', 'Event Title')}
-              </label>
+              <label className="form-label-gold">{t('Event Titel', 'Event Title')}</label>
               <input
                 type="text"
                 name="title"
@@ -208,9 +206,7 @@ export const EventEditor = () => {
                 placeholder="Ex: Once Upon a Time..."
                 className="input-ghost-title"
               />
-              <label className="label text-[10px] uppercase tracking-widest">
-                {t('Event Undertitel', 'Event Subtitle')}
-              </label>
+              <label className="form-label-gold">{t('Event Undertitel', 'Event Subtitle')}</label>
               <input
                 type="text"
                 name="subtitle"
@@ -222,59 +218,54 @@ export const EventEditor = () => {
             </div>
 
             {/* REVEAL & CASTING CALL */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-black/20 border border-accent/10 rounded-xl px-6 py-4 mt-auto">
-              <div className="flex items-center gap-3">
-                <Eye className="w-4 h-4 text-accent shrink-0" />
-                <label className="label text-[10px] uppercase whitespace-nowrap">
-                  {t('Publiceras:', 'Reveal Date:')}
-                </label>
+            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center bg-black/50 border border-accent/10 rounded-xl px-6 py-5 mt-6 sm:mt-auto">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Eye className="w-5 h-5 text-accent shrink-0" />
+                <label className="form-label-gold">{t('Publiceras:', 'Reveal Date:')}</label>
                 <input
                   type="date"
                   name="reveal_date"
                   value={formData.reveal_date || ''}
                   onChange={handleChange}
-                  className="editor-input !border-none !py-0 text-xs flex-1"
+                  className="editor-input bg-black/20 border border-white/5 rounded px-2 py-1 text-sm text-foreground/90 flex-1 focus:border-accent/40 outline-none"
                 />
               </div>
 
-              <div className="w-px h-8 bg-accent/10 hidden md:block" />
+              <div className="hidden sm:block w-px h-8 bg-accent/20 self-center" />
 
-              {/* Casting Call toggle + deadline */}
-              <div className="flex items-center gap-3">
-                <Users className="w-4 h-4 text-accent shrink-0" />
-                <label className="label text-[10px] uppercase whitespace-nowrap">
-                  {t('Casting Call:', 'Casting Call:')}
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, has_casting_call: !formData.has_casting_call })
-                  }
-                  className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
-                    formData.has_casting_call ? 'bg-accent' : 'bg-white/10'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${
-                      formData.has_casting_call ? 'left-5' : 'left-0.5'
+              <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-3">
+                  <Users className="w-5 h-5 text-accent shrink-0" />
+                  <label className="form-label-gold">{t('Casting Call:', 'Casting Call:')}</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({ ...formData, has_casting_call: !formData.has_casting_call })
+                    }
+                    className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
+                      formData.has_casting_call ? 'bg-accent' : 'bg-white/10'
                     }`}
-                  />
-                </button>
-                {formData.has_casting_call && (
-                  <>
-                    <label className="label text-[10px] uppercase whitespace-nowrap">
-                      Deadline:{' '}
-                    </label>
-                    <input
-                      type="date"
-                      name="casting_call_deadline"
-                      placeholder="Deadline..."
-                      value={formData.casting_call_deadline || ''}
-                      onChange={handleChange}
-                      className="editor-input !border-none !py-0 text-xs flex-1"
+                  >
+                    <span
+                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${
+                        formData.has_casting_call ? 'left-5' : 'left-0.5'
+                      }`}
                     />
-                  </>
-                )}
+                  </button>
+                  {formData.has_casting_call && (
+                    <>
+                      <label className="form-label-gold">Deadline: </label>
+                      <input
+                        type="date"
+                        name="casting_call_deadline"
+                        placeholder="Deadline..."
+                        value={formData.casting_call_deadline || ''}
+                        onChange={handleChange}
+                        className="editor-input !border-none !py-0 text-xs flex-1"
+                      />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -282,7 +273,7 @@ export const EventEditor = () => {
           {/* RIGHT COLUMN: PRACTICAL INFO */}
           <div className="admin-control-panel w-full lg:w-80 shrink-0">
             <div className="panel-row">
-              <label className="label text-[10px] uppercase">Status:</label>
+              <label className="form-label-gold">Status:</label>
               <select
                 name="status"
                 value={formData.status || 'draft'}
@@ -295,8 +286,9 @@ export const EventEditor = () => {
                 <option value="cancelled">{t('Avbokat', 'Cancelled')}</option>
               </select>
             </div>
+
             <div className="panel-row">
-              <label className="label text-[10px] uppercase">URL:</label>
+              <label className="form-label-gold">URL:</label>
               <div className="flex items-center gap-1 bg-black/40 px-3 py-1 rounded border border-accent/10 flex-1">
                 <span className="text-[10px] opacity-40 font-mono">/</span>
                 <input
@@ -311,7 +303,7 @@ export const EventEditor = () => {
 
             {/* TIME & PLACE */}
             <div className="panel-row">
-              <label className="label text-[10px] uppercase">{t('Startar:', 'Starts:')}</label>
+              <label className="form-label-gold">{t('Startar:', 'Starts:')}</label>
               <input
                 type="datetime-local"
                 name="event_start"
@@ -321,7 +313,7 @@ export const EventEditor = () => {
               />
             </div>
             <div className="panel-row">
-              <label className="label text-[10px] uppercase">{t('Slutar:', 'Ends:')}</label>
+              <label className="form-label-gold">{t('Slutar:', 'Ends:')}</label>
               <input
                 type="datetime-local"
                 name="event_end"
@@ -331,7 +323,7 @@ export const EventEditor = () => {
               />
             </div>
             <div className="panel-row">
-              <label className="label text-[10px] uppercase">{t('Plats:', 'Location:')}</label>
+              <label className="form-label-gold">{t('Plats:', 'Location:')}</label>
               <input
                 name="location"
                 value={formData.location || ''}
@@ -348,12 +340,10 @@ export const EventEditor = () => {
         {/* PROMO IMAGE */}
         <div className="content-grid">
           <div className="space-y-4">
-            <label className="label text-[10px] uppercase block">
-              {t('Promobild:', 'Promo Image:')}
-            </label>
-            <div className={`promo-upload-square ${!isReadyToUpload ? 'is-locked' : 'is-active'}`}>
+            <label className="form-label-gold">{t('Promobild:', 'Promo Image:')}</label>
+            <div className="promo-upload-square">
               {formData.image_id ? (
-                <div className="text-center p-4">
+                <div className="absolute inset-0 group">
                   <img
                     src={getImageSrc(formData.image_id)}
                     className="promo-image border-2"
@@ -365,9 +355,11 @@ export const EventEditor = () => {
                     alt="Preview"
                   />
 
-                  <label htmlFor="image-up" className="btn-admin">
-                    {t('Byt bild', 'Change Image')}
-                  </label>
+                  <div className="promo-image-change">
+                    <label htmlFor="image-up" className="btn-admin cursor-pointer">
+                      {t('Byt bild', 'Change Image')}
+                    </label>
+                  </div>
                 </div>
               ) : (
                 <label htmlFor="image-up" className="btn-admin">
@@ -377,7 +369,7 @@ export const EventEditor = () => {
               <input type="file" id="image-up" className="hidden" onChange={handleImageUpload} />
             </div>
             <div className="admin-card-bg p-4 space-y-3">
-              <label className="label text-[10px] uppercase tracking-widest block">
+              <label className="form-label-gold block">
                 {t('Glow Färg (Hex)', 'Glow Color (Hex)')}
               </label>
 
@@ -435,7 +427,7 @@ export const EventEditor = () => {
 
           <div className="flex flex-col gap-6 h-full">
             <div className="flex flex-col flex-1 min-h-0">
-              <label className="label text-[10px] uppercase tracking-widest mb-4">
+              <label className="form-label-gold mb-4">
                 {t('Beskrivning (SV)', 'Description (SV)')}
               </label>
               <textarea
@@ -446,7 +438,7 @@ export const EventEditor = () => {
               />
             </div>
             <div className="flex flex-col flex-1 min-h-0">
-              <label className="label text-[10px] uppercase tracking-widest mb-4">
+              <label className="form-label-gold mb-4">
                 {t('Beskrivning (ENG)', 'Description (ENG)')}
               </label>
               <textarea
@@ -467,7 +459,7 @@ export const EventEditor = () => {
           </summary>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 pt-6 border-t border-white/5">
             <div className="field-row">
-              <label className="label text-[10px] uppercase">{t('Pris', 'Price')}</label>
+              <label className="form-label-gold">{t('Pris', 'Price')}</label>
               <input
                 type="number"
                 name="tickets_price"
@@ -480,9 +472,7 @@ export const EventEditor = () => {
             </div>
 
             <div className="field-row">
-              <label className="label text-[10px] uppercase">
-                {t('Biljettlänk', 'Ticket Link')}
-              </label>
+              <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
               <input
                 name="ticket_url"
                 className="editor-input"
@@ -492,9 +482,7 @@ export const EventEditor = () => {
             </div>
 
             <div className="field-row">
-              <label className="label text-[10px] uppercase">
-                {t('Pinterest länk', 'Pinterest Link')}
-              </label>
+              <label className="form-label-gold">{t('Pinterest länk', 'Pinterest Link')}</label>
               <input
                 name="pinterest_link"
                 className="editor-input"
@@ -503,7 +491,7 @@ export const EventEditor = () => {
               />
             </div>
             <div className="field-row">
-              <label className="label text-[10px] uppercase">Facebook Event</label>
+              <label className="form-label-gold">Facebook Event</label>
               <input
                 name="facebook_event"
                 className="editor-input"
@@ -513,7 +501,7 @@ export const EventEditor = () => {
             </div>
 
             <div className="field-row">
-              <label className="label text-[10px] uppercase">{t('Fotograf', 'Photographer')}</label>
+              <label className="form-label-gold">{t('Fotograf', 'Photographer')}</label>
               <input
                 name="photographer"
                 className="editor-input"
@@ -522,9 +510,7 @@ export const EventEditor = () => {
               />
             </div>
             <div className="field-row">
-              <label className="label text-[10px] uppercase">
-                {t('Facebook album', 'Facebook Album')}
-              </label>
+              <label className="form-label-gold">{t('Facebook album', 'Facebook Album')}</label>
               <input
                 name="fb_album_url"
                 className="editor-input"
@@ -534,9 +520,7 @@ export const EventEditor = () => {
             </div>
 
             <div className="field-row">
-              <label className="label text-[10px] uppercase">
-                {t('Sålda biljetter', 'Tickets Sold')}
-              </label>
+              <label className="form-label-gold">{t('Sålda biljetter', 'Tickets Sold')}</label>
               <input
                 type="number"
                 className="editor-input"
@@ -545,7 +529,7 @@ export const EventEditor = () => {
               />
             </div>
             <div className="field-row">
-              <label className="label text-[10px] uppercase">
+              <label className="form-label-gold">
                 {t('Tillgängliga biljetter', 'Available Tickets')}
               </label>
               <input

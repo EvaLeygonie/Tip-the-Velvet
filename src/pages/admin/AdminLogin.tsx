@@ -61,21 +61,20 @@ export const AdminLogin = () => {
 
   return (
     <div className="page-full">
-      <div className="bg-glow-spot top-[-10%] left-[-10%]" />
-      <div className="bg-glow-spot bottom-[-10%] right-[-10%]" />
+      <div className="bg-glow-spot" />
 
       <div className="w-full max-w-md z-10">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl mb-2 tracking-wide">Tip the Velvet</h1>
-          <p className="text-[10px] uppercase tracking-[0.4em] text-accent/70 font-medium">
-            Admin Portal • Backstage
+        <div className="text-center mb-8">
+          <h1>Admin Portal</h1>
+          <p className="text-[13px] uppercase tracking-[0.4em] text-accent/80 font-medium">
+            • Backstage •
           </p>
         </div>
 
         <div className="login-card">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label htmlFor="email" className="login-label">
+              <label htmlFor="email" className="form-label-gold">
                 {t('E-post', 'Email')}
               </label>
               <div className="relative">
@@ -93,7 +92,7 @@ export const AdminLogin = () => {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="login-label">
+              <label htmlFor="password" className="form-label-gold">
                 {t('Lösenord', 'Password')}
               </label>
               <div className="relative">
@@ -123,7 +122,7 @@ export const AdminLogin = () => {
           </button>
         </div>
 
-        <p className="p-clean text-center text-xs mt-8 opacity-50">
+        <p className="p-clean text-center text-s my-10 opacity-50">
           &copy; {new Date().getFullYear()} Tip the Velvet • Restricted Access
         </p>
       </div>

@@ -201,7 +201,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         {/* LANGUAGE & EMAIL */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <fieldset className="space-y-2">
-            <label className="form-label text-accent">
+            <label className="form-label-block">
               {t('Kommunikationsspråk', 'Preferred Language')}
             </label>
             <div className="gap-6 h-[46px] flex items-center">
@@ -229,7 +229,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </fieldset>
 
           <div className="space-y-2">
-            <label className="form-label text-accent">Email *</label>
+            <label className="form-label-block">Email *</label>
             <input
               type="email"
               name="email"
@@ -243,7 +243,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         {/* COUNTRY & CITY */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="form-label text-accent">
+            <label className="form-label-block">
               {t('Din hemmastad *', 'Your city of residence *')}
             </label>
             <input
@@ -257,7 +257,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </div>
 
           <div className="space-y-2">
-            <label className="form-label text-accent">{t('Land *', 'Country *')}</label>
+            <label className="form-label-block">{t('Land *', 'Country *')}</label>
             <input
               type="text"
               name="country"
@@ -273,7 +273,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         {/* ARTIST INFO */}
         <div className="space-y-2">
-          <label className="form-label text-accent">{t('Artistnamn *', 'Artist Name *')}</label>
+          <label className="form-label-block">{t('Artistnamn *', 'Artist Name *')}</label>
           <input
             type="text"
             name="performer_name"
@@ -286,16 +286,16 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         {/* PROMO IMAGE & TEXT */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
           <div className="flex flex-col space-y-3">
-            <label className="form-label text-accent">{t('Promobild *', 'Promo Image *')}</label>
-            <div className="promo-upload-square is-active relative flex flex-col items-center justify-center overflow-hidden w-full h-full min-h-[300px]">
+            <label className="form-label-block">{t('Promobild *', 'Promo Image *')}</label>
+            <div className="promo-upload-square">
               {formData.promo_image_id ? (
                 <div className="absolute inset-0 group">
                   <img
                     src={getImageSrc(formData.promo_image_id)}
-                    className="w-full h-full object-cover rounded-lg"
+                    className="promo-image"
                     alt="Preview"
                   />
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="promo-image-change">
                     <label htmlFor="image-up" className="btn-admin">
                       {t('Byt bild', 'Change Image')}
                     </label>
@@ -317,7 +317,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </div>
 
           <div className="flex flex-col space-y-2 h-full">
-            <label className="form-label text-accent">
+            <label className="form-label-block">
               {t('Promo text (SV) *', 'Promo text (ENG) *')}
             </label>
             <textarea
@@ -337,7 +337,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <div className="gold-divider" />
 
         <div className="space-y-2">
-          <label className="form-label text-accent">{t('Akt titel *', 'Act Title *')}</label>
+          <label className="form-label-block">{t('Akt titel *', 'Act Title *')}</label>
           <input
             type="text"
             name="act_title"
@@ -348,7 +348,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         <div className="space-y-2">
-          <label className="form-label text-accent">
+          <label className="form-label-block">
             {t('Act beksrivning (SV) *', 'Act Description (ENG) *')}
           </label>
           <textarea
@@ -364,7 +364,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         <div className="space-y-2">
-          <label className="form-label text-accent">
+          <label className="form-label-block">
             {t('Video Link (friviligt)', 'Video Link (optional)')}
           </label>
           <input
@@ -378,7 +378,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="form-label text-accent">
+            <label className="form-label-block">
               {t('Instagram (friviligt)', 'Instagram (optional)')}
             </label>
             <input
@@ -392,7 +392,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </div>
 
           <div className="space-y-2">
-            <label className="form-label text-accent">
+            <label className="form-label-block">
               {t('Annan länk (friviligt)', 'Other link (optional)')}
             </label>
             <input
