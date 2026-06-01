@@ -77,7 +77,7 @@ export const Navigation = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`${isActive(link.to) ? 'nav-item-active' : 'nav-item'}`}
+                  className={`nav-item ${isActive(link.to) ? 'nav-item-active' : ''}`}
                 >
                   {link.label}
                 </Link>
@@ -103,7 +103,7 @@ export const Navigation = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`${isActive(link.to) ? 'nav-item-active' : 'nav-item'}`}
+                  className={`nav-item ${isActive(link.to) ? 'nav-item-active' : ''}`}
                 >
                   {link.label}
                 </Link>
@@ -163,28 +163,26 @@ export const Navigation = () => {
             </button>
           </div>
 
-          <div className="flex flex-col gap-6 items-center text-center my-auto py-6">
-            {/* Publika länkar */}
+          <div className="flex flex-col gap-5 items-center text-center my-auto py-4 w-full">
             {[...leftLinks, ...rightLinks].map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`text-xl font-decorative uppercase tracking-[0.2em] transition-colors ${isActive(link.to) ? 'text-accent' : 'text-foreground/80'}`}
+                className={`nav-item-mobile ${isActive(link.to) ? 'nav-item-mobile-active' : ''}`}
               >
                 {link.label}
               </Link>
             ))}
 
-            {/* Administrativa länkar i mobilmenyn vid inloggat läge */}
             {user && (
               <>
-                <div className="w-24 h-px bg-accent/20 my-4" />
-                <p className="text-[10px] uppercase font-mono tracking-[0.3em] text-accent/50 mb-2">
+                <div className="w-20 h-px bg-accent/20 my-4" aria-hidden="true" />
+                <div className="text-[10px] uppercase font-mono tracking-[0.3em] text-accent/60 mb-1">
                   Backstage Admin
-                </p>
+                </div>
 
-                <div className="grid grid-cols-1 gap-4 w-full max-w-xs">
+                <div className="flex flex-col gap-3 w-full max-w-xs">
                   {adminSubLinks.map((link) => {
                     const Icon = link.icon
                     return (
@@ -192,7 +190,7 @@ export const Navigation = () => {
                         key={link.to}
                         to={link.to}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`flex items-center justify-center gap-3 py-2 px-4 rounded-xl border border-accent/10 bg-accent/5 text-xs uppercase tracking-[0.15em] transition-all ${isActive(link.to) ? 'text-accent border-accent/40 bg-accent/10' : 'text-accent/80'}`}
+                        className={`nav-item-admin ${isActive(link.to) ? 'nav-item-admin-active' : ''}`}
                       >
                         <Icon size={14} strokeWidth={1.5} />
                         {link.label}

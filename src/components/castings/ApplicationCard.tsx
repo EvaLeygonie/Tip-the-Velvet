@@ -169,16 +169,16 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   }
 
   return (
-    <div className="bg-card/80 backdrop-blur-sm shadow-[0_10px_50px_hsl(0_60%_5%/0.6)] border border-accent/20 p-6 rounded-xl text-left">
+    <div className="application-card">
       {/* EVENT INFO */}
-      <div className="mb-6 text-center flex flex-col items-center">
-        <div className="text-3xl font-decorative text-accent drop-shadow-[0_0_15px_currentColor]">
+      <div className="mb-8 text-center flex flex-col items-center">
+        <div className="text-4xl font-decorative text-accent drop-shadow-[0_0_15px_currentColor]">
           {event.title}
         </div>
         {event.subtitle && (
-          <div className="text-foreground/60 text-base font-playfair mt-1">{event.subtitle}</div>
+          <div className="text-foreground/90 text-xl font-playfair mt-2">{event.subtitle}</div>
         )}
-        <div className="flex flex-wrap justify-center gap-4 pt-3 text-sm text-foreground/70">
+        <div className="flex flex-wrap justify-center gap-4 pt-4 text-md text-foreground/90">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4 text-accent" />
             {formatDate(preferredLang, event.event_start)}
@@ -188,19 +188,20 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             {event.location}
           </span>
           <span className="flex items-center gap-1.5">
-            <BellDot className="h-4 w-4 text-accent" />
-            Deadline: {formatDate(preferredLang, event.casting_call_deadline)}
+            <BellDot className="h-4 w-4 text-red-500" />
+            <span className="font-medium">Deadline: </span>
+            {formatDate(preferredLang, event.casting_call_deadline)}
           </span>
         </div>
       </div>
 
       <div className="gold-divider" />
 
-      <div className="space-y-5">
+      <div className="space-y-6 mt-6">
         {/* LANGUAGE & EMAIL */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-          <div className="space-y-3">
-            <label className="label text-[10px] uppercase tracking-widest block">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <fieldset className="space-y-2">
+            <label className="form-label text-accent">
               {t('Kommunikationsspråk', 'Preferred Language')}
             </label>
             <div className="gap-6 h-[46px] flex items-center">
@@ -225,9 +226,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
                 <span>English</span>
               </label>
             </div>
-          </div>
+          </fieldset>
+
           <div className="space-y-2">
-            <label className="label text-[10px] uppercase tracking-widest block">Email *</label>
+            <label className="form-label text-accent">Email *</label>
             <input
               type="email"
               name="email"
@@ -241,7 +243,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         {/* COUNTRY & CITY */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="label text-[10px] uppercase tracking-widest block">
+            <label className="form-label text-accent">
               {t('Din hemmastad *', 'Your city of residence *')}
             </label>
             <input
@@ -255,9 +257,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </div>
 
           <div className="space-y-2">
-            <label className="label text-[10px] uppercase tracking-widest block">
-              {t('Land *', 'Country *')}
-            </label>
+            <label className="form-label text-accent">{t('Land *', 'Country *')}</label>
             <input
               type="text"
               name="country"
@@ -273,9 +273,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         {/* ARTIST INFO */}
         <div className="space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest block">
-            {t('Artistnamn *', 'Artist Name *')}
-          </label>
+          <label className="form-label text-accent">{t('Artistnamn *', 'Artist Name *')}</label>
           <input
             type="text"
             name="performer_name"
@@ -288,9 +286,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         {/* PROMO IMAGE & TEXT */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
           <div className="flex flex-col space-y-3">
-            <label className="label text-[10px] uppercase block">
-              {t('Promobild *', 'Promo Image *')}
-            </label>
+            <label className="form-label text-accent">{t('Promobild *', 'Promo Image *')}</label>
             <div className="promo-upload-square is-active relative flex flex-col items-center justify-center overflow-hidden w-full h-full min-h-[300px]">
               {formData.promo_image_id ? (
                 <div className="absolute inset-0 group">
@@ -321,7 +317,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </div>
 
           <div className="flex flex-col space-y-2 h-full">
-            <label className="label text-[10px] uppercase tracking-widest block">
+            <label className="form-label text-accent">
               {t('Promo text (SV) *', 'Promo text (ENG) *')}
             </label>
             <textarea
@@ -341,9 +337,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <div className="gold-divider" />
 
         <div className="space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest block">
-            {t('Akt titel *', 'Act Title *')}
-          </label>
+          <label className="form-label text-accent">{t('Akt titel *', 'Act Title *')}</label>
           <input
             type="text"
             name="act_title"
@@ -354,7 +348,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         <div className="space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest block">
+          <label className="form-label text-accent">
             {t('Act beksrivning (SV) *', 'Act Description (ENG) *')}
           </label>
           <textarea
@@ -370,7 +364,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         <div className="space-y-2">
-          <label className="label text-[10px] uppercase tracking-widest block">
+          <label className="form-label text-accent">
             {t('Video Link (friviligt)', 'Video Link (optional)')}
           </label>
           <input
@@ -384,7 +378,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="label text-[10px] uppercase tracking-widest block">
+            <label className="form-label text-accent">
               {t('Instagram (friviligt)', 'Instagram (optional)')}
             </label>
             <input
@@ -398,7 +392,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </div>
 
           <div className="space-y-2">
-            <label className="label text-[10px] uppercase tracking-widest block">
+            <label className="form-label text-accent">
               {t('Annan länk (friviligt)', 'Other link (optional)')}
             </label>
             <input
@@ -421,12 +415,12 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-1"
+            className="mt-0.5"
           />
-          <label className="text-sm text-foreground/80 leading-relaxed cursor-pointer">
+          <label className="text-sm text-foreground/90 leading-relaxed cursor-pointer font-medium">
             {t(
-              'Genom att skicka in formuläret godkänner du att Tip the Velvet (ekonomisk förening) sparar dena information och mediefiler i syfte att hantera artistbokningar. Vi delar aldrig din data med tredje part, och du kan när som helst kontakta oss för att få dina uppgifter raderade.',
-              'By submitting this form, you agree to Tip the Velvet (economic association) storing your information and media files for the purpose of managing artist bookings. We never share your data with third parties, and you can contact us at any time to have your information deleted.'
+              'Genom att skicka in detta formulär godkänner du att Tip the Velvet (ekonomisk förening) sparar din ansökan och mediefiler i syfte att hantera artistbokningar. Vi delar aldrig din data med tredje part, och du kan när som helst kontakta oss för att få dina uppgifter raderade.',
+              'By submitting this form, you agree to Tip the Velvet (economic association) storing your application and media files for the purpose of managing artist bookings. We never share your data with third parties, and you can contact us at any time to have your information deleted.'
             )}
           </label>
         </div>

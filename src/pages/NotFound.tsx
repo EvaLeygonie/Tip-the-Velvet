@@ -21,7 +21,10 @@ export const NotFound = () => {
           </p>
         </div>
 
-        <Link to="/" className="inline-block mt-8 text-accent hover:underline font-heading">
+        <Link
+          to="/"
+          className="relative inline-block text-l mt-8 text-accent/80 hover:text-accent transition-colors"
+        >
           {t('← Tillbaka till scenen', '← Back to the stage')}
         </Link>
       </div>

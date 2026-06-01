@@ -158,12 +158,12 @@ body {
   }
 
   .bg-glow-spot {
-    @apply absolute w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none top-10 left-1/2 -translate-x-1/2;
+    @apply absolute w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none top-10 left-1/2 -translate-x-1/2 -z-10;
     background-color: rgba(212, 175, 55, 0.1);
   }
 
   .middle-glow {
-    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/10 rounded-full blur-3xl;
+    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/10 rounded-full blur-3xl -z-10;
   }
 
   /* --- KNAPPAR --- */
@@ -172,11 +172,9 @@ body {
   }
 
   .btn-gold {
-    @apply relative z-10 text-background border border-border px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md cursor-pointer;
-    @apply uppercase tracking-widest font-medium text-xs;
-    background-color: rgba(212, 175, 55, 0.8);
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
-    font-family: var(--font-decorative);
+    @apply relative z-10 text-black font-body font-bold text-xs border border-border uppercase tracking-wider px-6 py-2.5 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-lg;
+    background-color: rgb(212, 175, 55, 0.9);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.25);
   }
 
   .btn-gold:hover {
@@ -184,7 +182,7 @@ body {
   }
 
   .btn-red {
-    @apply relative z-10 bg-red-950 hover:bg-red-900 text-red-100 border border-red-950 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md cursor-pointer;
+    @apply relative z-10 bg-red-950 font-body font-bold hover:bg-red-900 text-red-100 border border-red-950 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md cursor-pointer;
     @apply uppercase tracking-widest font-medium text-xs;
     border-color: rgba(239, 68, 68, 0.4);
     box-shadow: 0 0 15px rgba(153, 27, 27, 0.4);
@@ -233,15 +231,6 @@ body {
     @apply text-accent drop-shadow-[0_0_8px_rgba(212,175,55,0.4)];
   }
 
-  .nav-item-mobile {
-    @apply text-xl font-decorative uppercase tracking-[0.2em] transition-colors py-2 w-full text-center;
-    @apply text-foreground/90 hover:text-accent;
-  }
-
-  .nav-item-mobile-active {
-    @apply text-accent font-bold;
-  }
-
   .admin-label-link {
     @apply text-xs uppercase tracking-[0.2em] font-normal font-body transition-all duration-200;
     @apply text-accent/75 hover:text-accent;
@@ -249,6 +238,23 @@ body {
 
   .admin-label-link-active {
     @apply text-accent font-semibold;
+  }
+
+  .nav-item-mobile {
+    @apply text-xl font-decorative uppercase tracking-[0.2em] transition-colors w-full text-center;
+    @apply text-foreground/90 hover:text-accent;
+  }
+
+  .nav-item-mobile-active {
+    @apply text-accent font-bold;
+  }
+
+  .nav-item-admin {
+    @apply flex items-center justify-center gap-3 py-2 px-4 rounded-xl border border-accent/10 bg-accent/5 text-xs uppercase tracking-[0.15em] transition-all text-accent/80;
+  }
+
+  .nav-item-admin-active {
+    @apply text-accent border-accent/40 bg-accent/10;
   }
 
   /* --- FOOTER --- */
@@ -421,20 +427,66 @@ body {
     border-color: rgba(212, 175, 55, 0.2);
   }
 
+  /* -- EVENT -- */
+  .event-showcase-card {
+    @apply flex flex-col justify-between rounded-xl border transition-all duration-500 overflow-hidden backdrop-blur-md;
+    background-color: hsl(var(--muted), 0.4);
+    border-color: rgba(244, 185, 36, 0.15);
+    box-shadow:
+      0 15px 35px rgba(0, 0, 0, 0.5),
+      inset 0 0 20px rgba(187, 27, 27, 0.05);
+  }
+
+  .event-showcase-card:hover {
+    border-color: rgba(244, 185, 36, 0.5);
+    background-color: hsl(var(--primary), 0.08);
+    box-shadow:
+      0 0 25px rgba(244, 185, 36, 0.25),
+      inset 0 0 25px rgba(187, 27, 27, 0.2);
+  }
+
+  .event-card-description {
+    @apply text-base leading-relaxed text-foreground/90 line-clamp-3 font-body text-left max-w-xl;
+  }
+
+  .event-card-meta {
+    @apply flex items-center gap-2 text-sm text-foreground/85 font-body font-medium;
+  }
+
+  .event-card-subtitle {
+    @apply text-xl md:text-2xl font-heading italic text-foreground/95 leading-snug text-left;
+  }
+
+  /* -- CASTING CALL -- */
+  .application-card {
+    @apply rounded-xl border p-6 text-left backdrop-blur-md;
+    background-color: hsl(var(--muted), 0.7);
+    border-color: rgba(244, 185, 36, 0.25);
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, 0.6),
+      inset 0 0 30px rgba(187, 27, 27, 0.1);
+  }
+
+  .form-label {
+    @apply block text-xs font-body font-bold uppercase tracking-widest text-foreground/90 mb-2;
+  }
+
   /* -- DRESSCODE -- */
   .velvet-card {
-    @apply flex flex-col justify-between p-8 rounded-xl border transition-all duration-300;
-    background-color: rgba(var(--muted), 0.5);
-    backdrop-filter: blur(8px);
-    border-color: rgba(212, 175, 55, 0.2);
+    @apply flex flex-col justify-between p-8 rounded-2xl border transition-all duration-300 backdrop-blur-md;
+    background-color: hsl(var(--muted), 0.5);
+    border-color: rgba(244, 185, 36, 0.35);
     box-shadow:
-      var(--shadow-glamour),
-      inset 0 0 20px rgba(153, 27, 27, 0.15);
+      0 20px 50px rgba(0, 0, 0, 0.6),
+      inset 0 0 30px rgba(187, 27, 27, 0.1);
   }
 
   .velvet-card:hover {
-    border-color: rgba(212, 175, 55, 0.45);
-    background-color: rgba(var(--primary), 0.05);
+    border-color: rgba(244, 185, 36, 0.7);
+    background-color: hsl(var(--primary), 0.1);
+    box-shadow:
+      0 0 25px rgba(244, 185, 36, 0.35),
+      inset 0 0 20px rgba(187, 27, 27, 0.3);
   }
 
   .velvet-card-list {
@@ -443,13 +495,13 @@ body {
 
   .velvet-tips-box {
     @apply p-5 rounded-lg border space-y-2 mt-auto;
-    background-color: rgba(0, 0, 0, 0.65);
+    background-color: rgba(29, 12, 12, 1);
     border-color: rgba(212, 175, 55, 0.25);
   }
 
   .velvet-warning-box {
     @apply flex items-start gap-2 text-red-100 p-3 rounded border;
-    background-color: rgba(153, 27, 27, 0.45);
+    background-color: rgba(153, 27, 27, 0.1);
     border-color: rgba(153, 27, 27, 0.4);
   }
 

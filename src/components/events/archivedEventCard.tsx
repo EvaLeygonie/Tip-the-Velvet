@@ -14,11 +14,22 @@ export const ArchivedEventCard = ({ event }: { event: Event | OldEvent }) => {
   return (
     <Link
       to={`/events/${type}/${event.slug}`}
-      className="group relative flex flex-col bg-card-bg border border-accent/10 rounded-lg overflow-hidden hover:-translate-y-2 transition-all duration-500 shadow-xl"
+      className="group event-showcase-card hover:-translate-y-2"
     >
       <div className="relative aspect-video overflow-hidden">
         {event.image_id ? (
-          <CloudinaryImage publicId={event.image_id} width={800} height={600} />
+          <>
+            <div className="w-full h-full transform group-hover:scale-105 transition-transform duration-700 ease-out">
+              <CloudinaryImage
+                publicId={event.image_id}
+                width={800}
+                height={600}
+                className="object-cover w-full h-full"
+              />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-accent/60 to-transparent shadow-[0_0_8px_theme(colors.accent.DEFAULT)]" />
+          </>
         ) : (
           <div className="h-full w-full flex items-center justify-center bg-gradient-to-b from-accent/5 to-transparent">
             <div className="text-center space-y-2">
@@ -29,16 +40,14 @@ export const ArchivedEventCard = ({ event }: { event: Event | OldEvent }) => {
             </div>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
-        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent to-transparent shadow-[0_0_10px_theme(colors.accent.DEFAULT)]" />
       </div>
 
-      <div className="p-5 space-y-3 bg-gradient-to-b from-black/20 to-transparent">
-        <h3 className="text-xl font-decorative text-accent group-hover:text-white transition-colors">
+      <div className="p-5 space-y-2.5 bg-gradient-to-b from-transparent to-black/30 flex-1 flex flex-col justify-between">
+        <h3 className="text-2xl font-decorative text-accent group-hover:text-white transition-colors">
           {event.title}
         </h3>
-        <div className="flex items-center gap-2 text-xs opacity-60 font-sans tracking-widest uppercase">
-          <Calendar className="w-3 h-3 text-accent" />
+        <div className="flex items-center gap-2 text-xs text-foreground/80 font-body tracking-wider uppercase font-medium">
+          <Calendar className="w-3.5 h-3.5 text-accent shrink-0" />
           <span>{formatDate(language, dateValue)}</span>
         </div>
       </div>

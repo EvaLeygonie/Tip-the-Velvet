@@ -34,7 +34,7 @@ export const CastingCall = () => {
   return (
     <>
       <div className="page-standard">
-        <header className="header">
+        <header className="header !mb-0 !pb-5">
           <h1>Casting Call</h1>
 
           <div className="gold-divider" />
@@ -50,8 +50,8 @@ export const CastingCall = () => {
           </p>
         </header>
 
-        <div className="middle-glow" />
-        <div className="container mx-auto px-4 relative z-10">
+        <div className="mx-auto px-4 relative">
+          <div className="middle-glow" />
           {castingEvents.length === 0 ? (
             <div className="text-center">
               <div className="bg-card/40 backdrop-blur-sm p-12 rounded-lg shadow-[0_10px_50px_hsl(0_60%_5%/0.6)] border border-accent/20 max-w-2xl mx-auto">
@@ -67,7 +67,7 @@ export const CastingCall = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-16 max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto">
               {castingEvents.map((event: Event) => (
                 <ApplicationCard key={event.id} event={event} />
               ))}

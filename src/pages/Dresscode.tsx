@@ -48,7 +48,7 @@ export const Dresscode = () => {
               'Tip the Velvet is a space where we celebrate diversity, creativity, and artistic expression. This is our playground to dress up and express our theatrical selves! Our dresscode is versatile, ensuring everyone feels glamorous, beautiful, and at home in the decadent bubble we create.'
             )}
           </p>
-          <p className="text-accent font-heading font-medium tracking-wide text-base md:text-lg">
+          <p className="text-accent font-heading font-medium tracking-wide text-base md:text-xl">
             {t(
               'Avstå från att ha på er jeans, t-shirts och allmänna vardagskläder!',
               'Please refrain from wearing jeans, t-shirts, and casual everyday clothes!'
@@ -58,7 +58,7 @@ export const Dresscode = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container-wide relative z-10 space-y-12">
+      <main className="container-wide space-y-12">
         <div className="card-grid">
           {/* Card 1: Teman */}
           <div className="velvet-card">
@@ -148,8 +148,8 @@ export const Dresscode = () => {
                 </span>
                 <p className="text-left not-italic text-sm md:text-base text-foreground font-normal leading-relaxed">
                   {t(
-                    'Använd smink, glitter, accessoarer, smycken, handskar, blommor och masker för att piffa till din outfit! Huvudpoängen är att det ska kännas genomtänkt.',
-                    'Use makeup, glitter, accessories, jewelry, gloves, flowers and masks to spice up your outfit! The main point is that it feels well thought out.'
+                    'Använd smink, glitter, accessoarer, smycken, handskar, blommor, huvudbonader, masker och annat extra för att piffa till din outfit! Huvudpoängen är att det ska kännas genomtänkt.',
+                    'Use makeup, glitter, accessories, jewelry, gloves, flowers, masks and more to spice up your outfit! The main point is that it feels well thought out.'
                   )}
                 </p>
               </div>
@@ -164,7 +164,7 @@ export const Dresscode = () => {
               </h4>
               <ul className="velvet-card-list">
                 <li className="velvet-warning-box">
-                  <span className="text-red-400 font-bold mt-0.5" aria-label="Förbjudet">
+                  <span className="text-primary font-bold mt-0.5" aria-label="Förbjudet">
                     ✕
                   </span>
                   <div>
@@ -207,12 +207,11 @@ export const Dresscode = () => {
         <div className="gold-divider" />
 
         {/* Gallery Section */}
-        <div className="mt-16 relative z-10">
+        <div className="mt-16">
           <div className="text-center space-y-3 mb-8">
             <h2>{t('Stämning & Inspiration', 'Atmosphere & Inspiration')}</h2>
 
-            {/* Textfärg ändrad från text-foreground/60 till text-foreground/85 för WCAG AA krav */}
-            <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-foreground/85 italic font-body">
+            <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-foreground/85 italic font-body pb-4">
               <Camera size={14} className="text-accent" />
               <span>
                 {t(

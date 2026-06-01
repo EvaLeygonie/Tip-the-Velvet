@@ -19,11 +19,19 @@ export default {
         border: 'hsl(var(--border))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--foreground))',
+        },
+
         accent: {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--foreground))',
         },
-        // ... behåll primary/secondary om du använder dem i shadcn-komponenter
       },
       borderRadius: {
         lg: 'var(--radius)',
