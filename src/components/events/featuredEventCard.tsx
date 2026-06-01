@@ -42,7 +42,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
   }
 
   return (
-    <div className="bg-[#110805] border border-accent/10 rounded-2xl overflow-hidden shadow-2xl p-6 md:p-10 w-full max-w-7xl mx-auto">
+    <div className="bg-[#110805] border border-accent/10 rounded-2xl overflow-hidden shadow-2xl md:p-10 w-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center gap-10 md:gap-16">
         {/* Image Container */}
         <div className="w-full md:w-1/2 shrink-0 flex justify-center md:justify-start">

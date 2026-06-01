@@ -300,16 +300,13 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
                     alt="Preview"
                   />
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <label
-                      htmlFor="image-up"
-                      className="btn-lang cursor-pointer bg-accent text-black font-semibold px-4 py-2 rounded-lg text-xs uppercase tracking-wider"
-                    >
+                    <label htmlFor="image-up" className="btn-admin">
                       {t('Byt bild', 'Change Image')}
                     </label>
                   </div>
                 </div>
               ) : (
-                <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
+                <label htmlFor="image-up" className="btn-admin">
                   {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
                 </label>
               )}

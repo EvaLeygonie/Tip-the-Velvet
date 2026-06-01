@@ -5,13 +5,20 @@ export const Artists = () => {
   return (
     <>
       <div className="page-standard">
-        <h1>Artists</h1>
-        <p>
-          {t(
-            'Här kommer vi snart att presentera våra fantastiska artister som har uppträtt på Tip the Velvet. Håll utkik!',
-            'Here we will soon present the fantastic artists who have performed at Tip the Velvet. Keep an eye out!'
-          )}
-        </p>
+        <div className="bg-glow-spot" />
+
+        <header className="header">
+          <h1>{t('Artister', 'Performers')}</h1>
+
+          <div className="gold-divider" />
+
+          <p className="subtitle">
+            {t(
+              'Här kommer vi snart att presentera alla fantastiska artister som har uppträtt på Tip the Velvet. Håll utkik!',
+              'Here we will soon present the fantastic artists who have performed at Tip the Velvet. Keep an eye out!'
+            )}
+          </p>
+        </header>
       </div>
     </>
   )

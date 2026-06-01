@@ -5,13 +5,20 @@ export const About = () => {
   return (
     <>
       <div className="page-standard">
-        <h1>About</h1>
-        <p>
-          {t(
-            'Här kommer vi snart att presentera information om Tip the Velvet. Håll utkik!',
-            'Here we will soon present information about Tip the Velvet. Keep an eye out!'
-          )}
-        </p>
+        <div className="bg-glow-spot" />
+
+        <header className="header">
+          <h1>{t('Om oss', 'About Us')}</h1>
+
+          <div className="gold-divider" />
+
+          <p className="subtitle">
+            {t(
+              'Här kommer vi snart att presentera information om Tip the Velvet. Håll utkik!',
+              'Here we will soon present information about Tip the Velvet. Keep an eye out!'
+            )}
+          </p>
+        </header>
       </div>
     </>
   )

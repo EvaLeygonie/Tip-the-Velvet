@@ -41,16 +41,16 @@ export const HomePage = () => {
             )}
           </p>
 
-          {/* BUTTONS - Nu helt centrerade och med dina globala knappklasser */}
+          {/* BUTTONS */}
           <div className="flex flex-wrap gap-4 justify-center items-center pt-2">
             <Link to="/events" className="btn-gold">
               <Sparkles className="w-4 h-4" />
               {t('Se Events', 'See Events')}
             </Link>
 
-            <Link to="/join" className="btn-red">
+            <Link to="/dresscode" className="btn-red">
               <UserPlus className="w-4 h-4 text-red-400" />
-              {t('Joina oss!', 'Join us!')}
+              {t('Dresscode', 'Dresscode')}
             </Link>
           </div>
         </div>

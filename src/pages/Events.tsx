@@ -47,26 +47,28 @@ export const Events = () => {
   return (
     <>
       <div className="page-standard">
-        <section className="container-wide">
-          <div>
-            <div className="section-header-triad">
-              <div className="hidden md:block"></div>
+        <div>
+          <div className="section-header-triad">
+            <div className="hidden md:block"></div>
 
-              <h1>{t('Kommande Event', 'Upcoming Events')}</h1>
+            <h1 className="!pb-0">{t('Kommande Event', 'Upcoming Events')}</h1>
 
-              <div className="header-side-content md:justify-end">
-                {user && (
-                  <Link to="/admin/event-editor">
-                    <button className="btn-admin">
-                      <span className="text-lg">+</span>
-                      {t('Skapa Event', 'Add Event')}
-                    </button>
-                  </Link>
-                )}
-              </div>
+            <div className="header-side-content md:justify-end">
+              {user && (
+                <Link to="/admin/event-editor">
+                  <button className="btn-admin">
+                    <span className="text-lg">+</span>
+                    {t('Skapa Event', 'Add Event')}
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
+          <div className="gold-divider" />
+        </div>
 
+        <section className="container-wide pt-2">
+          <div className="middle-glow" />
           {upcomingEvents.length > 0 ? (
             upcomingEvents.map((e) => <FeaturedEventCard key={e.id} event={e} />)
           ) : (
@@ -83,7 +85,8 @@ export const Events = () => {
         </section>
 
         <section className="container-wide page-section">
-          <h2>{t('Tidigare event', 'Past Events')}</h2>
+          <h2 className="!pb-0">{t('Tidigare event', 'Past Events')}</h2>
+          <div className="gold-divider" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {pastNewEvents.map((e) => (
               <ArchivedEventCard key={e.id} event={e} />
@@ -92,15 +95,16 @@ export const Events = () => {
         </section>
 
         <section className="container-wide page-section">
-          <div className="text-center space-y-4">
+          <div>
             <h2>{t('Arkiv', 'Archive')}</h2>
-            <p className="max-w-xl mx-auto text-lg italic opacity-80">
+            <p className="subtitle !pb-0">
               {t(
                 'En hyllning till klubbens historia, här kan ni se event från tidigare styrelsen innan vi tog över 2024!',
                 "A tribute to the club's history, here you can see events from the previous board before we took over in 2024!"
               )}
             </p>
           </div>
+          <div className="gold-divider" />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {oldEvents.map((e) => (

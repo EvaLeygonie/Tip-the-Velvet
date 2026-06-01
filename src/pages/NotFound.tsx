@@ -4,18 +4,19 @@ import { useLanguage } from '@/contexts/LanguageContext'
 export const NotFound = () => {
   const { t } = useLanguage()
   return (
-    <main className="flex-center min-h-screen bg-background text-center p-4">
-      <div className="space-y-6">
+    <main className="flex-center min-h-screen text-center">
+      <div className="middle-glow" />
+      <div>
         <h1>404</h1>
 
-        <div className="space-y-2">
-          <p className="event-subtitle">
+        <div>
+          <p className="subtitle">
             {t(
               'Hoppsan! Den här sidan har försvunnit i kulisserna.',
               'Oops! This page has vanished into the wings.'
             )}
           </p>
-          <p className="text-body opacity-70">
+          <p className="text-info opacity-70">
             {t('Sidan du letar efter finns inte här.', 'The page you are looking for is not here.')}
           </p>
         </div>

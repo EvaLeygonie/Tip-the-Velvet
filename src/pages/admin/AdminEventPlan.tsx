@@ -5,11 +5,13 @@ export const AdminEventPlan = () => {
   return (
     <>
       <div className="page-standard">
+        <div className="bg-glow-spot" />
         <h1>{t('Eventplan', 'Event Plan')}</h1>
-        <p>
+        <div className="gold-divider" />
+        <p className="subtitle">
           {t(
-            'Här kan du se en översikt över alla planerade evenemang och deras status.',
-            'Here you can see an overview of all planned events and their status.'
+            'Här kommer vi att visa en översikt över alla planerade evenemang och deras status. Draft event ses bara här',
+            'Here you can see an overview of all planned events and their status. Draft events are only visible on this page'
           )}
         </p>
       </div>

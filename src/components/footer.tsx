@@ -192,8 +192,8 @@ export const Footer = () => {
         </div>
 
         {/* BOTTOM: Copyright */}
-        <div className="mt-16 pt-8 border-t border-accent/10 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="copyright text-xs text-foreground/80 text-center md:text-left">
+        <div className="mt-16 pt-8 border-t border-accent/10 flex flex-col items-center justify-center gap-4">
+          <div className="copyright text-xs text-foreground/85 text-center not-italic font-body">
             &copy; {new Date().getFullYear()} Tip the Velvet. {t('Gjord med', 'Made with')}{' '}
             <Heart className="inline w-3 h-3 text-accent mx-1" aria-hidden="true" />{' '}
             {t('i Göteborg', 'in Gothenburg')}.

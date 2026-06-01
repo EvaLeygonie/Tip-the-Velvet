@@ -70,6 +70,10 @@ body {
     @apply w-full max-w-[1400px] mx-auto px-6 md:px-10 space-y-12;
   }
 
+  .header {
+    @apply space-y-4 mb-16 text-center relative z-10;
+  }
+
   /* --- GRIDS --- */
   .card-grid {
     @apply grid grid-cols-1 md:grid-cols-3 gap-8 w-full;
@@ -89,11 +93,14 @@ body {
 
   /* --- TYPOGRAFI --- */
   h1 {
-    @apply text-3xl md:text-4xl font-decorative text-accent uppercase tracking-widest text-center;
+    @apply font-decorative text-accent uppercase text-center pb-4;
+    @apply text-2xl sm:text-3xl md:text-4xl;
+    @apply tracking-wider md:tracking-widest;
+    @apply leading-relaxed;
   }
 
   h2 {
-    @apply text-center font-decorative text-2xl uppercase tracking-widest text-accent;
+    @apply text-center font-decorative text-2xl md:text-3xl uppercase tracking-widest text-accent;
   }
 
   h4 {
@@ -115,7 +122,7 @@ body {
   }
 
   .subtitle {
-    @apply italic border-none bg-transparent outline-none focus:ring-0;
+    @apply italic border-none bg-transparent outline-none focus:ring-0  max-w-2xl mx-auto text-lg md:text-xl py-4;
     @apply text-foreground/90;
     font-family: var(--font-heading);
   }
@@ -127,7 +134,7 @@ body {
   }
 
   .text-info {
-    @apply text-sm md:text-base font-body leading-relaxed tracking-wide;
+    @apply text-foreground text-base md:text-lg leading-relaxed not-italic text-center font-body;
     @apply text-foreground/90;
   }
 
@@ -151,65 +158,113 @@ body {
   }
 
   .bg-glow-spot {
-    @apply absolute w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none;
+    @apply absolute w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none top-10 left-1/2 -translate-x-1/2;
     background-color: rgba(212, 175, 55, 0.1);
   }
 
-  .velvet-card {
-    @apply flex flex-col justify-between p-8 rounded-xl border transition-all duration-300;
-    background-color: rgba(var(--muted), 0.5);
-    backdrop-filter: blur(8px);
-    border-color: rgba(212, 175, 55, 0.2);
-    box-shadow:
-      var(--shadow-glamour),
-      inset 0 0 20px rgba(153, 27, 27, 0.15);
+  .middle-glow {
+    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/10 rounded-full blur-3xl;
   }
 
-  .velvet-card:hover {
-    border-color: rgba(212, 175, 55, 0.45);
-    background-color: rgba(var(--primary), 0.05);
+  /* --- KNAPPAR --- */
+  .btn-lang {
+    @apply px-2.5 py-1 border border-accent/40 text-[11px] tracking-widest text-accent hover:bg-accent hover:text-black transition-all rounded-md uppercase font-medium cursor-pointer;
   }
 
-  /* Liststilar inuti korten för att säkerställa hög tillgänglighet och läsbarhet */
-  .velvet-card-list {
-    @apply space-y-4 text-base leading-relaxed text-foreground font-body font-normal;
+  .btn-gold {
+    @apply relative z-10 text-background border border-border px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md cursor-pointer;
+    @apply uppercase tracking-widest font-medium text-xs;
+    background-color: rgba(212, 175, 55, 0.8);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+    font-family: var(--font-decorative);
   }
 
-  /* Tips-boxen i mittenkortet */
-  .velvet-tips-box {
-    @apply p-5 rounded-lg border space-y-2 mt-auto;
-    background-color: rgba(0, 0, 0, 0.65);
-    border-color: rgba(212, 175, 55, 0.25);
+  .btn-gold:hover {
+    background-color: rgba(212, 175, 55, 1);
   }
 
-  /* Varningsboxen för historiska uniformer */
-  .velvet-warning-box {
-    @apply flex items-start gap-2 text-red-100 p-3 rounded border;
-    background-color: rgba(153, 27, 27, 0.45);
-    border-color: rgba(153, 27, 27, 0.4);
+  .btn-red {
+    @apply relative z-10 bg-red-950 hover:bg-red-900 text-red-100 border border-red-950 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md cursor-pointer;
+    @apply uppercase tracking-widest font-medium text-xs;
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 15px rgba(153, 27, 27, 0.4);
+    font-family: var(--font-decorative);
   }
 
-  /* BILDGALLERI & BENTO GRID */
-  .velvet-gallery-grid {
-    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 auto-rows-[220px] gap-4 mt-12;
+  .btn-gold-outline {
+    @apply inline-flex items-center gap-2 px-6 py-2.5 border text-accent text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300 cursor-pointer;
+    border-color: rgba(212, 175, 55, 0.4);
+    background-color: rgba(212, 175, 55, 0.05);
   }
 
-  .velvet-gallery-item {
-    @apply overflow-hidden rounded-lg border shadow-md group relative focus-within:ring-2 focus-within:ring-accent;
-    border-color: rgba(212, 175, 55, 0.2);
+  .btn-gold-outline:hover {
+    background-color: rgba(212, 175, 55, 1);
+    color: #000000;
   }
 
-  .velvet-gallery-overlay {
-    @apply absolute inset-0 transition-colors duration-300 z-10 pointer-events-none;
-    background-color: rgba(0, 0, 0, 0.2);
+  .btn-admin {
+    @apply flex items-center gap-2 px-3 py-1.5 border text-white transition-all duration-300 rounded-xl hover:border-white/50 cursor-pointer;
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.05);
   }
 
-  .velvet-gallery-item:hover .velvet-gallery-overlay {
-    background-color: transparent;
+  /* --- NAVIGATION --- */
+  .nav-logo {
+    @apply text-xl font-bold tracking-tighter text-accent transition-transform hover:scale-105;
+    font-family: var(--font-decorative);
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
   }
 
-  .velvet-gallery-image {
-    @apply w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out;
+  .nav-icon-btn {
+    @apply p-2 hover:text-accent transition-colors rounded-full hover:bg-white/5 flex items-center justify-center;
+    @apply text-foreground/60;
+  }
+
+  .nav-icon-btn svg {
+    @apply w-5 h-5;
+  }
+
+  .nav-item {
+    @apply text-sm uppercase tracking-[0.25em] font-decorative transition-colors duration-200 whitespace-nowrap;
+    @apply text-foreground/90 hover:text-accent focus-visible:text-accent focus-visible:outline-none;
+  }
+
+  .nav-item-active {
+    @apply text-accent drop-shadow-[0_0_8px_rgba(212,175,55,0.4)];
+  }
+
+  .nav-item-mobile {
+    @apply text-xl font-decorative uppercase tracking-[0.2em] transition-colors py-2 w-full text-center;
+    @apply text-foreground/90 hover:text-accent;
+  }
+
+  .nav-item-mobile-active {
+    @apply text-accent font-bold;
+  }
+
+  .admin-label-link {
+    @apply text-xs uppercase tracking-[0.2em] font-normal font-body transition-all duration-200;
+    @apply text-accent/75 hover:text-accent;
+  }
+
+  .admin-label-link-active {
+    @apply text-accent font-semibold;
+  }
+
+  /* --- FOOTER --- */
+  .text-footer {
+    @apply text-left not-italic opacity-100;
+    @apply text-foreground/70 font-sans text-sm leading-relaxed max-w-xs;
+  }
+
+  .link-footer {
+    @apply flex items-center gap-3 hover:text-accent transition-colors text-sm;
+    @apply text-foreground/60;
+  }
+
+  .copyright {
+    @apply text-[10px] font-sans uppercase tracking-[0.2em];
+    @apply text-foreground/60;
   }
 
   /* --- FORM --- */
@@ -249,79 +304,30 @@ body {
     height: 1.15rem !important;
   }
 
-  /* --- KNAPPAR --- */
-  .btn-lang {
-    @apply text-xs font-bold border px-2 py-1 rounded hover:border-accent hover:text-accent transition-all;
-    border-color: rgba(var(--foreground), 0.2);
+  /* --- DateTime picker --- */
+  input[type='datetime-local'],
+  input[type='date'] {
+    position: relative;
+    min-height: 2.5rem;
   }
 
-  .btn-gold {
-    @apply relative z-10 text-background border border-border px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md;
-    @apply uppercase tracking-widest font-medium text-xs;
-    background-color: rgba(212, 175, 55, 0.8);
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
-    font-family: var(--font-decorative);
+  input[type='datetime-local']::-webkit-calendar-picker-indicator,
+  input[type='date']::-webkit-calendar-picker-indicator {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="gold" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>');
+    cursor: pointer;
+    filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.5));
+    opacity: 0.8;
+    transition: opacity 0.2s;
   }
 
-  .btn-gold:hover {
-    background-color: rgba(212, 175, 55, 1);
+  input[type='datetime-local']::-webkit-calendar-picker-indicator:hover,
+  input[type='date']::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
   }
 
-  .btn-red {
-    @apply relative z-10 bg-red-950 hover:bg-red-900 text-red-100 px-6 py-2 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-[140px] min-h-[44px] rounded-md;
-    @apply uppercase tracking-widest font-medium text-xs;
-    border-color: rgba(239, 68, 68, 0.4);
-    box-shadow: 0 0 15px rgba(153, 27, 27, 0.4);
-    font-family: var(--font-decorative);
-  }
-
-  .btn-gold-outline {
-    @apply inline-flex items-center gap-2 px-6 py-2.5 border text-accent text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300;
-    border-color: rgba(212, 175, 55, 0.4);
-    background-color: rgba(212, 175, 55, 0.05);
-  }
-
-  .btn-gold-outline:hover {
-    background-color: rgba(212, 175, 55, 1);
-    color: #000000;
-  }
-
-  .btn-admin {
-    @apply flex items-center gap-2 px-3 py-1.5 border text-white transition-all duration-300 rounded-xl hover:border-white/50;
-    border-color: rgba(255, 255, 255, 0.2);
-    background-color: rgba(255, 255, 255, 0.05);
-  }
-
-  /* --- NAVIGATION --- */
-  .nav-container {
-    @apply fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 backdrop-blur-md;
-    background-color: rgba(var(--background), 0.8);
-    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
-  }
-
-  .nav-logo {
-    @apply text-xl font-bold tracking-tighter text-accent transition-transform hover:scale-105;
-    font-family: var(--font-decorative);
-    text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
-  }
-
-  .nav-link {
-    @apply text-sm font-medium transition-colors hover:text-accent;
-    @apply text-foreground/80;
-  }
-
-  .nav-link-admin {
-    @apply text-sm font-bold text-accent border px-3 py-1 rounded hover:bg-accent hover:text-black transition-all;
-    border-color: rgba(212, 175, 55, 0.3);
-  }
-
-  .nav-icon-btn {
-    @apply p-2 hover:text-accent transition-colors rounded-full hover:bg-white/5 flex items-center justify-center;
-    @apply text-foreground/60;
-  }
-
-  .nav-icon-btn svg {
-    @apply w-5 h-5;
+  input[type='datetime-local']::-webkit-datetime-edit,
+  input[type='date']::-webkit-datetime-edit {
+    @apply font-mono text-xs uppercase tracking-tighter;
   }
 
   /* --- LOGIN --- */
@@ -357,22 +363,6 @@ body {
   .link-back {
     @apply w-full mt-8 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest hover:text-accent transition-colors bg-transparent border-none outline-none cursor-pointer;
     @apply text-white/80;
-  }
-
-  /* --- FOOTER --- */
-  .text-footer {
-    @apply text-left not-italic opacity-100;
-    @apply text-foreground/70 font-sans text-sm leading-relaxed max-w-xs;
-  }
-
-  .link-footer {
-    @apply flex items-center gap-3 hover:text-accent transition-colors text-sm;
-    @apply text-foreground/60;
-  }
-
-  .copyright {
-    @apply text-[10px] font-sans uppercase tracking-[0.2em];
-    @apply text-foreground/60;
   }
 
   /* --- ADMIN / EDITOR --- */
@@ -431,6 +421,61 @@ body {
     border-color: rgba(212, 175, 55, 0.2);
   }
 
+  /* -- DRESSCODE -- */
+  .velvet-card {
+    @apply flex flex-col justify-between p-8 rounded-xl border transition-all duration-300;
+    background-color: rgba(var(--muted), 0.5);
+    backdrop-filter: blur(8px);
+    border-color: rgba(212, 175, 55, 0.2);
+    box-shadow:
+      var(--shadow-glamour),
+      inset 0 0 20px rgba(153, 27, 27, 0.15);
+  }
+
+  .velvet-card:hover {
+    border-color: rgba(212, 175, 55, 0.45);
+    background-color: rgba(var(--primary), 0.05);
+  }
+
+  .velvet-card-list {
+    @apply space-y-4 text-base leading-relaxed text-foreground font-body font-normal;
+  }
+
+  .velvet-tips-box {
+    @apply p-5 rounded-lg border space-y-2 mt-auto;
+    background-color: rgba(0, 0, 0, 0.65);
+    border-color: rgba(212, 175, 55, 0.25);
+  }
+
+  .velvet-warning-box {
+    @apply flex items-start gap-2 text-red-100 p-3 rounded border;
+    background-color: rgba(153, 27, 27, 0.45);
+    border-color: rgba(153, 27, 27, 0.4);
+  }
+
+  /* -- BILDGALLERI & BENTO GRID -- */
+  .velvet-gallery-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 auto-rows-[220px] gap-4 mt-12;
+  }
+
+  .velvet-gallery-item {
+    @apply overflow-hidden rounded-lg border shadow-md group relative focus-within:ring-2 focus-within:ring-accent;
+    border-color: rgba(212, 175, 55, 0.2);
+  }
+
+  .velvet-gallery-overlay {
+    @apply absolute inset-0 transition-colors duration-300 z-10 pointer-events-none;
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+
+  .velvet-gallery-item:hover .velvet-gallery-overlay {
+    background-color: transparent;
+  }
+
+  .velvet-gallery-image {
+    @apply w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out;
+  }
+
   /* --- KONTROLLPANEL & MEDIA --- */
   .admin-control-panel {
     @apply min-w-[320px] p-5 rounded-lg border space-y-4 shadow-2xl;
@@ -450,31 +495,5 @@ body {
   .promo-upload-square {
     @apply aspect-square w-full max-w-[300px] border-2 border-dashed rounded-lg flex-center flex-col gap-4 transition-all hover:bg-accent/5 hover:border-accent/40;
     border-color: rgba(212, 175, 55, 0.2);
-  }
-
-  /* --- DateTime picker --- */
-  input[type='datetime-local'],
-  input[type='date'] {
-    position: relative;
-    min-height: 2.5rem;
-  }
-
-  input[type='datetime-local']::-webkit-calendar-picker-indicator,
-  input[type='date']::-webkit-calendar-picker-indicator {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="gold" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>');
-    cursor: pointer;
-    filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.5));
-    opacity: 0.8;
-    transition: opacity 0.2s;
-  }
-
-  input[type='datetime-local']::-webkit-calendar-picker-indicator:hover,
-  input[type='date']::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
-  }
-
-  input[type='datetime-local']::-webkit-datetime-edit,
-  input[type='date']::-webkit-datetime-edit {
-    @apply font-mono text-xs uppercase tracking-tighter;
   }
 }

@@ -5,13 +5,20 @@ export const JoinUs = () => {
   return (
     <>
       <div className="page-standard">
-        <h1>Join Us</h1>
-        <p>
-          {t(
-            'Här kommer vi snart att presentera information om hur du kan gå med i vår community. Håll utkik!',
-            'Here we will soon present information about how you can join our community. Keep an eye out!'
-          )}
-        </p>
+        <div className="bg-glow-spot" />
+
+        <header className="header">
+          <h1>{t('Joina oss', 'Join Us')}</h1>
+
+          <div className="gold-divider" />
+
+          <p className="subtitle">
+            {t(
+              'Här kommer vi snart att presentera information om hur du kan gå med i vår community. Håll utkik!',
+              'Here we will soon present information about how you can join our community. Keep an eye out!'
+            )}
+          </p>
+        </header>
       </div>
     </>
   )

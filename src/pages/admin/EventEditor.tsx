@@ -189,9 +189,7 @@ export const EventEditor = () => {
               <ArrowLeft className="text-accent hover:scale-105" />
             </Link>
           </div>
-          <h1>
-            {slug ? t('Redigera Event', 'Edit Event') : t('Skapa Nytt Event', 'Create New Event')}
-          </h1>
+          <h1>{slug ? t('Redigera Event', 'Edit Event') : t('Skapa Event', 'Create Event')}</h1>
           <div className="hidden md:block"></div>
         </div>
 
@@ -366,12 +364,13 @@ export const EventEditor = () => {
                     }}
                     alt="Preview"
                   />
-                  <label htmlFor="image-up" className="btn-lang cursor-pointer hover:bg-accent/10">
+
+                  <label htmlFor="image-up" className="btn-admin">
                     {t('Byt bild', 'Change Image')}
                   </label>
                 </div>
               ) : (
-                <label htmlFor="image-up" className="btn-lang py-3 px-6 cursor-pointer">
+                <label htmlFor="image-up" className="btn-admin">
                   {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
                 </label>
               )}

@@ -24,6 +24,8 @@ import { EventEditor } from '@/pages/admin/EventEditor'
 import { AdminEventPlan } from '@/pages/admin/AdminEventPlan'
 import { Artists } from '@/pages/Artists'
 import { ArtistDetail } from '@/pages/ArtistDetail'
+import { AdminCasting } from './pages/admin/AdminCasting'
+import { AdminContacts } from './pages/admin/AdminContacts'
 
 const queryClient = new QueryClient()
 
@@ -73,6 +75,30 @@ export const App = () => (
                 }
               />
               <Route
+                path="/admin/event-plan"
+                element={
+                  <ProtectedRoute>
+                    <AdminEventPlan />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/casting"
+                element={
+                  <ProtectedRoute>
+                    <AdminCasting />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/contacts"
+                element={
+                  <ProtectedRoute>
+                    <AdminContacts />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin/event-editor"
                 element={
                   <ProtectedRoute>
@@ -85,14 +111,6 @@ export const App = () => (
                 element={
                   <ProtectedRoute>
                     <EventEditor />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/event-plan"
-                element={
-                  <ProtectedRoute>
-                    <AdminEventPlan />
                   </ProtectedRoute>
                 }
               />

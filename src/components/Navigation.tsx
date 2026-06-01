@@ -41,8 +41,8 @@ export const Navigation = () => {
 
   const adminSubLinks = [
     { to: '/admin', label: 'Dashboard', icon: BarChart3 },
-    { to: '/admin/event-planning', label: 'Eventplanering', icon: Settings },
-    { to: '/admin/casting-manage', label: 'Hantera Casting', icon: ClipboardList },
+    { to: '/admin/event-plan', label: 'Eventplanering', icon: Settings },
+    { to: '/admin/casting', label: 'Hantera Casting', icon: ClipboardList },
     { to: '/admin/contacts', label: 'Kontakter', icon: Users },
   ]
 
@@ -55,18 +55,18 @@ export const Navigation = () => {
       >
         <div className="max-w-[1600px] mx-auto px-8 md:px-16 grid grid-cols-3 items-center min-h-[60px] relative">
           {/* VÄNSTER: Språk & Vänsterlänkar */}
-          <div className="flex items-center gap-8">
-            <div className="relative flex items-center gap-4 pr-6 after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-8 after:bg-white/10">
+          <div className="flex items-center gap-6 flex-1 justify-start">
+            <div className="flex items-center gap-3 pr-4 border-r border-white/10">
               <button
                 className="xl:hidden text-accent p-2 -ml-2"
                 onClick={() => setIsMobileMenuOpen(true)}
               >
-                <Menu size={22} />
+                <Menu size={24} />
               </button>
 
               <button
                 onClick={() => setLanguage(language === 'sv' ? 'eng' : 'sv')}
-                className="px-2 py-1 border border-accent/30 text-[10px] tracking-widest text-accent hover:bg-accent hover:text-black transition-all rounded-md uppercase font-medium"
+                className="btn-lang"
               >
                 {language === 'sv' ? 'EN' : 'SV'}
               </button>
@@ -77,7 +77,7 @@ export const Navigation = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`text-[12px] uppercase tracking-[0.3em] font-decorative transition-all whitespace-nowrap ${isActive(link.to) ? 'text-accent' : 'text-foreground/90 hover:text-accent'}`}
+                  className={`${isActive(link.to) ? 'nav-item-active' : 'nav-item'}`}
                 >
                   {link.label}
                 </Link>
@@ -91,43 +91,40 @@ export const Navigation = () => {
               <img
                 src={logoFull}
                 alt="Logo"
-                className={`transition-all duration-500 object-contain w-auto ${isScrolled ? 'h-[70px]' : 'h-[100px]'}`}
+                className={`transition-all duration-500 object-contain w-auto ${isScrolled ? 'h-[80px]' : 'h-[100px]'}`}
               />
             </Link>
           </div>
 
           {/* HÖGER: Högerlänkar & Login */}
-          <div className="flex items-center justify-end gap-8">
+          <div className="flex items-center justify-end gap-6 flex-1">
             <div className="hidden xl:flex items-center gap-6">
               {rightLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`text-[12px] uppercase tracking-[0.3em] font-decorative transition-all whitespace-nowrap ${isActive(link.to) ? 'text-accent' : 'text-foreground/90 hover:text-accent'}`}
+                  className={`${isActive(link.to) ? 'nav-item-active' : 'nav-item'}`}
                 >
                   {link.label}
                 </Link>
               ))}
             </div>
 
-            <div className="relative flex items-center gap-3 pl-6 after:absolute after:left-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-8 after:bg-white/10">
+            <div className="flex items-center gap-2 pl-4 border-l border-white/10">
               {!user ? (
                 <Link
                   to={`/admin/login?redirectTo=${encodeURIComponent(location.pathname)}`}
-                  className="text-accent/60 hover:text-accent transition-all p-2"
+                  className="text-accent/80 hover:text-accent transition-all p-2"
                 >
-                  <LogIn size={21} strokeWidth={1.5} />
+                  <LogIn size={22} strokeWidth={1.8} />
                 </Link>
               ) : (
                 <>
-                  <Link to="/admin/settings" className="nav-icon-btn">
-                    <Settings size={18} />
-                  </Link>
                   <button
                     onClick={handleSignOut}
                     className="nav-icon-btn hover:text-red-500 transition-colors"
                   >
-                    <LogOut size={18} />
+                    <LogOut size={20} />
                   </button>
                 </>
               )}
@@ -137,15 +134,15 @@ export const Navigation = () => {
 
         {/* ADMIN SUB-NAV */}
         {user && (
-          <div className="hidden xl:block border-t border-accent/20 p-3 mt-2">
-            <div className="max-w-7xl mx-auto flex justify-center gap-12 pt-2">
+          <div className="hidden xl:block border-t border-accent/20 p-2 mt-2">
+            <div className="max-w-7xl mx-auto flex justify-center gap-10 pt-3">
               {adminSubLinks.map((link) => {
                 const Icon = link.icon
                 return (
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] transition-all ${isActive(link.to) ? 'text-accent font-semi-bold' : 'text-accent/70 hover:text-accent'}`}
+                    className={`flex items-center gap-2.5 admin-label-link ${isActive(link.to) ? 'admin-label-link-active' : ''}`}
                   >
                     <Icon size={14} strokeWidth={1.2} />
                     {link.label}
