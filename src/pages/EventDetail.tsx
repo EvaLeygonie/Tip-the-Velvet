@@ -105,13 +105,7 @@ export const EventDetail = () => {
           (() => {
             const langKey = `description_${t('sv', 'eng')}` as keyof typeof event
             const description = event[langKey] as string
-            return (
-              description && (
-                <p className="text-base md:text-lg text-foreground/80 font-body leading-relaxed mx-auto text-center whitespace-pre-line">
-                  {description}
-                </p>
-              )
-            )
+            return description && <p className="text-info">{description}</p>
           })()}
 
         <div className="gold-divider" />
@@ -158,11 +152,9 @@ export const EventDetail = () => {
           <h2 className="m-0 p-0">{t('Bilder', 'Photos')}</h2>
           {/* FOTOGRAPHER */}
           {event?.photographer && (
-            <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-foreground/60 italic font-body">
+            <div className="flex items-center justify-center gap-2 text-foreground/80 text-sm md:text-base font-body pt-2">
               <Camera size={14} className="text-accent/70" />
-              <span>
-                {t('Fotograf:', 'Photographer:')} {event.photographer}
-              </span>
+              <span>{event.photographer}</span>
             </div>
           )}
         </div>

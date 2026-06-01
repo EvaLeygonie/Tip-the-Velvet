@@ -134,7 +134,7 @@ body {
   }
 
   .text-info {
-    @apply text-foreground text-base md:text-lg leading-relaxed not-italic text-center font-body;
+    @apply text-foreground text-base md:text-lg leading-relaxed not-italic text-center font-body whitespace-pre-line;
     @apply text-foreground/90;
   }
 

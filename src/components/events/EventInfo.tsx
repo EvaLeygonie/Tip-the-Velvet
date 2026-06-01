@@ -84,34 +84,55 @@ export const EventInfo = ({ event }: { event: Event }) => {
           </div>
 
           {/* LINKS */}
-          {upcomingEvent && (
-            <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-              {/* BILJETTER */}
-              {event.ticket_url && (
-                <a
-                  href={event.ticket_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-gold"
-                >
-                  <Ticket className="w-4 h-4" />
-                  {t('Köp Biljetter', 'Get Tickets')}
-                </a>
-              )}
+          {upcomingEvent &&
+            (() => {
+              const isCastingExpired = event.casting_call_deadline
+                ? new Date().getTime() > new Date(event.casting_call_deadline).getTime()
+                : false
 
-              {/* CASTING CALL */}
-              {event.has_casting_call && (
-                <Link to="/casting-call" className="btn-red">
-                  <UserPlus className="w-4 h-4 text-red-400" />
-                  Casting Call
-                </Link>
-              )}
-            </div>
-          )}
+              return (
+                <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                  {/* BILJETTER */}
+                  {event.ticket_url ? (
+                    <a
+                      href={event.ticket_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-gold shadow-lg transition-all duration-300"
+                    >
+                      <Ticket className="w-4 h-4" />
+                      {t('Köp Biljetter', 'Get Tickets')}
+                    </a>
+                  ) : (
+                    <span className="btn-gold opacity-70 cursor-not-allowed">
+                      <Ticket className="w-4 h-4 opacity-50" />
+                      {t('Biljetter kommer', 'Tickets TBA')}
+                    </span>
+                  )}
+
+                  {/* CASTING CALL */}
+                  {event.has_casting_call &&
+                    (!isCastingExpired ? (
+                      <Link
+                        to="/casting-call"
+                        className="btn-red shadow-lg transition-all duration-300"
+                      >
+                        <UserPlus className="w-4 h-4 text-red-400" />
+                        Casting Call
+                      </Link>
+                    ) : (
+                      <span className="btn-red opacity-25 cursor-not-allowed">
+                        <UserPlus className="w-4 h-4 text-red-400/50 opacity-50" />
+                        {t('Casting Stängd', 'Casting Closed')}
+                      </span>
+                    ))}
+                </div>
+              )
+            })()}
         </div>
       </div>
 
-      {/* DRESSCODE */}
+      {/* DRESSCODE - Nu ligger denna helt rätt placerad i botten av hela gränssnittet */}
       <div className="pt-4">
         <div className="gold-divider" />
       </div>
@@ -134,7 +155,7 @@ export const EventInfo = ({ event }: { event: Event }) => {
                 className="gold-link"
               >
                 {t('Pinterest-anslagstavla', 'Pinterest board')}
-                <ExternalLink size={13} className="opacity-80" />
+                <ExternalLink size={13} className="opacity-80 inline-block ml-1" />
               </a>
               {t(' för inspiration', ' for inspiration')}
             </>
