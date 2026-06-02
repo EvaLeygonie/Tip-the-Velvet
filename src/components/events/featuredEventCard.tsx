@@ -125,18 +125,21 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
                 </span>
               </Link>
 
-              {event.ticket_url && (
+              {event.ticket_url ? (
                 <a
                   href={event.ticket_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-gold"
+                  className="btn-gold shadow-lg transition-all duration-300"
                 >
-                  <Ticket className="w-4 h-4 shrink-0" />
-                  <span className="font-decorative tracking-wider uppercase text-xs whitespace-nowrap">
-                    {t('Biljetter', 'Tickets')}
-                  </span>
+                  <Ticket className="w-4 h-4" />
+                  {t('Biljetter', 'Tickets')}
                 </a>
+              ) : (
+                <span className="btn-gold opacity-70 cursor-not-allowed">
+                  <Ticket className="w-4 h-4 opacity-50" />
+                  {t('Biljetter TBA', 'Tickets TBA')}
+                </span>
               )}
             </div>
           </div>

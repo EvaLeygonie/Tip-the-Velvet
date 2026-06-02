@@ -28,7 +28,7 @@ export const Navigation = () => {
   const isActive = (path: string) => location.pathname === path
 
   const leftLinks = [
-    { to: '/events', label: t('Events', 'Events') },
+    { to: '/events', label: t('Event', 'Events') },
     { to: '/casting-call', label: t('Casting Call', 'Casting Call') },
     { to: '/artists', label: t('Artister', 'Performers') },
   ]

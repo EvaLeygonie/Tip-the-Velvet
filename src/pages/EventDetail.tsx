@@ -70,6 +70,7 @@ export const EventDetail = () => {
 
   return (
     <div className="page-standard">
+      <div className="bg-glow-spot" />
       <div className="editor-container">
         <div className="section-header-triad">
           <div className="header-side-content md:justify-start">
@@ -99,6 +100,7 @@ export const EventDetail = () => {
           </div>
         </div>
       </div>
+      <div className="gold-divider" />
 
       <div className="max-w-5xl mx-auto space-y-10 px-10 my-12">
         {event &&

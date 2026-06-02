@@ -45,7 +45,7 @@ export const HomePage = () => {
           <div className="flex flex-wrap gap-4 justify-center items-center pt-2">
             <Link to="/events" className="btn-gold">
               <Sparkles className="w-4 h-4" />
-              {t('Se Events', 'See Events')}
+              {t('Våra Event', 'See Events')}
             </Link>
 
             <Link to="/dresscode" className="btn-red">

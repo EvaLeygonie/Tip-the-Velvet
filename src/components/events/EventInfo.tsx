@@ -101,12 +101,12 @@ export const EventInfo = ({ event }: { event: Event }) => {
                       className="btn-gold shadow-lg transition-all duration-300"
                     >
                       <Ticket className="w-4 h-4" />
-                      {t('Köp Biljetter', 'Get Tickets')}
+                      {t('Biljetter', 'Tickets')}
                     </a>
                   ) : (
                     <span className="btn-gold opacity-70 cursor-not-allowed">
                       <Ticket className="w-4 h-4 opacity-50" />
-                      {t('Biljetter kommer', 'Tickets TBA')}
+                      {t('Biljetter TBA', 'Tickets TBA')}
                     </span>
                   )}
 
@@ -118,7 +118,7 @@ export const EventInfo = ({ event }: { event: Event }) => {
                         className="btn-red shadow-lg transition-all duration-300"
                       >
                         <UserPlus className="w-4 h-4 text-red-400" />
-                        Casting Call
+                        {t('Casting Call', 'Casting Call')}
                       </Link>
                     ) : (
                       <span className="btn-red opacity-25 cursor-not-allowed">
@@ -132,7 +132,7 @@ export const EventInfo = ({ event }: { event: Event }) => {
         </div>
       </div>
 
-      {/* DRESSCODE - Nu ligger denna helt rätt placerad i botten av hela gränssnittet */}
+      {/* DRESSCODE */}
       <div className="pt-4">
         <div className="gold-divider" />
       </div>

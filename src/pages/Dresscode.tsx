@@ -1,5 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Camera } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import img1 from '@/assets/dresscode/img1.jpg'
 import img2 from '@/assets/dresscode/img2.jpg'
@@ -44,8 +45,8 @@ export const Dresscode = () => {
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <p className="text-info">
             {t(
-              'Tip the Velvet är en plats där vi firar mångfald, kreativitet och konstnärligt uttryck. Här får vi klä upp oss och klä ut oss tillsammans! Dresscoden är mångsidig och existerar för att alla ska känna sig uppklädda, vackra och hemmastadda i den dekadenta bubbla vi skapar på våra klubbar.',
-              'Tip the Velvet is a space where we celebrate diversity, creativity, and artistic expression. This is our playground to dress up and express our theatrical selves! Our dresscode is versatile, ensuring everyone feels glamorous, beautiful, and at home in the decadent bubble we create.'
+              'Tip the Velvet är en plats där vi firar mångfald, kreativitet och konstnärligt uttryck. Här får vi klä upp oss och klä ut oss tillsammans! Dresscoden är mångsidig och existerar för att alla ska känna sig uppklädda, vackra och hemma i den dekadenta bubbla vi skapar på våra klubbar.',
+              'Tip the Velvet is a space where we celebrate diversity, creativity, and artistic expression. This is our playground to dress up and express our theatrical selves! Our dresscode is versatile and exist to make sure everyone feels glamorous, beautiful, and at home in the decadent bubble we create.'
             )}
           </p>
           <p className="text-accent font-heading font-medium tracking-wide text-base md:text-xl">
@@ -136,7 +137,7 @@ export const Dresscode = () => {
                     {t('Nyckelord: ', 'Keywords: ')}
                   </strong>
                   {t(
-                    'korsetter, hattar, kravatt, glamour, glitter, paljetter, plymer, Moulin Rouge, Cabaret och kostymdramer.',
+                    'korsetter, hattar, kravatt, glamour, glitter, paljetter, plymer, Moulin Rouge, Cabaret och kostymdraman.',
                     'corsets, hats, cravat, glamour, glitter, sequins, plumes, Moulin Rouge, Cabaret and costume dramas.'
                   )}
                 </p>
@@ -211,17 +212,18 @@ export const Dresscode = () => {
           <div className="text-center space-y-3 mb-8">
             <h2>{t('Stämning & Inspiration', 'Atmosphere & Inspiration')}</h2>
 
+            <div>
+              <Link to="/events">
+                {t(
+                  'Kolla gärna på bilder från våra tidigare event!',
+                  'Feel free to check out photos from our previous events!'
+                )}{' '}
+              </Link>
+            </div>
+
             <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-foreground/85 italic font-body pb-4">
               <Camera size={14} className="text-accent" />
-              <span>
-                {t(
-                  'Bilder från våra tidigare magiska kvällar av:',
-                  'Glimpses from our previous magical nights, captured by:'
-                )}{' '}
-                <span className="text-accent not-italic font-medium">
-                  Tobias Walka @hardisphoto
-                </span>
-              </span>
+              <div className="text-accent not-italic font-medium">Tobias Walka @hardisphoto</div>
             </div>
           </div>
 
