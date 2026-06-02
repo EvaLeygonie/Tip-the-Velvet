@@ -27,7 +27,7 @@ export const Dresscode = () => {
   ]
 
   return (
-    <div className="page-standard">
+    <div className="page-shell">
       <div className="bg-glow-spot" />
 
       {/* Header Section */}
@@ -64,12 +64,12 @@ export const Dresscode = () => {
           {/* Card 1: Teman */}
           <div className="velvet-card">
             <div>
-              <h4 className="border-b border-accent/20 pb-3 mb-5 flex items-center gap-2 text-accent">
+              <h4 className="velvet-card-heading mb-5">
                 <span aria-hidden="true">✦</span> {t('Godkända Teman', 'Accepted Themes')}
               </h4>
               <ul className="velvet-card-list">
-                <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1.5 text-xs" aria-hidden="true">
+                <li className="velvet-list-item">
+                  <span className="velvet-list-bullet" aria-hidden="true">
                     •
                   </span>
                   <div>
@@ -80,8 +80,8 @@ export const Dresscode = () => {
                     )}
                   </div>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1.5 text-xs" aria-hidden="true">
+                <li className="velvet-list-item">
+                  <span className="velvet-list-bullet" aria-hidden="true">
                     •
                   </span>
                   <span>
@@ -91,8 +91,8 @@ export const Dresscode = () => {
                     )}
                   </span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1.5 text-xs" aria-hidden="true">
+                <li className="velvet-list-item">
+                  <span className="velvet-list-bullet" aria-hidden="true">
                     •
                   </span>
                   <span>
@@ -104,14 +104,14 @@ export const Dresscode = () => {
                     )
                   </span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1.5 text-xs" aria-hidden="true">
+                <li className="velvet-list-item">
+                  <span className="velvet-list-bullet" aria-hidden="true">
                     •
                   </span>
                   <span>{t('Historiskt (1600-1800-tal)', 'Historical (1600-1800s)')}</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1.5 text-xs" aria-hidden="true">
+                <li className="velvet-list-item">
+                  <span className="velvet-list-bullet" aria-hidden="true">
                     •
                   </span>
                   <span>
@@ -129,7 +129,7 @@ export const Dresscode = () => {
           <div className="velvet-card">
             <div className="flex flex-col h-full justify-between space-y-6">
               <div>
-                <h4 className="border-b border-accent/20 pb-3 mb-4 flex items-center gap-2 text-accent">
+                <h4 className="velvet-card-heading mb-4">
                   <span aria-hidden="true">✦</span> {t('Nyckelord & Tips', 'Keywords & Tips')}
                 </h4>
                 <p className="text-sm md:text-base text-foreground leading-relaxed text-left not-italic font-body font-normal">
@@ -144,7 +144,7 @@ export const Dresscode = () => {
               </div>
 
               <div className="velvet-tips-box">
-                <span className="text-[11px] uppercase tracking-widest text-accent font-bold block">
+                <span className="label-kicker font-bold mb-0">
                   {t('Tips: More is more!', 'Tip: More is more!')}
                 </span>
                 <p className="text-left not-italic text-sm md:text-base text-foreground font-normal leading-relaxed">
@@ -160,14 +160,12 @@ export const Dresscode = () => {
           {/* Card 3: Regler */}
           <div className="velvet-card">
             <div>
-              <h4 className="border-b border-accent/20 pb-3 mb-5 flex items-center gap-2 text-accent">
+              <h4 className="velvet-card-heading mb-5">
                 <span aria-hidden="true">✦</span> {t('Viktiga Regler', 'Important Rules')}
               </h4>
               <ul className="velvet-card-list">
                 <li className="velvet-warning-box">
-                  <span className="text-primary font-bold mt-0.5" aria-label="Förbjudet">
-                    ✕
-                  </span>
+                  <span className="text-primary font-bold mt-0.5">✕</span>
                   <div>
                     <strong className="text-red-300 font-semibold">
                       {t('Historiska uniformer:', 'Historical uniforms:')}
@@ -178,8 +176,8 @@ export const Dresscode = () => {
                     )}
                   </div>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1.5 text-xs" aria-hidden="true">
+                <li className="velvet-list-item">
+                  <span className="velvet-list-bullet" aria-hidden="true">
                     •
                   </span>
                   <span>
@@ -189,8 +187,8 @@ export const Dresscode = () => {
                     )}
                   </span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1.5 text-xs" aria-hidden="true">
+                <li className="velvet-list-item">
+                  <span className="velvet-list-bullet" aria-hidden="true">
                     •
                   </span>
                   <span>
@@ -221,24 +219,21 @@ export const Dresscode = () => {
               </Link>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-foreground/85 italic font-body pb-4">
-              <Camera size={14} className="text-accent" />
-              <div className="text-accent not-italic font-medium">Tobias Walka @hardisphoto</div>
+            <div className="meta-row justify-center text-xs md:text-sm text-foreground/85 italic pb-4">
+              <Camera size={14} className="icon-accent-sm" />
+              <span className="text-accent not-italic font-medium">Tobias Walka @hardisphoto</span>
             </div>
           </div>
 
           {/* Bento Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 auto-rows-[220px] gap-4">
+          <div className="velvet-gallery-grid !mt-0">
             {moodboardImages.map((image, index) => (
-              <div
-                key={index}
-                className={`overflow-hidden rounded-lg border border-accent/20 shadow-md group relative ${image.className}`}
-              >
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-300 z-10" />
+              <div key={index} className={`group velvet-gallery-item ${image.className}`}>
+                <div className="velvet-gallery-overlay" />
                 <img
                   src={image.src}
                   alt={`Style inspiration ${index + 1}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  className="velvet-gallery-image"
                 />
               </div>
             ))}

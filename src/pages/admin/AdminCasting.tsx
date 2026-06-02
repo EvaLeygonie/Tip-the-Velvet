@@ -4,7 +4,7 @@ export const AdminCasting = () => {
   const { t } = useLanguage()
   return (
     <>
-      <div className="page-standard">
+      <div className="page-shell">
         <div className="bg-glow-spot" />
         <h1>{t('Casting hantering', 'Casting handling')}</h1>
         <div className="gold-divider" />

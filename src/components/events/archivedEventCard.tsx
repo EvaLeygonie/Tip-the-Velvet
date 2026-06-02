@@ -42,11 +42,11 @@ export const ArchivedEventCard = ({ event }: { event: Event | OldEvent }) => {
         )}
       </div>
 
-      <div className="p-5 space-y-2.5 bg-gradient-to-b from-transparent to-black/30 flex-1 flex flex-col justify-between">
+      <div className="p-5 space-y-2.5 bg-gradient-to-b from-transparent to-black/30 flex-1 flex flex-col justify-between items-center text-center md:items-start md:text-left">
         <h3 className="text-2xl font-decorative text-accent group-hover:text-white transition-colors">
           {event.title}
         </h3>
-        <div className="flex items-center gap-2 text-xs text-foreground/80 font-body tracking-wider uppercase font-medium">
+        <div className="event-card-meta text-xs tracking-wider uppercase">
           <Calendar className="w-3.5 h-3.5 text-accent shrink-0" />
           <span>{formatDate(language, dateValue)}</span>
         </div>

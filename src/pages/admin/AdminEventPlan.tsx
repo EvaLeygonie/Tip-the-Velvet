@@ -4,7 +4,7 @@ export const AdminEventPlan = () => {
   const { t } = useLanguage()
   return (
     <>
-      <div className="page-standard">
+      <div className="page-shell">
         <div className="bg-glow-spot" />
         <h1>{t('Eventplan', 'Event Plan')}</h1>
         <div className="gold-divider" />

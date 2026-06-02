@@ -56,11 +56,11 @@ export const Footer = () => {
   }
 
   return (
-    <footer className="p-14 bg-black/65 border-t border-accent/20 relative" aria-label="Footer">
+    <footer className="footer-shell">
       <div className="gold-divider absolute top-0 left-0 right-0" />
 
-      <div className="container mx-auto px-6">
-        <div className="grid md:grid-cols-3 gap-12 text-left items-start">
+      <div className="footer-inner">
+        <div className="footer-grid">
           {/* LEFT: information */}
           <div className="space-y-4">
             <h4>Tip the Velvet</h4>
@@ -75,7 +75,7 @@ export const Footer = () => {
           {/* MIDDLE: Contact */}
           <div className="space-y-4">
             <h4>{t('Följ Oss', 'Connect With Us')}</h4>
-            <nav className="flex flex-col gap-3" aria-label="Sociala medier länklista">
+            <nav className="flex flex-col gap-3">
               <a
                 href="https://instagram.com/tipthevelvetburlesque"
                 target="_blank"
@@ -131,21 +131,16 @@ export const Footer = () => {
           </div>
 
           {/* RIGHT: Newsletter */}
-          <div className="space-y-4">
-            <h4 id="newsletter-heading">{t('Nyhetsbrev', 'Newsletter')}</h4>
+          <div className="space-y-4 flex flex-col items-center md:items-start text-center md:text-left">
+            <h4>{t('Nyhetsbrev', 'Newsletter')}</h4>
 
-            <form
-              onSubmit={handleSubscribe}
-              className="space-y-3 max-w-xs"
-              aria-labelledby="newsletter-heading"
-            >
+            <form onSubmit={handleSubscribe} className="space-y-3 max-w-xs">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="!py-2 !min-h-0 text-sm text-foreground bg-background"
                 placeholder={t('Din e-post', 'Your email')}
-                aria-label={t('E-postadress för nyhetsbrev', 'Email address for newsletter')}
                 required
               />
               <button
@@ -192,7 +187,7 @@ export const Footer = () => {
         </div>
 
         {/* BOTTOM: Copyright */}
-        <div className="mt-16 pt-8 border-t border-accent/10 flex flex-col items-center justify-center gap-4">
+        <div className="footer-bottom">
           <div className="copyright text-xs text-foreground/85 text-center not-italic font-body">
             &copy; {new Date().getFullYear()} Tip the Velvet. {t('Gjord med', 'Made with')}{' '}
             <Heart className="inline w-3 h-3 text-accent mx-1" aria-hidden="true" />{' '}

@@ -145,11 +145,10 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
           {tags.map((tag) => (
             <span
               key={tag}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider ${
-                tag === event.slug
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider ${tag === event.slug
                   ? 'bg-accent/20 text-accent border border-accent/30'
                   : 'bg-white/10 text-foreground/70 border border-white/10'
-              }`}
+                }`}
             >
               {tag}
               {tag !== event.slug && (
@@ -187,28 +186,28 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
             handleUpload(e.dataTransfer.files)
           }}
           onClick={() => inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
-            dragOver
-              ? 'border-accent bg-accent/10'
-              : 'border-accent/20 hover:border-accent/50 hover:bg-accent/5'
-          }`}
+          className={`upload-dropzone ${dragOver ? 'upload-dropzone-active' : ''}`}
         >
           <Upload className="w-8 h-8 text-accent/50 mx-auto mb-3" />
           <p className="font-decorative uppercase tracking-widest text-sm text-foreground/50">
             {uploading
               ? t(
-                  `Laddar upp ${progress.current} av ${progress.total}...`,
-                  `Uploading ${progress.current} of ${progress.total}...`
-                )
+                `Laddar upp ${progress.current} av ${progress.total}...`,
+                `Uploading ${progress.current} of ${progress.total}...`
+              )
               : t('Dra hit eller klicka för att ladda upp', 'Drag here or click to upload')}
           </p>
 
           {/* Progress bar */}
           {uploading && progress.total > 0 && (
-            <div className="w-full bg-white/10 rounded-full h-1.5 mt-4">
+            <div className="progress-track">
               <div
-                className="bg-accent h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                className="progress-fill"
+                style={
+                  {
+                    ['--progress' as string]: `${(progress.current / progress.total) * 100}%`,
+                  } as React.CSSProperties
+                }
               />
             </div>
           )}
@@ -229,21 +228,20 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
             {images.map((img: EventImage) => (
               <div
                 key={img.id}
-                className="relative aspect-square rounded-lg overflow-hidden border border-accent/10 hover:border-accent/40 transition-all hover:scale-[1.02]"
+                className="gallery-thumb relative"
               >
                 <CloudinaryImage
                   publicId={img.image_id}
                   width={400}
                   height={400}
-                  className={'  w-full h-full object-cover ' + (img.is_visible ? '' : 'opacity-30')}
+                  className={'media-cover' + (img.is_visible ? '' : ' opacity-30')}
                 />
 
                 {/* Visibility toggle */}
                 <button
                   onClick={() => handleToggle(img)}
-                  className={`absolute top-2 right-2 p-1 rounded-full transition-all ${
-                    img.is_visible ? 'bg-accent text-black' : 'bg-black/60 text-white/40'
-                  }`}
+                  className={`absolute top-2 right-2 p-1 rounded-full transition-all ${img.is_visible ? 'bg-accent text-black' : 'bg-black/60 text-white/40'
+                    }`}
                 >
                   {img.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>

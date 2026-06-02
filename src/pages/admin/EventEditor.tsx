@@ -29,6 +29,15 @@ export const EventEditor = () => {
     glow_color: '#D4AF37',
   })
 
+  const glowColor = formData.glow_color || '#D4AF37'
+  const glowVars: React.CSSProperties & { [key: `--${string}`]: string } = {
+    '--glow-color': glowColor,
+  }
+  const colorBoxVars: React.CSSProperties = {
+    backgroundColor: glowColor,
+    boxShadow: formData.glow_color ? `0 0 15px ${glowColor}` : 'none',
+  }
+
   useEffect(() => {
     if (slug) {
       const fetchEvent = async () => {
@@ -218,7 +227,7 @@ export const EventEditor = () => {
             </div>
 
             {/* REVEAL & CASTING CALL */}
-            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center bg-black/50 border border-accent/10 rounded-xl px-6 py-5 mt-6 sm:mt-auto">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-stretch sm:items-center bg-black/50 border border-accent/10 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mt-6 sm:mt-auto">
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <Eye className="w-5 h-5 text-accent shrink-0" />
                 <label className="form-label-gold">{t('Publiceras:', 'Reveal Date:')}</label>
@@ -346,12 +355,8 @@ export const EventEditor = () => {
                 <div className="absolute inset-0 group">
                   <img
                     src={getImageSrc(formData.image_id)}
-                    className="promo-image border-2"
-                    style={{
-                      boxShadow: `0 0 10px 1px ${formData.glow_color}, 0 0 25px 5px rgba(0, 0, 0, 0.5)`,
-                      borderColor: formData.glow_color || '#D4AF37',
-                      outlineColor: `${formData.glow_color}50`,
-                    }}
+                    className="promo-image border-2 glow-border"
+                    style={glowVars}
                     alt="Preview"
                   />
 
@@ -416,10 +421,7 @@ export const EventEditor = () => {
                 />
                 <div
                   className="w-10 h-10 rounded-md border border-white/20 shadow-lg"
-                  style={{
-                    backgroundColor: formData.glow_color || '#D4AF37',
-                    boxShadow: formData.glow_color ? `0 0 15px ${formData.glow_color}` : 'none',
-                  }}
+                  style={colorBoxVars}
                 />
               </div>
             </div>
@@ -544,7 +546,7 @@ export const EventEditor = () => {
           </div>
         </details>
 
-        <div className="flex justify-end mt-12 pb-12 gap-6">
+        <div className="editor-actions">
           {formData.id && (
             <button onClick={handleDelete} className="btn-red">
               {t('Radera Event', 'Delete Event')}

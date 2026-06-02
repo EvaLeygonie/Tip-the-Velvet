@@ -171,24 +171,20 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   return (
     <div className="application-card">
       {/* EVENT INFO */}
-      <div className="mb-8 text-center flex flex-col items-center">
-        <div className="text-4xl font-decorative text-accent drop-shadow-[0_0_15px_currentColor]">
-          {event.title}
-        </div>
-        {event.subtitle && (
-          <div className="text-foreground/90 text-xl font-playfair mt-2">{event.subtitle}</div>
-        )}
-        <div className="flex flex-wrap justify-center gap-4 pt-4 text-md text-foreground/90">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4 text-accent" />
+      <div className="application-header">
+        <div className="application-title">{event.title}</div>
+        {event.subtitle && <div className="application-subtitle">{event.subtitle}</div>}
+        <div className="application-meta">
+          <span className="meta-row">
+            <Calendar className="icon-accent-sm" />
             {formatDate(preferredLang, event.event_start)}
           </span>
-          <span className="flex items-center gap-1.5">
-            <MapPin className="h-4 w-4 text-accent" />
+          <span className="meta-row">
+            <MapPin className="icon-accent-sm" />
             {event.location}
           </span>
-          <span className="flex items-center gap-1.5">
-            <BellDot className="h-4 w-4 text-red-500" />
+          <span className="meta-row">
+            <BellDot className="h-4 w-4 text-red-500 shrink-0" />
             <span className="font-medium">Deadline: </span>
             {formatDate(preferredLang, event.casting_call_deadline)}
           </span>
@@ -197,10 +193,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
       <div className="gold-divider" />
 
-      <div className="space-y-6 mt-6">
+      <div className="form-stack">
         {/* LANGUAGE & EMAIL */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <fieldset className="space-y-2">
+        <div className="form-row-2">
+          <fieldset className="form-field">
             <label className="form-label-block">
               {t('Kommunikationsspråk', 'Preferred Language')}
             </label>
@@ -228,7 +224,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             </div>
           </fieldset>
 
-          <div className="space-y-2">
+          <div className="form-field">
             <label className="form-label-block">Email *</label>
             <input
               type="email"
@@ -241,8 +237,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         {/* COUNTRY & CITY */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
+        <div className="form-row-2-tight">
+          <div className="form-field">
             <label className="form-label-block">
               {t('Din hemmastad *', 'Your city of residence *')}
             </label>
@@ -256,7 +252,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="form-field">
             <label className="form-label-block">{t('Land *', 'Country *')}</label>
             <input
               type="text"
@@ -272,7 +268,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <div className="gold-divider" />
 
         {/* ARTIST INFO */}
-        <div className="space-y-2">
+        <div className="form-field">
           <label className="form-label-block">{t('Artistnamn *', 'Artist Name *')}</label>
           <input
             type="text"
@@ -284,7 +280,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         {/* PROMO IMAGE & TEXT */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
+        <div className="form-row-2 items-stretch">
           <div className="flex flex-col space-y-3">
             <label className="form-label-block">{t('Promobild *', 'Promo Image *')}</label>
             <div className="promo-upload-square">
@@ -316,7 +312,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             </div>
           </div>
 
-          <div className="flex flex-col space-y-2 h-full">
+          <div className="form-field flex flex-col h-full">
             <label className="form-label-block">
               {t('Promo text (SV) *', 'Promo text (ENG) *')}
             </label>
@@ -336,7 +332,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="gold-divider" />
 
-        <div className="space-y-2">
+        <div className="form-field">
           <label className="form-label-block">{t('Akt titel *', 'Act Title *')}</label>
           <input
             type="text"
@@ -347,7 +343,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="form-field">
           <label className="form-label-block">
             {t('Act beksrivning (SV) *', 'Act Description (ENG) *')}
           </label>
@@ -363,7 +359,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="form-field">
           <label className="form-label-block">
             {t('Video Link (friviligt)', 'Video Link (optional)')}
           </label>
@@ -376,8 +372,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
+        <div className="form-row-2-tight">
+          <div className="form-field">
             <label className="form-label-block">
               {t('Instagram (friviligt)', 'Instagram (optional)')}
             </label>
@@ -391,7 +387,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="form-field">
             <label className="form-label-block">
               {t('Annan länk (friviligt)', 'Other link (optional)')}
             </label>
@@ -410,7 +406,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         {/* GDPR */}
-        <div className="flex items-start space-x-3 pt-2">
+        <div className="form-checkbox-row">
           <input
             type="checkbox"
             checked={agreed}
@@ -428,7 +424,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <button
           type="button"
           onClick={handleSubmit}
-          className="w-full btn-gold flex items-center justify-center gap-2 py-3 disabled:opacity-50"
+          className="w-full btn-gold py-3 disabled:opacity-50"
           disabled={submitting || !agreed}
         >
           {submitting ? (

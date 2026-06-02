@@ -48,15 +48,11 @@ export const Navigation = () => {
 
   return (
     <>
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled ? 'bg-[#110805] shadow-2xl py-2' : 'bg-[#110805]/80 backdrop-blur-md py-4'
-        }`}
-      >
-        <div className="max-w-[1600px] mx-auto px-8 md:px-16 grid grid-cols-3 items-center min-h-[60px] relative">
+      <nav className={`nav-shell ${isScrolled ? 'nav-shell-scrolled' : 'nav-shell-top'}`}>
+        <div className="nav-inner">
           {/* VÄNSTER: Språk & Vänsterlänkar */}
-          <div className="flex items-center gap-6 flex-1 justify-start">
-            <div className="flex items-center gap-3 pr-4 border-r border-white/10">
+          <div className="nav-side justify-start">
+            <div className="nav-divider-group">
               <button
                 className="xl:hidden text-accent p-2 -ml-2"
                 onClick={() => setIsMobileMenuOpen(true)}
@@ -97,7 +93,7 @@ export const Navigation = () => {
           </div>
 
           {/* HÖGER: Högerlänkar & Login */}
-          <div className="flex items-center justify-end gap-6 flex-1">
+          <div className="nav-side justify-end">
             <div className="hidden xl:flex items-center gap-6">
               {rightLinks.map((link) => (
                 <Link
@@ -110,7 +106,7 @@ export const Navigation = () => {
               ))}
             </div>
 
-            <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+            <div className="nav-auth-group">
               {!user ? (
                 <Link
                   to={`/admin/login?redirectTo=${encodeURIComponent(location.pathname)}`}
@@ -119,14 +115,12 @@ export const Navigation = () => {
                   <LogIn size={22} strokeWidth={1.8} />
                 </Link>
               ) : (
-                <>
-                  <button
-                    onClick={handleSignOut}
-                    className="nav-icon-btn hover:text-red-500 transition-colors"
-                  >
-                    <LogOut size={20} />
-                  </button>
-                </>
+                <button
+                  onClick={handleSignOut}
+                  className="nav-icon-btn hover:text-red-500 transition-colors"
+                >
+                  <LogOut size={20} />
+                </button>
               )}
             </div>
           </div>
@@ -156,7 +150,7 @@ export const Navigation = () => {
 
       {/* MOBIL MENY OVERLAY */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-[#110805]/95 backdrop-blur-lg z-[100] flex flex-col p-8 xl:hidden overflow-y-auto">
+        <div className="nav-mobile-overlay">
           <div className="flex justify-end mb-6">
             <button onClick={() => setIsMobileMenuOpen(false)} className="text-accent p-2">
               <X size={32} />
@@ -205,7 +199,7 @@ export const Navigation = () => {
       )}
 
       {/* Dynamisk Spacer */}
-      <div className={`${user ? 'h-[140px]' : 'h-[100px]'} w-full transition-all duration-500`} />
+      <div className={`nav-spacer ${user ? 'nav-spacer-admin' : 'nav-spacer-default'}`} />
     </>
   )
 }

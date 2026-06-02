@@ -6,14 +6,14 @@ import { Sparkles, UserPlus } from 'lucide-react'
 
 export const HomePage = () => {
   const { t } = useLanguage()
+  const heroVars: React.CSSProperties & { [key: `--${string}`]: string } = {
+    '--hero-image-url': `url(${heroImage})`,
+  }
+
   return (
     <section
-      className="relative min-h-screen flex items-center justify-center overflow-hidden py-20"
-      style={{
-        backgroundImage: `linear-gradient(to bottom, rgba(120, 10, 10, 0.75), rgba(80, 5, 5, 0.9)), url(${heroImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
+      className="relative min-h-screen flex items-center justify-center overflow-hidden py-16 sm:py-20 bg-hero"
+      style={heroVars}
     >
       {/* Gradients */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.3)_0%,hsla(0,_0%,_0%,_0.6)_100%)]" />
@@ -26,10 +26,7 @@ export const HomePage = () => {
             <img
               src={mainLogo}
               alt="Tip the Velvet Burlesque Club"
-              className="w-full h-auto object-contain px-4 md:px-0 drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)]"
-              style={{
-                imageRendering: 'auto',
-              }}
+              className="w-full h-auto object-contain px-4 md:px-0 drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] img-render-auto"
             />
           </div>
 
@@ -42,13 +39,13 @@ export const HomePage = () => {
           </p>
 
           {/* BUTTONS */}
-          <div className="flex flex-wrap gap-4 justify-center items-center pt-2">
-            <Link to="/events" className="btn-gold">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center items-stretch sm:items-center pt-2 w-full max-w-md sm:max-w-none mx-auto">
+            <Link to="/events" className="btn-gold w-full sm:w-auto">
               <Sparkles className="w-4 h-4" />
               {t('Våra Event', 'See Events')}
             </Link>
 
-            <Link to="/dresscode" className="btn-red">
+            <Link to="/dresscode" className="btn-red w-full sm:w-auto">
               <UserPlus className="w-4 h-4 text-red-400" />
               {t('Dresscode', 'Dresscode')}
             </Link>

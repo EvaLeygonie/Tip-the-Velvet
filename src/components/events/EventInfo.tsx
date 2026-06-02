@@ -11,10 +11,8 @@ export const EventInfo = ({ event }: { event: Event }) => {
   if (!event) return null
 
   const glowColor = event.glow_color || '#D4AF37'
-  const glowStyle = {
-    boxShadow: `0 0 10px 1px ${glowColor}, 0 0 25px 5px rgba(0, 0, 0, 0.5)`,
-    borderColor: glowColor,
-    outlineColor: `${glowColor}50`,
+  const glowVars: React.CSSProperties & { [key: `--${string}`]: string } = {
+    '--glow-color': glowColor,
   }
 
   const upcomingEvent = event.event_end ? new Date(event.event_end) > new Date() : true
@@ -24,16 +22,13 @@ export const EventInfo = ({ event }: { event: Event }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 items-center">
         {/* PROMO IMAGE */}
         <div className="flex justify-center w-full">
-          <div
-            className="relative aspect-square w-full max-w-[380px] md:max-w-[420px] rounded-2xl overflow-hidden border transition-all duration-500 hover:scale-[1.01]"
-            style={glowStyle}
-          >
+          <div className="promo-frame-event" style={glowVars}>
             {event.image_id ? (
               <CloudinaryImage
                 publicId={event.image_id}
                 width={800}
                 height={800}
-                className="w-full h-full object-cover"
+                className="media-cover"
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center bg-black/40">
@@ -44,14 +39,12 @@ export const EventInfo = ({ event }: { event: Event }) => {
         </div>
 
         {/* INFO */}
-        <div className="space-y-6 w-full max-w-[450px] mx-auto md:mx-0 text-left">
-          <div className="bg-black/20 border border-accent/5 rounded-2xl p-6 md:p-8 space-y-4 text-left text-sm md:text-base font-body shadow-xl backdrop-blur-sm">
-            <div className="flex items-start gap-4 border-b border-white/5 pb-3">
-              <Calendar className="w-5 h-5 text-accent shrink-0 mt-0.5" strokeWidth={1.5} />
+        <div className="space-y-6 w-full max-w-[450px] mx-auto md:mx-0 text-center md:text-left">
+          <div className="info-panel">
+            <div className="info-field-row-divided">
+              <Calendar className="icon-accent-md" strokeWidth={1.5} />
               <div>
-                <span className="block text-[11px] uppercase tracking-widest text-accent font-semibold mb-0.5">
-                  {t('Start:', 'Starts:')}
-                </span>
+                <span className="label-kicker">{t('Start:', 'Starts:')}</span>
                 <span className="text-foreground/90">
                   {formatDateTime(language, event.event_start)}
                 </span>
@@ -59,12 +52,10 @@ export const EventInfo = ({ event }: { event: Event }) => {
             </div>
 
             {event.event_end && (
-              <div className="flex items-start gap-4 border-b border-white/5 pb-3">
-                <Calendar className="w-5 h-5 text-accent shrink-0 mt-0.5" strokeWidth={1.5} />
+              <div className="info-field-row-divided">
+                <Calendar className="icon-accent-md" strokeWidth={1.5} />
                 <div>
-                  <span className="block text-[11px] uppercase tracking-widest text-accent font-semibold mb-0.5">
-                    {t('Slut:', 'Ends:')}
-                  </span>
+                  <span className="label-kicker">{t('Slut:', 'Ends:')}</span>
                   <span className="text-foreground/80">
                     {formatDateTime(language, event.event_end)}
                   </span>
@@ -72,12 +63,10 @@ export const EventInfo = ({ event }: { event: Event }) => {
               </div>
             )}
 
-            <div className="flex items-start gap-4">
-              <MapPin className="w-5 h-5 text-accent shrink-0 mt-0.5" strokeWidth={1.5} />
+            <div className="info-field-row-divided">
+              <MapPin className="icon-accent-md" strokeWidth={1.5} />
               <div>
-                <span className="block text-[11px] uppercase tracking-widest text-accent font-semibold mb-0.5">
-                  {t('Plats:', 'Venue:')}
-                </span>
+                <span className="label-kicker">{t('Plats:', 'Venue:')}</span>
                 <span className="text-foreground/90">{event.location || 'TBA'}</span>
               </div>
             </div>
@@ -136,7 +125,7 @@ export const EventInfo = ({ event }: { event: Event }) => {
       <div className="pt-4">
         <div className="gold-divider" />
       </div>
-      <div className="mx-auto bg-gradient-to-b from-black/40 to-black/20 border border-accent/10 rounded-2xl p-6 md:p-6 text-center backdrop-blur-sm shadow-xl space-y-3 mt-4 transition-all duration-300 hover:border-accent/20">
+      <div className="callout-panel">
         <p className="text-info">
           {t(
             'Osäker på vad du ska ha på dig? Kolla in vår ',

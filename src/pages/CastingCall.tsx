@@ -33,7 +33,7 @@ export const CastingCall = () => {
 
   return (
     <>
-      <div className="page-standard">
+      <div className="page-shell">
         <header className="header !mb-0 !pb-5">
           <h1>Casting Call</h1>
 
@@ -54,8 +54,8 @@ export const CastingCall = () => {
           <div className="middle-glow" />
           {castingEvents.length === 0 ? (
             <div className="text-center">
-              <div className="bg-card/40 backdrop-blur-sm p-12 rounded-lg shadow-[0_10px_50px_hsl(0_60%_5%/0.6)] border border-accent/20 max-w-2xl mx-auto">
-                <h2 className="text-3xl font-decorative text-accent mb-4 drop-shadow-[0_0_15px_currentColor]">
+              <div className="panel-callout">
+                <h2 className="text-2xl sm:text-3xl font-decorative text-accent mb-4 drop-shadow-[0_0_15px_currentColor]">
                   {t('Inga öppna casting calls', 'No Open Casting Calls')}
                 </h2>
                 <p className="text-foreground/80 font-sans text-lg leading-relaxed">
@@ -67,7 +67,7 @@ export const CastingCall = () => {
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto space-y-8 md:space-y-10">
               {castingEvents.map((event: Event) => (
                 <ApplicationCard key={event.id} event={event} />
               ))}

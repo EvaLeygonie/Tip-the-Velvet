@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 export const NotFound = () => {
   const { t } = useLanguage()
   return (
-    <main className="flex-center min-h-screen text-center">
+    <main className="flex-center min-h-screen text-center px-4 sm:px-6">
       <div className="middle-glow" />
       <div>
         <h1>404</h1>

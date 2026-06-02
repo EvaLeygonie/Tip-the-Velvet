@@ -4,7 +4,7 @@ export const About = () => {
   const { t } = useLanguage()
   return (
     <>
-      <div className="page-standard">
+      <div className="page-shell">
         <div className="bg-glow-spot" />
 
         <header className="header">

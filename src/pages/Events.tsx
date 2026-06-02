@@ -69,25 +69,27 @@ export const Events = () => {
 
         <section className="container-wide pt-2">
           <div className="middle-glow" />
-          {upcomingEvents.length > 0 ? (
-            upcomingEvents.map((e) => <FeaturedEventCard key={e.id} event={e} />)
-          ) : (
-            <FeaturedEventCard
-              event={
-                {
-                  title: t('TBA', 'TBA'),
-                  subtitle: t('Annonseras snart...', 'Stay tuned...'),
-                  image_id: null,
-                } as Event
-              }
-            />
-          )}
+          <div className="events-featured-stack">
+            {upcomingEvents.length > 0 ? (
+              upcomingEvents.map((e) => <FeaturedEventCard key={e.id} event={e} />)
+            ) : (
+              <FeaturedEventCard
+                event={
+                  {
+                    title: t('TBA', 'TBA'),
+                    subtitle: t('Annonseras snart...', 'Stay tuned...'),
+                    image_id: null,
+                  } as Event
+                }
+              />
+            )}
+          </div>
         </section>
 
         <section className="container-wide page-section">
           <h2 className="!pb-0">{t('Tidigare event', 'Past Events')}</h2>
           <div className="gold-divider" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="card-grid">
             {pastNewEvents.map((e) => (
               <ArchivedEventCard key={e.id} event={e} />
             ))}
@@ -106,7 +108,7 @@ export const Events = () => {
           </div>
           <div className="gold-divider" />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="card-grid">
             {oldEvents.map((e) => (
               <ArchivedEventCard key={e.id} event={e as unknown as Event} />
             ))}
