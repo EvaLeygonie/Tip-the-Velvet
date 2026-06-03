@@ -91,7 +91,6 @@ export const Footer = () => {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  aria-hidden="true"
                 >
                   <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
                   <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
@@ -114,7 +113,6 @@ export const Footer = () => {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  aria-hidden="true"
                 >
                   <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                 </svg>
@@ -124,7 +122,7 @@ export const Footer = () => {
                 href="mailto:velvet.gbg@gmail.com"
                 className="link-footer text-sm hover:text-accent focus-visible:underline outline-none transition-colors"
               >
-                <Mail className="w-4 h-4" aria-hidden="true" />
+                <Mail className="w-4 h-4" />
                 <span>velvet.gbg@gmail.com</span>
               </a>
             </nav>
@@ -190,8 +188,8 @@ export const Footer = () => {
         <div className="footer-bottom">
           <div className="copyright text-xs text-foreground/85 text-center not-italic font-body">
             &copy; {new Date().getFullYear()} Tip the Velvet. {t('Gjord med', 'Made with')}{' '}
-            <Heart className="inline w-3 h-3 text-accent mx-1" aria-hidden="true" />{' '}
-            {t('i Göteborg', 'in Gothenburg')}.
+            <Heart className="inline w-3 h-3 text-accent mx-1" /> {t('i Göteborg', 'in Gothenburg')}
+            .
           </div>
         </div>
       </div>

@@ -33,7 +33,6 @@
   --border: 43 71% 79%;
   --radius: 0.5rem;
 
-  /* Shared rgba tokens (gold accent) */
   --gold-border-subtle: rgba(212, 175, 55, 0.1);
   --gold-border-soft: rgba(212, 175, 55, 0.2);
   --gold-border-medium: rgba(212, 175, 55, 0.4);
@@ -145,7 +144,7 @@ body {
   }
 
   .text-body {
-    @apply text-sm md:text-base leading-relaxed;
+    @apply text-base md:text-lg leading-relaxed whitespace-pre-line text-left;
     @apply text-foreground/85;
     font-family: var(--font-body);
   }
@@ -181,7 +180,7 @@ body {
     image-rendering: auto;
   }
 
-  /* --- SHARED BASES (compose in TSX with extra utilities as needed) --- */
+  /* --- SHARED BASES --- */
   .glow-border,
   .glow-border-strong {
     border-color: var(--glow-color);
@@ -214,10 +213,6 @@ body {
     border: 1px solid var(--gold-border-subtle);
   }
 
-  .btn-action {
-    @apply relative z-10 font-body font-bold text-xs uppercase tracking-wider px-4 sm:px-6 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-0 sm:min-w-[140px] min-h-[44px] cursor-pointer max-w-full;
-  }
-
   .icon-accent-sm {
     @apply w-4 h-4 text-accent shrink-0;
   }
@@ -227,7 +222,7 @@ body {
   }
 
   .label-kicker {
-    @apply block text-[11px] uppercase tracking-widest text-accent font-semibold mb-0.5;
+    @apply block text-[13px] uppercase tracking-widest text-accent font-semibold mb-1;
   }
 
   .info-panel {
@@ -252,6 +247,25 @@ body {
 
   .promo-frame-featured {
     @apply promo-frame aspect-square w-full max-w-[min(100%,320px)] sm:max-w-[380px] md:max-w-none rounded-xl border-2 transition-all duration-700 glow-border-strong md:group-hover:scale-[1.015];
+  }
+
+  .promo-frame-story {
+    @apply promo-frame rounded-2xl border-accent/30 overflow-hidden transition-all duration-500;
+    box-shadow:
+      0 0 30px rgba(0, 0, 0, 0.8),
+      0 4px 20px rgba(212, 175, 55, 0.05);
+  }
+
+  .promo-frame-story:hover {
+    border-color: rgba(212, 175, 55, 0.6); /* Ökar guldglöden vid hovring */
+  }
+
+  .promo-frame-story img {
+    @apply w-full h-full object-cover transition-transform duration-700 ease-out;
+  }
+
+  .promo-frame-story:hover img {
+    @apply scale-105;
   }
 
   .featured-card-shell {
@@ -307,7 +321,7 @@ body {
 
   /* --- EMPTY / CALLOUT PANELS --- */
   .panel-callout {
-    @apply glass-panel rounded-lg max-w-2xl mx-4 sm:mx-auto p-6 sm:p-10 md:p-12 border-accent/20 shadow-xl;
+    @apply glass-panel rounded-lg mx-4 sm:mx-auto p-6 sm:p-10 md:p-12 border-accent/20 shadow-xl max-w-5xl;
     box-shadow: 0 10px 50px hsl(0 60% 5% / 0.6);
     background-color: hsl(var(--muted) / 0.4);
   }
@@ -343,9 +357,14 @@ body {
     @apply px-2.5 py-1 border border-accent/40 text-[11px] tracking-widest text-accent hover:bg-accent hover:text-black transition-all rounded-md uppercase font-medium cursor-pointer;
   }
 
+  .btn-action {
+    @apply relative z-10 font-heading font-semibold text-xs uppercase tracking-wider rounded-lg px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-0 sm:min-w-[140px] min-h-[44px] cursor-pointer max-w-full border;
+  }
+
   .btn-gold {
-    @apply btn-action text-black border border-border py-2.5 rounded-lg;
-    background-color: rgb(212, 175, 55, 0.9);
+    @apply btn-action text-black;
+    background-color: rgba(212, 175, 55, 0.9);
+    border-color: rgba(212, 175, 55, 0.4);
     box-shadow: 0 0 15px rgba(212, 175, 55, 0.25);
   }
 
@@ -354,10 +373,14 @@ body {
   }
 
   .btn-red {
-    @apply btn-action bg-red-950 hover:bg-red-900 text-red-100 border border-red-950 py-2 rounded-md font-medium;
+    @apply btn-action text-red-100;
+    background-color: rgba(69, 10, 10, 0.9);
     border-color: rgba(239, 68, 68, 0.4);
     box-shadow: 0 0 15px rgba(153, 27, 27, 0.4);
-    font-family: var(--font-decorative);
+  }
+
+  .btn-red:hover {
+    background-color: rgba(127, 29, 29, 1);
   }
 
   .btn-gold-outline {

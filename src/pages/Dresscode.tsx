@@ -32,7 +32,7 @@ export const Dresscode = () => {
 
       {/* Header Section */}
       <header className="header">
-        <h1>Dresscode</h1>
+        <h1>{t('Klädkod', 'Dresscode')}</h1>
 
         <div className="gold-divider" />
 
@@ -65,13 +65,11 @@ export const Dresscode = () => {
           <div className="velvet-card">
             <div>
               <h4 className="velvet-card-heading mb-5">
-                <span aria-hidden="true">✦</span> {t('Godkända Teman', 'Accepted Themes')}
+                <span>✦</span> {t('Godkända Teman', 'Accepted Themes')}
               </h4>
               <ul className="velvet-card-list">
                 <li className="velvet-list-item">
-                  <span className="velvet-list-bullet" aria-hidden="true">
-                    •
-                  </span>
+                  <span className="velvet-list-bullet">•</span>
                   <div>
                     <strong className="text-accent font-semibold">"Minimum black"</strong> –{' '}
                     {t(
@@ -81,9 +79,7 @@ export const Dresscode = () => {
                   </div>
                 </li>
                 <li className="velvet-list-item">
-                  <span className="velvet-list-bullet" aria-hidden="true">
-                    •
-                  </span>
+                  <span className="velvet-list-bullet">•</span>
                   <span>
                     {t(
                       'Frack, smoking, kostym, bal- & aftonklänning',
@@ -92,9 +88,7 @@ export const Dresscode = () => {
                   </span>
                 </li>
                 <li className="velvet-list-item">
-                  <span className="velvet-list-bullet" aria-hidden="true">
-                    •
-                  </span>
+                  <span className="velvet-list-bullet">•</span>
                   <span>
                     <strong className="text-accent font-semibold">Vintage</strong> (
                     {t(
@@ -105,15 +99,11 @@ export const Dresscode = () => {
                   </span>
                 </li>
                 <li className="velvet-list-item">
-                  <span className="velvet-list-bullet" aria-hidden="true">
-                    •
-                  </span>
+                  <span className="velvet-list-bullet">•</span>
                   <span>{t('Historiskt (1600-1800-tal)', 'Historical (1600-1800s)')}</span>
                 </li>
                 <li className="velvet-list-item">
-                  <span className="velvet-list-bullet" aria-hidden="true">
-                    •
-                  </span>
+                  <span className="velvet-list-bullet">•</span>
                   <span>
                     {t(
                       'Pinup, burlesque, eller annan högtidsdräkt',
@@ -130,7 +120,7 @@ export const Dresscode = () => {
             <div className="flex flex-col h-full justify-between space-y-6">
               <div>
                 <h4 className="velvet-card-heading mb-4">
-                  <span aria-hidden="true">✦</span> {t('Nyckelord & Tips', 'Keywords & Tips')}
+                  <span>✦</span> {t('Nyckelord & Tips', 'Keywords & Tips')}
                 </h4>
                 <p className="text-sm md:text-base text-foreground leading-relaxed text-left not-italic font-body font-normal">
                   <strong className="text-accent font-semibold">
@@ -161,7 +151,7 @@ export const Dresscode = () => {
           <div className="velvet-card">
             <div>
               <h4 className="velvet-card-heading mb-5">
-                <span aria-hidden="true">✦</span> {t('Viktiga Regler', 'Important Rules')}
+                <span>✦</span> {t('Viktiga Regler', 'Important Rules')}
               </h4>
               <ul className="velvet-card-list">
                 <li className="velvet-warning-box">
@@ -177,9 +167,7 @@ export const Dresscode = () => {
                   </div>
                 </li>
                 <li className="velvet-list-item">
-                  <span className="velvet-list-bullet" aria-hidden="true">
-                    •
-                  </span>
+                  <span className="velvet-list-bullet">•</span>
                   <span>
                     {t(
                       'Alla kroppar och könsuttryck välkomnas och hyllas hos oss.',
@@ -188,9 +176,7 @@ export const Dresscode = () => {
                   </span>
                 </li>
                 <li className="velvet-list-item">
-                  <span className="velvet-list-bullet" aria-hidden="true">
-                    •
-                  </span>
+                  <span className="velvet-list-bullet">•</span>
                   <span>
                     {t(
                       'Hellre uppklätt än avklätt – men lingerie är absolut acceptabelt om det följer kvällens tema.',

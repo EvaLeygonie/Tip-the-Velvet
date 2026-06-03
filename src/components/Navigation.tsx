@@ -171,7 +171,7 @@ export const Navigation = () => {
 
             {user && (
               <>
-                <div className="w-20 h-px bg-accent/20 my-4" aria-hidden="true" />
+                <div className="w-20 h-px bg-accent/20 my-4" />
                 <div className="text-[10px] uppercase font-mono tracking-[0.3em] text-accent/60 mb-1">
                   Backstage Admin
                 </div>

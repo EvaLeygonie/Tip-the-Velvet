@@ -60,8 +60,14 @@ export const CastingCall = () => {
                 </h2>
                 <p className="text-foreground/80 font-sans text-lg leading-relaxed">
                   {t(
-                    'Det finns inga event att söka till just nu. Följ oss på sociala medier för att stanna uppdaterad!',
-                    'There are no events to apply to at this time. Follow us on social media to stay updated!'
+                    'Det finns inga event att söka till just nu.',
+                    'There are no events to apply to at this time.'
+                  )}
+                </p>
+                <p className="text-foreground/80 font-sans text-lg leading-relaxed">
+                  {t(
+                    'Följ oss på sociala medier för att stanna uppdaterad!',
+                    'Follow us on social media to stay updated!'
                   )}
                 </p>
               </div>
