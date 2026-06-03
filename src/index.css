@@ -359,7 +359,7 @@ body {
   }
 
   .btn-action {
-    @apply relative z-10 font-heading font-semibold text-xs uppercase tracking-wider rounded-lg px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-0 sm:min-w-[140px] min-h-[44px] cursor-pointer max-w-full border;
+    @apply relative z-10 font-body font-semibold text-xs uppercase tracking-wider rounded-lg px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2 hover:scale-105 transition-all min-w-0 sm:min-w-[140px] min-h-[44px] cursor-pointer max-w-full border;
   }
 
   .btn-gold {
