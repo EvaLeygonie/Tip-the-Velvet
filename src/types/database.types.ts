@@ -583,28 +583,37 @@ export type Database = {
       }
       sponsors: {
         Row: {
+          agreed_to_terms: boolean | null
           created_at: string
           email: string | null
           id: string
           logo_id: string | null
           name: string
           phone: string | null
+          sponsor_details: string | null
+          sponsor_type: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Insert: {
+          agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
           id?: string
           logo_id?: string | null
           name: string
           phone?: string | null
+          sponsor_details?: string | null
+          sponsor_type?: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Update: {
+          agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
           id?: string
           logo_id?: string | null
           name?: string
           phone?: string | null
+          sponsor_details?: string | null
+          sponsor_type?: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Relationships: []
       }
@@ -687,7 +696,7 @@ export type Database = {
       language: "sv" | "eng"
       sponsor_type:
         | "prize"
-        | "lottery"
+        | "creation"
         | "sales"
         | "promo"
         | "partner"
@@ -831,7 +840,7 @@ export const Constants = {
       casting_review_status: ["pending", "yes", "maybe", "no"],
       event_status: ["draft", "published", "cancelled", "archived"],
       language: ["sv", "eng"],
-      sponsor_type: ["prize", "lottery", "sales", "promo", "partner", "other"],
+      sponsor_type: ["prize", "creation", "sales", "promo", "partner", "other"],
       staff_volunteer_type: [
         "photographer",
         "technician",

@@ -45,9 +45,9 @@ export const HomePage = () => {
               {t('Våra Event', 'See Events')}
             </Link>
 
-            <Link to="/dresscode" className="btn-red w-full sm:w-auto">
+            <Link to="/join" className="btn-red w-full sm:w-auto">
               <UserPlus className="w-4 h-4 text-red-400" />
-              {t('Dresscode', 'Dresscode')}
+              {t('Engagera dig', 'Get involved')}
             </Link>
           </div>
         </div>

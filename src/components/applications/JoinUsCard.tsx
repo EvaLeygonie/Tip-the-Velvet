@@ -127,19 +127,18 @@ export const JoinUsCard = () => {
   return (
     <div className="application-card">
       <div className="form-stack">
+        <div className="form-field">
+          <label className="form-label-block">{t('Namn *', 'Name *')}</label>
+          <input
+            type="text"
+            name="name"
+            placeholder={t('Ditt namn', 'Your full name')}
+            value={formData.name}
+            onChange={handleChange}
+          />
+        </div>
         {/* PHONE & EMAIL */}
         <div className="form-row-2">
-          <div className="form-field">
-            <label className="form-label-block">{t('Namn *', 'Name *')}</label>
-            <input
-              type="text"
-              name="name"
-              placeholder={t('Ditt namn', 'Your full name')}
-              value={formData.name}
-              onChange={handleChange}
-            />
-          </div>
-
           <div className="form-field">
             <label className="form-label-block">Email *</label>
             <input
@@ -150,20 +149,20 @@ export const JoinUsCard = () => {
               onChange={handleChange}
             />
           </div>
-        </div>
-        <div className="form-field">
-          <label className="form-label-block">{t('Telefon', 'Phone')}</label>
-          <input
-            type="text"
-            name="phone"
-            placeholder={t('Ditt telefonnummer', 'Your phone number')}
-            value={formData.phone || ''}
-            onChange={handleChange}
-          />
+          <div className="form-field">
+            <label className="form-label-block">{t('Telefon', 'Phone')}</label>
+            <input
+              type="text"
+              name="phone"
+              placeholder={t('Ditt telefonnummer', 'Your phone number')}
+              value={formData.phone || ''}
+              onChange={handleChange}
+            />
+          </div>
         </div>
 
         <div className="form-field">
-          <label className="form-label-block">{t('Roll *', 'Roll *')}</label>
+          <label className="form-label-block">{t('Roll *', 'Role *')}</label>
           <select name="role" value={formData.role || ''} onChange={handleChange}>
             <option value="" disabled hidden>
               {language === 'sv' ? '-- Välj din roll --' : '-- Select your role --'}
