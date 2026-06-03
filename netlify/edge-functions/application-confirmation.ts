@@ -41,7 +41,7 @@ export default async (request: Request) => {
       case 'casting':
         emailHtml = isSv
           ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill uppträda hos oss!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi återkommer efter vår casting deadline (${currentDeadline}), när vi har granskat alla ansökningar.</p>`
-          : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to perform on our stage!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We will get back to you after the casting call deadline (${currentDeadline}), once we've reviewed all applications.</p>`
+          : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to perform on our stage!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We will get back to you after the casting call deadline (<strong>${currentDeadline}</strong>), once we've reviewed all applications.</p>`
         break
 
       case 'staff':
@@ -52,8 +52,8 @@ export default async (request: Request) => {
 
       case 'sponsor':
         emailHtml = isSv
-          ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill vara med och sponsra oss!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi kontaktar dig inom kort!</p>`
-          : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to sponsor us!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We'll contact you soon!</p>`
+          ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill samarbeta med eller sponsra oss!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi kontaktar dig inom kort!</p>`
+          : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to sponsor or collaborate with us!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We'll contact you soon!</p>`
         break
     }
 
