@@ -1,0 +1,124 @@
+import type { Config } from '@netlify/edge-functions'
+
+interface ResendError {
+  message?: string
+}
+
+interface ApplicationBody {
+  name: string
+  email: string
+  language: 'sv' | 'en'
+  deadline?: string
+  type: 'casting' | 'staff' | 'sponsor'
+}
+
+export default async (request: Request) => {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 })
+  }
+
+  try {
+    const { name, email, language, type, deadline } = (await request.json()) as ApplicationBody
+
+    if (!name || !email || !type) {
+      return new Response('Missing required fields', { status: 400 })
+    }
+
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+
+    if (!RESEND_API_KEY) {
+      return new Response(JSON.stringify({ error: 'Resend API-nyckel saknas.' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const isSv = language === 'sv'
+    const currentDeadline = deadline || (isSv ? 'angivet datum' : 'the stated date')
+    let emailHtml = ''
+
+    switch (type) {
+      case 'casting':
+        emailHtml = isSv
+          ? `<p style="margin-bottom: 20px;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill uppträda hos oss!</p>
+             <p style="margin-bottom: 20px;">Vi återkommer efter vår casting deadline (${currentDeadline}), när vi har granskat alla ansökningar.</p>`
+          : `<p style="margin-bottom: 20px;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to perform on our stage!</p>
+             <p style="margin-bottom: 20px;">We will get back to you after the casting call deadline (${currentDeadline}), once we've reviewed all applications.</p>`
+        break
+
+      case 'staff':
+        emailHtml = isSv
+          ? `<p style="margin-bottom: 20px;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill joina vårt kollektiv!</p>
+             <p style="margin-bottom: 20px;">Vi hör av oss nästa gång vi har behov av dina unika talanger!</p>`
+          : `<p style="margin-bottom: 20px;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to be a part of our collective!</p>
+             <p style="margin-bottom: 20px;">We'll let you know next time we're in need of your special talents!</p>`
+        break
+
+      case 'sponsor':
+        emailHtml = isSv
+          ? `<p style="margin-bottom: 20px;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill vara med och sponsra oss!</p>
+             <p style="margin-bottom: 20px;">Vi kontaktar dig inom kort!</p>`
+          : `<p style="margin-bottom: 20px;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to sponsor us!</p>
+             <p style="margin-bottom: 20px;">We'll contact you soon!</p>`
+        break
+    }
+
+    const subject = isSv ? 'Tack för din ansökan! ✦' : 'Thank you for your application! ✦'
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <body style="background-color: #0d0a0a; margin: 0; padding: 40px 20px; font-family: sans-serif;">
+        <table align="center" width="100%" style="max-width: 600px; background-color: #141111; border: 1px solid #261f1f; border-radius: 8px;">
+          <tr><td height="4" style="background: linear-gradient(90deg, #b89742, #f3e5ab, #b89742);"></td></tr>
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h1 style="color: #d4af37; font-family: Georgia, serif;">${isSv ? `Hej ${name}!` : `Darling ${name},`}</h1>
+              <div style="color: #e2dada; line-height: 1.6;">${emailHtml}</div>
+              <p style="color: #b89742; font-family: Georgia, serif; font-style: italic; margin-top: 40px;">
+                ${isSv ? 'Med fabulösa hälsningar,' : 'With fabulous regards,'}<br />
+                <span style="color: #f3e5ab; font-weight: bold; font-style: normal;">Tip the Velvet Crew</span>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Tip the Velvet <no-reply@tipthevelvet.nu>',
+        to: [email],
+        reply_to: 'velvet.gbg@gmail.com',
+        subject: subject,
+        html: htmlContent,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ResendError
+      throw new Error(errorData.message || 'Misslyckades att skicka mail via Resend.')
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Internt serverfel.'
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+}
+
+export const config: Config = {
+  path: '/api/application-confirmation',
+}

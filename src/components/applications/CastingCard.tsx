@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
 import type { Event, CreateCastingApplicationInput } from '@/types/types'
-import { submitCastingApplication } from '@/services/castingService'
+import { submitCastingApplication } from '@/services/applicationService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { toast } from 'sonner'
@@ -56,13 +56,14 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     name: string,
     email: string,
     language: string,
-    deadline: string
+    deadline: string,
+    type: string
   ) => {
     try {
-      const response = await fetch('/api/casting-confirmation', {
+      const response = await fetch('/api/application-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, language, deadline }),
+        body: JSON.stringify({ name, email, language, deadline, type }),
       })
       return response.ok
     } catch (error) {
@@ -141,7 +142,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         applicantName,
         applicantEmail,
         applicantLanguage,
-        deadline
+        deadline,
+        'casting'
       )
 
       if (emailSuccess) {

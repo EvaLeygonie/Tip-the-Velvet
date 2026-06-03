@@ -586,30 +586,31 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
-          images_id: string[] | null
           logo_id: string | null
           name: string
+          phone: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: string
-          images_id?: string[] | null
           logo_id?: string | null
           name: string
+          phone?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: string
-          images_id?: string[] | null
           logo_id?: string | null
           name?: string
+          phone?: string | null
         }
         Relationships: []
       }
       staff_volunteers: {
         Row: {
+          agreed_to_terms: boolean | null
           created_at: string
           email: string | null
           id: string
@@ -619,6 +620,7 @@ export type Database = {
           role_details: string | null
         }
         Insert: {
+          agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
           id?: string
@@ -628,6 +630,7 @@ export type Database = {
           role_details?: string | null
         }
         Update: {
+          agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
           id?: string

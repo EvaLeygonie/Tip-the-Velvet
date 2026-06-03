@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { Event } from '@/types/types'
-import { getEventWithCasting } from '@/services/castingService'
-import { ApplicationCard } from '@/components/castings/ApplicationCard'
+import { getEventWithCasting } from '@/services/applicationService'
+import { ApplicationCard } from '@/components/applications/CastingCard'
 
 export const CastingCall = () => {
   const { t } = useLanguage()

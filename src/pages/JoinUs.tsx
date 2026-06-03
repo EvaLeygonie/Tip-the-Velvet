@@ -1,4 +1,5 @@
 import { useLanguage } from '@/contexts/LanguageContext'
+import { JoinUsCard } from '@/components/applications/JoinUsCard'
 
 export const JoinUs = () => {
   const { t } = useLanguage()
@@ -19,6 +20,7 @@ export const JoinUs = () => {
             )}
           </p>
         </header>
+        <JoinUsCard />
       </div>
     </>
   )

@@ -2,21 +2,21 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { Quote, Camera } from 'lucide-react'
 
 import alla from '@/assets/omOss/Alla.jpg'
-import pontus from '@/assets/omOss/Pontus.jpg'
-import eva from '@/assets/omOss/Eva.jpg'
-import drea from '@/assets/omOss/Drea.jpg'
-import krister from '@/assets/omOss/Krister.jpg'
+// import pontus from '@/assets/omOss/Pontus.jpg'
+// import eva from '@/assets/omOss/Eva.jpg'
+// import drea from '@/assets/omOss/Drea.jpg'
+// import krister from '@/assets/omOss/Krister.jpg'
 import omOss1 from '@/assets/omOss/OmOss-1.jpg'
 import omOss2 from '@/assets/omOss/OmOss-2.jpg'
 
 export const About = () => {
   const { t } = useLanguage()
-  const boardMembers = [
-    { role: t('Show Producent', 'Show Producer'), name: 'Pontus', src: pontus },
-    { role: t('Marknadsföring', 'Marketing'), name: 'Eva', src: eva },
-    { role: t('Konstnärlig Ledare', 'Artistic Director'), name: 'Drea', src: drea },
-    { role: t('Ekonomi', 'Finance'), name: 'Krister', src: krister },
-  ]
+  // const boardMembers = [
+  //   { role: t('Show Producent', 'Show Producer'), name: 'Pontus', src: pontus },
+  //   { role: t('Marknadsföring', 'Marketing'), name: 'Eva', src: eva },
+  //   { role: t('Konstnärlig Ledare', 'Artistic Director'), name: 'Drea', src: drea },
+  //   { role: t('Ekonomi', 'Finance'), name: 'Krister', src: krister },
+  // ]
 
   return (
     <div className="page-shell">
@@ -34,8 +34,8 @@ export const About = () => {
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <p className="subtitle">
             {t(
-              'Sedan 2024 har en ny styrelse tagit över rodret för att bevara Tip the Velvets magiska arv, samtidigt som vi tillför ny energi, glitter och visioner.',
-              "Since 2024, a new board has taken the helm to preserve Tip the Velvet's magical legacy while infusing it with new energy, glitter, and visions."
+              'Sedan 2024 har en ny styrelse tagit över rodret för att bevara Tip the Velvets magiska arv, samtidigt som vi tillför ny energi, glitter och vision.',
+              "Since 2024, a new board has taken the helm to preserve Tip the Velvet's magical legacy while infusing it with new energy, glitter, and vision."
             )}
           </p>
           <p className="text-info">
@@ -56,17 +56,17 @@ export const About = () => {
       <main className="container-wide space-y-12">
         {/* NEW BOARD */}
         <section className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Separate cards */}
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {boardMembers.map((member, index) => (
               <div
                 key={index}
                 className="velvet-card group flex flex-col items-center justify-between p-6 text-center min-h-[340px]"
               >
-                <div className="promo-upload-square w-full aspect-[3/4] min-h-0 bg-black/40 border border-accent/20 rounded-xl flex-center relative overflow-hidden group-hover:border-accent/50 transition-all">
-                  <img src={member.src} className="img-render-auto" />
+                <div className="promo-frame-story w-full aspect-[3/4] min-h-0 bg-black/40 border border-accent/20 rounded-xl flex-center relative overflow-hidden group-hover:border-accent/50 transition-all">
+                  <img src={member.src} />
                 </div>
 
-                {/* Textinfo */}
                 <div className="mt-4 space-y-1 w-full">
                   <span className="label-kicker text-[10px]">{member.role}</span>
                   <h3 className="font-heading text-lg text-foreground font-semibold tracking-wide">
@@ -75,22 +75,10 @@ export const About = () => {
                 </div>
               </div>
             ))}
-          </div>
+          </div> */}
 
-          <p className="text-foreground font-heading font-medium tracking-wide text-sm md:text-base text-center pt-2">
-            {t(
-              'Här är vi, föredetta gäster, nu styrelsemedlemmar, kom gärna och hälsa på oss under våra event!',
-              'Here we are, former guests, now board members - come say hello at our events!'
-            )}
-          </p>
-          <div className="meta-row justify-center text-xs md:text-sm text-foreground/85 italic pb-4">
-            <Camera size={14} className="icon-accent-sm" />
-            <span className="text-accent not-italic font-medium">Tobias Walka @hardisphoto</span>
-          </div>
-        </section>
-
-        <section className="space-y-4 w-full !max-w-full pt-4">
-          <div className="promo-frame-story aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9] w-full rounded-2xl glow-border overflow-hidden relative group">
+          {/* All together */}
+          <div className="promo-frame-story aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9] rounded-2xl glow-border overflow-hidden relative group">
             <img
               src={alla}
               alt="Tip the Velvet styrelse"
@@ -99,26 +87,25 @@ export const About = () => {
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
 
-            {/* Textinfo i botten på bilden */}
             <div className="absolute bottom-4 left-6 right-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 pointer-events-none">
               <div>
-                <span className="label-kicker text-accent/90 text-[10px] tracking-[0.2em] mb-1 block">
-                  {t('Styrelsen på scen', 'The Board On Stage')}
-                </span>
                 <h3 className="font-heading text-lg md:text-xl text-white tracking-wide">
-                  Pontus, Eva, Drea & Krister
+                  Pontus, Eva, Krister & Drea
                 </h3>
+                <span className="label-kicker text-accent/90 text-[10px] tracking-[0.2em] mb-1 block">
+                  {t('Fotohörna: Creatures of the Night', 'Photo Booth: Creatures of the Night')}
+                </span>
               </div>
               <span className="font-mono text-[10px] uppercase tracking-widest text-white/50 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded border border-white/5 sm:mb-0.5 self-start sm:self-auto">
-                {t('Vårt andra event!', 'Our 2nd event!')}
+                {t('Vårt andra event!', 'Our second event!')}
               </span>
             </div>
           </div>
 
-          <p className="text-foreground font-heading font-medium tracking-wide text-sm md:text-base text-center pt-2">
+          <p className="text-foreground font-heading font-medium tracking-wide text-base md:text-lg text-center pt-2">
             {t(
-              'Här är vi, föredetta gäster, nu styrelsemedlemmar, kom gärna och hälsa på oss under våra event!',
-              'Here we are, former guests, now board members - come say hello at our events!'
+              'Här är vi, föredetta gäster, nu styrelsemedlemmar, kom gärna och hälsa på oss under våra event! ✦ ',
+              'Here we are, former guests, now board members - come say hello at our events! ✦ '
             )}
           </p>
           <div className="meta-row justify-center text-xs md:text-sm text-foreground/85 italic pb-4">
@@ -140,7 +127,7 @@ export const About = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center w-full">
             <div className="flex justify-center lg:justify-start">
-              <div className="promo-frame-story aspect-[3/4] w-full max-w-[340px]">
+              <div className="promo-frame-story aspect-[3/4] w-full max-w-[400px]">
                 <img src={omOss1} alt="Jenny & Candy" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 pointer-events-none mix-blend-multiply" />
               </div>
@@ -185,7 +172,7 @@ export const About = () => {
             </div>
 
             <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
-              <div className="promo-frame-story aspect-square w-full max-w-[340px]">
+              <div className="promo-frame-story aspect-square w-full max-w-[400px]">
                 <img src={omOss2} alt="Jenny & Candy" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 pointer-events-none mix-blend-multiply" />
               </div>

@@ -257,11 +257,12 @@ body {
   }
 
   .promo-frame-story:hover {
-    border-color: rgba(212, 175, 55, 0.6); /* Ökar guldglöden vid hovring */
+    border-color: rgba(212, 175, 55, 0.6);
   }
 
   .promo-frame-story img {
     @apply w-full h-full object-cover transition-transform duration-700 ease-out;
+    filter: contrast(1.05) brightness(0.95);
   }
 
   .promo-frame-story:hover img {
@@ -543,11 +544,14 @@ body {
   input[type='password'],
   input[type='datetime-local'],
   input[type='date'],
-  textarea {
-    @apply w-full bg-background p-3 rounded-lg border transition-all;
+  textarea,
+  select {
+    @apply w-full bg-background p-3 rounded-lg border transition-all block;
     border-color: rgba(212, 175, 55, 0.2);
     outline: 2px solid transparent !important;
     outline-offset: 2px;
+    box-sizing: border-box;
+    margin: 0;
   }
 
   input[type='text']:focus,
@@ -556,9 +560,35 @@ body {
   input[type='password']:focus,
   input[type='datetime-local']:focus,
   input[type='date']:focus,
-  textarea:focus {
+  textarea:focus,
+  select:focus {
     border-color: rgba(212, 175, 55, 0.6);
     box-shadow: 0 0 10px rgba(212, 175, 55, 0.1);
+  }
+
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%23d4af37" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.1rem;
+    padding-right: 2.5rem;
+    cursor: pointer;
+    line-height: inherit; /* Tvingar samma texthöjd som inputs */
+  }
+
+  select option,
+  select:focus option {
+    background-color: #1a0f0a !important;
+    color: #fff !important;
+    padding: 10px;
+  }
+
+  select:-webkit-autofill,
+  select:focus {
+    background-color: var(--background) !important;
   }
 
   input[type='checkbox'],
