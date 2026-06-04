@@ -182,7 +182,7 @@ export const About = () => {
 
         {/* MANIFEST */}
         <section className="pt-4">
-          <div className="panel-callout w-full text-center relative overflow-hidden group">
+          <div className="panel-callout w-full text-center relative overflow-hidden group mx-auto">
             <div className="middle-glow opacity-30" />
             <Quote className="w-12 h-12 text-accent/80 mx-auto mb-4 transform -scale-x-100" />
 
