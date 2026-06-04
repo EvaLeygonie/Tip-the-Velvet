@@ -16,7 +16,7 @@ export const JoinUsCard = () => {
 
   const ROLE_OPTIONS: RoleOption[] = [
     { value: 'volunteer', sv: 'Volontär', en: 'Volunteer' },
-    { value: 'staff', sv: 'Personal / Bar / Servering', en: 'Staff / Bar / Service' },
+    { value: 'artistic', sv: 'Konst / Design / Marknadsföring', en: 'Art / Design / Marketing' },
     { value: 'photographer', sv: 'Fotograf', en: 'Photographer' },
     { value: 'technician', sv: 'Tekniker (Ljud/Ljus)', en: 'Technician (Sound/Light)' },
     { value: 'doorman', sv: 'Dörrvärd / Entré', en: 'Doorman / Entry' },

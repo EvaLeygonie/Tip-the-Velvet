@@ -219,12 +219,15 @@ export const SponsorCard = () => {
           <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="form-field sm:col-span-2">
               <label className="form-label-block">
-                {t('Företagsnamn / Namn *', 'Company Name / Name *')}
+                {t('Organisation / Namn *', 'Organisation / Name *')}
               </label>
               <input
                 type="text"
                 name="name"
-                placeholder={t('Ditt eller företagets namn', 'Your or company name')}
+                placeholder={t(
+                  'Ditt eller organisationens namn',
+                  'Your or your organisations name'
+                )}
                 value={formData.name || ''}
                 onChange={handleChange}
                 className="w-full"

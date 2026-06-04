@@ -14,38 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      act_images: {
-        Row: {
-          act_id: string
-          alt_text: string | null
-          created_at: string
-          id: string
-          image_id: string
-        }
-        Insert: {
-          act_id: string
-          alt_text?: string | null
-          created_at?: string
-          id?: string
-          image_id: string
-        }
-        Update: {
-          act_id?: string
-          alt_text?: string | null
-          created_at?: string
-          id?: string
-          image_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "act_images_act_id_fkey"
-            columns: ["act_id"]
-            isOneToOne: false
-            referencedRelation: "performer_acts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       casting_applications: {
         Row: {
           act_description: string | null
@@ -532,6 +500,7 @@ export type Database = {
       }
       performers: {
         Row: {
+          agreed_to_terms: boolean | null
           bio_eng: string | null
           bio_sv: string | null
           city: string | null
@@ -541,6 +510,7 @@ export type Database = {
           id: string
           image_id: string | null
           instagram_link: string | null
+          is_approved: boolean | null
           language: Database["public"]["Enums"]["language"]
           name: string
           other_link: string | null
@@ -548,6 +518,7 @@ export type Database = {
           slug: string
         }
         Insert: {
+          agreed_to_terms?: boolean | null
           bio_eng?: string | null
           bio_sv?: string | null
           city?: string | null
@@ -557,6 +528,7 @@ export type Database = {
           id?: string
           image_id?: string | null
           instagram_link?: string | null
+          is_approved?: boolean | null
           language?: Database["public"]["Enums"]["language"]
           name: string
           other_link?: string | null
@@ -564,6 +536,7 @@ export type Database = {
           slug: string
         }
         Update: {
+          agreed_to_terms?: boolean | null
           bio_eng?: string | null
           bio_sv?: string | null
           city?: string | null
@@ -573,6 +546,7 @@ export type Database = {
           id?: string
           image_id?: string | null
           instagram_link?: string | null
+          is_approved?: boolean | null
           language?: Database["public"]["Enums"]["language"]
           name?: string
           other_link?: string | null
@@ -705,7 +679,7 @@ export type Database = {
         | "photographer"
         | "technician"
         | "doorman"
-        | "staff"
+        | "artistic"
         | "volunteer"
         | "musician"
         | "entertainment"
@@ -845,7 +819,7 @@ export const Constants = {
         "photographer",
         "technician",
         "doorman",
-        "staff",
+        "artistic",
         "volunteer",
         "musician",
         "entertainment",

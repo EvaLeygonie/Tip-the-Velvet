@@ -43,6 +43,13 @@ export const JoinUs = () => {
                   'Tip the Velvet is more than just a show—it’s a vibrant community of passionate creators dedicated to celebrating diversity, creativity, and empowerment through burlesque. We welcome everyone who shares our vision, regardless of experience level.'
                 )}
               </p>
+
+              <p className="text-accent font-heading font-medium tracking-wide text-base md:text-xl">
+                {t(
+                  'Scrolla ner för sponsorer & kreativa samarbeten! ✦',
+                  'Scroll down for sponsors and creative collaborations! ✦'
+                )}
+              </p>
             </div>
 
             {/* Vad vi söker */}
