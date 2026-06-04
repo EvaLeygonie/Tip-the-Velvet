@@ -66,8 +66,8 @@ export const JoinUs = () => {
                   <span>
                     <strong>{t('Dörr & Gästlista:', 'Door & Guestlist:')}</strong>{' '}
                     {t(
-                      'Vakter och volontärer som kan turas om och vara dom första galmurösa ansikten våra gäster möter i dörren',
-                      'Guards and volunteers taking turn to be the first glamorous faces our guests meet at the door.'
+                      'Volontärer som kan turas om i entrén med att välkomna våra gäster och boka av namn från gästlistan',
+                      'Volunteers taking turn in the entrance to welcome our guests and check their names off the guest list.'
                     )}
                   </span>
                 </li>

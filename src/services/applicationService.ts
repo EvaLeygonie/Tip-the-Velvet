@@ -3,9 +3,7 @@ import type {
   Event,
   CastingApplication,
   CreateCastingApplicationInput,
-  StaffVolunteers,
   CreateStaffVolunteerInput,
-  Sponsors,
   CreateSponsorInput,
 } from '@/types/types'
 
@@ -37,35 +35,22 @@ export const getApplicationsFromEvent = async (eventId: string): Promise<Casting
 
 export const submitCastingApplication = async (
   application: CreateCastingApplicationInput
-): Promise<CastingApplication> => {
-  const { data, error } = await supabase
-    .from('casting_applications')
-    .insert(application)
-    .select()
-    .single()
+): Promise<void> => {
+  const { error } = await supabase.from('casting_applications').insert(application)
 
   if (error) throw error
-  return data
 }
 
 export const submitJoinApplication = async (
   application: CreateStaffVolunteerInput
-): Promise<StaffVolunteers> => {
-  const { data, error } = await supabase
-    .from('staff_volunteers')
-    .insert(application)
-    .select()
-    .single()
+): Promise<void> => {
+  const { error } = await supabase.from('staff_volunteers').insert(application)
 
   if (error) throw error
-  return data
 }
 
-export const submitSponsorApplication = async (
-  application: CreateSponsorInput
-): Promise<Sponsors> => {
-  const { data, error } = await supabase.from('sponsors').insert(application).select().single()
+export const submitSponsorApplication = async (application: CreateSponsorInput): Promise<void> => {
+  const { error } = await supabase.from('sponsors').insert(application)
 
   if (error) throw error
-  return data
 }

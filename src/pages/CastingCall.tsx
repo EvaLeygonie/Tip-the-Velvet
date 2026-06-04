@@ -41,7 +41,7 @@ export const CastingCall = () => {
 
           <p className="subtitle">
             {t(
-              'Om du har frågor kring vad vi letar efter för ett specifikt event, mail oss gärna på: ',
+              'Om du har frågor kring vad vi letar efter för ett specifikt event, maila oss gärna på: ',
               'If you have questions about what we are looking for for a particular event, feel free to contact us at: '
             )}
             <a href="mailto:velvet.gbg@gmail.com" className="text-accent hover:text-accent/80 ">
