@@ -1,22 +1,22 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Quote, Camera } from 'lucide-react'
 
-import alla from '@/assets/omOss/Alla.jpg'
-// import pontus from '@/assets/omOss/Pontus.jpg'
-// import eva from '@/assets/omOss/Eva.jpg'
-// import drea from '@/assets/omOss/Drea.jpg'
-// import krister from '@/assets/omOss/Krister.jpg'
+// import alla from '@/assets/omOss/Alla.jpg'
+import pontus from '@/assets/omOss/Pontus.jpg'
+import eva from '@/assets/omOss/Eva.jpg'
+import drea from '@/assets/omOss/Drea.jpg'
+import krister from '@/assets/omOss/Krister.jpg'
 import omOss1 from '@/assets/omOss/OmOss-1.jpg'
 import omOss2 from '@/assets/omOss/OmOss-2.jpg'
 
 export const About = () => {
   const { t } = useLanguage()
-  // const boardMembers = [
-  //   { role: t('Show Producent', 'Show Producer'), name: 'Pontus', src: pontus },
-  //   { role: t('Marknadsföring', 'Marketing'), name: 'Eva', src: eva },
-  //   { role: t('Konstnärlig Ledare', 'Artistic Director'), name: 'Drea', src: drea },
-  //   { role: t('Ekonomi', 'Finance'), name: 'Krister', src: krister },
-  // ]
+  const boardMembers = [
+    { role: t('Show Producent', 'Show Producer'), name: 'Pontus', src: pontus },
+    { role: t('Designer', 'Designer'), name: 'Eva', src: eva },
+    { role: t('Konstnärlig Ledare', 'Artistic Director'), name: 'Drea', src: drea },
+    { role: t('Ekonomi', 'Finance'), name: 'Krister', src: krister },
+  ]
 
   return (
     <div className="page-shell">
@@ -57,7 +57,7 @@ export const About = () => {
         {/* NEW BOARD */}
         <section className="space-y-6">
           {/* Separate cards */}
-          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {boardMembers.map((member, index) => (
               <div
                 key={index}
@@ -75,10 +75,10 @@ export const About = () => {
                 </div>
               </div>
             ))}
-          </div> */}
+          </div>
 
           {/* All together */}
-          <div className="promo-frame-story aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9] rounded-2xl glow-border overflow-hidden relative group">
+          {/* <div className="promo-frame-story aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9] rounded-2xl glow-border overflow-hidden relative group">
             <img
               src={alla}
               alt="Tip the Velvet styrelse"
@@ -100,11 +100,11 @@ export const About = () => {
                 {t('Vårt andra event!', 'Our second event!')}
               </span>
             </div>
-          </div>
+          </div> */}
 
-          <p className="text-foreground font-heading font-medium tracking-wide text-base md:text-lg text-center pt-2">
+          <p className="text-foreground font-heading font-medium tracking-wide text-base md:text-lg text-center pt-2 max-w-4xl mx-auto">
             {t(
-              'Här är vi, föredetta gäster, nu styrelsemedlemmar, kom gärna och hälsa på oss under våra event! ✦ ',
+              'Här är vi, föredetta gäster, nu styrelsemedlemmar! Vi hjälps åt med det mesta men ovan kan ni se våra övergripliga ansvarsområden. Kom gärna och hälsa på oss under våra event! ✦ ',
               'Here we are, former guests, now board members - come say hello at our events! ✦ '
             )}
           </p>
