@@ -35,6 +35,7 @@ export default async (request: Request) => {
 
     const isSv = language === 'sv'
     const currentDeadline = deadline || (isSv ? 'angivet datum' : 'the stated date')
+    const subject = isSv ? 'Tack för din ansökan! ✦' : 'Thank you for your application! ✦'
     let emailHtml = ''
 
     switch (type) {
@@ -56,8 +57,6 @@ export default async (request: Request) => {
           : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to sponsor or collaborate with us!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We'll contact you soon!</p>`
         break
     }
-
-    const subject = isSv ? 'Tack för din ansökan! ✦' : 'Thank you for your application! ✦'
 
     const htmlContent = `
   <!DOCTYPE html>

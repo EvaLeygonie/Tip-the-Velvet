@@ -20,6 +20,12 @@ export const JoinUs = () => {
             'Do you want to step behind the scenes, decorate the venue before the event, sponsor us or support our vision as a partner? There are many ways to get involved with Tip the Velvet.'
           )}
         </p>
+        <p className="text-accent font-heading font-medium tracking-wide text-base md:text-xl">
+          {t(
+            'Scrolla ner för sponsorer & kreativa samarbeten! ✦',
+            'Scroll down for sponsors and creative collaborations! ✦'
+          )}
+        </p>
       </header>
 
       <div className="space-y-32 max-w-6xl mx-auto px-4 pb-20">
@@ -41,13 +47,6 @@ export const JoinUs = () => {
                 {t(
                   'Tip the Velvet är mer än bara en show – det är en levande community av passionerade kreatörer dedikerade till att fira mångfald, kreativitet och egenmakt genom burlesk. Vi välkomnar alla som delar vår vision, oavsett erfarenhetsnivå.',
                   'Tip the Velvet is more than just a show—it’s a vibrant community of passionate creators dedicated to celebrating diversity, creativity, and empowerment through burlesque. We welcome everyone who shares our vision, regardless of experience level.'
-                )}
-              </p>
-
-              <p className="text-accent font-heading font-medium tracking-wide text-base md:text-xl">
-                {t(
-                  'Scrolla ner för sponsorer & kreativa samarbeten! ✦',
-                  'Scroll down for sponsors and creative collaborations! ✦'
                 )}
               </p>
             </div>

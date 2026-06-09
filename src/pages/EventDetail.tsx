@@ -94,9 +94,7 @@ export const EventDetail = () => {
           <div className="header-side-content md:justify-end">
             {user && !isOldEvent && (
               <Link to={`/admin/event-editor/${slug}`}>
-                <button className="btn-admin text-[10px] sm:text-xs whitespace-nowrap">
-                  {t('Redigera Event', 'Edit Event')}
-                </button>
+                <button className="btn-admin">{t('Redigera Event', 'Edit Event')}</button>
               </Link>
             )}
           </div>
