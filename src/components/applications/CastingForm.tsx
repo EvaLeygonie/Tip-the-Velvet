@@ -158,8 +158,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       } else {
         toast.success(
           t(
-            'Kunde inte skicka bekräftelsemail, men din ansökan är sparad.',
-            'Could not send confirmation email, but your application is saved.'
+            'Din ansökan är sparad! Kunde inte skicka bekräftelsemail.',
+            'Your application is saved! Could not send confirmation email.'
           ),
           { duration: 5000 }
         )

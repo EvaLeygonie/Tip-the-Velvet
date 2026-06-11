@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
-import type { Event, CreateCastingApplicationInput } from '@/types/types'
-import { submitCastingApplication } from '@/services/applicationService'
+import type { CreatePerformerInput } from '@/types/types'
+import { submitArtistInfo } from '@/services/applicationService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { toast } from 'sonner'
 
-export const ArtistForm = ({ event }: { event: Event }) => {
+export const ArtistForm = () => {
   const { language, t, setLanguage } = useLanguage()
 
   const preferredLang = language === 'eng' ? 'eng' : 'sv'
@@ -17,13 +17,11 @@ export const ArtistForm = ({ event }: { event: Event }) => {
   const [uploading, setUploading] = useState(false)
   const [tempFile, setTempFile] = useState<File | null>(null)
 
-  const [formData, setFormData] = useState<Partial<CreateCastingApplicationInput>>({
-    event_id: event.id,
+  const [formData, setFormData] = useState<Partial<CreatePerformerInput>>({
     language: preferredLang,
     agreed_to_terms: false,
-    act_title: '',
     email: '',
-    promo_image_id: null,
+    image_id: null,
   })
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
@@ -49,21 +47,15 @@ export const ArtistForm = ({ event }: { event: Event }) => {
     const previewUrl = URL.createObjectURL(file)
 
     setTempFile(file)
-    setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
+    setFormData((prev) => ({ ...prev, image_id: previewUrl }))
   }
 
-  const sendCastingEmail = async (
-    name: string,
-    email: string,
-    language: string,
-    deadline: string,
-    type: string
-  ) => {
+  const sendCastingEmail = async (name: string, email: string, language: string, type: string) => {
     try {
       const response = await fetch('/api/application-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, language, deadline, type }),
+        body: JSON.stringify({ name, email, language, type }),
       })
       return response.ok
     } catch (error) {
@@ -76,24 +68,22 @@ export const ArtistForm = ({ event }: { event: Event }) => {
     e.preventDefault()
 
     if (!agreed) return toast.error(t('Acceptera termer tack.', 'Please agree to the terms.'))
-    if (!formData.promo_image_id)
+    if (!formData.image_id)
       return toast(t('Ladda upp en promobild.', 'Please upload a promo picture.'))
-    if (!formData.performer_name)
-      return toast.error(t('Artistnamn krävs.', 'Artist name is required.'))
+    if (!formData.name) return toast.error(t('Artistnamn krävs.', 'Artist name is required.'))
 
     setSubmitting(true)
-    const artistSlug = createSlug(formData.performer_name)
-    const actSlug = createSlug(formData.act_title || '')
-    let finalImageId = formData.promo_image_id
+    const artistSlug = createSlug(formData.name)
+    let finalImageId = formData.image_id
 
     if (tempFile) {
       setUploading(true)
       try {
         finalImageId = await uploadToCloudinary(
           tempFile,
-          'Casting Calls',
-          ['casting-call', artistSlug, actSlug],
-          `${artistSlug}-${actSlug}`
+          `Performers/${formData.name}`,
+          ['performers', artistSlug],
+          `Promo-${artistSlug}`
         )
         setTempFile(null)
       } catch (err) {
@@ -105,36 +95,28 @@ export const ArtistForm = ({ event }: { event: Event }) => {
         setUploading(false)
       }
     }
-    const payload: CreateCastingApplicationInput = {
+    const payload: CreatePerformerInput = {
       ...formData,
-      event_id: event.id,
-      performer_name: formData.performer_name.trim(),
-      act_title: formData.act_title?.trim() || '',
-      slug: actSlug,
+      name: formData.name.trim(),
       email: formData.email?.trim() || '',
-      promo_image_id: finalImageId,
+      image_id: finalImageId,
       language: preferredLang,
       agreed_to_terms: true,
     }
 
-    const applicantName = formData.performer_name.trim()
+    const applicantName = formData.name.trim()
     const applicantEmail = formData.email?.trim() || ''
     const applicantLanguage = preferredLang
-    const deadline = event.casting_call_deadline
-      ? formatDate(preferredLang, event.casting_call_deadline)
-      : ''
 
     try {
-      await submitCastingApplication(payload)
+      await submitArtistInfo(payload)
 
       setFormData({
-        event_id: event.id,
         language: preferredLang,
         agreed_to_terms: false,
-        performer_name: '',
-        act_title: '',
+        name: '',
         email: '',
-        promo_image_id: null,
+        image_id: null,
       })
       setAgreed(false)
 
@@ -142,22 +124,21 @@ export const ArtistForm = ({ event }: { event: Event }) => {
         applicantName,
         applicantEmail,
         applicantLanguage,
-        deadline,
-        'casting'
+        'artist'
       )
 
       if (emailSuccess) {
         toast.success(
           t(
-            'Ansökan skickad! Kolla din inkorg efter en bekräftelse.',
-            'Application submitted! Please check your inbox for a confirmation.'
+            'Info skickad! Kolla din inkorg efter en bekräftelse.',
+            'Information submitted! Please check your inbox for a confirmation.'
           )
         )
       } else {
         toast.success(
           t(
-            'Kunde inte skicka bekräftelsemail, men din ansökan är sparad.',
-            'Could not send confirmation email, but your application is saved.'
+            'Din info är sparad! Kunde inte skicka bekräftelsemail.',
+            'Your info is saved! Could not send confirmation email'
           ),
           { duration: 5000 }
         )

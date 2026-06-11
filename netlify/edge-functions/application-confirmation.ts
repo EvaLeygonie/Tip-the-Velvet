@@ -9,7 +9,7 @@ interface ApplicationBody {
   email: string
   language: 'sv' | 'en'
   deadline?: string
-  type: 'casting' | 'staff' | 'sponsor'
+  type: 'casting' | 'staff' | 'sponsor' | 'artist'
 }
 
 export default async (request: Request) => {
@@ -54,6 +54,12 @@ export default async (request: Request) => {
         emailHtml = isSv
           ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill samarbeta med eller sponsra oss!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi kontaktar dig inom kort!</p>`
           : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to sponsor or collaborate with us!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We'll contact you soon!</p>`
+        break
+
+      case 'artist':
+        emailHtml = isSv
+          ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Tack så mycket för att du vill visas på <strong>Tip the Velvets</strong> Hall of Fame. Din info kommer dyka upp på vår <a href="https://www.tipthevelvet.nu/artists">Artist</a> sida inom kort</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi kontaktar dig inom kort!</p>`
+          : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Thank you for wanting to be showcased on <strong>Tip the Velvet's</strong> Wall of Fame! Your information will be displayed soon on our <a href="https://www.tipthevelvet.nu/artists">Artist</a> page!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We'll contact you soon!</p>`
         break
     }
 
