@@ -90,7 +90,7 @@ export const SponsorCard = () => {
 
     if (tempFile) {
       setUploading(true)
-      const cleanName = formData.name
+      const nameSlug = formData.name
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '-')
@@ -98,8 +98,8 @@ export const SponsorCard = () => {
         finalLogoId = await uploadToCloudinary(
           tempFile,
           'Sponsors',
-          ['sponsor', cleanName],
-          `logo-${cleanName}`
+          ['sponsor', nameSlug],
+          `logo-${nameSlug}`
         )
         setTempFile(null)
       } catch (err) {
@@ -128,6 +128,17 @@ export const SponsorCard = () => {
     const applicantLanguage = language
 
     try {
+      if (payload.logo_id && payload.logo_id.startsWith('blob:')) {
+        toast.error(
+          t(
+            'Bilden hann inte laddas upp ordentligt. Försök välja bilden igen.',
+            'Image upload incomplete. Please re-select your image.'
+          )
+        )
+        setSubmitting(false)
+        return
+      }
+
       await submitSponsorApplication(payload)
 
       setFormData({
@@ -158,8 +169,8 @@ export const SponsorCard = () => {
       } else {
         toast.success(
           t(
-            'Kunde inte skicka bekräftelsemail, men din ansökan är sparad.',
-            'Could not send confirmation email, but your application is saved.'
+            'Din ansökan är sparad! Kunde inte skicka bekräftelsemail.',
+            'Your application is saved! Could not send confirmation email.'
           ),
           { duration: 5000 }
         )
@@ -219,12 +230,15 @@ export const SponsorCard = () => {
           <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="form-field sm:col-span-2">
               <label className="form-label-block">
-                {t('Företagsnamn / Namn *', 'Company Name / Name *')}
+                {t('Organisation / Namn *', 'Organisation / Name *')}
               </label>
               <input
                 type="text"
                 name="name"
-                placeholder={t('Ditt eller företagets namn', 'Your or company name')}
+                placeholder={t(
+                  'Ditt eller organisationens namn',
+                  'Your or your organisations name'
+                )}
                 value={formData.name || ''}
                 onChange={handleChange}
                 className="w-full"

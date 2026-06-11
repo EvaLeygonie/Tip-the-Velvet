@@ -3,10 +3,16 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
 import type { Event, CreateCastingApplicationInput } from '@/types/types'
 import { submitCastingApplication } from '@/services/applicationService'
-import { uploadToCloudinary } from '@/services/cloudinaryService'
+import { uploadToCloudinary, checkImageExists } from '@/services/cloudinaryService'
 import { buildEventFolderName } from '@/lib/utils'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { toast } from 'sonner'
+
+interface PostgrestError {
+  code?: string
+  message?: string
+  details?: string
+}
 
 export const ApplicationCard = ({ event }: { event: Event }) => {
   const { language, t, setLanguage } = useLanguage()
@@ -76,26 +82,41 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!agreed) return toast.error(t('Acceptera termer tack.', 'Please agree to the terms.'))
     if (!formData.promo_image_id)
-      return toast(t('Ladda upp en promobild.', 'Please upload a promo picture.'))
-    if (!formData.performer_name)
-      return toast.error(t('Artistnamn krävs.', 'Artist name is required.'))
+      return toast.error(t('Ladda upp en promobild.', 'Please upload a promo picture.'))
+    if (!agreed) return toast.error(t('Acceptera termer tack.', 'Please agree to the terms.'))
 
     setSubmitting(true)
-    const artistSlug = createSlug(formData.performer_name)
+    const artistSlug = createSlug(formData.performer_name || '')
+    const eventSlug = event.slug
     const actSlug = createSlug(formData.act_title || '')
+    const imageSlug = `${artistSlug}-${actSlug}`
+    const applicationSlug = `${eventSlug}-${artistSlug}-${actSlug}`
     const eventFolder = buildEventFolderName(event.title, event.event_start || '')
     let finalImageId = formData.promo_image_id
 
     if (tempFile) {
+      const alreadyExists = await checkImageExists(imageSlug, eventSlug)
+
+      if (alreadyExists) {
+        toast.info(
+          t(
+            'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
+            'You have already submitted an application for this act to this event! Your application is safe.'
+          ),
+          { duration: 6000 }
+        )
+        setSubmitting(false)
+        return
+      }
+
       setUploading(true)
       try {
         finalImageId = await uploadToCloudinary(
           tempFile,
           `Casting Calls/${eventFolder}`,
-          ['casting-call', artistSlug, actSlug],
-          `${artistSlug}-${actSlug}`
+          ['casting-call', eventSlug, artistSlug, actSlug],
+          imageSlug
         )
         setTempFile(null)
       } catch (err) {
@@ -110,16 +131,16 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     const payload: CreateCastingApplicationInput = {
       ...formData,
       event_id: event.id,
-      performer_name: formData.performer_name.trim(),
+      performer_name: formData.performer_name?.trim() || '',
       act_title: formData.act_title?.trim() || '',
-      slug: actSlug,
+      slug: applicationSlug,
       email: formData.email?.trim() || '',
       promo_image_id: finalImageId,
       language: preferredLang,
       agreed_to_terms: true,
     }
 
-    const applicantName = formData.performer_name.trim()
+    const applicantName = formData.performer_name?.trim() || ''
     const applicantEmail = formData.email?.trim() || ''
     const applicantLanguage = preferredLang
     const deadline = event.casting_call_deadline
@@ -127,6 +148,16 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       : ''
 
     try {
+      if (payload.promo_image_id && payload.promo_image_id.startsWith('blob:')) {
+        toast.error(
+          t(
+            'Bilden hann inte laddas upp ordentligt. Försök välja bilden igen.',
+            'Image upload incomplete. Please re-select your image.'
+          )
+        )
+        setSubmitting(false)
+        return
+      }
       await submitCastingApplication(payload)
 
       setFormData({
@@ -164,9 +195,21 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           { duration: 5000 }
         )
       }
-    } catch (err) {
-      toast.error(t('Någonting gick fel!', 'Something went wrong!'))
-      console.error(err)
+    } catch (err: unknown) {
+      const dbError = err as PostgrestError
+
+      if (dbError?.code === '23505' || dbError?.message?.includes('unique_artist_act_per_event')) {
+        toast.info(
+          t(
+            'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
+            'You have already submitted an application for this act to this event! Your application is safe.'
+          ),
+          { duration: 6000 }
+        )
+      } else {
+        toast.error(t('Någonting gick fel!', 'Something went wrong!'))
+        console.error(err)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -197,7 +240,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
       <div className="gold-divider" />
 
-      <div className="form-stack">
+      <form onSubmit={handleSubmit} className="form-stack">
         {/* LANGUAGE & EMAIL */}
         <div className="form-row-2">
           <fieldset className="form-field">
@@ -236,6 +279,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               placeholder={t('ditt@mail.com', 'your@email.com')}
               value={formData.email}
               onChange={handleChange}
+              required
             />
           </div>
         </div>
@@ -280,6 +324,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             placeholder={t('Ditt artist namn', 'Your artist / stage name')}
             value={formData.performer_name}
             onChange={handleChange}
+            required
           />
         </div>
 
@@ -330,6 +375,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               value={formData.promo_text || ''}
               onChange={handleChange}
               className="w-full flex-1 min-h-[300px] h-full resize-none box-border"
+              required
             />
           </div>
         </div>
@@ -344,6 +390,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             placeholder={t('Titel på din akt', 'Name of your act')}
             value={formData.act_title || ''}
             onChange={handleChange}
+            required
           />
         </div>
 
@@ -360,6 +407,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             rows={4}
             value={formData.act_description || ''}
             onChange={handleChange}
+            required
           />
         </div>
 
@@ -387,7 +435,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               placeholder={t('Din instagram profil', 'Your instagram profile')}
               value={formData.instagram_link || ''}
               onChange={handleChange}
-              required
             />
           </div>
 
@@ -404,7 +451,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               )}
               value={formData.other_link || ''}
               onChange={handleChange}
-              required
             />
           </div>
         </div>
@@ -426,8 +472,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           className="w-full btn-gold py-3 disabled:opacity-50"
           disabled={submitting || !agreed}
         >
@@ -440,7 +485,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             </>
           )}
         </button>
-      </div>
+      </form>
     </div>
   )
 }

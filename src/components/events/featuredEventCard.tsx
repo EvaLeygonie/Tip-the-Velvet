@@ -83,7 +83,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
           })()}
 
           <div className="space-y-6">
-            <div className="flex flex-wrap gap-6 justify-start">
+            <div className="flex flex-wrap gap-6 justify-center md:justify-start">
               <div className="meta-row text-foreground/90">
                 <Calendar className="icon-accent-sm" />
                 <span>{formatDate(language, event.event_start)}</span>

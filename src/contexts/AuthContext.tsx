@@ -8,7 +8,6 @@ export interface AuthContextType {
   loading: boolean
   signOut: () => Promise<void>
 }
-
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -23,7 +22,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null)
       setLoading(false)
     }
-
     checkUser()
 
     const {
@@ -32,7 +30,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null)
       setLoading(false)
     })
-
     return () => subscription.unsubscribe()
   }, [])
 

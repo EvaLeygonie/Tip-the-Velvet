@@ -20,6 +20,12 @@ export const JoinUs = () => {
             'Do you want to step behind the scenes, decorate the venue before the event, sponsor us or support our vision as a partner? There are many ways to get involved with Tip the Velvet.'
           )}
         </p>
+        <p className="text-accent font-heading font-medium tracking-wide text-base md:text-xl">
+          {t(
+            'Scrolla ner för sponsorer & kreativa samarbeten! ✦',
+            'Scroll down for sponsors and creative collaborations! ✦'
+          )}
+        </p>
       </header>
 
       <div className="space-y-32 max-w-6xl mx-auto px-4 pb-20">

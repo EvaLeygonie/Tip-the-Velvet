@@ -5,14 +5,20 @@ import { submitJoinApplication } from '@/services/applicationService'
 import { Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface PostgrestError {
+  code?: string
+  message?: string
+  details?: string
+}
+
+interface RoleOption {
+  value: StaffVolunteerType
+  sv: string
+  en: string
+}
+
 export const JoinUsCard = () => {
   const { t, language } = useLanguage()
-
-  interface RoleOption {
-    value: StaffVolunteerType
-    sv: string
-    en: string
-  }
 
   const ROLE_OPTIONS: RoleOption[] = [
     { value: 'volunteer', sv: 'Volontär', en: 'Volunteer' },
@@ -110,15 +116,27 @@ export const JoinUsCard = () => {
       } else {
         toast.success(
           t(
-            'Kunde inte skicka bekräftelsemail, men din ansökan är sparad.',
-            'Could not send confirmation email, but your application is saved.'
+            'Din ansökan är sparad! Kunde inte skicka bekräftelsemail.',
+            'Your application is saved! Could not send confirmation email.'
           ),
           { duration: 5000 }
         )
       }
-    } catch (err) {
-      toast.error(t('Någonting gick fel!', 'Something went wrong!'))
-      console.error(err)
+    } catch (err: unknown) {
+      const dbError = err as PostgrestError
+
+      if (dbError?.code === '23505' || dbError?.message?.includes('unique_volunteer_role')) {
+        toast.info(
+          t(
+            'Du har redan skickat in en ansökan för denna roll! Din ansökan är sparad.',
+            'You have already submitted an application for this role! Your application is safe.'
+          ),
+          { duration: 6000 }
+        )
+      } else {
+        toast.error(t('Någonting gick fel!', 'Something went wrong!'))
+        console.error(err)
+      }
     } finally {
       setSubmitting(false)
     }
