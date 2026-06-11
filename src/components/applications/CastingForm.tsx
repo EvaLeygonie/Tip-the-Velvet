@@ -85,7 +85,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     setSubmitting(true)
     const artistSlug = createSlug(formData.performer_name)
     const actSlug = createSlug(formData.act_title || '')
-    const eventFolder = buildEventFolderName(false, event.title, event.event_start || '')
+    const eventFolder = buildEventFolderName(event.title, event.event_start || '')
     let finalImageId = formData.promo_image_id
 
     if (tempFile) {

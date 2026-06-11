@@ -9,11 +9,7 @@ export const createSlug = (text: string) => {
     .replace(/^-+|-+$/g, '')
 }
 
-export const buildEventFolderName = (
-  isOldEvent: boolean,
-  eventTitle: string,
-  eventDate: string
-) => {
+export const buildEventFolderName = (eventTitle: string, eventDate: string) => {
   const date = eventDate.substring(0, 10)
   return `${date} ${eventTitle}`
 }

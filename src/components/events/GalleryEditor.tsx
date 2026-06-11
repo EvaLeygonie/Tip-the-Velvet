@@ -57,7 +57,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
     setProgress({ current: 0, total: files.length })
 
     const base = isOldEvent ? 'Old Events' : 'Events'
-    const eventFolder = buildEventFolderName(isOldEvent, event.title, getEventDate() || '')
+    const eventFolder = buildEventFolderName(event.title, getEventDate() || '')
     const fileArray = Array.from(files)
     const folder = `${base}/${eventFolder}`
 
