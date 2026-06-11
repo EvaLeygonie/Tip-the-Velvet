@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
-import { JoinUsCard } from '@/components/applications/JoinUsCard'
-import { SponsorCard } from '@/components/applications/SponsorCard'
+import { JoinUsCard } from '@/components/applications/JoinUsForm'
+import { SponsorCard } from '@/components/applications/SponsorForm'
 import { Heart, Briefcase, Star } from 'lucide-react'
 
 export const JoinUs = () => {

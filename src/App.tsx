@@ -24,8 +24,9 @@ import { EventEditor } from '@/pages/admin/EventEditor'
 import { AdminEventPlan } from '@/pages/admin/AdminEventPlan'
 import { Artists } from '@/pages/Artists'
 import { ArtistDetail } from '@/pages/ArtistDetail'
-import { AdminCasting } from './pages/admin/AdminCasting'
-import { AdminContacts } from './pages/admin/AdminContacts'
+import { AdminCasting } from '@/pages/admin/AdminCasting'
+import { AdminContacts } from '@/pages/admin/AdminContacts'
+import { SendToArtists } from '@/pages/admin/SendToArtists'
 
 const queryClient = new QueryClient()
 
@@ -64,6 +65,7 @@ export const App = () => (
               <Route path="/join" element={<JoinUs />} />
               <Route path="/artists" element={<Artists />} />
               <Route path="/artists/:slug" element={<ArtistDetail />} />
+              <Route path="/hall-of-fame-form" element={<SendToArtists />} />
 
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route

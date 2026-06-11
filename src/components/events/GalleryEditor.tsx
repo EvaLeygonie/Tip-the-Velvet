@@ -56,8 +56,10 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
     setUploading(true)
     setProgress({ current: 0, total: files.length })
 
-    const folder = buildEventFolderName(isOldEvent, event.title, getEventDate() || '')
+    const base = isOldEvent ? 'Old Events' : 'Events'
+    const eventFolder = buildEventFolderName(isOldEvent, event.title, getEventDate() || '')
     const fileArray = Array.from(files)
+    const folder = `${base}/${eventFolder}`
 
     let succeeded = 0
     let failed = 0
@@ -145,10 +147,11 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
           {tags.map((tag) => (
             <span
               key={tag}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider ${tag === event.slug
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider ${
+                tag === event.slug
                   ? 'bg-accent/20 text-accent border border-accent/30'
                   : 'bg-white/10 text-foreground/70 border border-white/10'
-                }`}
+              }`}
             >
               {tag}
               {tag !== event.slug && (
@@ -192,9 +195,9 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
           <p className="font-decorative uppercase tracking-widest text-sm text-foreground/50">
             {uploading
               ? t(
-                `Laddar upp ${progress.current} av ${progress.total}...`,
-                `Uploading ${progress.current} of ${progress.total}...`
-              )
+                  `Laddar upp ${progress.current} av ${progress.total}...`,
+                  `Uploading ${progress.current} of ${progress.total}...`
+                )
               : t('Dra hit eller klicka för att ladda upp', 'Drag here or click to upload')}
           </p>
 
@@ -226,10 +229,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
         {images.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {images.map((img: EventImage) => (
-              <div
-                key={img.id}
-                className="gallery-thumb relative"
-              >
+              <div key={img.id} className="gallery-thumb relative">
                 <CloudinaryImage
                   publicId={img.image_id}
                   width={400}
@@ -240,8 +240,9 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
                 {/* Visibility toggle */}
                 <button
                   onClick={() => handleToggle(img)}
-                  className={`absolute top-2 right-2 p-1 rounded-full transition-all ${img.is_visible ? 'bg-accent text-black' : 'bg-black/60 text-white/40'
-                    }`}
+                  className={`absolute top-2 right-2 p-1 rounded-full transition-all ${
+                    img.is_visible ? 'bg-accent text-black' : 'bg-black/60 text-white/40'
+                  }`}
                 >
                   {img.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>

@@ -4,6 +4,7 @@ import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
 import type { Event, CreateCastingApplicationInput } from '@/types/types'
 import { submitCastingApplication } from '@/services/applicationService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
+import { buildEventFolderName } from '@/lib/utils'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -84,6 +85,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     setSubmitting(true)
     const artistSlug = createSlug(formData.performer_name)
     const actSlug = createSlug(formData.act_title || '')
+    const eventFolder = buildEventFolderName(false, event.title, event.event_start || '')
     let finalImageId = formData.promo_image_id
 
     if (tempFile) {
@@ -91,7 +93,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       try {
         finalImageId = await uploadToCloudinary(
           tempFile,
-          'Casting Calls',
+          `Casting Calls/${eventFolder}`,
           ['casting-call', artistSlug, actSlug],
           `${artistSlug}-${actSlug}`
         )

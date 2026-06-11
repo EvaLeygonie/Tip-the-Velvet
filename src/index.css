@@ -366,7 +366,7 @@ body {
     @apply btn-action text-black;
     background-color: rgba(212, 175, 55, 0.9);
     border-color: rgba(212, 175, 55, 0.4);
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.25);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
   }
 
   .btn-gold:hover {

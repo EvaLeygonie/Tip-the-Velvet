@@ -14,9 +14,8 @@ export const buildEventFolderName = (
   eventTitle: string,
   eventDate: string
 ) => {
-  const base = isOldEvent ? 'Old Events' : 'Events'
   const date = eventDate.substring(0, 10)
-  return `${base}/${date} ${eventTitle}`
+  return `${date} ${eventTitle}`
 }
 
 export const getImageSrc = (imageId: string) => {

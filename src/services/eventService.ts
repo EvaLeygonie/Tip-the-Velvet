@@ -48,7 +48,7 @@ export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
   }
 }
 
-//=== CREATE ===///
+//=== CREATE ===//
 
 export const createEvent = async (eventData: CreateEventInput): Promise<Event> => {
   const { data, error } = await supabase.from('events').insert([eventData]).single()
