@@ -30,7 +30,7 @@ export const Navigation = () => {
   const leftLinks = [
     { to: '/events', label: t('Event', 'Events') },
     { to: '/casting-call', label: t('Casting Call', 'Casting Call') },
-    { to: '/artists', label: t('Artister', 'Performers') },
+    { to: '/performers', label: t('Artister', 'Performers') },
   ]
 
   const rightLinks = [

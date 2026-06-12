@@ -460,44 +460,6 @@ export type Database = {
           },
         ]
       }
-      performer_images: {
-        Row: {
-          alt_text: string | null
-          created_at: string
-          display_order: number
-          id: string
-          image_id: string
-          perfomer_slug: string | null
-          performer_id: string
-        }
-        Insert: {
-          alt_text?: string | null
-          created_at?: string
-          display_order?: number
-          id?: string
-          image_id: string
-          perfomer_slug?: string | null
-          performer_id: string
-        }
-        Update: {
-          alt_text?: string | null
-          created_at?: string
-          display_order?: number
-          id?: string
-          image_id?: string
-          perfomer_slug?: string | null
-          performer_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "performer_images_performer_id_fkey"
-            columns: ["performer_id"]
-            isOneToOne: false
-            referencedRelation: "performers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       performers: {
         Row: {
           agreed_to_terms: boolean | null
@@ -508,13 +470,13 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
-          image_id: string | null
           instagram_link: string | null
           is_approved: boolean | null
           language: Database["public"]["Enums"]["language"]
-          name: string
           other_link: string | null
+          performer_name: string
           phone: string | null
+          promo_image_id: string | null
           slug: string
         }
         Insert: {
@@ -526,13 +488,13 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
-          image_id?: string | null
           instagram_link?: string | null
           is_approved?: boolean | null
           language?: Database["public"]["Enums"]["language"]
-          name: string
           other_link?: string | null
+          performer_name: string
           phone?: string | null
+          promo_image_id?: string | null
           slug: string
         }
         Update: {
@@ -544,13 +506,13 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
-          image_id?: string | null
           instagram_link?: string | null
           is_approved?: boolean | null
           language?: Database["public"]["Enums"]["language"]
-          name?: string
           other_link?: string | null
+          performer_name?: string
           phone?: string | null
+          promo_image_id?: string | null
           slug?: string
         }
         Relationships: []

@@ -5,7 +5,6 @@ import type {
   CreateCastingApplicationInput,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
-  CreatePerformerInput,
 } from '@/types/types'
 
 //=== READ ===///
@@ -52,12 +51,6 @@ export const submitJoinApplication = async (
 
 export const submitSponsorApplication = async (application: CreateSponsorInput): Promise<void> => {
   const { error } = await supabase.from('sponsors').insert(application)
-
-  if (error) throw error
-}
-
-export const submitArtistInfo = async (application: CreatePerformerInput): Promise<void> => {
-  const { error } = await supabase.from('performers').insert(application)
 
   if (error) throw error
 }

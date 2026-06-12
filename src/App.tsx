@@ -22,11 +22,11 @@ import { AdminLogin } from '@/pages/admin/AdminLogin'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { EventEditor } from '@/pages/admin/EventEditor'
 import { AdminEventPlan } from '@/pages/admin/AdminEventPlan'
-import { Artists } from '@/pages/Artists'
-import { ArtistDetail } from '@/pages/ArtistDetail'
+import { Performers } from '@/pages/Performers'
+import { PerformerDetail } from '@/pages/PerformerDetail'
 import { AdminCasting } from '@/pages/admin/AdminCasting'
 import { AdminContacts } from '@/pages/admin/AdminContacts'
-import { SendToArtists } from '@/pages/admin/SendToArtists'
+import { AddPerformer } from '@/pages/admin/AddPerformer'
 
 const queryClient = new QueryClient()
 
@@ -63,9 +63,9 @@ export const App = () => (
               <Route path="/about" element={<About />} />
               <Route path="/dresscode" element={<Dresscode />} />
               <Route path="/join" element={<JoinUs />} />
-              <Route path="/artists" element={<Artists />} />
-              <Route path="/artists/:slug" element={<ArtistDetail />} />
-              <Route path="/hall-of-fame-form" element={<SendToArtists />} />
+              <Route path="/performers" element={<Performers />} />
+              <Route path="/performers/:slug" element={<PerformerDetail />} />
+              <Route path="/hall-of-fame-form" element={<AddPerformer />} />
 
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route

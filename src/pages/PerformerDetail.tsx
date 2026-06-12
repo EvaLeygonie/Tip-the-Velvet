@@ -1,6 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 
-export const ArtistDetail = () => {
+export const PerformerDetail = () => {
   const { t } = useLanguage()
   return (
     <>
@@ -8,7 +8,7 @@ export const ArtistDetail = () => {
         <div className="bg-glow-spot" />
 
         <header className="header">
-          <h1>Artist Detail</h1>
+          <h1>{t('Artist Detaljer', 'Performer Detail')}</h1>
           <div className="gold-divider" />
 
           <p className="subtitle">

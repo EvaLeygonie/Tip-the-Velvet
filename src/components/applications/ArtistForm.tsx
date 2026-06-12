@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
+import { createSlug, getImageSrc } from '@/lib/utils'
 import type { CreatePerformerInput } from '@/types/types'
-import { submitArtistInfo } from '@/services/applicationService'
+import { submitArtistInfo } from '@/services/performerService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
-import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
+import { Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export const ArtistForm = () => {
@@ -20,8 +20,16 @@ export const ArtistForm = () => {
   const [formData, setFormData] = useState<Partial<CreatePerformerInput>>({
     language: preferredLang,
     agreed_to_terms: false,
+    performer_name: '',
     email: '',
-    image_id: null,
+    city: '',
+    country: '',
+    phone: '',
+    bio_sv: '',
+    bio_eng: '',
+    instagram_link: '',
+    other_link: '',
+    promo_image_id: null,
   })
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
@@ -47,7 +55,7 @@ export const ArtistForm = () => {
     const previewUrl = URL.createObjectURL(file)
 
     setTempFile(file)
-    setFormData((prev) => ({ ...prev, image_id: previewUrl }))
+    setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
   }
 
   const sendCastingEmail = async (name: string, email: string, language: string, type: string) => {
@@ -67,21 +75,21 @@ export const ArtistForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!formData.promo_image_id && !tempFile) {
+      return toast.error(t('Ladda upp en promobild.', 'Please upload a promo picture.'))
+    }
     if (!agreed) return toast.error(t('Acceptera termer tack.', 'Please agree to the terms.'))
-    if (!formData.image_id)
-      return toast(t('Ladda upp en promobild.', 'Please upload a promo picture.'))
-    if (!formData.name) return toast.error(t('Artistnamn krävs.', 'Artist name is required.'))
 
     setSubmitting(true)
-    const artistSlug = createSlug(formData.name)
-    let finalImageId = formData.image_id
+    const artistSlug = createSlug(formData.performer_name || '')
+    let finalImageId = formData.promo_image_id
 
     if (tempFile) {
       setUploading(true)
       try {
         finalImageId = await uploadToCloudinary(
           tempFile,
-          `Performers/${formData.name}`,
+          'Performers',
           ['performers', artistSlug],
           `Promo-${artistSlug}`
         )
@@ -97,26 +105,37 @@ export const ArtistForm = () => {
     }
     const payload: CreatePerformerInput = {
       ...formData,
-      name: formData.name.trim(),
+      slug: artistSlug,
+      performer_name: formData.performer_name?.trim() || '',
       email: formData.email?.trim() || '',
-      image_id: finalImageId,
+      promo_image_id: finalImageId,
       language: preferredLang,
       agreed_to_terms: true,
     }
 
-    const applicantName = formData.name.trim()
+    const applicantName = formData.performer_name?.trim() || ''
     const applicantEmail = formData.email?.trim() || ''
     const applicantLanguage = preferredLang
 
     try {
+      if (payload.promo_image_id && payload.promo_image_id.startsWith('blob:')) {
+        toast.error(
+          t(
+            'Bilden hann inte laddas upp ordentligt. Försök välja bilden igen.',
+            'Image upload incomplete. Please re-select your image.'
+          )
+        )
+        setSubmitting(false)
+        return
+      }
       await submitArtistInfo(payload)
 
       setFormData({
         language: preferredLang,
         agreed_to_terms: false,
-        name: '',
+        performer_name: '',
         email: '',
-        image_id: null,
+        promo_image_id: null,
       })
       setAgreed(false)
 
@@ -130,7 +149,7 @@ export const ArtistForm = () => {
       if (emailSuccess) {
         toast.success(
           t(
-            'Info skickad! Kolla din inkorg efter en bekräftelse.',
+            'Info inskickad! Kolla din inkorg efter en bekräftelse.',
             'Information submitted! Please check your inbox for a confirmation.'
           )
         )
@@ -153,31 +172,8 @@ export const ArtistForm = () => {
 
   return (
     <div className="application-card">
-      {/* EVENT INFO */}
-      <div className="application-header">
-        <div className="application-title">{event.title}</div>
-        {event.subtitle && <div className="application-subtitle">{event.subtitle}</div>}
-        <div className="application-meta">
-          <span className="meta-row">
-            <Calendar className="icon-accent-sm" />
-            {formatDate(preferredLang, event.event_start)}
-          </span>
-          <span className="meta-row">
-            <MapPin className="icon-accent-sm" />
-            {event.location}
-          </span>
-          <span className="meta-row">
-            <BellDot className="h-4 w-4 text-red-500 shrink-0" />
-            <span className="font-medium">Deadline: </span>
-            {formatDate(preferredLang, event.casting_call_deadline)}
-          </span>
-        </div>
-      </div>
-
-      <div className="gold-divider" />
-
-      <div className="form-stack">
-        {/* LANGUAGE & EMAIL */}
+      <form onSubmit={handleSubmit} className="form-stack">
+        {/* LANGUAGE & NAME */}
         <div className="form-row-2">
           <fieldset className="form-field">
             <label className="form-label-block">
@@ -208,13 +204,14 @@ export const ArtistForm = () => {
           </fieldset>
 
           <div className="form-field">
-            <label className="form-label-block">Email *</label>
+            <label className="form-label-block">{t('Artistnamn *', 'Artist Name *')}</label>
             <input
-              type="email"
-              name="email"
-              placeholder={t('ditt@mail.com', 'your@email.com')}
-              value={formData.email}
+              type="text"
+              name="performer_name"
+              placeholder={t('Ditt artist namn', 'Your artist / stage name')}
+              value={formData.performer_name}
               onChange={handleChange}
+              required
             />
           </div>
         </div>
@@ -248,41 +245,62 @@ export const ArtistForm = () => {
           </div>
         </div>
 
-        <div className="gold-divider" />
-
-        {/* ARTIST INFO */}
-        <div className="form-field">
-          <label className="form-label-block">{t('Artistnamn *', 'Artist Name *')}</label>
-          <input
-            type="text"
-            name="performer_name"
-            placeholder={t('Ditt artist namn', 'Your artist / stage name')}
-            value={formData.performer_name}
-            onChange={handleChange}
-          />
+        {/* CONTACT INFO */}
+        <div className="form-row-2-tight">
+          <div className="form-field">
+            <label className="form-label-block">Email *</label>
+            <input
+              type="email"
+              name="email"
+              placeholder={t('ditt@mail.com', 'your@email.com')}
+              value={formData.email || ''}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="form-field">
+            <label className="form-label-block">
+              {t('Telefonnummer (friviligt)', 'Phone number (optional)')}
+            </label>
+            <input
+              type="text"
+              name="phone"
+              placeholder={t('ditt telefonnummer', 'your@email.com')}
+              value={formData.phone || ''}
+              onChange={handleChange}
+            />
+          </div>
         </div>
 
-        {/* PROMO IMAGE & TEXT */}
-        <div className="form-row-2 items-stretch">
-          <div className="flex flex-col space-y-3">
+        <div className="gold-divider" />
+
+        {/* PROMO IMAGE & BIO */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+          {/* BILDUPPLADDNING */}
+          <div className="form-field md:col-span-4 flex flex-col h-full">
             <label className="form-label-block">{t('Promobild *', 'Promo Image *')}</label>
-            <div className="promo-upload-square">
+            <div className="promo-upload-square relative flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gold/30 rounded-lg p-4 bg-background/20 min-h-[250px] md:min-h-0 h-full">
               {formData.promo_image_id ? (
-                <div className="absolute inset-0 group">
+                <div className="absolute inset-0 group flex items-center justify-center p-2">
                   <img
                     src={getImageSrc(formData.promo_image_id)}
-                    className="promo-image"
+                    className="max-h-full max-w-full object-contain rounded" // Anpassar bilden vackert inuti rutan
                     alt="Preview"
                   />
-                  <div className="promo-image-change">
-                    <label htmlFor="image-up" className="btn-admin">
+                  <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded">
+                    <label htmlFor="image-up" className="btn-admin cursor-pointer">
                       {t('Byt bild', 'Change Image')}
                     </label>
                   </div>
                 </div>
               ) : (
-                <label htmlFor="image-up" className="btn-admin">
-                  {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
+                <label
+                  htmlFor="image-up"
+                  className="flex flex-col items-center space-y-2 cursor-pointer btn-admin text-center p-2"
+                >
+                  <span className="text-xs font-medium">
+                    {uploading ? t('Laddar...', 'Uploading...') : t('Välj Bild', 'Select Image')}
+                  </span>
                 </label>
               )}
               <input
@@ -295,65 +313,42 @@ export const ArtistForm = () => {
             </div>
           </div>
 
-          <div className="form-field flex flex-col h-full">
-            <label className="form-label-block">
-              {t('Promo text (SV) *', 'Promo text (ENG) *')}
-            </label>
-            <textarea
-              name="promo_text"
-              placeholder={t(
-                'Presentera dig själv som artist! Din promo text kommer delas till sociala medier om du blir vald för att uppträda hos oss.',
-                'Introduce yourself as a performer! Your promo text will be shared on social media if you become part of the lineup.'
-              )}
-              rows={4}
-              value={formData.promo_text || ''}
-              onChange={handleChange}
-              className="w-full flex-1 min-h-[300px] h-full resize-none box-border"
-            />
+          {/* PROMO TEXT */}
+          <div className="md:col-span-8 flex flex-col gap-4">
+            {/* SVENSKA */}
+            <div className="form-field flex-1 flex flex-col">
+              <label className="form-label-gold mb-2 block">Promo text (SV) *</label>
+              <textarea
+                name="bio_sv"
+                placeholder={t(
+                  'Din promo text på svenska.',
+                  "Your promo text in Swedish. If you cannot provide a swedish text, write that and we'll translate for you before publishing."
+                )}
+                value={formData.bio_sv || ''}
+                onChange={handleChange}
+                className="editor-textarea flex-1 w-full resize-none p-3 min-h-[120px]"
+                required
+              />
+            </div>
+
+            {/* ENGELSKA */}
+            <div className="form-field flex-1 flex flex-col">
+              <label className="form-label-gold mb-2 block">Promo text (ENG) *</label>
+              <textarea
+                name="bio_eng"
+                value={formData.bio_eng || ''}
+                placeholder={t(
+                  'Din promo text på engelska. Om du inte kan skriva din text på engelska, skriv det så översätter vi innan vi publicerar.',
+                  'Your promo text in English.'
+                )}
+                onChange={handleChange}
+                className="editor-textarea flex-1 w-full resize-none p-3 min-h-[120px]"
+              />
+            </div>
           </div>
         </div>
 
         <div className="gold-divider" />
-
-        <div className="form-field">
-          <label className="form-label-block">{t('Akt titel *', 'Act Title *')}</label>
-          <input
-            type="text"
-            name="act_title"
-            placeholder={t('Titel på din akt', 'Name of your act')}
-            value={formData.act_title || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div className="form-field">
-          <label className="form-label-block">
-            {t('Act beksrivning (SV) *', 'Act Description (ENG) *')}
-          </label>
-          <textarea
-            name="act_description"
-            placeholder={t(
-              'Berätta om ditt nummer (på svenska)',
-              'Tell us about your act (in english)'
-            )}
-            rows={4}
-            value={formData.act_description || ''}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div className="form-field">
-          <label className="form-label-block">
-            {t('Video Link (friviligt)', 'Video Link (optional)')}
-          </label>
-          <input
-            type="url"
-            name="video_url"
-            placeholder={t('En video länk till din akt', 'A video link to your act')}
-            value={formData.video_url || ''}
-            onChange={handleChange}
-          />
-        </div>
 
         <div className="form-row-2-tight">
           <div className="form-field">
@@ -366,7 +361,6 @@ export const ArtistForm = () => {
               placeholder={t('Din instagram profil', 'Your instagram profile')}
               value={formData.instagram_link || ''}
               onChange={handleChange}
-              required
             />
           </div>
 
@@ -383,7 +377,6 @@ export const ArtistForm = () => {
               )}
               value={formData.other_link || ''}
               onChange={handleChange}
-              required
             />
           </div>
         </div>
@@ -398,15 +391,14 @@ export const ArtistForm = () => {
           />
           <label className="text-sm text-foreground/90 leading-relaxed cursor-pointer font-medium">
             {t(
-              'Genom att skicka in detta formulär godkänner du att Tip the Velvet (ekonomisk förening) sparar din ansökan och mediefiler i syfte att hantera artistbokningar. Vi delar aldrig din data med tredje part, och du kan när som helst kontakta oss för att få dina uppgifter raderade.',
-              'By submitting this form, you agree to Tip the Velvet (economic association) storing your application and media files for the purpose of managing artist bookings. We never share your data with third parties, and you can contact us at any time to have your information deleted.'
+              'Genom att skicka in detta formulär godkänner du att Tip the Velvet (ekonomisk förening) sparar dina uppgifter och mediebilder i syfte av atisbokningar samt att visa upp dig i vårt Hall of Fame! Vi delar aldrig din känsliga data med tredje part, och du kan när som helst kontakta oss för att få dina uppgifter raderade.',
+              'By submitting this form, you agree to Tip the Velvet (economic association) storing your information and media files for the purpose of artist bookings and displaying your public information in our wall of fame! We never share your sensitive data with third parties, and you can contact us at any time to have your information deleted.'
             )}
           </label>
         </div>
 
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           className="w-full btn-gold py-3 disabled:opacity-50"
           disabled={submitting || !agreed}
         >
@@ -419,7 +411,7 @@ export const ArtistForm = () => {
             </>
           )}
         </button>
-      </div>
+      </form>
     </div>
   )
 }
