@@ -103,6 +103,7 @@ export const Performers = () => {
   return (
     <>
       <div className="page-shell">
+        <div className="bg-glow-spot" />
         <header className="header !mb-0 !pb-5">
           <div className="section-header-triad">
             <div className="hidden md:block"></div>
