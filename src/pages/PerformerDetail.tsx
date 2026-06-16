@@ -7,7 +7,7 @@ import type { Performer, PublicPerformer } from '@/types/types'
 import { fetchPerformerBySlug } from '@/services/performerService'
 import { getCloudinaryImagesByTag } from '@/services/cloudinaryService'
 import { getImageSrc } from '@/lib/utils'
-import { ArrowLeft, Images, Camera, Mail, Phone } from 'lucide-react'
+import { ArrowLeft, Images, Mail, Phone } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 
