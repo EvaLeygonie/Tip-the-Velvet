@@ -1,4 +1,9 @@
-import type { Tables, TablesInsert, Enums } from './database.types'
+import type { Tables, TablesInsert, Enums, Database } from './database.types'
+
+//=== VIEWS ===//
+
+export type Views<T extends keyof Database['public']['Views']> =
+  Database['public']['Views'][T]['Row']
 
 //=== TABLES ===//
 
@@ -6,9 +11,10 @@ export type Event = Tables<'events'>
 export type OldEvent = Tables<'old_events'>
 export type EventImage = Tables<'event_images'>
 export type Performer = Tables<'performers'>
+export type PublicPerformer = Views<'public_performers'>
 export type CastingApplication = Tables<'casting_applications'>
 export type StaffVolunteers = Tables<'staff_volunteers'>
-export type Sponsors = TablesInsert<'sponsors'>
+export type Sponsors = Tables<'sponsors'>
 
 //=== INSERTS ===//
 export type CreateEventInput = TablesInsert<'events'>

@@ -7,6 +7,7 @@ import { uploadToCloudinary, checkImageExists } from '@/services/cloudinaryServi
 import { buildEventFolderName } from '@/lib/utils'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { toast } from 'sonner'
+import { CastingInfoAccordion } from './CastingInfoAccordion'
 
 interface PostgrestError {
   code?: string
@@ -237,6 +238,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </span>
         </div>
       </div>
+
+      <CastingInfoAccordion event={event} />
 
       <div className="gold-divider" />
 

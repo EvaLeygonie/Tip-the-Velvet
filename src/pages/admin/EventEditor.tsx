@@ -344,6 +344,31 @@ export const EventEditor = () => {
           </div>
         </header>
 
+        {/* CASTING INFO */}
+        <div className="form-row-2">
+          <div className="form-field">
+            <label className="form-label-gold">Casting info (SV)</label>
+            <textarea
+              name="casting_info_sv"
+              value={formData.casting_info_sv || ''}
+              onChange={handleChange}
+              className="editor-textarea min-h-[150px]"
+              placeholder="Estetiskt tema, showtema, sårbarhet..."
+            />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label-gold">Casting info (ENG)</label>
+            <textarea
+              name="casting_info_eng"
+              value={formData.casting_info_eng || ''}
+              onChange={handleChange}
+              className="editor-textarea min-h-[150px]"
+              placeholder="Aesthetic theme, show theme..."
+            />
+          </div>
+        </div>
+
         <div className="gold-divider" />
 
         {/* PROMO IMAGE */}

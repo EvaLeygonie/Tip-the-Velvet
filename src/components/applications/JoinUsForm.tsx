@@ -168,7 +168,9 @@ export const JoinUsCard = () => {
             />
           </div>
           <div className="form-field">
-            <label className="form-label-block">{t('Telefon', 'Phone')}</label>
+            <label className="form-label-block">
+              {t('Telefon (valfritt)', 'Phone (optional)')}
+            </label>
             <input
               type="text"
               name="phone"
@@ -200,6 +202,25 @@ export const JoinUsCard = () => {
             name="role_details"
             placeholder={t('Berätta gärna mer!', 'Please tell us more!')}
             value={formData.role_details || ''}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-field">
+          <label className="form-label-block">
+            {t(
+              'Portfolio / Instagram / annat (valfritt)',
+              'Portfolio / Instagram / other (optional)'
+            )}
+          </label>
+          <input
+            type="text"
+            name="link"
+            placeholder={t(
+              'Om du erbjuder kreativa tjänster och vill visa vad du gör!',
+              "If you're offering creative services and want to show what you do!"
+            )}
+            value={formData.link || ''}
             onChange={handleChange}
           />
         </div>

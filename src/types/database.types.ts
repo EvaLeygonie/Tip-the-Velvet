@@ -166,6 +166,13 @@ export type Database = {
             referencedRelation: "performers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_performers_performer_id_fkey"
+            columns: ["performer_id"]
+            isOneToOne: false
+            referencedRelation: "public_performers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_sponsors: {
@@ -247,6 +254,8 @@ export type Database = {
         Row: {
           available_tickets: number | null
           casting_call_deadline: string | null
+          casting_info_eng: string | null
+          casting_info_sv: string | null
           created_at: string
           description_eng: string | null
           description_sv: string | null
@@ -275,6 +284,8 @@ export type Database = {
         Insert: {
           available_tickets?: number | null
           casting_call_deadline?: string | null
+          casting_info_eng?: string | null
+          casting_info_sv?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
@@ -303,6 +314,8 @@ export type Database = {
         Update: {
           available_tickets?: number | null
           casting_call_deadline?: string | null
+          casting_info_eng?: string | null
+          casting_info_sv?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
@@ -458,6 +471,13 @@ export type Database = {
             referencedRelation: "performers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "performer_acts_performer_id_fkey"
+            columns: ["performer_id"]
+            isOneToOne: false
+            referencedRelation: "public_performers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       performers: {
@@ -558,7 +578,9 @@ export type Database = {
           agreed_to_terms: boolean | null
           created_at: string
           email: string | null
+          fee: number | null
           id: string
+          link: string | null
           name: string
           phone: string | null
           role: Database["public"]["Enums"]["staff_volunteer_type"]
@@ -568,7 +590,9 @@ export type Database = {
           agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
+          fee?: number | null
           id?: string
+          link?: string | null
           name: string
           phone?: string | null
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
@@ -578,7 +602,9 @@ export type Database = {
           agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
+          fee?: number | null
           id?: string
+          link?: string | null
           name?: string
           phone?: string | null
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
@@ -621,7 +647,48 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_performers: {
+        Row: {
+          bio_eng: string | null
+          bio_sv: string | null
+          city: string | null
+          country: string | null
+          id: string | null
+          instagram_link: string | null
+          is_approved: boolean | null
+          other_link: string | null
+          performer_name: string | null
+          promo_image_id: string | null
+          slug: string | null
+        }
+        Insert: {
+          bio_eng?: string | null
+          bio_sv?: string | null
+          city?: string | null
+          country?: string | null
+          id?: string | null
+          instagram_link?: string | null
+          is_approved?: boolean | null
+          other_link?: string | null
+          performer_name?: string | null
+          promo_image_id?: string | null
+          slug?: string | null
+        }
+        Update: {
+          bio_eng?: string | null
+          bio_sv?: string | null
+          city?: string | null
+          country?: string | null
+          id?: string | null
+          instagram_link?: string | null
+          is_approved?: boolean | null
+          other_link?: string | null
+          performer_name?: string | null
+          promo_image_id?: string | null
+          slug?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       event_status_handler: { Args: never; Returns: undefined }

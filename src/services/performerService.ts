@@ -1,17 +1,51 @@
 import { supabase } from '@/lib/supabase'
-import type { Performer, CreatePerformerInput } from '@/types/types'
+import type { Performer, PublicPerformer, CreatePerformerInput } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
 
 //=== READ ===///
 
-export async function fetchPerformers(): Promise<Performer[]> {
-  const { data, error } = await supabase
-    .from('performers')
-    .select('*')
-    .order('performer_name', { ascending: true })
-  if (error) throw error
-  return (data || []) as Performer[]
+export const fetchPerformers = async (
+  isAdmin: boolean
+): Promise<(Performer | PublicPerformer)[]> => {
+  if (isAdmin) {
+    const { data, error } = await supabase
+      .from('performers')
+      .select('*')
+      .order('performer_name', { ascending: true })
+
+    if (error) throw error
+    return data as Performer[]
+  } else {
+    const { data, error } = await supabase
+      .from('public_performers')
+      .select('*')
+      .order('performer_name', { ascending: true })
+
+    if (error) throw error
+    return data as PublicPerformer[]
+  }
+}
+
+export const fetchPerformerBySlug = async (
+  slug: string,
+  isAdmin: boolean
+): Promise<Performer | PublicPerformer> => {
+  if (isAdmin) {
+    const { data, error } = await supabase.from('performers').select('*').eq('slug', slug).single()
+
+    if (error) throw error
+    return data as Performer
+  } else {
+    const { data, error } = await supabase
+      .from('public_performers')
+      .select('*')
+      .eq('slug', slug)
+      .single()
+
+    if (error) throw error
+    return data as PublicPerformer
+  }
 }
 
 //=== CREATE ===//

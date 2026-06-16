@@ -41,8 +41,8 @@ export const CastingCall = () => {
 
           <p className="subtitle">
             {t(
-              'Om du har frågor kring vad vi letar efter för ett specifikt event, maila oss gärna på: ',
-              'If you have questions about what we are looking for for a particular event, feel free to contact us at: '
+              'Vill du stå på vår scen? Vissa event har en utfällbar konstnärlig brief med mer information om showens koncept. Har du allmänna frågor om hur vår castingprocess fungerar är du alltid välkommen att maila oss på: ',
+              "Want to join us on stage? Some events feature an expandable artistic brief with more details about the show's concept. If you have general questions regarding our casting process, feel free to email us at: "
             )}
             <a href="mailto:velvet.gbg@gmail.com" className="text-accent hover:text-accent/80 ">
               <span>velvet.gbg@gmail.com</span>
