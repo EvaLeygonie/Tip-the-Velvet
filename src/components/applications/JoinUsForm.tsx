@@ -145,18 +145,19 @@ export const JoinUsCard = () => {
   return (
     <div className="application-card">
       <div className="form-stack">
-        <div className="form-field">
-          <label className="form-label-block">{t('Namn *', 'Name *')}</label>
-          <input
-            type="text"
-            name="name"
-            placeholder={t('Ditt namn', 'Your full name')}
-            value={formData.name}
-            onChange={handleChange}
-          />
-        </div>
-        {/* PHONE & EMAIL */}
+        {/* NAME & EMAIL */}
         <div className="form-row-2">
+          <div className="form-field">
+            <label className="form-label-block">{t('Namn *', 'Name *')}</label>
+            <input
+              type="text"
+              name="name"
+              placeholder={t('Ditt namn', 'Your full name')}
+              value={formData.name}
+              onChange={handleChange}
+            />
+          </div>
+
           <div className="form-field">
             <label className="form-label-block">Email *</label>
             <input
@@ -167,6 +168,25 @@ export const JoinUsCard = () => {
               onChange={handleChange}
             />
           </div>
+        </div>
+
+        {/* NAME & ROLE */}
+        <div className="form-row-2">
+          <div className="form-field">
+            <label className="form-label-block">{t('Roll *', 'Role *')}</label>
+            <select name="role" value={formData.role || ''} onChange={handleChange}>
+              <option value="" disabled hidden>
+                {language === 'sv' ? '-- Välj din roll --' : '-- Select your role --'}
+              </option>
+
+              {ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {language === 'sv' ? opt.sv : opt.en}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="form-field">
             <label className="form-label-block">
               {t('Telefon (valfritt)', 'Phone (optional)')}
@@ -179,21 +199,6 @@ export const JoinUsCard = () => {
               onChange={handleChange}
             />
           </div>
-        </div>
-
-        <div className="form-field">
-          <label className="form-label-block">{t('Roll *', 'Role *')}</label>
-          <select name="role" value={formData.role || ''} onChange={handleChange}>
-            <option value="" disabled hidden>
-              {language === 'sv' ? '-- Välj din roll --' : '-- Select your role --'}
-            </option>
-
-            {ROLE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {language === 'sv' ? opt.sv : opt.en}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div className="form-field">
