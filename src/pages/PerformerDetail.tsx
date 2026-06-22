@@ -52,8 +52,11 @@ export const PerformerDetail = () => {
 
         if (data) {
           try {
-            const cloudinaryIds = await getCloudinaryImagesByTag(slug!)
-            setImageIds(cloudinaryIds)
+            const targetTag = data.slug ? data.slug.toLowerCase() : slug!.toLowerCase()
+            const cloudinaryIds = await getCloudinaryImagesByTag(targetTag)
+
+            const filteredIds = cloudinaryIds.filter((id: string) => id !== data.promo_image_id)
+            setImageIds(filteredIds)
           } catch (cloudinaryErr) {
             console.log(cloudinaryErr, ' Inga bilder hittades på Cloudinary för denna artist.')
             setImageIds([])

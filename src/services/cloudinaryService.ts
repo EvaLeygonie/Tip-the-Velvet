@@ -41,7 +41,15 @@ export const uploadToCloudinary = async (
   publicId?: string
 ): Promise<string> => {
   const formData = new FormData()
-  formData.append('file', file)
+
+  let cleanFileName = file.name
+  if (/\.(jpg|jpeg|png|webp|heic)\.(jpg|jpeg|png|webp|heic)$/i.test(cleanFileName)) {
+    cleanFileName = cleanFileName.replace(/\.[^/.]+$/, '')
+  }
+
+  const cleanFile = new File([file], cleanFileName, { type: file.type })
+
+  formData.append('file', cleanFile)
   formData.append('upload_preset', UPLOAD_PRESET)
   formData.append('folder', folder)
   formData.append('tags', tags.join(','))
@@ -52,7 +60,13 @@ export const uploadToCloudinary = async (
     method: 'POST',
     body: formData,
   })
-  if (!res.ok) throw new Error('Uppladdning misslyckades')
+
+  if (!res.ok) {
+    const errorData = await res.json()
+    console.error('Cloudinary API Error:', errorData)
+    throw new Error(errorData.error?.message || 'Uppladdning misslyckades')
+  }
+
   const data = await res.json()
   return data.public_id
 }

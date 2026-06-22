@@ -97,7 +97,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     let finalImageId = formData.promo_image_id
 
     if (tempFile) {
-      const alreadyExists = await checkImageExists(imageSlug, eventSlug)
+      const alreadyExists = await checkImageExists(eventSlug, imageSlug)
 
       if (alreadyExists) {
         toast.info(

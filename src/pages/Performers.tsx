@@ -149,10 +149,8 @@ export const Performers = () => {
 
                 return (
                   <div key={performerItem.id} className="relative group z-0">
-                    {/* PerformerCard tar emot objektet tryggt */}
                     <PerformerCard performer={performerItem as Performer} />
 
-                    {/* SÄKRAD: Admin-knappar körs och renderas ENDAST om du är inloggad */}
                     {user && (
                       <>
                         <button

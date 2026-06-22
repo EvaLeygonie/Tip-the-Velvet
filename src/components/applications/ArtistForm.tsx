@@ -353,7 +353,7 @@ export const ArtistForm = () => {
         <div className="form-row-2-tight">
           <div className="form-field">
             <label className="form-label-block">
-              {t('Instagram (friviligt)', 'Instagram (optional)')}
+              {t('Instagram länk (friviligt)', 'Instagram link (optional)')}
             </label>
             <input
               type="text"
