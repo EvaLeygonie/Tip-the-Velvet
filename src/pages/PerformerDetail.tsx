@@ -100,7 +100,6 @@ export const PerformerDetail = () => {
   return (
     <>
       <div className="page-shell">
-        {/* Bakgrundsglow hamnar bakom tack vare z-index justeringarna nedan */}
         <div className="bg-glow-spot z-0" />
 
         <div className="editor-container relative z-10">
@@ -117,7 +116,6 @@ export const PerformerDetail = () => {
                 {performer.performer_name}
               </h1>
 
-              {/* Stad/Land med MapPin för mycket skarpare läsbarhet mot mörk bakgrund */}
               {performer.city && (
                 <p className="text-xs font-mono tracking-widest text-accent/70 uppercase flex items-center justify-center gap-1 drop-shadow-md">
                   <MapPin size={12} className="text-accent-light/80" />
@@ -166,17 +164,24 @@ export const PerformerDetail = () => {
 
         {/* Profilinnehåll */}
         <div className="page-content-narrow flex flex-col items-center space-y-8 relative z-10">
-          {/* PROFILBILD / PROMOBILD PLACERING */}
+          {/* PROFILBILD */}
           {performer.promo_image_id && (
             <div className="w-full max-w-sm aspect-[3/4] rounded-lg overflow-hidden border border-gold/20 shadow-[0_0_30px_rgba(0,0,0,0.8)] bg-black/40 group relative">
               <CloudinaryImage
                 publicId={performer.promo_image_id}
                 width={500}
                 height={666}
-                gravityFace={true} // HÄR ÄR DEN NYA PROPEN! Ta bort crop="..." och gravity="..."
+                gravityFace={true}
                 className="media-cover group-hover:scale-102 transition-transform duration-700"
               />
               <div className="absolute inset-0 border border-gold/10 rounded-lg pointer-events-none m-1" />
+            </div>
+          )}
+
+          {performer.photographer && (
+            <div className="meta-row justify-center text-xs md:text-sm text-foreground/85 italic pb-4">
+              <Camera size={14} className="icon-accent-sm" />
+              <span className="text-accent not-italic font-medium">{performer.photographer}</span>
             </div>
           )}
 

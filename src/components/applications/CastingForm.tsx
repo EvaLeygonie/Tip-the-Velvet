@@ -32,6 +32,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     act_title: '',
     email: '',
     promo_image_id: null,
+    photographer: '',
   })
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
@@ -377,9 +378,20 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               rows={4}
               value={formData.promo_text || ''}
               onChange={handleChange}
-              className="w-full flex-1 min-h-[300px] h-full resize-none box-border"
+              className="w-full flex-1 min-h-[200px] h-full resize-none box-border"
               required
             />
+            <div className="form-field">
+              <label className="form-label-block mt-2">{t('Fotograf *', 'Photographer *')}</label>
+              <input
+                type="text"
+                name="photographer"
+                placeholder={t('Vem tog bilden?', 'Who took this picture?')}
+                value={formData.photographer || ''}
+                onChange={handleChange}
+                required
+              />
+            </div>
           </div>
         </div>
 
@@ -430,7 +442,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <div className="form-row-2-tight">
           <div className="form-field">
             <label className="form-label-block">
-              {t('Instagram (friviligt)', 'Instagram (optional)')}
+              {t('Instagram länk (friviligt)', 'Instagram Link (optional)')}
             </label>
             <input
               type="text"

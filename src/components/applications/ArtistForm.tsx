@@ -30,6 +30,7 @@ export const ArtistForm = () => {
     instagram_link: '',
     other_link: '',
     promo_image_id: null,
+    photographer: '',
   })
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
@@ -284,7 +285,7 @@ export const ArtistForm = () => {
                 <div className="absolute inset-0 group flex items-center justify-center p-2">
                   <img
                     src={getImageSrc(formData.promo_image_id)}
-                    className="max-h-full max-w-full object-contain rounded" // Anpassar bilden vackert inuti rutan
+                    className="max-h-full max-w-full object-contain rounded"
                     alt="Preview"
                   />
                   <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded">
@@ -309,6 +310,17 @@ export const ArtistForm = () => {
                 className="hidden"
                 accept="image/*"
                 onChange={handleImageUpload}
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label-block mt-2">{t('Fotograf *', 'Photographer *')}</label>
+              <input
+                type="text"
+                name="photographer"
+                placeholder={t('Vem tog bilden?', 'Who took this picture?')}
+                value={formData.photographer || ''}
+                onChange={handleChange}
+                required
               />
             </div>
           </div>

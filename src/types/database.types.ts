@@ -31,6 +31,7 @@ export type Database = {
           language: Database["public"]["Enums"]["language"]
           other_link: string | null
           performer_name: string
+          photographer: string | null
           promo_image_id: string | null
           promo_text: string | null
           review_status: Database["public"]["Enums"]["casting_review_status"]
@@ -53,6 +54,7 @@ export type Database = {
           language?: Database["public"]["Enums"]["language"]
           other_link?: string | null
           performer_name: string
+          photographer?: string | null
           promo_image_id?: string | null
           promo_text?: string | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
@@ -75,6 +77,7 @@ export type Database = {
           language?: Database["public"]["Enums"]["language"]
           other_link?: string | null
           performer_name?: string
+          photographer?: string | null
           promo_image_id?: string | null
           promo_text?: string | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
@@ -245,6 +248,13 @@ export type Database = {
             foreignKeyName: "event_staff_volunteers_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "public_photographers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_staff_volunteers_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
             referencedRelation: "staff_volunteers"
             referencedColumns: ["id"]
           },
@@ -270,6 +280,7 @@ export type Database = {
           location: string | null
           photobooth_url: string | null
           photographer: string | null
+          photographer_id: string | null
           pinterest_link: string | null
           reveal_date: string | null
           slug: string
@@ -280,6 +291,7 @@ export type Database = {
           tickets_sold: number | null
           title: string
           updated_at: string
+          venue_id: string | null
         }
         Insert: {
           available_tickets?: number | null
@@ -300,6 +312,7 @@ export type Database = {
           location?: string | null
           photobooth_url?: string | null
           photographer?: string | null
+          photographer_id?: string | null
           pinterest_link?: string | null
           reveal_date?: string | null
           slug: string
@@ -310,6 +323,7 @@ export type Database = {
           tickets_sold?: number | null
           title: string
           updated_at?: string
+          venue_id?: string | null
         }
         Update: {
           available_tickets?: number | null
@@ -330,6 +344,7 @@ export type Database = {
           location?: string | null
           photobooth_url?: string | null
           photographer?: string | null
+          photographer_id?: string | null
           pinterest_link?: string | null
           reveal_date?: string | null
           slug?: string
@@ -340,8 +355,38 @@ export type Database = {
           tickets_sold?: number | null
           title?: string
           updated_at?: string
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_photographer_id_fkey"
+            columns: ["photographer_id"]
+            isOneToOne: false
+            referencedRelation: "public_photographers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_photographer_id_fkey"
+            columns: ["photographer_id"]
+            isOneToOne: false
+            referencedRelation: "staff_volunteers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "public_venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       old_event_images: {
         Row: {
@@ -496,6 +541,7 @@ export type Database = {
           other_link: string | null
           performer_name: string
           phone: string | null
+          photographer: string | null
           promo_image_id: string | null
           slug: string
         }
@@ -514,6 +560,7 @@ export type Database = {
           other_link?: string | null
           performer_name: string
           phone?: string | null
+          photographer?: string | null
           promo_image_id?: string | null
           slug: string
         }
@@ -532,6 +579,7 @@ export type Database = {
           other_link?: string | null
           performer_name?: string
           phone?: string | null
+          photographer?: string | null
           promo_image_id?: string | null
           slug?: string
         }
@@ -585,6 +633,7 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details: string | null
+          worked_with: boolean | null
         }
         Insert: {
           agreed_to_terms?: boolean | null
@@ -597,6 +646,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
+          worked_with?: boolean | null
         }
         Update: {
           agreed_to_terms?: boolean | null
@@ -609,6 +659,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
+          worked_with?: boolean | null
         }
         Relationships: []
       }
@@ -617,8 +668,9 @@ export type Database = {
           contact_person: string | null
           created_at: string
           email: string | null
-          id: number
+          id: string
           location: string | null
+          map_link: string | null
           name: string
           phone: string | null
           price: number | null
@@ -627,8 +679,9 @@ export type Database = {
           contact_person?: string | null
           created_at?: string
           email?: string | null
-          id?: number
+          id?: string
           location?: string | null
+          map_link?: string | null
           name: string
           phone?: string | null
           price?: number | null
@@ -637,8 +690,9 @@ export type Database = {
           contact_person?: string | null
           created_at?: string
           email?: string | null
-          id?: number
+          id?: string
           location?: string | null
+          map_link?: string | null
           name?: string
           phone?: string | null
           price?: number | null
@@ -658,6 +712,7 @@ export type Database = {
           is_approved: boolean | null
           other_link: string | null
           performer_name: string | null
+          photographer: string | null
           promo_image_id: string | null
           slug: string | null
         }
@@ -671,6 +726,7 @@ export type Database = {
           is_approved?: boolean | null
           other_link?: string | null
           performer_name?: string | null
+          photographer?: string | null
           promo_image_id?: string | null
           slug?: string | null
         }
@@ -684,8 +740,51 @@ export type Database = {
           is_approved?: boolean | null
           other_link?: string | null
           performer_name?: string | null
+          photographer?: string | null
           promo_image_id?: string | null
           slug?: string | null
+        }
+        Relationships: []
+      }
+      public_photographers: {
+        Row: {
+          id: string | null
+          link: string | null
+          name: string | null
+          role: Database["public"]["Enums"]["staff_volunteer_type"] | null
+        }
+        Insert: {
+          id?: string | null
+          link?: string | null
+          name?: string | null
+          role?: Database["public"]["Enums"]["staff_volunteer_type"] | null
+        }
+        Update: {
+          id?: string | null
+          link?: string | null
+          name?: string | null
+          role?: Database["public"]["Enums"]["staff_volunteer_type"] | null
+        }
+        Relationships: []
+      }
+      public_venues: {
+        Row: {
+          id: string | null
+          location: string | null
+          map_link: string | null
+          name: string | null
+        }
+        Insert: {
+          id?: string | null
+          location?: string | null
+          map_link?: string | null
+          name?: string | null
+        }
+        Update: {
+          id?: string | null
+          location?: string | null
+          map_link?: string | null
+          name?: string | null
         }
         Relationships: []
       }
