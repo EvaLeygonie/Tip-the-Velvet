@@ -55,6 +55,40 @@ export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
   }
 }
 
+export const getAdminEventDetails = async (slug: string) => {
+  const { data, error } = await supabase
+    .from('events')
+    .select(
+      `
+      *,
+      venues (id, name),
+      public_photographers!events_photographer_id_fkey (id, name)
+    `
+    )
+    .eq('slug', slug)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export const getAllVenues = async () => {
+  const { data, error } = await supabase.from('venues').select('id, name').order('name')
+
+  if (error) throw error
+  return data
+}
+
+export const getAllPhotographers = async () => {
+  const { data, error } = await supabase
+    .from('public_photographers')
+    .select('id, name')
+    .order('name')
+
+  if (error) throw error
+  return data
+}
+
 //=== CREATE ===//
 
 export const createEvent = async (eventData: CreateEventInput): Promise<Event> => {

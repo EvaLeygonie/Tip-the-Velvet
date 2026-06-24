@@ -7,8 +7,14 @@ import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { Event, CreateEventInput } from '@/types/types'
 import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
+import { getAdminEventDetails, getAllVenues, getAllPhotographers } from '@/services/eventService'
 import { deleteRow } from '@/services/databaseService'
 import { uploadToCloudinary, deleteFromCloudinary } from '@/services/cloudinaryService'
+
+interface DropdownOption {
+  id: string
+  name: string
+}
 
 export const EventEditor = () => {
   const { t } = useLanguage()
@@ -21,12 +27,19 @@ export const EventEditor = () => {
   const [tempFile, setTempFile] = useState<File | null>(null)
   const [oldImageId, setOldImageId] = useState<string | null>(null)
 
+  const [venues, setVenues] = useState<DropdownOption[]>([])
+  const [photographers, setPhotographers] = useState<DropdownOption[]>([])
+
   const [formData, setFormData] = useState<Partial<Event>>({
     title: '',
     slug: '',
     status: 'draft',
     has_casting_call: false,
     glow_color: '#D4AF37',
+    venue_id: null,
+    photographer_id: null,
+    location: '',
+    photographer: '',
   })
 
   const glowColor = formData.glow_color || '#D4AF37'
@@ -39,17 +52,20 @@ export const EventEditor = () => {
   }
 
   useEffect(() => {
-    if (slug) {
-      const fetchEvent = async () => {
-        setLoading(true)
-        try {
-          const { data, error } = await supabase
-            .from('events')
-            .select('*')
-            .eq('slug', slug)
-            .single()
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const [venuesData, photographersData] = await Promise.all([
+          getAllVenues(),
+          getAllPhotographers(),
+        ])
+        setVenues((venuesData || []).filter((v) => v.id && v.name) as DropdownOption[])
+        setPhotographers(
+          (photographersData || []).filter((p) => p.id && p.name) as DropdownOption[]
+        )
 
-          if (error) throw error
+        if (slug) {
+          const data = await getAdminEventDetails(slug)
           if (data) {
             setFormData({
               ...data,
@@ -58,15 +74,16 @@ export const EventEditor = () => {
             })
             setOldImageId(data.image_id)
           }
-        } catch (err) {
-          toast.error(t('Kunde inte ladda eventet', 'Failed to load event'))
-          console.log(err)
-        } finally {
-          setLoading(false)
         }
+      } catch (err) {
+        toast.error(t('Kunde inte ladda data', 'Failed to load data'))
+        console.error(err)
+      } finally {
+        setLoading(false)
       }
-      fetchEvent()
     }
+
+    loadData()
   }, [slug, t])
 
   const handlePickColor = useCallback(() => {
@@ -94,6 +111,28 @@ export const EventEditor = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  const handleVenueChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value || null
+    const selectedVenue = venues.find((v) => v.id === selectedId)
+
+    setFormData((prev) => ({
+      ...prev,
+      venue_id: selectedId,
+      location: selectedVenue ? selectedVenue.name : '',
+    }))
+  }
+
+  const handlePhotographerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value || null
+    const selectedPhotographer = photographers.find((p) => p.id === selectedId)
+
+    setFormData((prev) => ({
+      ...prev,
+      photographer_id: selectedId,
+      photographer: selectedPhotographer ? selectedPhotographer.name : '',
+    }))
   }
 
   const handleSave = async () => {
@@ -186,7 +225,6 @@ export const EventEditor = () => {
   }
 
   const isReadyToUpload = formData.title && formData.title.trim().length > 2
-
   const liveSlug = formData.slug || createSlug(formData.title || '')
 
   return (
@@ -331,15 +369,22 @@ export const EventEditor = () => {
                 className="editor-input !border-none !py-0 !text-right text-xs"
               />
             </div>
+            {/* PLATS (DROPDOWN) */}
             <div className="panel-row">
               <label className="form-label-gold">{t('Plats:', 'Location:')}</label>
-              <input
-                name="location"
-                value={formData.location || ''}
-                onChange={handleChange}
-                placeholder={t('Plats...', 'Location...')}
-                className="editor-input !border-none !py-0 !text-right text-xs"
-              />
+              <select
+                name="venue_id"
+                value={formData.venue_id || ''}
+                onChange={handleVenueChange}
+                className="admin-select !w-auto !py-0 text-right text-xs max-w-[180px]"
+              >
+                <option value="">-- {t('Välj plats...', 'Select location...')} --</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </header>
@@ -527,15 +572,24 @@ export const EventEditor = () => {
               />
             </div>
 
+            {/* FOTOGRAF (DROPDOWN) */}
             <div className="field-row">
               <label className="form-label-gold">{t('Fotograf', 'Photographer')}</label>
-              <input
-                name="photographer"
-                className="editor-input"
-                value={formData.photographer || ''}
-                onChange={handleChange}
-              />
+              <select
+                name="photographer_id"
+                value={formData.photographer_id || ''}
+                onChange={handlePhotographerChange}
+                className="admin-select"
+              >
+                <option value="">-- {t('Välj fotograf...', 'Select photographer...')} --</option>
+                {photographers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </div>
+
             <div className="field-row">
               <label className="form-label-gold">{t('Facebook album', 'Facebook Album')}</label>
               <input
