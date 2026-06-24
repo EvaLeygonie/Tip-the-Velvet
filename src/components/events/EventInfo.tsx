@@ -5,7 +5,15 @@ import type { Event } from '@/types/types'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Link } from 'react-router-dom'
 
-export const EventInfo = ({ event }: { event: Event }) => {
+interface EventWithVenue extends Event {
+  venues?: {
+    id: string
+    name: string
+    map_link: string
+  } | null
+}
+
+export const EventInfo = ({ event }: { event: EventWithVenue }) => {
   const { language, t } = useLanguage()
 
   if (!event) return null
@@ -67,7 +75,21 @@ export const EventInfo = ({ event }: { event: Event }) => {
               <MapPin className="icon-accent-md" strokeWidth={1.5} />
               <div>
                 <span className="label-kicker">{t('Plats:', 'Venue:')}</span>
-                <span className="text-foreground/90">{event.location || 'TBA'}</span>
+                <span className="text-foreground/90">
+                  {event.venues ? (
+                    <a
+                      href={event.venues.map_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground hover:underline inline-flex items-center gap-1"
+                    >
+                      {event.venues.name}
+                      <ExternalLink size={12} className="opacity-70" />
+                    </a>
+                  ) : (
+                    event.location || 'TBA'
+                  )}
+                </span>
               </div>
             </div>
           </div>

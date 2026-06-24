@@ -669,8 +669,8 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
-          location: string | null
-          map_link: string | null
+          location: string
+          map_link: string
           name: string
           phone: string | null
           price: number | null
@@ -680,8 +680,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
-          location?: string | null
-          map_link?: string | null
+          location: string
+          map_link: string
           name: string
           phone?: string | null
           price?: number | null
@@ -691,8 +691,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
-          location?: string | null
-          map_link?: string | null
+          location?: string
+          map_link?: string
           name?: string
           phone?: string | null
           price?: number | null

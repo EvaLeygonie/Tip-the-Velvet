@@ -25,25 +25,30 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
   const [progress, setProgress] = useState({ current: 0, total: 0 })
 
   const [tagInput, setTagInput] = useState('')
-  const [tags, setTags] = useState<string[]>([event.slug])
+  const [customTags, setCustomTags] = useState<string[]>([])
+
+  const cleanedPhotographer = event.photographer?.trim().toLowerCase().replace(/\s+/g, '-') || ''
+  const baseTags = [event.slug, cleanedPhotographer].filter(Boolean)
+
+  const allTags = [...baseTags, ...customTags]
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()
       const newTag = tagInput.trim().toLowerCase().replace(/\s+/g, '-')
-      if (newTag && !tags.includes(newTag)) {
-        setTags([...tags, newTag])
+
+      if (newTag && !allTags.includes(newTag)) {
+        setCustomTags([...customTags, newTag])
       }
       setTagInput('')
     }
-    if (e.key === 'Backspace' && tagInput === '' && tags.length > 1) {
-      setTags(tags.slice(0, -1))
+    if (e.key === 'Backspace' && tagInput === '' && customTags.length > 0) {
+      setCustomTags(customTags.slice(0, -1))
     }
   }
 
   const removeTag = (tagToRemove: string) => {
-    if (tagToRemove === event.slug) return
-    setTags(tags.filter((t) => t !== tagToRemove))
+    setCustomTags(customTags.filter((t) => t !== tagToRemove))
   }
 
   const getEventDate = () => {
@@ -70,7 +75,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
       fileArray.map(async (file, index) => {
         try {
           const fileToUpload = await compressImage(file)
-          const publicId = await uploadToCloudinary(fileToUpload, folder, tags)
+          const publicId = await uploadToCloudinary(fileToUpload, folder, allTags)
 
           await createEventImage(
             {
@@ -144,25 +149,28 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
       <div className="editor-container">
         {/* Tag editor */}
         <div className="flex flex-wrap items-center gap-2 border-b border-accent/20 pb-3 mb-4">
-          {tags.map((tag) => (
+          {baseTags.map((tag) => (
             <span
               key={tag}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider ${
-                tag === event.slug
-                  ? 'bg-accent/20 text-accent border border-accent/30'
-                  : 'bg-white/10 text-foreground/70 border border-white/10'
-              }`}
+              className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider bg-accent/20 text-accent border border-accent/30"
             >
               {tag}
-              {tag !== event.slug && (
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="text-foreground/40 hover:text-foreground ml-1"
-                >
-                  <X size={10} />
-                </button>
-              )}
+            </span>
+          ))}
+
+          {customTags.map((tag) => (
+            <span
+              key={tag}
+              className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider bg-white/10 text-foreground/70 border border-white/10"
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeTag(tag)}
+                className="text-foreground/40 hover:text-foreground ml-1"
+              >
+                <X size={10} />
+              </button>
             </span>
           ))}
 

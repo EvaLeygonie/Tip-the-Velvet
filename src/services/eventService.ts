@@ -35,7 +35,14 @@ export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
   } else {
     const { data, error } = await supabase
       .from('events')
-      .select('*, event_images(*)')
+      .select(
+        `
+        *,
+        event_images(*),
+        venues:venue_id (id, name, map_link),
+        public_photographers:photographer_id (id, name, link)
+      `
+      )
       .eq('slug', slug)
       .single()
 

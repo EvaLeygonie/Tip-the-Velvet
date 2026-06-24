@@ -13,6 +13,14 @@ import { getImageSrc } from '@/lib/utils'
 import { EventInfo } from '@/components/events/EventInfo'
 import { OldEventInfo } from '@/components/events/OldEventInfo'
 
+type ExtendedEvent = Event & {
+  public_photographers?: {
+    id: string
+    name: string
+    link: string | null
+  } | null
+}
+
 export const EventDetail = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
@@ -20,7 +28,7 @@ export const EventDetail = () => {
   const isOldEvent = type === 'old'
   const [loading, setLoading] = useState(true)
 
-  const [event, setEvent] = useState<Event | OldEvent | null>(null)
+  const [event, setEvent] = useState<ExtendedEvent | OldEvent | null>(null)
   const [images, setImages] = useState<EventImage[]>([])
   const [index, setIndex] = useState<number>(-1)
 
@@ -153,12 +161,31 @@ export const EventDetail = () => {
         <div className="editor-container text-center space-y-1 mb-4">
           <h2 className="m-0 p-0">{t('Bilder', 'Photos')}</h2>
           {/* FOTOGRAPHER */}
-          {event?.photographer && (
-            <div className="meta-row justify-center pt-2">
-              <Camera size={14} className="text-accent/70" />
-              <span>{event.photographer}</span>
-            </div>
-          )}
+          {isOldEvent
+            ? (event as OldEvent).photographer && (
+                <div className="meta-row justify-center pt-2">
+                  <Camera size={14} className="text-accent/70" />
+                  <span>{(event as OldEvent).photographer}</span>
+                </div>
+              )
+            : (event as ExtendedEvent).public_photographers && (
+                <div className="meta-row justify-center pt-2">
+                  <Camera size={14} className="text-accent/70" />
+                  {(event as ExtendedEvent).public_photographers?.link ? (
+                    <a
+                      href={(event as ExtendedEvent).public_photographers!.link!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground hover:underline inline-flex items-center gap-1"
+                    >
+                      {(event as ExtendedEvent).public_photographers!.name}
+                      <ExternalLink size={11} className="opacity-60" />
+                    </a>
+                  ) : (
+                    <span>{(event as ExtendedEvent).public_photographers!.name}</span>
+                  )}
+                </div>
+              )}
         </div>
 
         {user && event && (

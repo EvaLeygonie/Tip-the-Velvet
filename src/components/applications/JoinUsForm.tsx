@@ -214,8 +214,8 @@ export const JoinUsCard = () => {
         <div className="form-field">
           <label className="form-label-block">
             {t(
-              'Portfolio / Instagram / annat (valfritt)',
-              'Portfolio / Instagram / other (optional)'
+              'Portfolio / Instagram / annan länk (valfritt)',
+              'Portfolio / Instagram / other link(optional)'
             )}
           </label>
           <input
