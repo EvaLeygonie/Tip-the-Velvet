@@ -6,6 +6,7 @@ import { submitCastingApplication } from '@/services/applicationService'
 import { uploadToCloudinary, checkImageExists } from '@/services/cloudinaryService'
 import { buildEventFolderName } from '@/lib/utils'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
+import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
 import { CastingInfoAccordion } from './CastingInfoAccordion'
 
@@ -114,11 +115,20 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
       setUploading(true)
       try {
+        const context = {
+          photographer: (formData.photographer || '').trim(),
+          artist: formData.performer_name?.trim() || '',
+          act: formData.act_title?.trim() || '',
+          event: event.title,
+          category: ImageCategory.CASTING,
+        }
+
         finalImageId = await uploadToCloudinary(
           tempFile,
           `Casting Calls/${eventFolder}`,
-          ['casting-call', eventSlug, artistSlug, actSlug],
-          imageSlug
+          [ImageCategory.CASTING, eventSlug, artistSlug, actSlug],
+          imageSlug,
+          context
         )
         setTempFile(null)
       } catch (err) {
