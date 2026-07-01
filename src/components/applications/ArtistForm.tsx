@@ -4,6 +4,7 @@ import { createSlug, getImageSrc } from '@/lib/utils'
 import type { CreatePerformerInput } from '@/types/types'
 import { submitArtistInfo } from '@/services/performerService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
+import { ImageCategory } from '@/types/media'
 import { Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -88,11 +89,17 @@ export const ArtistForm = () => {
     if (tempFile) {
       setUploading(true)
       try {
+        const context = {
+          photographer: (formData.photographer || '').trim(),
+          artist: formData.performer_name?.trim() || '',
+          category: ImageCategory.PROMO,
+        }
         finalImageId = await uploadToCloudinary(
           tempFile,
           'Performers',
-          ['performers', artistSlug],
-          `Promo-${artistSlug}`
+          [ImageCategory.PROMO, artistSlug],
+          `Promo-${artistSlug}`,
+          context
         )
         setTempFile(null)
       } catch (err) {

@@ -82,8 +82,8 @@ export const JoinUs = () => {
                   <span>
                     <strong>{t('Backstage & Scen:', 'Backstage & Stage:')}</strong>{' '}
                     {t(
-                      'Ljus, ljud, stage hands och annan scenkonst.',
-                      'Light, sound, stage hands, and other show-related logistics.'
+                      'Ljus, ljud, stage hands/kittens och annan scenkonst.',
+                      'Light, sound, stage hand/kittens, and other show-related logistics.'
                     )}
                   </span>
                 </li>

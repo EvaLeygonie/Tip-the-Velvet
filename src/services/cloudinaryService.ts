@@ -38,7 +38,8 @@ export const uploadToCloudinary = async (
   file: File,
   folder: string,
   tags: string[],
-  publicId?: string
+  publicId?: string,
+  context?: Record<string, string>
 ): Promise<string> => {
   const formData = new FormData()
 
@@ -55,6 +56,17 @@ export const uploadToCloudinary = async (
   formData.append('tags', tags.join(','))
 
   if (publicId) formData.append('public_id', publicId)
+
+  if (context) {
+    const contextString = Object.entries(context)
+      .map(([key, val]) => {
+        const cleanVal = String(val).replace(/[|=,]/g, '')
+        return `${key}=${cleanVal}`
+      })
+      .join('|')
+
+    formData.append('context', contextString)
+  }
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
     method: 'POST',
