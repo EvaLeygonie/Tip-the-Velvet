@@ -4,6 +4,7 @@ import type { CreateSponsorInput, SponsorType } from '@/types/types'
 import { submitSponsorApplication } from '@/services/applicationService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import { Send, Loader2, Image as ImageIcon } from 'lucide-react'
+import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
 
 export const SponsorCard = () => {
@@ -95,11 +96,17 @@ export const SponsorCard = () => {
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '-')
       try {
+        const context = {
+          name: (formData.name || '').trim(),
+          category: ImageCategory.SPONSOR,
+        }
+
         finalLogoId = await uploadToCloudinary(
           tempFile,
           'Sponsors',
           ['sponsor', nameSlug],
-          `logo-${nameSlug}`
+          `logo-${nameSlug}`,
+          context
         )
         setTempFile(null)
       } catch (err) {
