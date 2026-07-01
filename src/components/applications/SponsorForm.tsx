@@ -104,7 +104,7 @@ export const SponsorCard = () => {
         finalLogoId = await uploadToCloudinary(
           tempFile,
           'Sponsors',
-          ['sponsor', nameSlug],
+          [ImageCategory.SPONSOR, nameSlug],
           `logo-${nameSlug}`,
           context
         )

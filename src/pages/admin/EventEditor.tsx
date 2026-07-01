@@ -10,6 +10,7 @@ import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
 import { getAdminEventDetails, getAllVenues, getAllPhotographers } from '@/services/eventService'
 import { deleteRow } from '@/services/databaseService'
 import { uploadToCloudinary, deleteFromCloudinary } from '@/services/cloudinaryService'
+import { ImageCategory } from '@/types/media'
 
 interface DropdownOption {
   id: string
@@ -154,7 +155,18 @@ export const EventEditor = () => {
           }
         }
 
-        finalImageId = await uploadToCloudinary(tempFile, 'Promo', [finalSlug], finalSlug)
+        const context = {
+          event: formData.title,
+          category: ImageCategory.EVENT_PROMO,
+        }
+
+        finalImageId = await uploadToCloudinary(
+          tempFile,
+          'Promo',
+          [finalSlug, ImageCategory.EVENT_PROMO],
+          finalSlug,
+          context
+        )
         setOldImageId(finalImageId)
         setTempFile(null)
       } catch (err) {

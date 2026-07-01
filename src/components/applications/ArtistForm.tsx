@@ -92,12 +92,12 @@ export const ArtistForm = () => {
         const context = {
           photographer: (formData.photographer || '').trim(),
           artist: formData.performer_name?.trim() || '',
-          category: ImageCategory.PROMO,
+          category: ImageCategory.ARTIST_PROMO,
         }
         finalImageId = await uploadToCloudinary(
           tempFile,
           'Performers',
-          [ImageCategory.PROMO, artistSlug],
+          [ImageCategory.ARTIST_PROMO, artistSlug],
           `Promo-${artistSlug}`,
           context
         )
