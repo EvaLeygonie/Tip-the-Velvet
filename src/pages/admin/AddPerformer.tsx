@@ -1,8 +1,10 @@
 import { useLanguage } from '@/contexts/LanguageContext'
 import { ArtistForm } from '@/components/applications/ArtistForm'
+import { useParams } from 'react-router-dom'
 
 export const AddPerformer = () => {
   const { t } = useLanguage()
+  const { slug } = useParams()
 
   return (
     <>
@@ -32,7 +34,7 @@ export const AddPerformer = () => {
         <div className="mx-auto px-4 relative">
           <div className="middle-glow" />
           <div className="max-w-3xl mx-auto space-y-8 md:space-y-10">
-            <ArtistForm />
+            <ArtistForm editSlug={slug} />
           </div>
         </div>
       </div>

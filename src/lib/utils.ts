@@ -1,12 +1,23 @@
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 
 export const createSlug = (text: string) => {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      // 1. Bryt upp accenter och umlauts (t.ex. 'ä' blir 'a' + '¨')
+      .normalize('NFD')
+      // 2. Ta bort själva accent-plupparna (\u0300 till \u036f)
+      .replace(/[\u0300-\u036f]/g, '')
+      // 3. Ersätt tyska dubbel-s (ß) om det skulle dyka upp till 'ss'
+      .replace(/ß/g, 'ss')
+      // 4. Ta bort allt som inte är a-z, 0-9, mellanslag eller bindestreck
+      .replace(/[^a-z0-9\s-]/g, '')
+      // 5. Gör om mellanslag och understreck till enkla bindestreck
+      .replace(/[\s_-]+/g, '-')
+      // 6. Trimma bort eventuella bindestreck i början eller slutet
+      .replace(/^-+|-+$/g, '')
+  )
 }
 
 export const buildEventFolderName = (eventTitle: string, eventDate: string) => {

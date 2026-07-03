@@ -52,7 +52,6 @@ export const PerformerDetail = () => {
 
         if (data && slug) {
           try {
-            // Anropar din nya, städade Edge-funktion med rätt parametrar
             const cloudinaryIds = await getCloudinaryImagesByTag(slug, 'Events')
 
             setImageIds(cloudinaryIds)
@@ -176,7 +175,7 @@ export const PerformerDetail = () => {
 
             <div className="header-side-content md:justify-end">
               {user && (
-                <Link to={`/admin/event-editor/${slug}`}>
+                <Link to={`/hall-of-fame-form/${slug}`}>
                   <button className="btn-admin text-xs uppercase tracking-widest">
                     {t('Redigera Artist', 'Edit Performer')}
                   </button>

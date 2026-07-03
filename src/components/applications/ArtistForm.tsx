@@ -1,19 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { createSlug, getImageSrc } from '@/lib/utils'
-import type { CreatePerformerInput } from '@/types/types'
-import { submitArtistInfo } from '@/services/performerService'
+import type { CreatePerformerInput, Performer } from '@/types/types'
+import {
+  submitArtistInfo,
+  fetchPerformerBySlug,
+  updatePerformer,
+} from '@/services/performerService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import { ImageCategory } from '@/types/media'
-import { Send, Loader2 } from 'lucide-react'
+import { Send, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
-export const ArtistForm = () => {
+export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
   const { language, t, setLanguage } = useLanguage()
 
   const preferredLang = language === 'eng' ? 'eng' : 'sv'
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [loadingArtist, setLoadingArtist] = useState(false)
 
   const [uploading, setUploading] = useState(false)
   const [tempFile, setTempFile] = useState<File | null>(null)
@@ -33,6 +38,30 @@ export const ArtistForm = () => {
     promo_image_id: null,
     photographer: '',
   })
+
+  useEffect(() => {
+    if (!editSlug) return
+
+    const loadArtistData = async () => {
+      setLoadingArtist(true)
+      try {
+        const data = await fetchPerformerBySlug(editSlug, true)
+        if (data) {
+          const adminData = data as Performer
+
+          setFormData(adminData)
+          setAgreed(adminData.agreed_to_terms || false)
+        }
+      } catch (err) {
+        console.error('Kunde inte hämta artistdata för editering:', err)
+        toast.error(t('Kunde inte ladda artistprofilen', 'Could not load performer profile'))
+      } finally {
+        setLoadingArtist(false)
+      }
+    }
+
+    loadArtistData()
+  }, [editSlug, t])
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
     setLanguage(lang)
@@ -83,7 +112,7 @@ export const ArtistForm = () => {
     if (!agreed) return toast.error(t('Acceptera termer tack.', 'Please agree to the terms.'))
 
     setSubmitting(true)
-    const artistSlug = createSlug(formData.performer_name || '')
+    const artistSlug = editSlug || createSlug(formData.performer_name || '')
     let finalImageId = formData.promo_image_id
 
     if (tempFile) {
@@ -111,6 +140,7 @@ export const ArtistForm = () => {
         setUploading(false)
       }
     }
+
     const payload: CreatePerformerInput = {
       ...formData,
       slug: artistSlug,
@@ -120,10 +150,6 @@ export const ArtistForm = () => {
       language: preferredLang,
       agreed_to_terms: true,
     }
-
-    const applicantName = formData.performer_name?.trim() || ''
-    const applicantEmail = formData.email?.trim() || ''
-    const applicantLanguage = preferredLang
 
     try {
       if (payload.promo_image_id && payload.promo_image_id.startsWith('blob:')) {
@@ -136,38 +162,33 @@ export const ArtistForm = () => {
         setSubmitting(false)
         return
       }
-      await submitArtistInfo(payload)
 
-      setFormData({
-        language: preferredLang,
-        agreed_to_terms: false,
-        performer_name: '',
-        email: '',
-        promo_image_id: null,
-      })
-      setAgreed(false)
+      if (editSlug) {
+        const performerId = (formData as Performer).id
 
-      const emailSuccess = await sendCastingEmail(
-        applicantName,
-        applicantEmail,
-        applicantLanguage,
-        'artist'
-      )
+        if (!performerId) {
+          throw new Error('Artist-ID saknas vid uppdatering.')
+        }
 
-      if (emailSuccess) {
-        toast.success(
-          t(
-            'Info inskickad! Kolla din inkorg efter en bekräftelse.',
-            'Information submitted! Please check your inbox for a confirmation.'
-          )
-        )
+        await updatePerformer(performerId, payload)
+
+        toast.success(t('Artistprofilen har uppdaterats!', 'Artist profile updated successfully!'))
       } else {
+        // Ny registrering
+        await submitArtistInfo(payload)
+
+        setFormData({
+          language: preferredLang,
+          agreed_to_terms: false,
+          performer_name: '',
+          email: '',
+          promo_image_id: null,
+        })
+        setAgreed(false)
+
+        await sendCastingEmail(payload.performer_name, payload.email || '', preferredLang, 'artist')
         toast.success(
-          t(
-            'Din info är sparad! Kunde inte skicka bekräftelsemail.',
-            'Your info is saved! Could not send confirmation email'
-          ),
-          { duration: 5000 }
+          t('Info inskickad! Bekräftelse skickad via mail.', 'Info submitted! Confirmation sent.')
         )
       }
     } catch (err) {
@@ -176,6 +197,14 @@ export const ArtistForm = () => {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (loadingArtist) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      </div>
+    )
   }
 
   return (
@@ -423,6 +452,11 @@ export const ArtistForm = () => {
         >
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
+          ) : editSlug ? (
+            <>
+              <Save className="h-4 w-4" />
+              {t('Spara ändringar', 'Save Changes')}
+            </>
           ) : (
             <>
               <Send className="h-4 w-4" />
