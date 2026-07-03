@@ -129,8 +129,6 @@ export const Performers = () => {
               'Here we want to honor the fabulous performers who have graced our stage with their art!'
             )}
           </p>
-
-          <p className="subtitle pt-0 mt-0">{t('(Inkomplett sida!)', '(Page in progress!)')}</p>
         </header>
 
         <section className="container-wide page-section !mt-0">
@@ -146,7 +144,6 @@ export const Performers = () => {
           {performers.length > 0 && (
             <div className="card-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {performers.map((e) => {
-                // INTEGRATION: Deklarera artisten som en flexibel union-typ för mappen
                 const performerItem = e as Performer | PublicPerformer
 
                 return (

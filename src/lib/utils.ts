@@ -1,15 +1,25 @@
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 
 export const createSlug = (text: string) => {
-  return text
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      // Säkra upp de vanligaste accenterna manuellt först
+      .replace(/[éèêë]/g, 'e')
+      .replace(/[àâäáå]/g, 'a')
+      .replace(/[öôóò]/g, 'o')
+      .replace(/[üûúù]/g, 'u')
+      .replace(/[íìîï]/g, 'i')
+      .replace(/[ç]/g, 'c')
+      // Din befintliga robusta logik körs efteråt
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  )
 }
 
 export const formatInstagramLink = (value: string): string => {

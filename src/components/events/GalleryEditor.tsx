@@ -30,16 +30,13 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
   const [dragOver, setDragOver] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
 
-  // Metadata states
   const [selectedType, setSelectedType] = useState<string>('')
   const [selectedPerformers, setSelectedPerformers] = useState<PerformanceSelection[]>([])
 
-  // States för artist-väljaren
   const [activePerformerName, setActivePerformerName] = useState<string>('')
   const [currentActInput, setCurrentActInput] = useState('')
   const [allPerformers, setAllPerformers] = useState<Performer[]>([])
 
-  // Manuella extra-taggar
   const [tagInput, setTagInput] = useState('')
   const [customTags, setCustomTags] = useState<string[]>([])
 

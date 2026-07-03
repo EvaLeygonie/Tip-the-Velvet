@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { createSlug, getImageSrc, formatInstagramLink, formatOtherLink } from '@/lib/utils'
+import {
+  createSlug,
+  getImageSrc,
+  compressImage,
+  formatInstagramLink,
+  formatOtherLink,
+} from '@/lib/utils'
 import type { CreatePerformerInput, Performer } from '@/types/types'
 import {
   submitArtistInfo,
@@ -75,14 +81,6 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      toast.error(
-        t('Bilden är för stor. Maxstorlek är 5MB.', 'Image is too large. Maximum size is 5MB.')
-      )
-      return
-    }
-
     const previewUrl = URL.createObjectURL(file)
 
     setTempFile(file)
@@ -123,8 +121,11 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
           artist: formData.performer_name?.trim() || '',
           category: ImageCategory.ARTIST_PROMO,
         }
+
+        const fileToUpload = await compressImage(tempFile)
+
         finalImageId = await uploadToCloudinary(
-          tempFile,
+          fileToUpload,
           'Performers',
           [ImageCategory.ARTIST_PROMO, artistSlug],
           `Promo-${artistSlug}`,
@@ -187,13 +188,31 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
           performer_name: '',
           email: '',
           promo_image_id: null,
+          instagram_link: '',
+          other_link: '',
         })
         setAgreed(false)
 
-        await sendCastingEmail(payload.performer_name, payload.email || '', preferredLang, 'artist')
-        toast.success(
-          t('Info inskickad! Bekräftelse skickad via mail.', 'Info submitted! Confirmation sent.')
+        const emailSent = await sendCastingEmail(
+          payload.performer_name,
+          payload.email || '',
+          preferredLang,
+          'artist'
         )
+
+        if (emailSent) {
+          toast.success(
+            t('Info inskickad! Bekräftelse skickad via mail.', 'Info submitted! Confirmation sent.')
+          )
+        } else {
+          toast.success(
+            t(
+              'Din info är sparad! Kunde inte skicka bekräftelsemail.',
+              'Your info is saved! Could not send confirmation email.'
+            ),
+            { duration: 5000 }
+          )
+        }
       }
     } catch (err) {
       toast.error(t('Någonting gick fel!', 'Something went wrong!'))
@@ -201,6 +220,14 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (loadingArtist) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      </div>
+    )
   }
 
   if (loadingArtist) {
@@ -306,7 +333,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
             <input
               type="text"
               name="phone"
-              placeholder={t('ditt telefonnummer', 'your@email.com')}
+              placeholder={t('ditt telefonnummer', 'your phone number')}
               value={formData.phone || ''}
               onChange={handleChange}
             />
