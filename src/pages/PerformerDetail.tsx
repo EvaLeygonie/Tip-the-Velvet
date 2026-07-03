@@ -59,7 +59,6 @@ export const PerformerDetail = () => {
 
         if (data && slug) {
           try {
-            // cloudinaryResponse har nu automatiskt typen CloudinaryImageResult[]
             const cloudinaryResponse = await getCloudinaryImagesByTag(slug, 'Events')
 
             if (Array.isArray(cloudinaryResponse)) {
@@ -196,7 +195,7 @@ export const PerformerDetail = () => {
 
             <div className="header-side-content md:justify-end">
               {user && (
-                <Link to={`/admin/add-performer/${slug}`}>
+                <Link to={`/hall-of-fame-form/${slug}`}>
                   <button className="btn-admin text-xs uppercase tracking-widest">
                     {t('Redigera Artist', 'Edit Performer')}
                   </button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { createSlug, getImageSrc } from '@/lib/utils'
+import { createSlug, getImageSrc, formatInstagramLink, formatOtherLink } from '@/lib/utils'
 import type { CreatePerformerInput, Performer } from '@/types/types'
 import {
   submitArtistInfo,
@@ -141,16 +141,20 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
       }
     }
 
+    const formattedInstagram = formatInstagramLink(formData.instagram_link || '')
+    const formattedOther = formatOtherLink(formData.other_link || '')
+
     const payload: CreatePerformerInput = {
       ...formData,
       slug: artistSlug,
       performer_name: formData.performer_name?.trim() || '',
       email: formData.email?.trim() || '',
+      instagram_link: formattedInstagram,
+      other_link: formattedOther,
       promo_image_id: finalImageId,
       language: preferredLang,
       agreed_to_terms: true,
     }
-
     try {
       if (payload.promo_image_id && payload.promo_image_id.startsWith('blob:')) {
         toast.error(

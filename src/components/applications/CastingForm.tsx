@@ -4,7 +4,7 @@ import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
 import type { Event, CreateCastingApplicationInput } from '@/types/types'
 import { submitCastingApplication } from '@/services/applicationService'
 import { uploadToCloudinary, checkImageExists } from '@/services/cloudinaryService'
-import { buildEventFolderName } from '@/lib/utils'
+import { buildEventFolderName, formatInstagramLink, formatOtherLink } from '@/lib/utils'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
@@ -140,6 +140,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         setUploading(false)
       }
     }
+
+    const formattedInstagram = formatInstagramLink(formData.instagram_link || '')
+    const formattedOther = formatOtherLink(formData.other_link || '')
+
     const payload: CreateCastingApplicationInput = {
       ...formData,
       event_id: event.id,
@@ -149,6 +153,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       email: formData.email?.trim() || '',
       promo_image_id: finalImageId,
       language: preferredLang,
+      instagram_link: formattedInstagram,
+      other_link: formattedOther,
       agreed_to_terms: true,
     }
 

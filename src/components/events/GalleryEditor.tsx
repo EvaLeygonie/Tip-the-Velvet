@@ -57,7 +57,6 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
     loadPerformers()
   }, [])
 
-  // Funktion för att baka ihop artist + akt till listan
   const handleAddPerformer = () => {
     if (!activePerformerName) return
 

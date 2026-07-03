@@ -1,23 +1,46 @@
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 
 export const createSlug = (text: string) => {
-  return (
-    text
-      .toLowerCase()
-      .trim()
-      // 1. Bryt upp accenter och umlauts (t.ex. 'ä' blir 'a' + '¨')
-      .normalize('NFD')
-      // 2. Ta bort själva accent-plupparna (\u0300 till \u036f)
-      .replace(/[\u0300-\u036f]/g, '')
-      // 3. Ersätt tyska dubbel-s (ß) om det skulle dyka upp till 'ss'
-      .replace(/ß/g, 'ss')
-      // 4. Ta bort allt som inte är a-z, 0-9, mellanslag eller bindestreck
-      .replace(/[^a-z0-9\s-]/g, '')
-      // 5. Gör om mellanslag och understreck till enkla bindestreck
-      .replace(/[\s_-]+/g, '-')
-      // 6. Trimma bort eventuella bindestreck i början eller slutet
-      .replace(/^-+|-+$/g, '')
-  )
+  return text
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+export const formatInstagramLink = (value: string): string => {
+  const clean = value.trim()
+  if (!clean) return ''
+
+  if (clean.startsWith('@')) {
+    return `https://www.instagram.com/${clean.substring(1)}`
+  }
+
+  if (clean.includes('instagram.com')) {
+    if (clean.startsWith('http://')) {
+      return clean.replace('http://', 'https://')
+    }
+    if (!clean.startsWith('https://')) {
+      return `https://${clean}`
+    }
+    return clean
+  }
+
+  return `https://www.instagram.com/${clean}`
+}
+
+export const formatOtherLink = (value: string): string => {
+  const clean = value.trim()
+  if (!clean) return ''
+
+  if (!/^https?:\/\//i.test(clean)) {
+    return `https://${clean}`
+  }
+  return clean
 }
 
 export const buildEventFolderName = (eventTitle: string, eventDate: string) => {

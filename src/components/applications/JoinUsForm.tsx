@@ -4,6 +4,7 @@ import type { CreateStaffVolunteerInput, StaffVolunteerType } from '@/types/type
 import { submitJoinApplication } from '@/services/applicationService'
 import { Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatOtherLink } from '@/lib/utils'
 
 interface PostgrestError {
   code?: string
@@ -73,12 +74,15 @@ export const JoinUsCard = () => {
 
     setSubmitting(true)
 
+    const formattedOther = formatOtherLink(formData.link || '')
+
     const payload: CreateStaffVolunteerInput = {
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone || '',
       role: formData.role,
       role_details: formData.role_details || '',
+      link: formattedOther || '',
       agreed_to_terms: true,
     }
 
