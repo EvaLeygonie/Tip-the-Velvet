@@ -2,29 +2,27 @@ import { supabase } from '@/lib/supabase'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-
-export interface CloudinaryResource {
-  public_id: string
-}
 
 //=== READ ===///
 
-export const getCloudinaryImagesByTag = async (tag: string) => {
-  const response = await fetch(`https://res.cloudinary.com/${CLOUD_NAME}/image/list/${tag}.json`)
+export const getCloudinaryImagesByTag = async (tag: string, folder: string): Promise<string[]> => {
+  const { data, error } = await supabase.functions.invoke('get-images-by-tag', {
+    body: { tag, folder },
+  })
 
-  if (!response.ok) throw new Error('Hämtning av bilder misslyckades')
+  if (error) {
+    console.error('Fel vid hämtning från Edge Function:', error)
+    throw new Error('Hämtning av bilder misslyckades')
+  }
 
-  const data = await response.json()
-  return data.resources.map((img: CloudinaryResource) => img.public_id)
+  return data.images.map((img: { public_id: string }) => img.public_id)
 }
 
+// Denna kan ligga kvar tillfälligt om den används för Casting Calls, men bör på sikt flyttas
 export const checkImageExists = async (eventSlug: string, imageSlug: string): Promise<boolean> => {
   try {
     const url = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/Casting%20Calls/${eventSlug}/${imageSlug}`
-
     const response = await fetch(url, { method: 'HEAD' })
-
     return response.ok
   } catch (error) {
     console.error('Fel vid Cloudinary-förvalidering:', error)
@@ -32,7 +30,7 @@ export const checkImageExists = async (eventSlug: string, imageSlug: string): Pr
   }
 }
 
-//===CREATE===//
+//=== CREATE ===//
 
 export const uploadToCloudinary = async (
   file: File,
@@ -64,7 +62,6 @@ export const uploadToCloudinary = async (
         return `${key}=${cleanVal}`
       })
       .join('|')
-
     formData.append('context', contextString)
   }
 
@@ -83,21 +80,17 @@ export const uploadToCloudinary = async (
   return data.public_id
 }
 
-//===DELETE===//
+//=== DELETE ===//
 
-// Via Supabase edge function
 export const deleteFromCloudinary = async (publicId: string): Promise<void> => {
   const {
     data: { session },
   } = await supabase.auth.getSession()
   if (!session) throw new Error('Not logged in')
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/cloudinary-delete`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ public_id: publicId }),
+
+  const { error } = await supabase.functions.invoke('cloudinary-delete', {
+    body: { public_id: publicId },
   })
-  if (!res.ok) throw new Error('Radering misslyckades')
+
+  if (error) throw new Error('Radering misslyckades')
 }

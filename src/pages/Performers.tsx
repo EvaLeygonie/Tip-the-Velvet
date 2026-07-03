@@ -33,11 +33,11 @@ export const Performers = () => {
     }
 
     fetchData()
-  }, [user]) // Trigga om ifall admin loggar in eller ut under sessionen
+  }, [user])
 
   const handleApprove = async (reactEvent: React.MouseEvent, performer: Performer) => {
     reactEvent.preventDefault()
-    reactEvent.stopPropagation() // Stoppar länken från att triggas!
+    reactEvent.stopPropagation()
 
     const newVisibility = !performer.is_approved
 
@@ -63,7 +63,7 @@ export const Performers = () => {
 
   const handleDelete = async (reactEvent: React.MouseEvent, performer: Performer) => {
     reactEvent.preventDefault()
-    reactEvent.stopPropagation() // Stoppar länken!
+    reactEvent.stopPropagation()
 
     if (
       !confirm(
@@ -129,6 +129,8 @@ export const Performers = () => {
               'Here we want to honor the fabulous performers who have graced our stage with their art!'
             )}
           </p>
+
+          <p className="subtitle pt-0 mt-0">{t('(Inkomplett sida!)', '(Page in progress!)')}</p>
         </header>
 
         <section className="container-wide page-section !mt-0">

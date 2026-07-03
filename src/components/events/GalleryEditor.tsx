@@ -68,7 +68,6 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
       ])
     }
 
-    // Nollställ sökfälten för nästa artist
     setActivePerformerName('')
     setCurrentActInput('')
   }
@@ -113,7 +112,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
     const fileArray = Array.from(files)
     const folder = `${base}/${eventFolder}`
 
-    // Slugs för sökning i Cloudinary
+    // Tags
     const performerTags: string[] = []
     selectedPerformers.forEach((p) => {
       performerTags.push(createSlug(p.performerName))
@@ -212,7 +211,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
   return (
     <div className="space-y-6">
       <div className="editor-container">
-        {/* TOP PANEL: SAMMA HÖJD OCH RAK RAD PÅ STÖRRE SKÄRMAR */}
+        {/* TYPE SELECTION */}
         <div className="grid grid-cols-1 md:flex md:items-end gap-4 bg-black/20 p-4 rounded-xl border border-white/5 mb-4 text-left">
           <div className="form-field w-full md:w-64">
             <label className="form-label-gold text-xs block mb-1">
@@ -243,7 +242,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
             </select>
           </div>
 
-          {/* DYNAMISK ARTISTVÄLJARE - VISAS BARA VID PERFORMANCE */}
+          {/* DYNAMISK ARTISTVÄLJARE */}
           {selectedType === ImageCategory.PERFORMANCE && (
             <div className="animate-fade-in flex-1 grid grid-cols-1 sm:flex sm:items-end gap-3 w-full">
               <div className="form-field flex-1">
@@ -310,7 +309,7 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
             </span>
           ))}
 
-          {/* Valda artister renderas som guld-taggar i samma rad! */}
+          {/* Valda artister renderas som guld-taggar */}
           {selectedPerformers.map((p) => (
             <span
               key={p.performerName}

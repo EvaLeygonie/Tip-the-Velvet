@@ -50,15 +50,14 @@ export const PerformerDetail = () => {
         const data = await fetchPerformerBySlug(slug!, !!user)
         setPerformer(data)
 
-        if (data) {
+        if (data && slug) {
           try {
-            const targetTag = data.slug ? data.slug.toLowerCase() : slug!.toLowerCase()
-            const cloudinaryIds = await getCloudinaryImagesByTag(targetTag)
+            // Anropar din nya, städade Edge-funktion med rätt parametrar
+            const cloudinaryIds = await getCloudinaryImagesByTag(slug, 'Events')
 
-            const filteredIds = cloudinaryIds.filter((id: string) => id !== data.promo_image_id)
-            setImageIds(filteredIds)
+            setImageIds(cloudinaryIds)
           } catch (cloudinaryErr) {
-            console.log(cloudinaryErr, ' Inga bilder hittades på Cloudinary för denna artist.')
+            console.error('Cloudinary Error:', cloudinaryErr)
             setImageIds([])
           }
         }
@@ -99,10 +98,10 @@ export const PerformerDetail = () => {
 
   return (
     <>
-      <div className="page-shell">
+      <div className="page-shell !max-w-none w-full px-0">
         <div className="bg-glow-spot z-0" />
 
-        <div className="editor-container relative z-10">
+        <div className="w-full max-w-7xl mx-auto px-4 md:px-8 relative z-10">
           <div className="section-header-triad">
             <div className="header-side-content md:justify-start">
               <Link to="/performers">
@@ -110,27 +109,26 @@ export const PerformerDetail = () => {
               </Link>
             </div>
 
-            {/* Centrerat textblock med säkrat z-index mot glow-spots */}
             <div className="text-center space-y-2 relative z-10">
-              <h1 className="drop-shadow-[0_0_20px_currentColor] text-4xl font-decorative text-accent">
+              <h1 className="drop-shadow-[0_0_20px_currentColor] text-4xl font-decorative text-accent m-0 p-0">
                 {performer.performer_name}
               </h1>
 
               {performer.city && (
-                <p className="text-xs font-mono tracking-widest text-accent/70 uppercase flex items-center justify-center gap-1 drop-shadow-md">
-                  <MapPin size={12} className="text-accent-light/80" />
+                <p className="text-xs font-mono tracking-widest text-accent/70 uppercase flex items-center justify-center gap-1 drop-shadow-md m-0">
+                  <MapPin size={12} />
                   {performer.city}, {performer.country || 'Sweden'}
                 </p>
               )}
 
-              {/* Sociala Länkar */}
-              <div className="flex gap-4 justify-center pt-1">
+              {/* SOCIALA LÄNKAR (PUBLIKA) */}
+              <div className="flex gap-4 justify-center items-center pt-2">
                 {performer.instagram_link && (
                   <a
                     href={performer.instagram_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-accent/60 hover:text-accent transition-colors p-1 hover:scale-110 duration-200"
+                    className="text-accent/60 hover:text-accent transition-all p-1 hover:scale-110 duration-200"
                     title="Instagram"
                   >
                     <InstagramIcon size={18} />
@@ -141,32 +139,60 @@ export const PerformerDetail = () => {
                     href={performer.other_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-accent/60 hover:text-accent transition-colors p-1 hover:scale-110 duration-200"
+                    className="text-accent/60 hover:text-accent transition-all p-1 hover:scale-110 duration-200"
                     title={t('Hemsida / Länk', 'Website / Link')}
                   >
                     <ExternalLink size={18} />
                   </a>
                 )}
               </div>
+
+              {/* LÄNKAR FÖR ADMIN */}
+              {user && isAdminPerformer(performer) && (
+                <div className="animate-fade-in flex flex-wrap gap-x-4 gap-y-1 justify-center items-center pt-1.5 text-xs font-mono text-accent">
+                  <a
+                    href={`mailto:${performer.email}?subject=Tip the Velvet`}
+                    className="hover:text-accent-light underline decoration-accent/40 hover:decoration-accent transition-all flex items-center gap-1"
+                  >
+                    <Mail size={12} />
+                    <span>{performer.email}</span>
+                  </a>
+
+                  {performer.phone && (
+                    <>
+                      <span className="text-accent/30 hidden sm:inline">|</span>
+                      <a
+                        href={`tel:${performer.phone}`}
+                        className="hover:text-accent-light underline decoration-accent/40 hover:decoration-accent transition-all flex items-center gap-1"
+                      >
+                        <Phone size={12} />
+                        <span>{performer.phone}</span>
+                      </a>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="header-side-content md:justify-end">
               {user && (
                 <Link to={`/admin/event-editor/${slug}`}>
-                  <button className="btn-admin">{t('Redigera Artist', 'Edit Performer')}</button>
+                  <button className="btn-admin text-xs uppercase tracking-widest">
+                    {t('Redigera Artist', 'Edit Performer')}
+                  </button>
                 </Link>
               )}
             </div>
           </div>
         </div>
 
-        <div className="gold-divider !my-6" />
+        <div className="gold-divider !my-8" />
 
         {/* Profilinnehåll */}
-        <div className="page-content-narrow flex flex-col items-center space-y-8 relative z-10">
+        <div className="max-w-2xl mx-auto flex flex-col items-center space-y-6 relative z-10 px-4">
           {/* PROFILBILD */}
           {performer.promo_image_id && (
-            <div className="w-full max-w-sm aspect-[3/4] rounded-lg overflow-hidden border border-gold/20 shadow-[0_0_30px_rgba(0,0,0,0.8)] bg-black/40 group relative">
+            <div className="w-full max-w-sm aspect-[3/4] rounded-lg overflow-hidden border border-accent/20 shadow-[0_0_30px_rgba(0,0,0,0.8)] bg-black/40 group relative">
               <CloudinaryImage
                 publicId={performer.promo_image_id}
                 width={500}
@@ -174,68 +200,40 @@ export const PerformerDetail = () => {
                 gravityFace={true}
                 className="media-cover group-hover:scale-102 transition-transform duration-700"
               />
-              <div className="absolute inset-0 border border-gold/10 rounded-lg pointer-events-none m-1" />
             </div>
           )}
 
           {performer.photographer && (
-            <div className="meta-row justify-center text-xs md:text-sm text-foreground/85 italic pb-4">
-              <Camera size={14} className="icon-accent-sm" />
-              <span className="text-accent not-italic font-medium">{performer.photographer}</span>
+            <div className="meta-row justify-center text-xs text-foreground/70 italic">
+              <Camera size={13} className="text-accent/60 mr-1" />
+              <span>{t('Fotograf:', 'Photographer:')} </span>
+              <span className="text-accent not-italic font-medium ml-1">
+                {performer.photographer}
+              </span>
             </div>
           )}
 
           {/* Biografi */}
-          <p className="text-sm md:text-base leading-relaxed text-foreground/80 whitespace-pre-line font-light text-center max-w-2xl">
+          <p className="text-sm md:text-base text-center font-light opacity-90 pt-4 leading-relaxed whitespace-pre-line text-foreground/80">
             {t(performer.bio_sv, performer.bio_eng)}
           </p>
         </div>
 
-        {/* KONFIDENTIELL ADMIN-BOX */}
-        {user && isAdminPerformer(performer) && (
-          <div className="border border-gold/30 p-5 bg-black/60 rounded-lg shadow-xl space-y-4 animate-fadeIn max-w-md mx-auto my-8 relative z-10">
-            <div className="flex items-center space-x-2 border-b border-gold/10 pb-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <h3 className="font-decorative text-xs tracking-widest uppercase text-accent">
-                {t('Intern Administration', 'Internal Admin')}
-              </h3>
-            </div>
+        <div className="gold-divider !my-12" />
 
-            <div className="space-y-2 text-xs font-mono text-foreground/70">
-              <p className="flex items-center gap-2">
-                <Mail size={12} className="text-accent/60" />
-                <span className="text-foreground/40">Email:</span> {performer.email}
-              </p>
-              {performer.phone && (
-                <p className="flex items-center gap-2">
-                  <Phone size={12} className="text-accent/60" />
-                  <span className="text-foreground/40">Tel:</span> {performer.phone}
-                </p>
-              )}
-            </div>
-
-            <a
-              href={`mailto:${performer.email}?subject=Tip the Velvet`}
-              className="btn-admin w-full justify-center text-xs py-2 mt-2"
-            >
-              {t('Kontakta artisten', 'Contact Performer')}
-            </a>
-          </div>
-        )}
-
-        {/* Portfolio / Bildgalleri-sektion */}
-        <section className="page-section-gallery relative z-10">
-          <div className="editor-container text-center space-y-1 mb-6">
-            <h2 className="m-0 p-0 text-xl font-decorative tracking-wider text-foreground flex items-center justify-center gap-2">
-              <Camera size={18} className="text-accent/60" />
+        {/* BILDGALLERI */}
+        <section className="w-full max-w-none px-4 md:px-12 pb-16 relative z-10">
+          <div className="text-center space-y-2 mb-8">
+            <h2 className="m-0 p-0 text-2xl font-decorative tracking-widest text-accent flex items-center justify-center gap-2">
+              <Camera size={20} className="text-accent" />
               {t('Galleri & Scenögonblick', 'Gallery & Stage Moments')}
             </h2>
           </div>
 
           {imageIds.length === 0 ? (
-            <div className="empty-state bg-black/20 rounded-lg p-10 border border-dashed border-white/5 max-w-md mx-auto text-center flex flex-col items-center">
-              <Images className="w-8 h-8 text-foreground/20 mb-2" />
-              <p className="text-xs text-foreground/40 font-mono uppercase tracking-wider m-0">
+            <div className="w-full max-w-4xl mx-auto border-2 border-dashed border-accent/10 rounded-xl p-12 bg-black/10 text-center flex flex-col items-center justify-center">
+              <Images className="w-10 h-10 text-accent/20 mb-3" />
+              <p className="text-xs font-mono uppercase tracking-widest text-foreground/40 m-0">
                 {t(
                   'Inga galleribilder taggade för denna artist ännu.',
                   'No gallery images tagged for this performer yet.'
@@ -243,31 +241,26 @@ export const PerformerDetail = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
               {imageIds.map((id, imgIndex) => (
                 <div
                   key={id}
                   onClick={() => setIndex(imgIndex)}
-                  className="gallery-thumb group relative aspect-square overflow-hidden rounded border border-gold/10 bg-black/20 cursor-pointer shadow-md hover:border-gold/40 transition-all duration-300"
+                  className="gallery-thumb group relative aspect-square overflow-hidden rounded-lg border border-accent/10 bg-black/40 cursor-pointer shadow-lg hover:border-accent/50 transition-all duration-300"
                 >
                   <CloudinaryImage
                     publicId={id}
-                    width={300}
-                    height={300}
-                    className="media-cover group-hover:scale-105 group-hover:rotate-1 transition-transform duration-500"
+                    width={400}
+                    height={400}
+                    className="media-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-2">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-accent-light">
-                      {t('Förstora', 'Maximize')}
-                    </span>
-                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3"></div>
                 </div>
               ))}
             </div>
           )}
         </section>
-      </div>
-
+      </div>{' '}
       <Lightbox
         index={index}
         slides={lightboxSlides}
