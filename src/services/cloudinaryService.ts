@@ -5,7 +5,20 @@ const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 
 //=== READ ===///
 
-export const getCloudinaryImagesByTag = async (tag: string, folder: string): Promise<string[]> => {
+export interface CloudinaryImageResult {
+  public_id: string
+  context?: {
+    custom?: {
+      photographer?: string
+    }
+    photographer?: string
+  }
+}
+
+export const getCloudinaryImagesByTag = async (
+  tag: string,
+  folder: string
+): Promise<CloudinaryImageResult[]> => {
   const { data, error } = await supabase.functions.invoke('get-images-by-tag', {
     body: { tag, folder },
   })
@@ -15,7 +28,7 @@ export const getCloudinaryImagesByTag = async (tag: string, folder: string): Pro
     throw new Error('Hämtning av bilder misslyckades')
   }
 
-  return data.images.map((img: { public_id: string }) => img.public_id)
+  return data.images || []
 }
 
 // Denna kan ligga kvar tillfälligt om den används för Casting Calls, men bör på sikt flyttas

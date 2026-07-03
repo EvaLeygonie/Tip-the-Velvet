@@ -9,7 +9,14 @@ import { getCloudinaryImagesByTag } from '@/services/cloudinaryService'
 import { getImageSrc } from '@/lib/utils'
 import { ArrowLeft, Images, Mail, Phone, ExternalLink, MapPin, Camera } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
+import Captions from 'yet-another-react-lightbox/plugins/captions'
 import 'yet-another-react-lightbox/styles.css'
+import 'yet-another-react-lightbox/plugins/captions.css'
+
+interface GalleryImage {
+  id: string
+  photographer?: string
+}
 
 const isAdminPerformer = (p: Performer | PublicPerformer): p is Performer => {
   return 'email' in p
@@ -39,7 +46,7 @@ export const PerformerDetail = () => {
   const { user } = useAuth()
 
   const [performer, setPerformer] = useState<Performer | PublicPerformer | null>(null)
-  const [imageIds, setImageIds] = useState<string[]>([])
+  const [images, setImages] = useState<GalleryImage[]>([])
   const [index, setIndex] = useState<number>(-1)
   const [loading, setLoading] = useState(true)
 
@@ -52,12 +59,23 @@ export const PerformerDetail = () => {
 
         if (data && slug) {
           try {
-            const cloudinaryIds = await getCloudinaryImagesByTag(slug, 'Events')
+            // cloudinaryResponse har nu automatiskt typen CloudinaryImageResult[]
+            const cloudinaryResponse = await getCloudinaryImagesByTag(slug, 'Events')
 
-            setImageIds(cloudinaryIds)
+            if (Array.isArray(cloudinaryResponse)) {
+              setImages(
+                cloudinaryResponse.map((img) => ({
+                  id: img.public_id,
+                  photographer:
+                    img.context?.custom?.photographer || img.context?.photographer || '',
+                }))
+              )
+            } else {
+              setImages([])
+            }
           } catch (cloudinaryErr) {
             console.error('Cloudinary Error:', cloudinaryErr)
-            setImageIds([])
+            setImages([])
           }
         }
       } catch (err) {
@@ -90,9 +108,12 @@ export const PerformerDetail = () => {
     )
   }
 
-  const lightboxSlides = imageIds.map((id) => ({
-    src: getImageSrc(id),
+  const lightboxSlides = images.map((img) => ({
+    src: getImageSrc(img.id),
     alt: performer.performer_name || '',
+    description: img.photographer
+      ? `${t('Fotograf:', 'Photographer:')} ${img.photographer}`
+      : undefined,
   }))
 
   return (
@@ -175,7 +196,7 @@ export const PerformerDetail = () => {
 
             <div className="header-side-content md:justify-end">
               {user && (
-                <Link to={`/hall-of-fame-form/${slug}`}>
+                <Link to={`/admin/add-performer/${slug}`}>
                   <button className="btn-admin text-xs uppercase tracking-widest">
                     {t('Redigera Artist', 'Edit Performer')}
                   </button>
@@ -229,7 +250,7 @@ export const PerformerDetail = () => {
             </h2>
           </div>
 
-          {imageIds.length === 0 ? (
+          {images.length === 0 ? (
             <div className="w-full max-w-4xl mx-auto border-2 border-dashed border-accent/10 rounded-xl p-12 bg-black/10 text-center flex flex-col items-center justify-center">
               <Images className="w-10 h-10 text-accent/20 mb-3" />
               <p className="text-xs font-mono uppercase tracking-widest text-foreground/40 m-0">
@@ -241,19 +262,27 @@ export const PerformerDetail = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-              {imageIds.map((id, imgIndex) => (
+              {images.map((img, imgIndex) => (
                 <div
-                  key={id}
+                  key={img.id}
                   onClick={() => setIndex(imgIndex)}
                   className="gallery-thumb group relative aspect-square overflow-hidden rounded-lg border border-accent/10 bg-black/40 cursor-pointer shadow-lg hover:border-accent/50 transition-all duration-300"
                 >
                   <CloudinaryImage
-                    publicId={id}
+                    publicId={img.id}
                     width={400}
                     height={400}
                     className="media-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3"></div>
+                  {/* Snygg hovringseffekt med fotografens namn */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                    {img.photographer && (
+                      <span className="text-[11px] font-mono tracking-wide text-accent/90 truncate flex items-center gap-1">
+                        <Camera size={10} />
+                        {img.photographer}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -265,6 +294,8 @@ export const PerformerDetail = () => {
         slides={lightboxSlides}
         open={index >= 0}
         close={() => setIndex(-1)}
+        plugins={[Captions]}
+        captions={{ descriptionTextAlign: 'center' }}
       />
     </>
   )
