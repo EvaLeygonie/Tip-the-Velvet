@@ -125,9 +125,12 @@ export const Performers = () => {
 
           <p className="subtitle pt-2">
             {t(
-              'Här vill vi hylla de fantastiska artister som uppträtt på vår scen!',
-              'Here we want to honor the fabulous performers who have graced our stage with their art!'
+              'Här vill vi hylla de fantastiska artister som uppträtt på vår scen! Har du uppträtt och vill synas här, eller ändra på din befintliga artistprofil? Kontakta oss på: ',
+              'Here we want to honor the fabulous performers who have graced our stage with their art! Do you want to be featured here, or to edit your existing profile? Contact us at: '
             )}
+            <a href="mailto:velvet.gbg@gmail.com" className="text-accent hover:text-accent/80">
+              <span>velvet.gbg@gmail.com</span>
+            </a>
           </p>
         </header>
 

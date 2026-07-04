@@ -444,7 +444,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="form-field">
           <label className="form-label-block">
-            {t('Video Link (friviligt)', 'Video Link (optional)')}
+            {t('Video Link (frivilligt)', 'Video Link (optional)')}
           </label>
           <input
             type="url"
@@ -458,7 +458,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         <div className="form-row-2-tight">
           <div className="form-field">
             <label className="form-label-block">
-              {t('Instagram länk (friviligt)', 'Instagram Link (optional)')}
+              {t('Instagram länk (frivilligt)', 'Instagram Link (optional)')}
             </label>
             <input
               type="text"
@@ -471,7 +471,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
           <div className="form-field">
             <label className="form-label-block">
-              {t('Annan länk (friviligt)', 'Other link (optional)')}
+              {t('Annan länk (frivilligt)', 'Other link (optional)')}
             </label>
             <input
               type="text"

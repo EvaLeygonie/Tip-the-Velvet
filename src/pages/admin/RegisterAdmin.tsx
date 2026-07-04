@@ -1,0 +1,179 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { supabase } from '@/lib/supabase'
+import { Loader2, Lock, CheckCircle } from 'lucide-react'
+import { toast } from 'sonner'
+
+export const RegisterAdmin = () => {
+  const { t } = useLanguage()
+  const { user, loading } = useAuth()
+  const navigate = useNavigate()
+
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [updating, setUpdating] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (password.length < 6) {
+      return toast.error(
+        t(
+          'Lösenordet måste vara minst 6 tecken långt.',
+          'Password must be at least 6 characters long.'
+        )
+      )
+    }
+
+    if (password !== confirmPassword) {
+      return toast.error(t('Lösenorden matchar inte.', 'The passwords do not match.'))
+    }
+
+    setUpdating(true)
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password,
+      })
+
+      if (error) throw error
+
+      toast.success(t('Lösenordet har valts!', 'The password has been saved!'))
+      setIsSuccess(true)
+
+      setTimeout(() => {
+        navigate('/admin')
+      }, 2000)
+    } catch (error: unknown) {
+      console.error('Kunde inte uppdatera lösenord:', error)
+      toast.error(
+        (error as { message: string }).message ||
+          t(
+            'Någonting gick fel vid uppdateringen.',
+            'Something went wrong while updating the password.'
+          )
+      )
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      </div>
+    )
+  }
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto mt-10 p-6 text-center bg-background border border-border rounded-lg">
+        <p className="text-destructive font-medium">
+          {t('Länken är ogiltig eller har löpt ut.', 'The link is invalid or has expired.')}
+        </p>
+        <p className="text-sm text-muted-foreground mt-2">
+          {t(
+            'Be en annan administratör att skicka en ny inbjudan.',
+            'Contact another administrator to send a new invitation.'
+          )}
+        </p>
+      </div>
+    )
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="max-w-md mx-auto mt-10 p-8 text-center bg-background border border-gold/30 rounded-lg flex flex-col items-center gap-4">
+        <CheckCircle className="h-12 w-12 text-gold animate-bounce" />
+        <h2 className="text-xl font-semibold">
+          {t('Lösenordet är sparat!', 'The password has been saved!')}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {t(
+            'Loggar in dig och skickar dig vidare till adminpanelen...',
+            'Logging you in and redirecting you to the admin panel...'
+          )}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="page-full">
+      <div className="bg-glow-spot" />
+
+      <div className="w-full max-w-md z-10">
+        <div className="text-center mb-8">
+          <h1>Admin Portal</h1>
+          <p className="text-[13px] uppercase tracking-[0.4em] text-accent/80 font-medium">
+            • Backstage •
+          </p>
+        </div>
+
+        <div className="login-card">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="pb-3 bg-gold/10 rounded-full mb-2">
+              <Lock className="h-6 w-6 text-gold" />
+            </div>
+            <h2 className="text-xl font-bold">{t('Välj ditt lösenord', 'Choose your password')}</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t(
+                'Ditt konto har aktiverats. Välj ett lösenord för att slutföra din registrering.',
+                'Your account has been activated. Choose a password to complete your registration.'
+              )}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="form-field">
+              <label className="form-label-gold">{t('Nytt lösenord', 'New password')}</label>
+              <input
+                type="password"
+                placeholder="Minst 6 tecken"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full"
+                disabled={updating}
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label-gold">
+                {t('Bekräfta lösenord', 'Confirm password')}
+              </label>
+              <input
+                type="password"
+                placeholder="Upprepa lösenordet"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full"
+                disabled={updating}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full btn-gold py-3 flex items-center justify-center gap-2"
+              disabled={updating}
+            >
+              {updating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                t('Spara lösenord & logga in', 'Save password & log in')
+              )}
+            </button>
+          </form>
+        </div>
+
+        <p className="p-clean text-center text-s my-10 opacity-50">
+          &copy; {new Date().getFullYear()} Tip the Velvet • Restricted Access
+        </p>
+      </div>
+    </div>
+  )
+}

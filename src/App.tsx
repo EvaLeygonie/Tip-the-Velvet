@@ -18,7 +18,9 @@ import { CastingCall } from './pages/CastingCall'
 import { About } from '@/pages/About'
 import { Dresscode } from '@/pages/Dresscode'
 import { JoinUs } from '@/pages/JoinUs'
+
 import { AdminLogin } from '@/pages/admin/AdminLogin'
+import { RegisterAdmin } from '@/pages/admin/RegisterAdmin'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { EventEditor } from '@/pages/admin/EventEditor'
 import { AdminEventPlan } from '@/pages/admin/AdminEventPlan'
@@ -70,6 +72,32 @@ export const App = () => (
 
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route
+                path="/admin/register"
+                element={
+                  <ProtectedRoute>
+                    <RegisterAdmin />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/event-editor"
+                element={
+                  <ProtectedRoute>
+                    <EventEditor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/event-editor/:slug"
+                element={
+                  <ProtectedRoute>
+                    <EventEditor />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
                 path="/admin"
                 element={
                   <ProtectedRoute>
@@ -98,22 +126,6 @@ export const App = () => (
                 element={
                   <ProtectedRoute>
                     <AdminContacts />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/event-editor"
-                element={
-                  <ProtectedRoute>
-                    <EventEditor />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/event-editor/:slug"
-                element={
-                  <ProtectedRoute>
-                    <EventEditor />
                   </ProtectedRoute>
                 }
               />

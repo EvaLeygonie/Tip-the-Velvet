@@ -328,7 +328,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
           </div>
           <div className="form-field">
             <label className="form-label-block">
-              {t('Telefonnummer (friviligt)', 'Phone number (optional)')}
+              {t('Telefonnummer (frivilligt)', 'Phone number (optional)')}
             </label>
             <input
               type="text"
@@ -445,7 +445,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
 
           <div className="form-field">
             <label className="form-label-block">
-              {t('Annan länk (friviligt)', 'Other link (optional)')}
+              {t('Annan länk (frivil ligt)', 'Other link (optional)')}
             </label>
             <input
               type="text"
