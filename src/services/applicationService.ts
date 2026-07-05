@@ -54,3 +54,26 @@ export const submitSponsorApplication = async (application: CreateSponsorInput):
 
   if (error) throw error
 }
+
+//=== UPDATE ===///
+
+export const updateApplicationStatus = async (
+  id: string,
+  newStatus: CastingApplication['review_status']
+): Promise<void> => {
+  const { error } = await supabase
+    .from('casting_applications')
+    .update({ review_status: newStatus })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export const updateApplicationNotes = async (id: string, notes: string): Promise<void> => {
+  const { error } = await supabase
+    .from('casting_applications')
+    .update({ admin_notes: notes })
+    .eq('id', id)
+
+  if (error) throw error
+}
