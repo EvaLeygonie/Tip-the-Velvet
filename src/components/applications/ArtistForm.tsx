@@ -3,9 +3,9 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import {
   createSlug,
   getImageSrc,
-  compressImage,
   formatInstagramLink,
   formatOtherLink,
+  processUploadedImage,
 } from '@/lib/utils'
 import type { CreatePerformerInput, Performer } from '@/types/types'
 import {
@@ -81,10 +81,23 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const previewUrl = URL.createObjectURL(file)
+    setUploading(true)
+    const loadingToast = toast.loading(t('Bearbetar bild...', 'Processing image...'))
 
-    setTempFile(file)
-    setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
+    try {
+      const readyFile = await processUploadedImage(file)
+
+      const previewUrl = URL.createObjectURL(readyFile)
+      setTempFile(readyFile)
+      setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
+
+      toast.dismiss(loadingToast)
+    } catch (error: unknown) {
+      toast.dismiss(loadingToast)
+      toast.error((error as Error).message || t('Kunde inte läsa bilden', 'Failed to read image'))
+    } finally {
+      setUploading(false)
+    }
   }
 
   const sendCastingEmail = async (name: string, email: string, language: string, type: string) => {
@@ -122,10 +135,8 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
           category: ImageCategory.ARTIST_PROMO,
         }
 
-        const fileToUpload = await compressImage(tempFile)
-
         finalImageId = await uploadToCloudinary(
-          fileToUpload,
+          tempFile,
           'Performers',
           [ImageCategory.ARTIST_PROMO, artistSlug],
           `Promo-${artistSlug}`,

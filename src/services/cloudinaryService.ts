@@ -31,18 +31,6 @@ export const getCloudinaryImagesByTag = async (
   return data.images || []
 }
 
-// Denna kan ligga kvar tillfälligt om den används för Casting Calls, men bör på sikt flyttas
-export const checkImageExists = async (eventSlug: string, imageSlug: string): Promise<boolean> => {
-  try {
-    const url = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/Casting%20Calls/${eventSlug}/${imageSlug}`
-    const response = await fetch(url, { method: 'HEAD' })
-    return response.ok
-  } catch (error) {
-    console.error('Fel vid Cloudinary-förvalidering:', error)
-    return false
-  }
-}
-
 //=== CREATE ===//
 
 export const uploadToCloudinary = async (

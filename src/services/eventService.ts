@@ -18,6 +18,16 @@ export async function fetchEvents(isOldEvent: boolean): Promise<Event[] | OldEve
   return (data || []) as Event[] | OldEvent[]
 }
 
+export async function fetchEventsForAdmin(): Promise<Event[]> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, title, event_start')
+    .order('event_start', { ascending: false })
+
+  if (error) throw error
+  return (data || []) as Event[]
+}
+
 export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
   if (isOldEvent) {
     const { data, error } = await supabase

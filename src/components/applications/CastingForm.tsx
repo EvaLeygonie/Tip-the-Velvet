@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { createSlug, formatDate, getImageSrc } from '@/lib/utils'
+import { createSlug, formatDate, getImageSrc, processUploadedImage } from '@/lib/utils'
 import type { Event, CreateCastingApplicationInput } from '@/types/types'
 import { submitCastingApplication } from '@/services/applicationService'
-import { uploadToCloudinary, checkImageExists } from '@/services/cloudinaryService'
+import { uploadToCloudinary } from '@/services/cloudinaryService'
 import { buildEventFolderName, formatInstagramLink, formatOtherLink } from '@/lib/utils'
 import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
 import { ImageCategory } from '@/types/media'
@@ -48,18 +48,24 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      toast.error(
-        t('Bilden är för stor. Maxstorlek är 5MB.', 'Image is too large. Maximum size is 5MB.')
-      )
-      return
+    setUploading(true)
+    const loadingToast = toast.loading(t('Bearbetar bild...', 'Processing image...'))
+
+    try {
+      const readyFile = await processUploadedImage(file)
+
+      const previewUrl = URL.createObjectURL(readyFile)
+      setTempFile(readyFile)
+      setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
+      console.log('Image ready for upload:', readyFile, 'Preview URL:', previewUrl)
+
+      toast.dismiss(loadingToast)
+    } catch (error: unknown) {
+      toast.dismiss(loadingToast)
+      toast.error((error as Error).message || t('Kunde inte läsa bilden', 'Failed to read image'))
+    } finally {
+      setUploading(false)
     }
-
-    const previewUrl = URL.createObjectURL(file)
-
-    setTempFile(file)
-    setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
   }
 
   const sendCastingEmail = async (
@@ -99,21 +105,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     let finalImageId = formData.promo_image_id
 
     if (tempFile) {
-      const alreadyExists = await checkImageExists(eventSlug, imageSlug)
-
-      if (alreadyExists) {
-        toast.info(
-          t(
-            'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
-            'You have already submitted an application for this act to this event! Your application is safe.'
-          ),
-          { duration: 6000 }
-        )
-        setSubmitting(false)
-        return
-      }
-
       setUploading(true)
+      console.log('Uploading image to Cloudinary:', tempFile)
       try {
         const context = {
           photographer: (formData.photographer || '').trim(),
@@ -131,9 +124,25 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           context
         )
         setTempFile(null)
-      } catch (err) {
-        toast.error(t('Kunde inte ladda upp bilden', 'Cloudinary upload failed'))
-        console.error(err)
+        console.log('Image uploaded to Cloudinary with public_id:', finalImageId)
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : ''
+
+        const isDuplicate = errorMessage.includes('exists') || errorMessage.includes('already')
+
+        if (isDuplicate) {
+          toast.info(
+            t(
+              'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
+              'You have already submitted an application for this act to this event! Your application is safe.'
+            ),
+            { duration: 6000 }
+          )
+        } else {
+          toast.error(t('Kunde inte ladda upp bilden', 'Image upload failed'))
+          console.error(err)
+        }
+
         setSubmitting(false)
         return
       } finally {

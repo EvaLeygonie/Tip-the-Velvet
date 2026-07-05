@@ -1,3 +1,5 @@
+import heic2any from 'heic2any'
+
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 
 export const createSlug = (text: string) => {
@@ -59,7 +61,9 @@ export const buildEventFolderName = (eventTitle: string, eventDate: string) => {
 }
 
 export const getImageSrc = (imageId: string) => {
+  if (!imageId) return ''
   if (imageId.startsWith('blob:') || imageId.startsWith('http')) return imageId
+
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${imageId}`
 }
 
@@ -98,6 +102,40 @@ export const compressImage = (file: File): Promise<File> => {
     }
     img.onerror = reject
   })
+}
+
+export const processUploadedImage = async (file: File): Promise<File> => {
+  let processedFile = file
+
+  const isHeic =
+    file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)
+
+  if (isHeic) {
+    try {
+      const result = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.9,
+      })
+      const blob = Array.isArray(result) ? result[0] : result
+      const newFileName = file.name.replace(/\.(heic|heif)$/i, '.jpg')
+      processedFile = new File([blob], newFileName, { type: 'image/jpeg' })
+    } catch (error) {
+      console.error('HEIC-konvertering misslyckades:', error)
+      throw new Error('Kunde inte läsa bildformatet (HEIC)')
+    }
+  }
+
+  const FIVE_MB = 5 * 1024 * 1024
+  if (processedFile.size > FIVE_MB) {
+    try {
+      processedFile = await compressImage(processedFile)
+    } catch (error) {
+      console.warn('Komprimering misslyckades, behåller originalfilen:', error)
+    }
+  }
+
+  return processedFile
 }
 
 export const formatDate = (language: string, dateString: string | null) => {
