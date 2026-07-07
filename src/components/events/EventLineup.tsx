@@ -9,6 +9,7 @@ interface EventLineupProps {
 }
 
 export const EventLineup = ({ performers }: EventLineupProps) => {
+  console.log('Här är artisterna som komponenten får:', performers)
   const { t } = useLanguage()
   const { user } = useAuth()
   const { slug } = useParams()
@@ -29,6 +30,8 @@ export const EventLineup = ({ performers }: EventLineupProps) => {
         {visiblePerformers.map((row) => {
           const artist = row.performer
           const isHidden = !row.is_revealed
+
+          if (!artist) return null
 
           return (
             <Link

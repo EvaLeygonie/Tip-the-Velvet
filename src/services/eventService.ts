@@ -84,7 +84,7 @@ export const getEventPerformers = async (eventId: string): Promise<EventPerforme
       `
       display_order,
       is_revealed,
-      performer:performers (
+      performer:public_performers (
         id,
         performer_name,
         promo_image_id,
