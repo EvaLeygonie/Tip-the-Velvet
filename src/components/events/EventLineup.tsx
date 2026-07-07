@@ -45,7 +45,7 @@ export const EventLineup = ({ performers }: EventLineupProps) => {
                 </span>
               )}
 
-              <div className="w-full aspect-square rounded-lg overflow-hidden border border-accent/10 bg-black/60 mb-3 shrink-0">
+              <div className="w-full aspect-[3/4] rounded-lg overflow-hidden border border-accent/10 bg-black/60 mb-3 shrink-0">
                 {artist.promo_image_id ? (
                   <img
                     src={getImageSrc(artist.promo_image_id)}
