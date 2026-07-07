@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useLocation } from 'react-router-dom'
 import type { Performer, PublicPerformer } from '@/types/types'
 import { fetchPerformerBySlug } from '@/services/performerService'
 import { getCloudinaryImagesByTag } from '@/services/cloudinaryService'
@@ -42,8 +42,10 @@ const InstagramIcon = ({ size = 20 }: { size?: number }) => (
 
 export const PerformerDetail = () => {
   const { t } = useLanguage()
-  const { slug } = useParams()
   const { user } = useAuth()
+  const { slug } = useParams()
+  const location = useLocation()
+  const fromEventSlug = location.state?.fromEvent
 
   const [performer, setPerformer] = useState<Performer | PublicPerformer | null>(null)
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -125,9 +127,19 @@ export const PerformerDetail = () => {
         <div className="w-full max-w-7xl mx-auto px-4 md:px-8 relative z-10">
           <div className="section-header-triad">
             <div className="header-side-content md:justify-start">
-              <Link to="/performers">
-                <ArrowLeft className="text-accent hover:scale-105 transition-transform" />
-              </Link>
+              {fromEventSlug ? (
+                <Link
+                  to={`/events/event/${fromEventSlug}`}
+                  className="inline-flex items-center gap-2 text-accent/70 hover:text-accent text-xs font-mono uppercase tracking-wider transition-colors"
+                >
+                  <ArrowLeft size={14} />
+                  {t('Tillbaka till eventet', 'Back to event')}
+                </Link>
+              ) : (
+                <Link to="/performers">
+                  <ArrowLeft className="text-accent hover:scale-105 transition-transform" />
+                </Link>
+              )}
             </div>
 
             <div className="text-center space-y-2 relative z-10">

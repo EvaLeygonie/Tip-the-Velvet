@@ -4,7 +4,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Link, useParams } from 'react-router-dom'
 import type { Event, OldEvent, EventImage } from '@/types/types'
-import { getEventWithImages } from '@/services/eventService'
+import {
+  getEventWithImages,
+  getEventPerformers,
+  type EventPerformerRow,
+} from '@/services/eventService'
 import { GalleryEditor } from '@/components/events/GalleryEditor'
 import { ArrowLeft, Images, ExternalLink, Camera } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
@@ -12,6 +16,7 @@ import 'yet-another-react-lightbox/styles.css'
 import { getImageSrc } from '@/lib/utils'
 import { EventInfo } from '@/components/events/EventInfo'
 import { OldEventInfo } from '@/components/events/OldEventInfo'
+import { EventLineup } from '@/components/events/EventLineup'
 
 type ExtendedEvent = Event & {
   public_photographers?: {
@@ -29,6 +34,7 @@ export const EventDetail = () => {
   const [loading, setLoading] = useState(true)
 
   const [event, setEvent] = useState<ExtendedEvent | OldEvent | null>(null)
+  const [eventPerformers, setEventPerformers] = useState<EventPerformerRow[]>([])
   const [images, setImages] = useState<EventImage[]>([])
   const [index, setIndex] = useState<number>(-1)
 
@@ -51,6 +57,9 @@ export const EventDetail = () => {
 
       setEvent(data)
       setImages(data.images || [])
+
+      const performersData = await getEventPerformers(data.id)
+      setEventPerformers(performersData)
     } catch (err) {
       console.error('Error fetching event:', err)
     } finally {
@@ -123,8 +132,12 @@ export const EventDetail = () => {
         {isOldEvent ? (
           <OldEventInfo event={event as OldEvent}></OldEventInfo>
         ) : (
-          <EventInfo event={event as Event}></EventInfo>
+          <>
+            <EventInfo event={event as Event}></EventInfo>
+            <EventLineup performers={eventPerformers} />
+          </>
         )}
+
         {event?.fb_album_url && (
           <div className="flex justify-center">
             <a
@@ -138,6 +151,7 @@ export const EventDetail = () => {
             </a>
           </div>
         )}
+
         {/* FACEBOOK LÄNK */}
         {event && 'facebook_event' in event && event.facebook_event && !event.fb_album_url && (
           <div className="flex justify-center">
@@ -194,6 +208,7 @@ export const EventDetail = () => {
             event={event}
             isOldEvent={isOldEvent}
             onUpdate={loadEventData}
+            eventPerformers={eventPerformers}
           />
         )}
 

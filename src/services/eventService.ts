@@ -1,7 +1,19 @@
 import { supabase } from '@/lib/supabase'
-import type { Event, OldEvent, CreateEventInput, CreateEventImageInput } from '@/types/types'
+import type {
+  Event,
+  OldEvent,
+  CreateEventInput,
+  CreateEventImageInput,
+  Performer,
+} from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
+
+export interface EventPerformerRow {
+  display_order: number
+  is_revealed: boolean
+  performer: Performer
+}
 
 //=== READ ===///
 
@@ -63,6 +75,29 @@ export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
       images: data.event_images || [],
     }
   }
+}
+
+export const getEventPerformers = async (eventId: string): Promise<EventPerformerRow[]> => {
+  const { data, error } = await supabase
+    .from('event_performers')
+    .select(
+      `
+      display_order,
+      is_revealed,
+      performer:performers (
+        id,
+        performer_name,
+        promo_image_id,
+        slug
+      )
+    `
+    )
+    .eq('event_id', eventId)
+    .order('display_order', { ascending: true })
+
+  if (error) throw error
+
+  return (data || []) as unknown as EventPerformerRow[]
 }
 
 export const getAdminEventDetails = async (slug: string) => {

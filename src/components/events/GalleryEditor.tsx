@@ -1,9 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
-import type { Event, OldEvent, EventImage, Performer } from '@/types/types'
-import { createEventImage, toggleImageVisibility, deleteEventImage } from '@/services/eventService'
+import { useState, useRef } from 'react'
+import type { Event, OldEvent, EventImage } from '@/types/types'
+import {
+  createEventImage,
+  toggleImageVisibility,
+  deleteEventImage,
+  type EventPerformerRow,
+} from '@/services/eventService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import CloudinaryImage from '@/components/CloudinaryImage'
-import { fetchPerformers } from '@/services/performerService'
 import { buildEventFolderName, compressImage, createSlug } from '@/lib/utils'
 import { ImageCategory } from '@/types/media'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -15,6 +19,7 @@ interface GalleryEditorProps {
   isOldEvent: boolean
   images: EventImage[]
   onUpdate: () => void
+  eventPerformers: EventPerformerRow[]
 }
 
 interface PerformanceSelection {
@@ -22,7 +27,13 @@ interface PerformanceSelection {
   actName: string
 }
 
-export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEditorProps) => {
+export const GalleryEditor = ({
+  images,
+  event,
+  isOldEvent,
+  onUpdate,
+  eventPerformers,
+}: GalleryEditorProps) => {
   const { t } = useLanguage()
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -35,29 +46,18 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
 
   const [activePerformerName, setActivePerformerName] = useState<string>('')
   const [currentActInput, setCurrentActInput] = useState('')
-  const [allPerformers, setAllPerformers] = useState<Performer[]>([])
 
   const [tagInput, setTagInput] = useState('')
   const [customTags, setCustomTags] = useState<string[]>([])
 
   const baseTags = [event.slug].filter(Boolean)
 
-  useEffect(() => {
-    const loadPerformers = async () => {
-      try {
-        const data = await fetchPerformers(true)
-        setAllPerformers(data as Performer[])
-      } catch (err) {
-        console.error('Failed to fetch performers:', err)
-      }
-    }
-    loadPerformers()
-  }, [])
-
   const handleAddPerformer = () => {
     if (!activePerformerName) return
 
-    if (!selectedPerformers.some((p) => p.performerName === activePerformerName)) {
+    if (
+      !selectedPerformers.some((p: PerformanceSelection) => p.performerName === activePerformerName)
+    ) {
       setSelectedPerformers([
         ...selectedPerformers,
         { performerName: activePerformerName, actName: currentActInput.trim() },
@@ -251,9 +251,9 @@ export const GalleryEditor = ({ images, event, isOldEvent, onUpdate }: GalleryEd
                   className="admin-select !w-full h-[46px]"
                 >
                   <option value="">-- {t('Välj artist...', 'Select artist...')} --</option>
-                  {allPerformers.map((p) => (
-                    <option key={p.id} value={p.performer_name}>
-                      {p.performer_name}
+                  {eventPerformers.map((row) => (
+                    <option key={row.performer.id} value={row.performer.performer_name}>
+                      {row.performer.performer_name}
                     </option>
                   ))}
                 </select>
