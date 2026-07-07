@@ -69,7 +69,6 @@ export const CastingApplicationRow = ({
   const handleMailClick = (e: React.MouseEvent) => {
     e.stopPropagation()
 
-    // Dynamisk ämnesrad baserad HELT på artistens inskickade språkval
     const subject =
       application.language === 'sv'
         ? `Tip the Velvet - Angående din castingansökan för ${application.act_title}`
@@ -115,20 +114,20 @@ export const CastingApplicationRow = ({
 
         <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Språk', 'Language')}
-          </span>
-          <span className="truncate block">
-            {application.language === 'sv' ? t('Svenska', 'Swedish') : t('Engelska', 'English')}
-          </span>
-        </div>
-
-        <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body">
-          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
             {t('Plats', 'Location')}
           </span>
           <span className="truncate block">
             {application.city || '—'}
             {application.country ? `, ${application.country}` : ''}
+          </span>
+        </div>
+
+        <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body">
+          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
+            {t('Språk', 'Language')}
+          </span>
+          <span className="truncate block">
+            {application.language === 'sv' ? t('Svenska', 'Swedish') : t('Engelska', 'English')}
           </span>
         </div>
 

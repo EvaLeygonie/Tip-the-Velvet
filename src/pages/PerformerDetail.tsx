@@ -86,6 +86,8 @@ export const PerformerDetail = () => {
     getPerformerData()
   }, [slug, user])
 
+  const sortedImages = images.sort((a, b) => a.id.localeCompare(b.id))
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -107,7 +109,7 @@ export const PerformerDetail = () => {
     )
   }
 
-  const lightboxSlides = images.map((img) => ({
+  const lightboxSlides = sortedImages.map((img) => ({
     src: getImageSrc(img.id),
     alt: performer.performer_name || '',
     description: img.photographer
@@ -261,7 +263,7 @@ export const PerformerDetail = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-              {images.map((img, imgIndex) => (
+              {sortedImages.map((img, imgIndex) => (
                 <div
                   key={img.id}
                   onClick={() => setIndex(imgIndex)}
@@ -273,7 +275,7 @@ export const PerformerDetail = () => {
                     height={400}
                     className="media-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                   />
-                  {/* Snygg hovringseffekt med fotografens namn */}
+
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
                     {img.photographer && (
                       <span className="text-[11px] font-mono tracking-wide text-accent/90 truncate flex items-center gap-1">
