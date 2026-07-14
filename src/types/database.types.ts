@@ -23,7 +23,6 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
-          display_order: number | null
           email: string
           event_id: string
           id: string
@@ -46,7 +45,6 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
-          display_order?: number | null
           email: string
           event_id: string
           id?: string
@@ -69,7 +67,6 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
-          display_order?: number | null
           email?: string
           event_id?: string
           id?: string
@@ -544,6 +541,7 @@ export type Database = {
           photographer: string | null
           promo_image_id: string | null
           slug: string
+          third_link: string | null
         }
         Insert: {
           agreed_to_terms?: boolean | null
@@ -563,6 +561,7 @@ export type Database = {
           photographer?: string | null
           promo_image_id?: string | null
           slug: string
+          third_link?: string | null
         }
         Update: {
           agreed_to_terms?: boolean | null
@@ -582,6 +581,7 @@ export type Database = {
           photographer?: string | null
           promo_image_id?: string | null
           slug?: string
+          third_link?: string | null
         }
         Relationships: []
       }
@@ -715,6 +715,7 @@ export type Database = {
           photographer: string | null
           promo_image_id: string | null
           slug: string | null
+          third_link: string | null
         }
         Insert: {
           bio_eng?: string | null
@@ -729,6 +730,7 @@ export type Database = {
           photographer?: string | null
           promo_image_id?: string | null
           slug?: string | null
+          third_link?: string | null
         }
         Update: {
           bio_eng?: string | null
@@ -743,6 +745,7 @@ export type Database = {
           photographer?: string | null
           promo_image_id?: string | null
           slug?: string | null
+          third_link?: string | null
         }
         Relationships: []
       }

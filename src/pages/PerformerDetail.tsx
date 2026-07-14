@@ -178,6 +178,17 @@ export const PerformerDetail = () => {
                     <ExternalLink size={18} />
                   </a>
                 )}
+                {performer.third_link && (
+                  <a
+                    href={performer.third_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent/60 hover:text-accent transition-all p-1 hover:scale-110 duration-200"
+                    title={t('Hemsida / Länk', 'Website / Link')}
+                  >
+                    <ExternalLink size={18} />
+                  </a>
+                )}
               </div>
 
               {/* LÄNKAR FÖR ADMIN */}

@@ -106,7 +106,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
     if (tempFile) {
       setUploading(true)
-      console.log('Uploading image to Cloudinary:', tempFile)
       try {
         const context = {
           photographer: (formData.photographer || '').trim(),
@@ -124,7 +123,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           context
         )
         setTempFile(null)
-        console.log('Image uploaded to Cloudinary with public_id:', finalImageId)
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : ''
 

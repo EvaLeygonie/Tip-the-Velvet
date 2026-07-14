@@ -181,12 +181,32 @@ export const EventEditor = () => {
     }
 
     const payload: CreateEventInput = {
-      ...formData,
       title: formData.title || '',
+      subtitle: formData.subtitle || null,
       slug: finalSlug,
-      image_id: finalImageId,
+      status: formData.status || 'draft',
+      has_casting_call: formData.has_casting_call || false,
+      casting_call_deadline: formData.casting_call_deadline || null,
+      casting_info_sv: formData.casting_info_sv || null,
+      casting_info_eng: formData.casting_info_eng || null,
+      description_sv: formData.description_sv || null,
+      description_eng: formData.description_eng || null,
+      glow_color: formData.glow_color || '#D4AF37',
+      image_id: finalImageId || null,
       event_start: formData.event_start ? localToUtc(formData.event_start) : null,
       event_end: formData.event_end ? localToUtc(formData.event_end) : null,
+      reveal_date: formData.reveal_date || null,
+      venue_id: formData.venue_id || null,
+      photographer_id: formData.photographer_id || null,
+      location: formData.location || null,
+      photographer: formData.photographer || null,
+      ticket_url: formData.ticket_url || null,
+      tickets_price: formData.tickets_price || null,
+      tickets_sold: formData.tickets_sold || null,
+      available_tickets: formData.available_tickets || null,
+      pinterest_link: formData.pinterest_link || null,
+      facebook_event: formData.facebook_event || null,
+      fb_album_url: formData.fb_album_url || null,
     }
 
     try {
@@ -388,7 +408,7 @@ export const EventEditor = () => {
                 name="venue_id"
                 value={formData.venue_id || ''}
                 onChange={handleVenueChange}
-                className="admin-select !w-auto !py-0 text-right text-xs max-w-[180px]"
+                className="admin-select !w-auto !py-1"
               >
                 <option value="">-- {t('Välj plats...', 'Select location...')} --</option>
                 {venues.map((v) => (

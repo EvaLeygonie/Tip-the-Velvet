@@ -443,7 +443,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
         <div className="form-row-2-tight">
           <div className="form-field">
             <label className="form-label-block">
-              {t('Instagram länk (friviligt)', 'Instagram link (optional)')}
+              {t('Instagram länk (frivilligt)', 'Instagram link (optional)')}
             </label>
             <input
               type="text"
@@ -456,7 +456,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
 
           <div className="form-field">
             <label className="form-label-block">
-              {t('Annan länk (frivil ligt)', 'Other link (optional)')}
+              {t('Annan länk (frivilligt)', 'Other link (optional)')}
             </label>
             <input
               type="text"
@@ -469,6 +469,19 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
               onChange={handleChange}
             />
           </div>
+        </div>
+
+        <div className="form-field">
+          <label className="form-label-block">
+            {t('Annan länk (frivilligt)', 'Other link (optional)')}
+          </label>
+          <input
+            type="text"
+            name="third_link"
+            placeholder={t('I.e webbsida, annan social media', 'e.g. website, other social media')}
+            value={formData.third_link || ''}
+            onChange={handleChange}
+          />
         </div>
 
         {/* GDPR */}
