@@ -1,20 +1,56 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { supabase } from '@/lib/supabase'
 import { Loader2, Lock, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import type { User } from '@supabase/supabase-js'
 
 export const RegisterAdmin = () => {
   const { t } = useLanguage()
-  const { user, loading } = useAuth()
   const navigate = useNavigate()
+
+  const [localUser, setLocalUser] = useState<User | null>(null)
+  const [localLoading, setLocalLoading] = useState(true)
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [updating, setUpdating] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+
+  useEffect(() => {
+    const getInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        setLocalUser(session.user)
+        setLocalLoading(false)
+      }
+    }
+    getInitialSession()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        setLocalUser(session.user)
+        setLocalLoading(false)
+      } else if (event === 'SIGNED_OUT') {
+        setLocalUser(null)
+        setLocalLoading(false)
+      }
+    })
+
+    const timer = setTimeout(() => {
+      setLocalLoading(false)
+    }, 2500)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timer)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,14 +97,18 @@ export const RegisterAdmin = () => {
     }
   }
 
-  if (loading) {
+  if (localLoading) {
     return (
-      <div className="flex justify-center p-8">
+      <div className="flex flex-col justify-center items-center p-8 h-screen gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-gold" />
+        <p className="text-sm text-muted-foreground">
+          {t('Verifierar inbjudan...', 'Verifying invitation...')}
+        </p>
       </div>
     )
   }
-  if (!user) {
+
+  if (!localUser) {
     return (
       <div className="max-w-md mx-auto mt-10 p-6 text-center bg-background border border-border rounded-lg">
         <p className="text-destructive font-medium">

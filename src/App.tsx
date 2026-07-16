@@ -71,14 +71,7 @@ export const App = () => (
               <Route path="/hall-of-fame-form/:slug" element={<AddPerformer />} />
 
               <Route path="/admin/login" element={<AdminLogin />} />
-              <Route
-                path="/admin/register"
-                element={
-                  <ProtectedRoute>
-                    <RegisterAdmin />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/admin/register" element={<RegisterAdmin />} />
 
               <Route
                 path="/admin/event-editor"
