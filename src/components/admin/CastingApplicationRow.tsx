@@ -229,87 +229,90 @@ export const CastingApplicationRow = ({
       onClick={() => setIsExpanded(!isExpanded)}
     >
       {/* STÄNGD RAD */}
-      <div className="p-4 grid grid-cols-12 items-center gap-4 text-left">
-        {/* Bild, Artistnamn & Akt (4 kolumner) */}
-        <div className="col-span-12 lg:col-span-4 flex items-center gap-3 min-w-0">
-          <div className="text-accent/50 shrink-0">
-            {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-          </div>
-          <div className="w-12 h-12 rounded-md overflow-hidden border border-accent/20 shrink-0 bg-black/40">
-            {application.promo_image_id ? (
-              <img
-                src={getImageSrc(application.promo_image_id)}
-                alt={application.performer_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-accent/30 text-xs font-mono">
-                N/A
+      <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
+        {/* VÄNSTER SIDA: All artist- och aktdetalj i ett flex-grid som flödar snyggt */}
+        <div className="grid grid-cols-12 gap-4 items-center flex-1 min-w-0">
+          {/* Bild, Artistnamn & Akt (Flyttar sig mellan 12 och 5 kolumner) */}
+          <div className="col-span-12 md:col-span-5 flex items-center gap-3 min-w-0">
+            <div className="text-accent/50 shrink-0">
+              {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </div>
+            <div className="w-12 h-12 rounded-md overflow-hidden border border-accent/20 shrink-0 bg-black/40">
+              {application.promo_image_id ? (
+                <img
+                  src={getImageSrc(application.promo_image_id)}
+                  alt={application.performer_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-accent/30 text-xs font-mono">
+                  N/A
+                </div>
+              )}
+            </div>
+            <div className="truncate">
+              <div className="font-decorative text-base text-foreground tracking-wide truncate">
+                {application.performer_name}
               </div>
-            )}
-          </div>
-          <div className="truncate">
-            <div className="font-decorative text-base text-foreground tracking-wide truncate">
-              {application.performer_name}
-            </div>
-            <div className="text-accent italic text-xs font-heading truncate">
-              {application.act_title}
+              <div className="text-accent italic text-xs font-heading truncate">
+                {application.act_title}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Språk (2 kolumner) */}
-        <div className="col-span-3 lg:col-span-2 text-sm text-foreground/60 font-body truncate">
-          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Språk', 'Language')}
-          </span>
-          <span className="truncate block">
-            {application.language === 'sv' ? t('Svenska', 'Swedish') : t('Engelska', 'English')}
-          </span>
-        </div>
-
-        {/* Plats (2 kolumner) */}
-        <div className="col-span-4 lg:col-span-2 text-sm text-foreground/60 font-body truncate">
-          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Plats', 'Location')}
-          </span>
-          <span className="truncate block">{application.city || '—'}</span>
-        </div>
-
-        {/* Önskat Gage + Ikoner (2 kolumner) */}
-        <div className="col-span-5 lg:col-span-2 text-sm text-foreground/60 font-body">
-          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Gage', 'Fee')}
-          </span>
-          <div className="flex items-center gap-1.5 Freelancer-badge-container">
-            <span className="font-medium text-foreground/90 flex items-center gap-0.5 whitespace-nowrap">
-              {application.requested_fee ?? '—'}{' '}
-              {application.requested_fee && <span className="text-[10px] text-accent">SEK</span>}
+          {/* Språk */}
+          <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body truncate">
+            <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
+              {t('Språk', 'Language')}
             </span>
-            <div className="flex items-center gap-1 shrink-0">
-              {application.needs_travel_costs && (
-                <span title={t('Behöver resa', 'Needs travel')}>
-                  <BusFront className="h-3.5 w-3.5 text-gold" />
-                </span>
-              )}
-              {application.needs_accommodation && (
-                <span title={t('Behöver boende', 'Needs accommodation')}>
-                  <Home className="h-3.5 w-3.5 text-accent/50" />
-                </span>
-              )}
+            <span className="truncate block">
+              {application.language === 'sv' ? t('Svenska', 'Swedish') : t('Engelska', 'English')}
+            </span>
+          </div>
+
+          {/* Plats */}
+          <div className="col-span-4 md:col-span-3 text-sm text-foreground/60 font-body truncate">
+            <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
+              {t('Plats', 'Location')}
+            </span>
+            <span className="truncate block">{application.city || '—'}</span>
+          </div>
+
+          {/* Önskat Gage + Ikoner */}
+          <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body">
+            <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
+              {t('Gage', 'Fee')}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-foreground/90 flex items-center gap-0.5 whitespace-nowrap">
+                {application.requested_fee ?? '—'}{' '}
+                {application.requested_fee && <span className="text-[10px] text-accent">SEK</span>}
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                {application.needs_travel_costs && (
+                  <span title={t('Behöver resa', 'Needs travel')}>
+                    <BusFront className="h-3.5 w-3.5 text-gold" />
+                  </span>
+                )}
+                {application.needs_accommodation && (
+                  <span title={t('Behöver boende', 'Needs accommodation')}>
+                    <Home className="h-3.5 w-3.5 text-accent/50" />
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Sortering och Mailknapp (2 kolumner - Låsta bredvid varandra) */}
+        {/* HÖGER SIDA: Sortering och Mailknapp (Helt isolerade, ligger ALLTID klistrade till höger i en rak linje) */}
         <div
-          className="col-span-12 lg:col-span-2 flex items-center justify-end gap-2 shrink-0"
+          className="flex items-center gap-2 shrink-0 self-end sm:self-center"
           onClick={(e) => e.stopPropagation()}
         >
           <select
             value={application.review_status}
             onChange={handleStatusSelect}
-            className="admin-select !w-24 text-xs py-1.5 px-2"
+            className="admin-select !w-32 text-xs py-1.5 px-2.5 pr-8"
           >
             <option value="pending">{t('Osorterad', 'Unsorted')}</option>
             <option value="yes">{t('Ja', 'Yes')}</option>
