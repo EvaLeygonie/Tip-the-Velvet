@@ -8,6 +8,7 @@ import { fetchEventsForAdmin } from '@/services/eventService'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { CastingApplication, Event } from '@/types/types'
 import { CastingApplicationRow } from '@/components/admin/CastingApplicationRow'
+import { DollarSign } from 'lucide-react'
 
 export const AdminCasting = () => {
   const { t } = useLanguage()
@@ -77,16 +78,33 @@ export const AdminCasting = () => {
   const maybeApps = applications.filter((app) => app.review_status === 'maybe')
   const noApps = applications.filter((app) => app.review_status === 'no')
 
-  const renderAppSection = (title: string, appsList: CastingApplication[], badgeColor: string) => {
+  const totalBudget = yesApps.reduce((sum, app) => sum + (Number(app.requested_fee) || 0), 0)
+
+  const renderAppSection = (
+    title: string,
+    appsList: CastingApplication[],
+    badgeColor: string,
+    isYesSection = false
+  ) => {
     if (appsList.length === 0) return null
 
     return (
       <div className="space-y-3 pt-6">
         <div className="flex items-center justify-between border-b border-accent/10 pb-1">
           <h5 className="font-decorative text-base text-foreground/80">{title}</h5>
-          <span className={`text-xs font-mono px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
-            {appsList.length}
-          </span>
+
+          <div className="flex items-center gap-3">
+            {/* Renare budget utan ram, placerad precis till vänster om artistantalet */}
+            {isYesSection && (
+              <div className="text-xs text-gold font-mono flex items-center gap-1 opacity-90">
+                <DollarSign className="h-3 w-3" />
+                <span>Total: {totalBudget} SEK</span>
+              </div>
+            )}
+            <span className={`text-xs font-mono px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
+              {appsList.length}
+            </span>
+          </div>
         </div>
         <div className="space-y-3">
           {appsList.map((app) => (
@@ -186,7 +204,8 @@ export const AdminCasting = () => {
             {renderAppSection(
               t('Bokade / Ja', 'Booked / Yes'),
               yesApps,
-              'bg-green-500/10 border-green-500/30 text-green-400'
+              'bg-green-500/10 border-green-500/30 text-green-400',
+              true // Aktiverar budgeträknaren för denna sektion
             )}
             {renderAppSection(
               t('Kanske / Reserver', 'Maybe / Backup'),

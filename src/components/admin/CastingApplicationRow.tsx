@@ -2,7 +2,16 @@ import { useState } from 'react'
 import type { CastingApplication } from '@/types/types'
 import { getImageSrc, formatDate } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { ChevronDown, ChevronUp, Mail, Link as LinkIcon, Video, Save } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Link as LinkIcon,
+  Video,
+  Save,
+  BusFront,
+  Home,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 interface CastingApplicationRowProps {
@@ -77,15 +86,16 @@ export const CastingApplicationRow = ({
     window.location.href = `mailto:${application.email}?subject=${encodeURIComponent(subject)}`
   }
 
+  const hasLogistics = application.needs_travel_costs || application.needs_accommodation
+
   return (
     <div
       className="admin-panel velvet-surface transition-all duration-300 hover:border-accent/30 overflow-hidden cursor-pointer"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', padding: 0 }}
       onClick={() => setIsExpanded(!isExpanded)}
     >
-      {/* STÄNGD RAD */}
       <div className="p-4 grid grid-cols-12 items-center gap-4 text-left">
-        <div className="col-span-12 sm:col-span-4 flex items-center gap-3">
+        <div className="col-span-12 sm:col-span-3 flex items-center gap-3">
           <div className="text-accent/50 shrink-0">
             {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
           </div>
@@ -114,6 +124,22 @@ export const CastingApplicationRow = ({
 
         <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
+            {t('Datum', 'Date')}
+          </span>
+          <span>{formatDate(language, application.created_at)}</span>
+        </div>
+
+        <div className="col-span-4 sm:col-span-1 text-sm text-foreground/60 font-body">
+          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
+            {t('Språk', 'Language')}
+          </span>
+          <span className="truncate block">
+            {application.language === 'sv' ? t('Sv', 'SV') : t('En', 'EN')}
+          </span>
+        </div>
+
+        <div className="col-span-4 sm:col-span-2 text-sm text-foreground/60 font-body">
+          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
             {t('Plats', 'Location')}
           </span>
           <span className="truncate block">
@@ -122,20 +148,33 @@ export const CastingApplicationRow = ({
           </span>
         </div>
 
-        <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body">
+        {/* ECONOMY & LOGISTICS */}
+        <div className="col-span-4 sm:col-span-2 text-sm text-foreground/60 font-body">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Språk', 'Language')}
+            {t('Gage & Logistik', 'Fee & Logistics')}
           </span>
-          <span className="truncate block">
-            {application.language === 'sv' ? t('Svenska', 'Swedish') : t('Engelska', 'English')}
-          </span>
-        </div>
-
-        <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body">
-          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Datum', 'Date')}
-          </span>
-          <span>{formatDate(language, application.created_at)}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-foreground/90 flex items-center gap-0.5">
+              {application.requested_fee ?? '—'}{' '}
+              {application.requested_fee ? (
+                <span className="text-[10px] text-accent">SEK</span>
+              ) : (
+                ''
+              )}
+            </span>
+            <div className="flex items-center gap-1 ml-1">
+              {application.needs_travel_costs && (
+                <span title={t('Behöver resa', 'Needs travel')}>
+                  <BusFront className="h-3.5 w-3.5 text-gold" />
+                </span>
+              )}
+              {application.needs_accommodation && (
+                <span title={t('Behöver boende', 'Needs accommodation')}>
+                  <Home className="h-3.5 w-3.5 text-gold" />
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         <div
@@ -146,7 +185,7 @@ export const CastingApplicationRow = ({
             value={application.review_status}
             onChange={handleStatusSelect}
             disabled={updatingStatus}
-            className="admin-select !w-full min-w-[150px] !pr-8 text-xs py-1.5 px-2"
+            className="admin-select !w-full min-w-[130px] !pr-8 text-xs py-1.5 px-2"
           >
             <option value="pending">{t('Osorterad', 'Unsorted')}</option>
             <option value="yes">{t('Ja', 'Yes')}</option>
@@ -173,7 +212,6 @@ export const CastingApplicationRow = ({
           <div className="space-y-4">
             {application.promo_image_id && (
               <div className="border border-accent/20 rounded-md overflow-hidden bg-black/40">
-                {/* FIX: object-contain istället för object-cover så inga ansikten eller hakar croppas bort */}
                 <img
                   src={getImageSrc(application.promo_image_id)}
                   alt="Promo stor"
@@ -256,6 +294,25 @@ export const CastingApplicationRow = ({
                   )}
                 </p>
               </div>
+
+              {/* LOGISTICS */}
+              {(hasLogistics || application.accommodation_notes) && (
+                <div>
+                  <span className="block uppercase tracking-wider text-[10px] text-gold font-semibold mb-1 items-center gap-1">
+                    {t('Logistiknoteringar från artisten', 'Logistics notes from artist')}
+                  </span>
+                  <p className="text-sm text-foreground/80 whitespace-pre-wrap font-body leading-relaxed bg-amber-500/5 p-3 rounded border border-gold/10">
+                    {application.accommodation_notes || (
+                      <span className="text-foreground/40 italic">
+                        {t(
+                          'Artisten angav inga specifika kommentarer, men har markerat behov.',
+                          'No specific comments provided, but needs are checked.'
+                        )}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Admin Notes */}
