@@ -837,6 +837,7 @@ export type Database = {
     Enums: {
       booking_status_type:
         | "not_contacted"
+        | "negotiating"
         | "pending_confirmation"
         | "confirmed"
         | "declined"
@@ -988,6 +989,7 @@ export const Constants = {
     Enums: {
       booking_status_type: [
         "not_contacted",
+        "negotiating",
         "pending_confirmation",
         "confirmed",
         "declined",

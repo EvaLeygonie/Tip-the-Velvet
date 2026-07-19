@@ -57,50 +57,46 @@ export const CastingApplicationRow = ({
   const [notes, setNotes] = useState(application.admin_notes || '')
   const [savingNotes, setSavingNotes] = useState(false)
 
-  // States för mail-modalen
   const [showMailModal, setShowMailModal] = useState(false)
   const [mailSubject, setMailSubject] = useState('')
   const [isSendingMail, setIsSendingMail] = useState(false)
   const [customMailBodyText, setCustomMailBodyText] = useState<string | null>(null)
 
-  // Endast proposed_fee hanteras som ett unikt erbjudande-state
   const [offerFee, setOfferFee] = useState<number>(
     Number(application.proposed_fee) || Number(application.requested_fee) || 1000
   )
 
   const isSv = application.language === 'sv'
   const hasTravelNeed = application.needs_travel_costs
+  const hasAccommodationNeed = application.needs_accommodation
 
-  // Flödes- och färgstatusar
   const isRejectedAndSent = application.review_status === 'no' && application.initial_reply_sent
   const isNegotiating =
-    application.review_status === 'yes' &&
-    application.initial_reply_sent &&
-    hasTravelNeed &&
-    application.booking_status === 'pending_confirmation'
-  const isConfirmedAndSent =
-    application.review_status === 'yes' &&
-    application.initial_reply_sent &&
-    (!hasTravelNeed || application.booking_status === 'confirmed')
+    application.review_status === 'yes' && application.booking_status === 'negotiating'
+  const isWaitingForArtist =
+    application.review_status === 'yes' && application.booking_status === 'pending_confirmation'
+  const isFullyConfirmed =
+    application.review_status === 'yes' && application.booking_status === 'confirmed'
 
-  // Bestäm kantlinje och bakgrund baserat på status
+  // Kantlinje och bakgrund baserat på processens status
   let statusRowClass = 'hover:border-accent/30'
   if (isRejectedAndSent) {
-    statusRowClass = 'opacity-50 border-red-900/40 bg-black/60'
+    statusRowClass = 'border-red-900/65 bg-red-950/5 hover:border-red-800'
   } else if (isNegotiating) {
     statusRowClass = 'border-amber-600/50 bg-amber-950/10 hover:border-amber-500'
-  } else if (isConfirmedAndSent) {
-    statusRowClass = 'border-emerald-600/50 bg-emerald-950/10 hover:border-emerald-500'
+  } else if (isWaitingForArtist) {
+    statusRowClass = 'border-purple-800/40 bg-purple-950/10 hover:border-purple-700/60'
+  } else if (isFullyConfirmed) {
+    statusRowClass =
+      'border-emerald-500 bg-emerald-950/20 shadow-[0_0_15px_rgba(16,185,129,0.05)] cursor-default'
   }
 
-  // Dynamiska texter beräknade direkt vid rendering
   const contractLink = `https://tipthevelvet.nu/casting/confirm/${application.id}`
 
   const logisticsText = isSv
-    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${hasTravelNeed ? 'Diskuteras (förhandling pågår)' : 'Ingår ej'}\n• Boende: Ordnast gratis av oss (vid behov)`
-    : `• Fee: ${offerFee} SEK\n• Travel costs: ${hasTravelNeed ? 'To be discussed (negotiation ongoing)' : 'Not included'}\n• Accommodation: Provided free of charge by us (if needed)`
+    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${hasTravelNeed ? 'Diskuteras (förhandling pågår)' : 'Behövs ej'}\n• Boende: ${hasAccommodationNeed ? 'Community hosting löses av oss' : 'Behövs ej'}`
+    : `• Fee: ${offerFee} SEK\n• Travel costs: ${hasTravelNeed ? 'To be discussed (negotiation ongoing)' : 'Not needed'}\n• Accommodation: ${hasAccommodationNeed ? 'Provided free of charge by us' : 'Not needed'}`
 
-  // Om artisten vill ha resa och ni inte har kontaktat dem än -> skicka förhandlingsmail. Annars kontrakt.
   const defaultYesBody =
     hasTravelNeed && !application.initial_reply_sent
       ? isSv
@@ -194,10 +190,19 @@ export const CastingApplicationRow = ({
 
       if (!response.ok) throw new Error('Kunde inte skicka mail via API:et.')
 
-      const nextBookingStatus =
-        application.review_status === 'no' ? 'declined' : 'pending_confirmation'
+      let nextBookingStatus: CastingApplication['booking_status'] = 'pending_confirmation'
 
-      // Sparar ner initial_reply_sent, booking_status och proposed_fee till befintliga databasfält
+      if (application.review_status === 'no') {
+        nextBookingStatus = 'declined'
+      } else if (
+        application.review_status === 'yes' &&
+        hasTravelNeed &&
+        !application.initial_reply_sent
+      ) {
+        // Om de har resebehov och det är första mailet, sätter vi den till förhandling
+        nextBookingStatus = 'negotiating'
+      }
+
       await onUpdateLogistics(
         application.id,
         true,
@@ -225,7 +230,8 @@ export const CastingApplicationRow = ({
     >
       {/* STÄNGD RAD */}
       <div className="p-4 grid grid-cols-12 items-center gap-4 text-left">
-        <div className="col-span-12 sm:col-span-3 flex items-center gap-3">
+        {/* Bild, Artistnamn & Akt (4 kolumner) */}
+        <div className="col-span-12 lg:col-span-4 flex items-center gap-3 min-w-0">
           <div className="text-accent/50 shrink-0">
             {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
           </div>
@@ -252,50 +258,38 @@ export const CastingApplicationRow = ({
           </div>
         </div>
 
-        <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body">
-          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Datum', 'Date')}
-          </span>
-          <span>{formatDate(language, application.created_at)}</span>
-        </div>
-
-        <div className="col-span-4 sm:col-span-1 text-sm text-foreground/60 font-body">
+        {/* Språk (2 kolumner) */}
+        <div className="col-span-3 lg:col-span-2 text-sm text-foreground/60 font-body truncate">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
             {t('Språk', 'Language')}
           </span>
           <span className="truncate block">
-            {application.language === 'sv' ? t('Sv', 'SV') : t('En', 'EN')}
+            {application.language === 'sv' ? t('Svenska', 'Swedish') : t('Engelska', 'English')}
           </span>
         </div>
 
-        <div className="col-span-4 sm:col-span-2 text-sm text-foreground/60 font-body">
+        {/* Plats (2 kolumner) */}
+        <div className="col-span-4 lg:col-span-2 text-sm text-foreground/60 font-body truncate">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
             {t('Plats', 'Location')}
           </span>
-          <span className="truncate block">
-            {application.city || '—'}
-            {application.country ? `, ${application.country}` : ''}
-          </span>
+          <span className="truncate block">{application.city || '—'}</span>
         </div>
 
-        {/* ECONOMY & LOGISTICS */}
-        <div className="col-span-4 sm:col-span-2 text-sm text-foreground/60 font-body">
+        {/* Önskat Gage + Ikoner (2 kolumner) */}
+        <div className="col-span-5 lg:col-span-2 text-sm text-foreground/60 font-body">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Önskat Gage', 'Requested Fee')}
+            {t('Gage', 'Fee')}
           </span>
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-foreground/90 flex items-center gap-0.5">
+          <div className="flex items-center gap-1.5 Freelancer-badge-container">
+            <span className="font-medium text-foreground/90 flex items-center gap-0.5 whitespace-nowrap">
               {application.requested_fee ?? '—'}{' '}
-              {application.requested_fee ? (
-                <span className="text-[10px] text-accent">SEK</span>
-              ) : (
-                ''
-              )}
+              {application.requested_fee && <span className="text-[10px] text-accent">SEK</span>}
             </span>
-            <div className="flex items-center gap-1 ml-1">
+            <div className="flex items-center gap-1 shrink-0">
               {application.needs_travel_costs && (
                 <span title={t('Behöver resa', 'Needs travel')}>
-                  <BusFront className="h-3.5 w-3.5 text-gold animate-pulse" />
+                  <BusFront className="h-3.5 w-3.5 text-gold" />
                 </span>
               )}
               {application.needs_accommodation && (
@@ -307,25 +301,15 @@ export const CastingApplicationRow = ({
           </div>
         </div>
 
+        {/* Sortering och Mailknapp (2 kolumner - Låsta bredvid varandra) */}
         <div
-          className="col-span-12 sm:col-span-2 flex items-center justify-end gap-2"
+          className="col-span-12 lg:col-span-2 flex items-center justify-end gap-2 shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
-          {isNegotiating && (
-            <span className="text-[10px] uppercase font-mono px-2 py-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 whitespace-nowrap">
-              {t('Förhandling', 'In negotiation')}
-            </span>
-          )}
-          {isConfirmedAndSent && (
-            <span className="text-[10px] uppercase font-mono px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
-              {t('Skickat/Klar', 'Sent/Done')}
-            </span>
-          )}
-
           <select
             value={application.review_status}
             onChange={handleStatusSelect}
-            className="admin-select !w-full min-w-[110px] !pr-8 text-xs py-1.5 px-2"
+            className="admin-select !w-24 text-xs py-1.5 px-2"
           >
             <option value="pending">{t('Osorterad', 'Unsorted')}</option>
             <option value="yes">{t('Ja', 'Yes')}</option>
@@ -335,14 +319,23 @@ export const CastingApplicationRow = ({
 
           <button
             onClick={handleOpenMailModal}
-            className={`p-2 border rounded-md transition-colors ${
-              isNegotiating
-                ? 'bg-amber-500/20 border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-black'
-                : isConfirmedAndSent
-                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-black'
-                  : 'bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black'
+            disabled={isFullyConfirmed}
+            className={`p-2 border rounded-md transition-colors shrink-0 ${
+              isFullyConfirmed
+                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 cursor-not-allowed'
+                : isWaitingForArtist
+                  ? 'bg-purple-500/10 border-purple-500/40 text-purple-400 hover:bg-purple-500 hover:text-black'
+                  : isNegotiating
+                    ? 'bg-amber-500/10 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
+                    : isRejectedAndSent
+                      ? 'bg-red-500/10 border-red-500 text-red-500 hover:bg-red-500 hover:text-black'
+                      : 'bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black'
             }`}
-            title={t('Kontakta artist', 'Contact artist')}
+            title={
+              isFullyConfirmed
+                ? t('Bokning klar', 'Booking confirmed')
+                : t('Kontakta artist', 'Contact artist')
+            }
           >
             <Mail className="h-4 w-4" />
           </button>
@@ -355,6 +348,7 @@ export const CastingApplicationRow = ({
           className="border-t border-accent/10 bg-black/20 p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-left cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Vänsterkolumn (Bild & Medielänkar) */}
           <div className="space-y-4">
             {application.promo_image_id && (
               <div className="border border-accent/20 rounded-md overflow-hidden bg-black/40">
@@ -417,10 +411,89 @@ export const CastingApplicationRow = ({
                 )}
               </div>
             </div>
+
+            {/* Inflyttat ansökningsdatum */}
+            <div className="pt-4 border-t border-accent/5 font-body text-xs text-foreground/40">
+              <span className="block uppercase tracking-wider text-[9px] text-accent/40 font-semibold mb-0.5 font-sans">
+                {t('Ansökan inskickad', 'Application submitted')}
+              </span>
+              <span>{formatDate(language, application.created_at)}</span>
+            </div>
           </div>
 
+          {/* Högerkolumn (Texter & Administrativ Status) */}
           <div className="md:col-span-2 flex flex-col justify-between space-y-4">
             <div className="space-y-4">
+              {/* STATUS-BANNERS */}
+              {application.initial_reply_sent && (
+                <>
+                  {isNegotiating && (
+                    <div className="p-3 rounded border text-xs font-mono flex items-center gap-2 bg-amber-500/10 border-amber-500/30 text-amber-400">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <div>
+                        <span className="font-bold uppercase tracking-wider block">
+                          {t('Förhandling pågår', 'Negotiation in progress')}
+                        </span>
+                        <span className="text-foreground/60 font-sans block mt-0.5">
+                          {t(
+                            'Logistik, gage eller resa diskuteras med artisten innan avtal skickas.',
+                            'Logistics, fee or travel is being discussed before contract is issued.'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {isWaitingForArtist && (
+                    <div className="p-3 rounded border text-xs font-mono flex items-center gap-2 bg-purple-950/40 border-purple-800/40 text-purple-300">
+                      <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                      <div>
+                        <span className="font-bold uppercase tracking-wider block text-purple-400">
+                          {t('Väntar på bekräftelse', 'Awaiting confirmation')}
+                        </span>
+                        <span className="text-foreground/60 font-sans block mt-0.5">
+                          {t(
+                            'Erbjudande och kontraktslänk har skickats. Väntar på att artisten ska bekräfta.',
+                            'Offer and contract link sent. Waiting for performer to confirm.'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {isFullyConfirmed && (
+                    <div className="p-3 rounded border text-xs font-mono flex items-center gap-2 bg-emerald-500/10 border-emerald-500/40 text-emerald-400">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <div>
+                        <span className="font-bold uppercase tracking-wider block text-emerald-400">
+                          {t('BOKNING FIXAD & KLAR!', 'BOOKING FINALIZED!')}
+                        </span>
+                        <span className="text-foreground/70 font-sans block mt-0.5">
+                          {t(
+                            'Artisten har godkänt avtalet och kommer nu synas för Admin på Eventplanering sidan!',
+                            'The artist accepted, they will now appear for Admin on the Event Planning page!'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {isRejectedAndSent && (
+                    <div className="p-3 rounded border text-xs font-mono flex items-center gap-2 bg-red-500/10 border-red-500/30 text-red-400">
+                      <span className="w-2 h-2 rounded-full bg-red-500" />
+                      <div>
+                        <span className="font-bold uppercase tracking-wider block">
+                          {t('Nekad & Svarat', 'Declined & Notified')}
+                        </span>
+                        <span className="text-foreground/60 font-sans block mt-0.5">
+                          {t(
+                            'Svarsmail om avslag har skickats ut till artisten.',
+                            'Rejection email has been sent to the performer.'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
               <div>
                 <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-1">
                   {t('Promo Text', 'Promo Text')}
@@ -441,20 +514,13 @@ export const CastingApplicationRow = ({
                 </p>
               </div>
 
-              {(hasTravelNeed || application.accommodation_notes) && (
+              {application.accommodation_notes && application.accommodation_notes.trim() !== '' && (
                 <div>
                   <span className="block uppercase tracking-wider text-[10px] text-gold font-semibold mb-1">
                     {t('Logistiknoteringar från artisten', 'Logistics notes from artist')}
                   </span>
                   <p className="text-sm text-foreground/80 whitespace-pre-wrap font-body leading-relaxed bg-amber-500/5 p-3 rounded border border-gold/10">
-                    {application.accommodation_notes || (
-                      <span className="text-foreground/40 italic">
-                        {t(
-                          'Artisten angav inga specifika kommentarer, men har markerat behov.',
-                          'No specific comments provided.'
-                        )}
-                      </span>
-                    )}
+                    {application.accommodation_notes}
                   </p>
                 </div>
               )}
