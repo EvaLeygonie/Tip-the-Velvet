@@ -5,7 +5,7 @@ import type { Event, CreateCastingApplicationInput } from '@/types/types'
 import { submitCastingApplication } from '@/services/applicationService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import { buildEventFolderName, formatInstagramLink, formatOtherLink } from '@/lib/utils'
-import { Calendar, MapPin, Send, Loader2, BellDot } from 'lucide-react'
+import { Calendar, MapPin, Send, Loader2, BellDot, DollarSign, BusFront, Home } from 'lucide-react'
 import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
 import { CastingInfoAccordion } from './CastingInfoAccordion'
@@ -34,6 +34,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     email: '',
     promo_image_id: null,
     photographer: '',
+    requested_fee: 1000,
+    needs_travel_costs: false,
+    needs_accommodation: false,
+    accommodation_notes: '',
   })
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
@@ -41,7 +45,16 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value, type } = e.target
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'number' ? (value === '' ? 0 : parseInt(value, 10)) : value,
+    }))
+  }
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.checked }))
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,6 +176,9 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       instagram_link: formattedInstagram,
       other_link: formattedOther,
       agreed_to_terms: true,
+      proposed_fee: formData.requested_fee || 1000,
+      needs_travel_costs: formData.needs_travel_costs || false,
+      needs_accommodation: formData.needs_accommodation || false,
     }
 
     const applicantName = formData.performer_name?.trim() || ''
@@ -193,6 +209,11 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         act_title: '',
         email: '',
         promo_image_id: null,
+        requested_fee: 1000,
+        travel_cost_amount: 0,
+        needs_travel_costs: false,
+        needs_accommodation: false,
+        accommodation_notes: '',
       })
       setAgreed(false)
 
@@ -492,6 +513,106 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             />
           </div>
         </div>
+
+        <div className="gold-divider" />
+
+        <div className="flex flex-wrap items-baseline gap-2 mb-1">
+          <span className="text-sm font-semibold tracking-wide uppercase text-gold">
+            {t('Ekonomi & Logistik:', 'Compensation & Logistics:')}
+          </span>
+          <span className="text-sm text-foreground/90 italic font-medium">
+            {t(
+              'Vår standardersättning är 1000kr per akt och/eller artist.',
+              'Our standard compensation is 1000kr per act and/or artist.'
+            )}
+          </span>
+        </div>
+
+        <div className="form-row-2 items-center mt-4">
+          <div className="flex flex-col">
+            <label className="form-label-block flex items-center gap-1 mb-1.5">
+              <DollarSign className="h-3.5 w-3.5 text-gold" />
+              {t('Önskat gage (SEK) *', 'Requested fee (SEK) *')}
+            </label>
+            <input
+              type="number"
+              name="requested_fee"
+              min="0"
+              value={formData.requested_fee || ''}
+              onChange={handleChange}
+              className="w-full m-0"
+              required
+            />
+          </div>
+
+          <div className="flex flex-col space-y-2.5 justify-center">
+            <div className="form-checkbox-row items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="needs_travel_costs"
+                name="needs_travel_costs"
+                checked={formData.needs_travel_costs || false}
+                onChange={handleCheckboxChange}
+                className="accent-accent"
+              />
+              <label
+                htmlFor="needs_travel_costs"
+                className="text-sm font-medium flex items-center gap-1.5 cursor-pointer text-foreground/90 select-none"
+              >
+                <BusFront className="h-4 w-4 text-gold" />
+                {t('Jag är i behov av reseersättning', 'I am in need of travel coverage')}
+              </label>
+            </div>
+
+            <div className="form-checkbox-row items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="needs_accommodation"
+                name="needs_accommodation"
+                checked={formData.needs_accommodation || false}
+                onChange={handleCheckboxChange}
+                className="accent-accent"
+              />
+              <label
+                htmlFor="needs_accommodation"
+                className="text-sm font-medium flex items-center gap-1.5 cursor-pointer text-foreground/90 select-none"
+              >
+                <Home className="h-4 w-4 text-gold" />
+                {t('Jag är i behov av boende i staden', 'I am in need of accommodation')}
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Villkorligt anteckningsfält */}
+        {(formData.needs_travel_costs || formData.needs_accommodation) && (
+          <div className="animate-in fade-in duration-200 form-field mt-3">
+            <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl text-left pb-2">
+              {t(
+                'Resebudget utvärderas från fall till fall. För boende erbjuder vi community-hosting hos lokala medlemmar (ej hotell). När en ansökan har godkänts samarbetar vi för att hitta bästa möjliga lösning.',
+                "Travel budget is evaluated on a case-by-case basis. We offer community hosting with local members (not hotels). Once an application is accepted, we'll work together to find the best possible solution."
+              )}
+            </p>
+
+            <label className="form-label-block text-xs mb-1 uppercase tracking-wider text-gold">
+              {t(
+                'Allergier, reseinfo eller logistiknoteringar',
+                'Allergies, travel info or logistic notes'
+              )}
+            </label>
+            <textarea
+              name="accommodation_notes"
+              placeholder={t(
+                'Berätta om du t.ex. har pälsdjursallergi, speciala behov eller andra tankar kring din resa och/eller boende logistik. Har du till exempel bil och kan potentiellt ta med fler artister?',
+                'Please let us know if you have pet allergies, specific needs or other thoughts regarding your travel and/or accommodation logistics. Do you for instance have a car and can potentially bring more performers?'
+              )}
+              rows={3}
+              value={formData.accommodation_notes || ''}
+              onChange={handleChange}
+              className="w-full resize-none"
+            />
+          </div>
+        )}
 
         {/* GDPR */}
         <div className="form-checkbox-row">

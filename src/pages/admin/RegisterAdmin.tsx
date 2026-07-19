@@ -178,6 +178,7 @@ export const RegisterAdmin = () => {
                 required
                 className="w-full"
                 disabled={updating}
+                autoComplete="new-password"
               />
             </div>
 

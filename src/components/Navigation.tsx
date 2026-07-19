@@ -41,9 +41,9 @@ export const Navigation = () => {
 
   const adminSubLinks = [
     { to: '/admin', label: 'Dashboard', icon: BarChart3 },
-    { to: '/admin/event-plan', label: 'Eventplanering', icon: Settings },
-    { to: '/admin/casting', label: 'Hantera Casting', icon: ClipboardList },
-    { to: '/admin/contacts', label: 'Kontakter', icon: Users },
+    { to: '/admin/event-plan', label: t('Eventplanering', 'Event Planning'), icon: Settings },
+    { to: '/admin/casting', label: t('Hantera Casting', 'Manage Casting'), icon: ClipboardList },
+    { to: '/admin/contacts', label: t('Kontakter', 'Contacts'), icon: Users },
   ]
 
   return (

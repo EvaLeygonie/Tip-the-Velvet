@@ -544,6 +544,7 @@ body {
   input[type='password'],
   input[type='datetime-local'],
   input[type='date'],
+  input[type='number'],
   textarea,
   select {
     @apply w-full bg-background p-3 rounded-lg border transition-all block;

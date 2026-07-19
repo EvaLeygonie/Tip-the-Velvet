@@ -16,69 +16,102 @@ export type Database = {
     Tables: {
       casting_applications: {
         Row: {
+          accommodation: string | null
+          accommodation_notes: string | null
           act_description: string | null
           act_title: string
           admin_notes: string | null
           agreed_to_terms: boolean
+          booking_status:
+            | Database["public"]["Enums"]["booking_status_type"]
+            | null
           city: string | null
           country: string | null
           created_at: string
           email: string
           event_id: string
           id: string
+          initial_reply_sent: boolean | null
           instagram_link: string | null
           language: Database["public"]["Enums"]["language"]
+          needs_accommodation: boolean | null
+          needs_travel_costs: boolean | null
           other_link: string | null
           performer_name: string
           photographer: string | null
           promo_image_id: string | null
           promo_text: string | null
+          proposed_fee: number | null
+          requested_fee: number | null
           review_status: Database["public"]["Enums"]["casting_review_status"]
           slug: string | null
+          travel_cost_amount: number | null
           video_url: string | null
         }
         Insert: {
+          accommodation?: string | null
+          accommodation_notes?: string | null
           act_description?: string | null
           act_title: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
+          booking_status?:
+            | Database["public"]["Enums"]["booking_status_type"]
+            | null
           city?: string | null
           country?: string | null
           created_at?: string
           email: string
           event_id: string
           id?: string
+          initial_reply_sent?: boolean | null
           instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
+          needs_accommodation?: boolean | null
+          needs_travel_costs?: boolean | null
           other_link?: string | null
           performer_name: string
           photographer?: string | null
           promo_image_id?: string | null
           promo_text?: string | null
+          proposed_fee?: number | null
+          requested_fee?: number | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
           slug?: string | null
+          travel_cost_amount?: number | null
           video_url?: string | null
         }
         Update: {
+          accommodation?: string | null
+          accommodation_notes?: string | null
           act_description?: string | null
           act_title?: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
+          booking_status?:
+            | Database["public"]["Enums"]["booking_status_type"]
+            | null
           city?: string | null
           country?: string | null
           created_at?: string
           email?: string
           event_id?: string
           id?: string
+          initial_reply_sent?: boolean | null
           instagram_link?: string | null
           language?: Database["public"]["Enums"]["language"]
+          needs_accommodation?: boolean | null
+          needs_travel_costs?: boolean | null
           other_link?: string | null
           performer_name?: string
           photographer?: string | null
           promo_image_id?: string | null
           promo_text?: string | null
+          proposed_fee?: number | null
+          requested_fee?: number | null
           review_status?: Database["public"]["Enums"]["casting_review_status"]
           slug?: string | null
+          travel_cost_amount?: number | null
           video_url?: string | null
         }
         Relationships: [
@@ -134,22 +167,28 @@ export type Database = {
           created_at: string
           display_order: number
           event_id: string
+          final_fee: number | null
           is_revealed: boolean
           performer_id: string
+          travel_covered: number | null
         }
         Insert: {
           created_at?: string
           display_order?: number
           event_id: string
+          final_fee?: number | null
           is_revealed?: boolean
           performer_id: string
+          travel_covered?: number | null
         }
         Update: {
           created_at?: string
           display_order?: number
           event_id?: string
+          final_fee?: number | null
           is_revealed?: boolean
           performer_id?: string
+          travel_covered?: number | null
         }
         Relationships: [
           {
@@ -796,6 +835,11 @@ export type Database = {
       event_status_handler: { Args: never; Returns: undefined }
     }
     Enums: {
+      booking_status_type:
+        | "not_contacted"
+        | "pending_confirmation"
+        | "confirmed"
+        | "declined"
       casting_review_status: "pending" | "yes" | "maybe" | "no"
       event_status: "draft" | "published" | "cancelled" | "archived"
       language: "sv" | "eng"
@@ -942,6 +986,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      booking_status_type: [
+        "not_contacted",
+        "pending_confirmation",
+        "confirmed",
+        "declined",
+      ],
       casting_review_status: ["pending", "yes", "maybe", "no"],
       event_status: ["draft", "published", "cancelled", "archived"],
       language: ["sv", "eng"],
