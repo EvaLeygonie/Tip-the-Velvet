@@ -77,3 +77,19 @@ export const updateApplicationNotes = async (id: string, notes: string): Promise
 
   if (error) throw error
 }
+
+export const updateApplicationLogistics = async (
+  id: string,
+  initialReplySent: boolean,
+  bookingStatus: CastingApplication['booking_status']
+): Promise<void> => {
+  const { error } = await supabase
+    .from('casting_applications')
+    .update({
+      initial_reply_sent: initialReplySent,
+      booking_status: bookingStatus,
+    })
+    .eq('id', id)
+
+  if (error) throw error
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CastingApplication } from '@/types/types'
 import { getImageSrc, formatDate } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -11,6 +12,7 @@ import {
   Save,
   BusFront,
   Home,
+  DollarSign,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -18,6 +20,12 @@ interface CastingApplicationRowProps {
   application: CastingApplication
   onStatusChange: (id: string, newStatus: CastingApplication['review_status']) => void
   onSaveNotes: (id: string, notes: string) => Promise<void>
+  onUpdateLogistics: (
+    id: string,
+    initialReplySent: boolean,
+    bookingStatus: CastingApplication['booking_status'],
+    proposedFee?: number
+  ) => Promise<void>
 }
 
 const Instagram = ({ size = 20 }: { size?: number }) => (
@@ -42,12 +50,81 @@ export const CastingApplicationRow = ({
   application,
   onStatusChange,
   onSaveNotes,
+  onUpdateLogistics,
 }: CastingApplicationRowProps) => {
   const { language, t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
   const [notes, setNotes] = useState(application.admin_notes || '')
   const [savingNotes, setSavingNotes] = useState(false)
-  const [updatingStatus, setUpdatingStatus] = useState(false)
+
+  // States för mail-modalen
+  const [showMailModal, setShowMailModal] = useState(false)
+  const [mailSubject, setMailSubject] = useState('')
+  const [isSendingMail, setIsSendingMail] = useState(false)
+  const [customMailBodyText, setCustomMailBodyText] = useState<string | null>(null)
+
+  // Endast proposed_fee hanteras som ett unikt erbjudande-state
+  const [offerFee, setOfferFee] = useState<number>(
+    Number(application.proposed_fee) || Number(application.requested_fee) || 1000
+  )
+
+  const isSv = application.language === 'sv'
+  const hasTravelNeed = application.needs_travel_costs
+
+  // Flödes- och färgstatusar
+  const isRejectedAndSent = application.review_status === 'no' && application.initial_reply_sent
+  const isNegotiating =
+    application.review_status === 'yes' &&
+    application.initial_reply_sent &&
+    hasTravelNeed &&
+    application.booking_status === 'pending_confirmation'
+  const isConfirmedAndSent =
+    application.review_status === 'yes' &&
+    application.initial_reply_sent &&
+    (!hasTravelNeed || application.booking_status === 'confirmed')
+
+  // Bestäm kantlinje och bakgrund baserat på status
+  let statusRowClass = 'hover:border-accent/30'
+  if (isRejectedAndSent) {
+    statusRowClass = 'opacity-50 border-red-900/40 bg-black/60'
+  } else if (isNegotiating) {
+    statusRowClass = 'border-amber-600/50 bg-amber-950/10 hover:border-amber-500'
+  } else if (isConfirmedAndSent) {
+    statusRowClass = 'border-emerald-600/50 bg-emerald-950/10 hover:border-emerald-500'
+  }
+
+  // Dynamiska texter beräknade direkt vid rendering
+  const contractLink = `https://tipthevelvet.nu/casting/confirm/${application.id}`
+
+  const logisticsText = isSv
+    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${hasTravelNeed ? 'Diskuteras (förhandling pågår)' : 'Ingår ej'}\n• Boende: Ordnast gratis av oss (vid behov)`
+    : `• Fee: ${offerFee} SEK\n• Travel costs: ${hasTravelNeed ? 'To be discussed (negotiation ongoing)' : 'Not included'}\n• Accommodation: Provided free of charge by us (if needed)`
+
+  // Om artisten vill ha resa och ni inte har kontaktat dem än -> skicka förhandlingsmail. Annars kontrakt.
+  const defaultYesBody =
+    hasTravelNeed && !application.initial_reply_sent
+      ? isSv
+        ? `Vi älskade din ansökan för "${application.act_title}" och vill jättegärna erbjuda dig en plats i showen!\n\nEftersom du angett att du har behov av reseersättning vill vi stämma av detta med dig innan vi spikar det formella kontraktet. Hur ser dina resplaner ut, och vad tror du att resekostnaden landar på ungefär?\n\nVårt preliminära förslag på gage är:\n• Gage: ${offerFee} SEK\n\nBoende löser vi utan problem här på plats. Svara direkt på detta mail med dina tankar kring resan så tar vi detaljerna därifrån!`
+        : `We loved your application for "${application.act_title}" and would love to offer you a spot in the show!\n\nSince you mentioned needing travel support, we'd like to check the details with you before finalizing the contract. What are your travel plans, and what is the estimated cost?\n\nOur preliminary fee offer is:\n• Fee: ${offerFee} SEK\n\nAccommodation is not an issue, we will arrange that here on site. Please reply directly to this email so we can align on the travel logistics!`
+      : isSv
+        ? `Vi älskade din ansökan för "${application.act_title}" och vill jättegärna erbjuda dig en plats i showen!\n\nHär är det villkor och upplägg vi har tagit fram:\n${logisticsText}\n\nFör att titta närmare på detaljerna, bekräfta din plats eller skicka ett meddelande till oss, klicka på länken här:\n${contractLink}\n\nVi ser verkligen fram emot att jobba med dig!`
+        : `We loved your application for "${application.act_title}" and would look forward to offering you a spot in the show!\n\nHere are the terms and details for the offer:\n${logisticsText}\n\nTo review the details, confirm your spot, or send us a message, please use the following link:\n${contractLink}\n\nWe are thrilled about the prospect of working together!`
+
+  const defaultNoBody = isSv
+    ? `Stort tack för att du sökte till vår show med din akt "${application.act_title}"!\n\nVi har nu gått igenom alla ansökningar, och tyvärr har vi inte möjlighet att ta med din akt i just den här produktionen. Urvalet har varit otroligt svårt då vi fått in väldigt många fantastiska bidrag.\n\nVi sparar gärna dina kontaktuppgifter för framtida shower, och hoppas att vi ses eller hörs framöver!`
+    : `Thank you so much for applying to our show with your act "${application.act_title}"!\n\nWe have reviewed all applications, and unfortunately, we are unable to include your act in this specific production. The selection process was highly competitive due to the volume of amazing submissions we received.\n\nWe would love to keep your details on file for future shows, and hope to cross paths in the future!`
+
+  const defaultMaybeBody = isSv
+    ? `Hejsan ${application.performer_name}!\n\nVi har kikat på din ansökan för "${application.act_title}" och blivit väldigt nyfikna. Vi håller på att pussla ihop programmet och återkommer så snart vi har ett definitivt besked...`
+    : `Hello ${application.performer_name}!\n\nWe have reviewed your application for "${application.act_title}" and are very intrigued. We are currently putting the program together and will get back to you as soon as we have a final decision...`
+
+  const activeDefaultBody =
+    application.review_status === 'yes'
+      ? defaultYesBody
+      : application.review_status === 'no'
+        ? defaultNoBody
+        : defaultMaybeBody
+  const currentMailBodyText = customMailBodyText !== null ? customMailBodyText : activeDefaultBody
 
   const handleSaveNotes = async () => {
     setSavingNotes(true)
@@ -63,37 +140,90 @@ export const CastingApplicationRow = ({
   }
 
   const handleStatusSelect = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setUpdatingStatus(true)
     try {
       await onStatusChange(application.id, e.target.value as CastingApplication['review_status'])
       toast.success(t('Status uppdaterad!', 'Status updated!'))
     } catch (err) {
       toast.error(t('Kunde inte uppdatera status.', 'Could not update status.'))
       console.error(err)
-    } finally {
-      setUpdatingStatus(false)
     }
   }
 
-  const handleMailClick = (e: React.MouseEvent) => {
+  const handleOpenMailModal = (e: React.MouseEvent) => {
     e.stopPropagation()
 
-    const subject =
-      application.language === 'sv'
+    let subject = ''
+    if (application.review_status === 'yes') {
+      subject =
+        hasTravelNeed && !application.initial_reply_sent
+          ? isSv
+            ? `Erbjudande & Resefråga: Casting för Tip the Velvet - ${application.act_title}`
+            : `Offer & Travel Question: Casting for Tip the Velvet - ${application.act_title}`
+          : isSv
+            ? `Erbjudande: Casting för Tip the Velvet - ${application.act_title}`
+            : `Offer: Casting for Tip the Velvet - ${application.act_title}`
+    } else if (application.review_status === 'no') {
+      subject = isSv
         ? `Tip the Velvet - Angående din castingansökan för ${application.act_title}`
         : `Tip the Velvet - Regarding your casting application for ${application.act_title}`
+    } else {
+      subject = isSv
+        ? `Tip the Velvet - Angående din castingansökan`
+        : `Tip the Velvet - Regarding your casting application`
+    }
 
-    window.location.href = `mailto:${application.email}?subject=${encodeURIComponent(subject)}`
+    setMailSubject(subject)
+    setCustomMailBodyText(null)
+    setShowMailModal(true)
   }
 
-  const hasLogistics = application.needs_travel_costs || application.needs_accommodation
+  const handleSendCastingMail = async () => {
+    setIsSendingMail(true)
+    try {
+      const response = await fetch('/api/send-casting-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: application.email,
+          name: application.performer_name,
+          subject: mailSubject,
+          bodyText: currentMailBodyText,
+          language: application.language,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Kunde inte skicka mail via API:et.')
+
+      const nextBookingStatus =
+        application.review_status === 'no' ? 'declined' : 'pending_confirmation'
+
+      // Sparar ner initial_reply_sent, booking_status och proposed_fee till befintliga databasfält
+      await onUpdateLogistics(
+        application.id,
+        true,
+        nextBookingStatus,
+        application.review_status === 'yes' ? offerFee : undefined
+      )
+
+      toast.success(t('Mailet har skickats framgångsrikt!', 'Email sent successfully!'))
+      setShowMailModal(false)
+    } catch (err) {
+      console.error('Fel vid utskick:', err)
+      toast.error(
+        t('Kunde inte skicka mailet, försök igen.', 'Could not send email, please try again.')
+      )
+    } finally {
+      setIsSendingMail(false)
+    }
+  }
 
   return (
     <div
-      className="admin-panel velvet-surface transition-all duration-300 hover:border-accent/30 overflow-hidden cursor-pointer"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', padding: 0 }}
+      className={`admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer ${statusRowClass}`}
+      style={{ padding: 0 }}
       onClick={() => setIsExpanded(!isExpanded)}
     >
+      {/* STÄNGD RAD */}
       <div className="p-4 grid grid-cols-12 items-center gap-4 text-left">
         <div className="col-span-12 sm:col-span-3 flex items-center gap-3">
           <div className="text-accent/50 shrink-0">
@@ -151,7 +281,7 @@ export const CastingApplicationRow = ({
         {/* ECONOMY & LOGISTICS */}
         <div className="col-span-4 sm:col-span-2 text-sm text-foreground/60 font-body">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-            {t('Gage & Logistik', 'Fee & Logistics')}
+            {t('Önskat Gage', 'Requested Fee')}
           </span>
           <div className="flex items-center gap-2">
             <span className="font-medium text-foreground/90 flex items-center gap-0.5">
@@ -165,12 +295,12 @@ export const CastingApplicationRow = ({
             <div className="flex items-center gap-1 ml-1">
               {application.needs_travel_costs && (
                 <span title={t('Behöver resa', 'Needs travel')}>
-                  <BusFront className="h-3.5 w-3.5 text-gold" />
+                  <BusFront className="h-3.5 w-3.5 text-gold animate-pulse" />
                 </span>
               )}
               {application.needs_accommodation && (
                 <span title={t('Behöver boende', 'Needs accommodation')}>
-                  <Home className="h-3.5 w-3.5 text-gold" />
+                  <Home className="h-3.5 w-3.5 text-accent/50" />
                 </span>
               )}
             </div>
@@ -181,11 +311,21 @@ export const CastingApplicationRow = ({
           className="col-span-12 sm:col-span-2 flex items-center justify-end gap-2"
           onClick={(e) => e.stopPropagation()}
         >
+          {isNegotiating && (
+            <span className="text-[10px] uppercase font-mono px-2 py-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+              {t('Förhandling', 'In negotiation')}
+            </span>
+          )}
+          {isConfirmedAndSent && (
+            <span className="text-[10px] uppercase font-mono px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+              {t('Skickat/Klar', 'Sent/Done')}
+            </span>
+          )}
+
           <select
             value={application.review_status}
             onChange={handleStatusSelect}
-            disabled={updatingStatus}
-            className="admin-select !w-full min-w-[130px] !pr-8 text-xs py-1.5 px-2"
+            className="admin-select !w-full min-w-[110px] !pr-8 text-xs py-1.5 px-2"
           >
             <option value="pending">{t('Osorterad', 'Unsorted')}</option>
             <option value="yes">{t('Ja', 'Yes')}</option>
@@ -194,8 +334,14 @@ export const CastingApplicationRow = ({
           </select>
 
           <button
-            onClick={handleMailClick}
-            className="p-2 bg-accent/10 border border-accent/20 text-accent hover:bg-accent hover:text-black rounded-md transition-colors"
+            onClick={handleOpenMailModal}
+            className={`p-2 border rounded-md transition-colors ${
+              isNegotiating
+                ? 'bg-amber-500/20 border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-black'
+                : isConfirmedAndSent
+                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-black'
+                  : 'bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black'
+            }`}
             title={t('Kontakta artist', 'Contact artist')}
           >
             <Mail className="h-4 w-4" />
@@ -295,10 +441,9 @@ export const CastingApplicationRow = ({
                 </p>
               </div>
 
-              {/* LOGISTICS */}
-              {(hasLogistics || application.accommodation_notes) && (
+              {(hasTravelNeed || application.accommodation_notes) && (
                 <div>
-                  <span className="block uppercase tracking-wider text-[10px] text-gold font-semibold mb-1 items-center gap-1">
+                  <span className="block uppercase tracking-wider text-[10px] text-gold font-semibold mb-1">
                     {t('Logistiknoteringar från artisten', 'Logistics notes from artist')}
                   </span>
                   <p className="text-sm text-foreground/80 whitespace-pre-wrap font-body leading-relaxed bg-amber-500/5 p-3 rounded border border-gold/10">
@@ -306,7 +451,7 @@ export const CastingApplicationRow = ({
                       <span className="text-foreground/40 italic">
                         {t(
                           'Artisten angav inga specifika kommentarer, men har markerat behov.',
-                          'No specific comments provided, but needs are checked.'
+                          'No specific comments provided.'
                         )}
                       </span>
                     )}
@@ -315,10 +460,9 @@ export const CastingApplicationRow = ({
               )}
             </div>
 
-            {/* Admin Notes */}
             <div className="pt-4 border-t border-accent/10">
               <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-1">
-                {t('Admin-anteckningar (Visas ej för artist)', 'Admin Notes (Hidden from artist)')}
+                {t('Admin-anteckningar (Visas ej för artist)', 'Admin Notes')}
               </span>
               <div className="flex items-center gap-2 w-full">
                 <div className="flex-1">
@@ -345,6 +489,111 @@ export const CastingApplicationRow = ({
           </div>
         </div>
       )}
+
+      {/* PORTAL MODAL */}
+      {showMailModal &&
+        typeof window !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 text-left"
+            onClick={() => setShowMailModal(false)}
+          >
+            <div
+              className="velvet-surface border border-accent/30 max-w-lg w-full p-6 space-y-4 rounded-lg shadow-2xl relative"
+              style={{ backgroundColor: '#141111' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div>
+                <h4 className="font-decorative text-lg text-accent">
+                  {application.review_status === 'yes'
+                    ? hasTravelNeed && !application.initial_reply_sent
+                      ? t('Förbered förhandlingsmail', 'Prepare negotiation email')
+                      : t('Förbered skarpt erbjudande', 'Prepare official offer')
+                    : t('Förbered svarsmail', 'Prepare reply email')}
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {t('Mottagare:', 'Recipient:')}{' '}
+                  <span className="text-foreground font-mono">{application.email}</span> (
+                  {application.performer_name})
+                </p>
+              </div>
+
+              {application.review_status === 'yes' && (
+                <div className="p-3 bg-black/30 border border-accent/10 rounded space-y-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wider text-gold flex items-center gap-1 font-mono">
+                      <DollarSign className="h-3 w-3" />
+                      {t('Erbjudet Gage (SEK) — proposed_fee', 'Offered Fee (SEK)')}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={offerFee}
+                      onChange={(e) => setOfferFee(Number(e.target.value))}
+                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-1.5 focus:border-accent text-white"
+                    />
+                    <div className="flex justify-between items-center text-[10px] text-muted-foreground italic pt-0.5">
+                      <span>
+                        {t('Artistens önskemål:', 'Artist requested:')}{' '}
+                        {application.requested_fee || '—'} SEK
+                      </span>
+                      {hasTravelNeed && (
+                        <span className="text-amber-400 flex items-center gap-1 font-semibold">
+                          <BusFront className="h-3 w-3" />{' '}
+                          {t('Kräver reseersättning', 'Requires travel')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[11px] uppercase tracking-wider text-gold font-mono block">
+                  {t('Ämnesrad', 'Subject')}
+                </label>
+                <input
+                  type="text"
+                  value={mailSubject}
+                  onChange={(e) => setMailSubject(e.target.value)}
+                  className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] uppercase tracking-wider text-gold font-mono block">
+                  {t('Mailtext', 'Email Text')}
+                </label>
+                <textarea
+                  value={currentMailBodyText}
+                  onChange={(e) => setCustomMailBodyText(e.target.value)}
+                  className="w-full h-44 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-accent/10">
+                <button
+                  type="button"
+                  onClick={() => setShowMailModal(false)}
+                  className="px-4 py-2 text-xs border border-accent/20 rounded text-foreground/70 hover:bg-white/5 transition-colors"
+                  disabled={isSendingMail}
+                >
+                  {t('Avbryt', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendCastingMail}
+                  className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5"
+                  disabled={isSendingMail}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {isSendingMail ? t('Skickar...', 'Sending...') : t('Skicka mail', 'Send email')}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

@@ -603,7 +603,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
             <textarea
               name="accommodation_notes"
               placeholder={t(
-                'Berätta om du t.ex. har pälsdjursallergi, speciala behov eller andra tankar kring din resa och/eller boende logistik. Har du till exempel bil och kan potentiellt ta med fler artister?',
+                'Berätta om du t.ex. har pälsdjursallergi, särskilda behov eller andra tankar kring din resa och/eller boende logistik. Har du till exempel bil och kan potentiellt ta med fler artister?',
                 'Please let us know if you have pet allergies, specific needs or other thoughts regarding your travel and/or accommodation logistics. Do you for instance have a car and can potentially bring more performers?'
               )}
               rows={3}

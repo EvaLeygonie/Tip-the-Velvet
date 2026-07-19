@@ -3,6 +3,7 @@ import {
   getApplicationsFromEvent,
   updateApplicationNotes,
   updateApplicationStatus,
+  updateApplicationLogistics,
 } from '@/services/applicationService'
 import { fetchEventsForAdmin } from '@/services/eventService'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -69,6 +70,25 @@ export const AdminCasting = () => {
     await updateApplicationNotes(id, updatedNotes)
   }
 
+  const handleUpdateLogisticsStatus = async (
+    id: string,
+    initialReplySent: boolean,
+    bookingStatus: CastingApplication['booking_status']
+  ) => {
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === id
+          ? { ...app, initial_reply_sent: initialReplySent, booking_status: bookingStatus }
+          : app
+      )
+    )
+    try {
+      await updateApplicationLogistics(id, initialReplySent, bookingStatus)
+    } catch (err) {
+      console.error('Kunde inte uppdatera logistikstatus i databasen:', err)
+    }
+  }
+
   const todayStr = new Date().toISOString().split('T')[0]
   const upcomingEvents = events.filter((e) => e.event_start && e.event_start >= todayStr)
   const archivedEvents = events.filter((e) => !e.event_start || e.event_start < todayStr)
@@ -113,6 +133,7 @@ export const AdminCasting = () => {
               application={app}
               onStatusChange={handleStatusChange}
               onSaveNotes={handleSaveNotes}
+              onUpdateLogistics={handleUpdateLogisticsStatus}
             />
           ))}
         </div>
@@ -194,6 +215,7 @@ export const AdminCasting = () => {
                     application={app}
                     onStatusChange={handleStatusChange}
                     onSaveNotes={handleSaveNotes}
+                    onUpdateLogistics={handleUpdateLogisticsStatus}
                   />
                 ))}
               </div>
