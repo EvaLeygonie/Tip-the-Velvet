@@ -6,6 +6,7 @@ import type {
   CreateStaffVolunteerInput,
   CreateSponsorInput,
 } from '@/types/types'
+import { createSlug } from '@/lib/utils'
 
 //=== READ ===///
 
@@ -29,6 +30,17 @@ export const getApplicationsFromEvent = async (eventId: string): Promise<Casting
 
   if (error) throw error
   return data || []
+}
+
+export const getCastingApplicationById = async (id: string): Promise<CastingApplication | null> => {
+  const { data, error } = await supabase
+    .from('casting_applications')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 //=== CREATE ===///
@@ -92,4 +104,92 @@ export const updateApplicationLogistics = async (
     .eq('id', id)
 
   if (error) throw error
+}
+
+export const submitArtistCounterOffer = async (
+  id: string,
+  updates: {
+    requested_fee: number
+    needs_travel_costs: boolean
+    travel_cost_amount: number | null
+    needs_accommodation: boolean
+    accommodation_notes: string | null
+  }
+): Promise<void> => {
+  const { error } = await supabase
+    .from('casting_applications')
+    .update({
+      ...updates,
+      booking_status: 'pending_confirmation',
+    })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export const confirmAndMigrateArtist = async (
+  app: CastingApplication,
+  finalFee: number
+): Promise<void> => {
+  // 1. Uppdatera ansökans status till confirmed
+  const { error: updateError } = await supabase
+    .from('casting_applications')
+    .update({ booking_status: 'confirmed' })
+    .eq('id', app.id)
+
+  if (updateError) throw updateError
+
+  // 2. Kolla om artisten redan finns via e-post
+  let performerId = ''
+  const { data: existingPerformer } = await supabase
+    .from('performers')
+    .select('id')
+    .eq('email', app.email)
+    .maybeSingle()
+
+  if (existingPerformer) {
+    performerId = existingPerformer.id
+  } else {
+    // Skapa ny artist
+    const { data: newPerformer, error: perfError } = await supabase
+      .from('performers')
+      .insert({
+        performer_name: app.performer_name,
+        email: app.email,
+        city: app.city,
+        country: app.country,
+        instagram_link: app.instagram_link,
+        other_link: app.other_link,
+        language: app.language,
+        promo_image_id: app.promo_image_id,
+        slug: createSlug(app.performer_name),
+        agreed_to_terms: true,
+        is_approved: false,
+      })
+      .select('id')
+      .single()
+
+    if (perfError) throw perfError
+    performerId = newPerformer.id
+  }
+
+  // 3. Räkna ut nästa display_order i relationstabellen
+  const { count } = await supabase
+    .from('event_performers')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', app.event_id)
+
+  const nextOrder = count ? count + 1 : 1
+
+  // 4. Länka artisten till eventet
+  const { error: linkError } = await supabase.from('event_performers').insert({
+    event_id: app.event_id,
+    performer_id: performerId,
+    final_fee: finalFee,
+    travel_covered: app.travel_cost_amount,
+    is_revealed: false,
+    display_order: nextOrder,
+  })
+
+  if (linkError) throw linkError
 }
