@@ -15,7 +15,7 @@ import { NotFound } from '@/pages/NotFound'
 import { Events } from '@/pages/Events'
 import { EventDetail } from '@/pages/EventDetail.tsx'
 import { CastingCall } from './pages/CastingCall'
-import { ConfirmBooking } from './pages/ConfirmBooking'
+import { ArtistBookingPortal } from './pages/ArtistBookingPortal'
 import { About } from '@/pages/About'
 import { Dresscode } from '@/pages/Dresscode'
 import { JoinUs } from '@/pages/JoinUs'
@@ -72,7 +72,7 @@ export const App = () => (
               <Route path="/hall-of-fame-form" element={<AddPerformer />} />
               <Route path="/hall-of-fame-form/:slug" element={<AddPerformer />} />
 
-              <Route path="/casting/confirm/:id" element={<ConfirmBooking />} />
+              <Route path="/casting/confirm/:id" element={<ArtistBookingPortal />} />
 
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin/register" element={<RegisterAdmin />} />

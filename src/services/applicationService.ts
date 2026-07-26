@@ -139,18 +139,21 @@ export const confirmAndMigrateArtist = async (
 
   if (updateError) throw updateError
 
-  // 2. Kolla om artisten redan finns via e-post
+  // 2. Kolla om artisten REDAN finns med samma e-post OCH artistnamn
   let performerId = ''
   const { data: existingPerformer } = await supabase
     .from('performers')
     .select('id')
     .eq('email', app.email)
+    .eq('performer_name', app.performer_name)
     .maybeSingle()
 
   if (existingPerformer) {
     performerId = existingPerformer.id
   } else {
-    // Skapa ny artist
+    // Dynamisk spridning av bio/promotext beroende på artistens valda språk
+    const isEnglish = app.language === 'eng'
+
     const { data: newPerformer, error: perfError } = await supabase
       .from('performers')
       .insert({
@@ -162,6 +165,8 @@ export const confirmAndMigrateArtist = async (
         other_link: app.other_link,
         language: app.language,
         promo_image_id: app.promo_image_id,
+        bio_sv: isEnglish ? null : app.promo_text,
+        bio_eng: isEnglish ? app.promo_text : null,
         slug: createSlug(app.performer_name),
         agreed_to_terms: true,
         is_approved: false,
@@ -173,7 +178,21 @@ export const confirmAndMigrateArtist = async (
     performerId = newPerformer.id
   }
 
-  // 3. Räkna ut nästa display_order i relationstabellen
+  // 3. Skapa akten i `performer_acts` med beskrivning i rätt språkkolumn
+  const isEnglish = app.language === 'eng'
+
+  const { error: actError } = await supabase.from('performer_acts').insert({
+    performer_id: performerId,
+    event_id: app.event_id,
+    act_name: app.act_title,
+    description_sv: isEnglish ? null : app.act_description,
+    description_eng: isEnglish ? app.act_description : null,
+    video_url: app.video_url,
+  })
+
+  if (actError) throw actError
+
+  // 4. Räkna ut nästa preliminära display_order i relationstabellen
   const { count } = await supabase
     .from('event_performers')
     .select('*', { count: 'exact', head: true })
@@ -181,7 +200,7 @@ export const confirmAndMigrateArtist = async (
 
   const nextOrder = count ? count + 1 : 1
 
-  // 4. Länka artisten till eventet
+  // 5. Länka artisten till eventet
   const { error: linkError } = await supabase.from('event_performers').insert({
     event_id: app.event_id,
     performer_id: performerId,

@@ -16,7 +16,6 @@ export type Database = {
     Tables: {
       casting_applications: {
         Row: {
-          accommodation: string | null
           accommodation_notes: string | null
           act_description: string | null
           act_title: string
@@ -49,7 +48,6 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
-          accommodation?: string | null
           accommodation_notes?: string | null
           act_description?: string | null
           act_title: string
@@ -82,7 +80,6 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
-          accommodation?: string | null
           accommodation_notes?: string | null
           act_description?: string | null
           act_title?: string
@@ -164,31 +161,46 @@ export type Database = {
       }
       event_performers: {
         Row: {
+          accommodation: string | null
+          arrival_time: string | null
           created_at: string
+          dietary_requirements: string | null
           display_order: number
           event_id: string
           final_fee: number | null
           is_revealed: boolean
+          notes: string | null
           performer_id: string
           travel_covered: number | null
+          travel_receipt_url: string | null
         }
         Insert: {
+          accommodation?: string | null
+          arrival_time?: string | null
           created_at?: string
+          dietary_requirements?: string | null
           display_order?: number
           event_id: string
           final_fee?: number | null
           is_revealed?: boolean
+          notes?: string | null
           performer_id: string
           travel_covered?: number | null
+          travel_receipt_url?: string | null
         }
         Update: {
+          accommodation?: string | null
+          arrival_time?: string | null
           created_at?: string
+          dietary_requirements?: string | null
           display_order?: number
           event_id?: string
           final_fee?: number | null
           is_revealed?: boolean
+          notes?: string | null
           performer_id?: string
           travel_covered?: number | null
+          travel_receipt_url?: string | null
         }
         Relationships: [
           {
@@ -516,32 +528,41 @@ export type Database = {
       performer_acts: {
         Row: {
           act_name: string
+          audio_file: string | null
           created_at: string
           description_eng: string | null
           description_sv: string | null
           event_id: string | null
           id: string
           performer_id: string
+          track_artist: string | null
+          track_title: string | null
           video_url: string | null
         }
         Insert: {
           act_name: string
+          audio_file?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
           event_id?: string | null
           id?: string
           performer_id: string
+          track_artist?: string | null
+          track_title?: string | null
           video_url?: string | null
         }
         Update: {
           act_name?: string
+          audio_file?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
           event_id?: string | null
           id?: string
           performer_id?: string
+          track_artist?: string | null
+          track_title?: string | null
           video_url?: string | null
         }
         Relationships: [

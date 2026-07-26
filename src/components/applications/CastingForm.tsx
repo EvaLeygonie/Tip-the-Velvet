@@ -522,8 +522,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </span>
           <span className="text-sm text-foreground/90 italic font-medium">
             {t(
-              'Vår standardersättning är 1000kr per akt och/eller artist.',
-              'Our standard compensation is 1000kr per act and/or artist.'
+              'Vår standardersättning är 1000kr per akt/artist.',
+              'Our standard compensation is 1000kr per act/performer.'
             )}
           </span>
         </div>
@@ -589,8 +589,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           <div className="animate-in fade-in duration-200 form-field mt-3">
             <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl text-left pb-2">
               {t(
-                'Resebudget utvärderas från fall till fall. För boende erbjuder vi community-hosting hos lokala medlemmar (ej hotell). När en ansökan har godkänts samarbetar vi för att hitta bästa möjliga lösning.',
-                "Travel budget is evaluated on a case-by-case basis. We offer community hosting with local members (not hotels). Once an application is accepted, we'll work together to find the best possible solution."
+                'Resa ersätts, efter överenskommelse. För boende erbjuder vi community-hosting hos lokala medlemmar (ej hotell). När en ansökan har godkänts samarbetar vi för att hitta bästa möjliga lösning.',
+                "Travel costs are covered, after an agreement is reached. We offer community hosting with local members (not hotels). Once an application is accepted, we'll work together to find the best possible solution."
               )}
             </p>
 
