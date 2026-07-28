@@ -137,14 +137,12 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({ application 
     }
   }
 
-  // Spara alla ändringar samtidigt
   const handleSaveAll = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!performerId) return
 
     setIsSaving(true)
     try {
-      // 1. Uppdatera performers
       const { error: perfError } = await supabase
         .from('performers')
         .update({

@@ -4,7 +4,6 @@ import type { CastingApplication } from '@/types/types'
 import { getCastingApplicationById } from '@/services/applicationService'
 import { BookingDecisionCard } from '@/components/applications/BookingDecisionCard'
 import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
-import { Sparkles } from 'lucide-react'
 
 export const ArtistBookingPortal = () => {
   const { id } = useParams<{ id: string }>()
@@ -12,7 +11,6 @@ export const ArtistBookingPortal = () => {
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
 
-  // Funktion för att trigga omhämtning när status ändras
   const refetchData = () => setReloadKey((prev) => prev + 1)
 
   useEffect(() => {
@@ -65,20 +63,21 @@ export const ArtistBookingPortal = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground py-12 px-4">
+      <div className="bg-glow-spot" />
       <div className="max-w-2xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 text-accent text-xs tracking-widest uppercase font-semibold">
-            <Sparkles size={14} />
-            Artistportal
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">{application.performer_name}</h1>
-          <p className="text-sm text-foreground/60">Akt: {application.act_title}</p>
+          <h1 className="text-3xl font-bold tracking-tight mt-4">{application.performer_name}</h1>
+          <p className="text-md text-foreground/68">Akt: {application.act_title}</p>
         </div>
 
         {/* Conditional Rendering */}
         {!isConfirmed ? (
-          <BookingDecisionCard application={application} onStatusChange={refetchData} />
+          <BookingDecisionCard
+            key={application.id}
+            application={application}
+            onStatusChange={refetchData}
+          />
         ) : (
           <BookedArtistForm application={application} />
         )}

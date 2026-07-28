@@ -6,7 +6,6 @@ import type {
   CreateStaffVolunteerInput,
   CreateSponsorInput,
 } from '@/types/types'
-import { createSlug } from '@/lib/utils'
 
 //=== READ ===///
 
@@ -131,84 +130,13 @@ export const confirmAndMigrateArtist = async (
   app: CastingApplication,
   finalFee: number
 ): Promise<void> => {
-  // 1. Uppdatera ansökans status till confirmed
-  const { error: updateError } = await supabase
-    .from('casting_applications')
-    .update({ booking_status: 'confirmed' })
-    .eq('id', app.id)
+  const { error } = await supabase.rpc('confirm_and_migrate_artist', {
+    p_application_id: app.id,
+    p_final_fee: finalFee,
+  })
 
-  if (updateError) throw updateError
-
-  // 2. Kolla om artisten REDAN finns med samma e-post OCH artistnamn
-  let performerId = ''
-  const { data: existingPerformer } = await supabase
-    .from('performers')
-    .select('id')
-    .eq('email', app.email)
-    .eq('performer_name', app.performer_name)
-    .maybeSingle()
-
-  if (existingPerformer) {
-    performerId = existingPerformer.id
-  } else {
-    // Dynamisk spridning av bio/promotext beroende på artistens valda språk
-    const isEnglish = app.language === 'eng'
-
-    const { data: newPerformer, error: perfError } = await supabase
-      .from('performers')
-      .insert({
-        performer_name: app.performer_name,
-        email: app.email,
-        city: app.city,
-        country: app.country,
-        instagram_link: app.instagram_link,
-        other_link: app.other_link,
-        language: app.language,
-        promo_image_id: app.promo_image_id,
-        bio_sv: isEnglish ? null : app.promo_text,
-        bio_eng: isEnglish ? app.promo_text : null,
-        slug: createSlug(app.performer_name),
-        agreed_to_terms: true,
-        is_approved: false,
-      })
-      .select('id')
-      .single()
-
-    if (perfError) throw perfError
-    performerId = newPerformer.id
+  if (error) {
+    console.error('Kunde inte migrera och bekräfta artist:', error)
+    throw error
   }
-
-  // 3. Skapa akten i `performer_acts` med beskrivning i rätt språkkolumn
-  const isEnglish = app.language === 'eng'
-
-  const { error: actError } = await supabase.from('performer_acts').insert({
-    performer_id: performerId,
-    event_id: app.event_id,
-    act_name: app.act_title,
-    description_sv: isEnglish ? null : app.act_description,
-    description_eng: isEnglish ? app.act_description : null,
-    video_url: app.video_url,
-  })
-
-  if (actError) throw actError
-
-  // 4. Räkna ut nästa preliminära display_order i relationstabellen
-  const { count } = await supabase
-    .from('event_performers')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', app.event_id)
-
-  const nextOrder = count ? count + 1 : 1
-
-  // 5. Länka artisten till eventet
-  const { error: linkError } = await supabase.from('event_performers').insert({
-    event_id: app.event_id,
-    performer_id: performerId,
-    final_fee: finalFee,
-    travel_covered: app.travel_cost_amount,
-    is_revealed: false,
-    display_order: nextOrder,
-  })
-
-  if (linkError) throw linkError
 }

@@ -853,7 +853,13 @@ export type Database = {
       }
     }
     Functions: {
+      confirm_and_migrate_artist: {
+        Args: { p_application_id: string; p_final_fee: number }
+        Returns: undefined
+      }
       event_status_handler: { Args: never; Returns: undefined }
+      slugify: { Args: { value: string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       booking_status_type:
