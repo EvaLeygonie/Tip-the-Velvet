@@ -201,6 +201,7 @@ export const EventEditor = () => {
       location: formData.location || null,
       photographer: formData.photographer || null,
       ticket_url: formData.ticket_url || null,
+      ticket_release_date: formData.ticket_release_date || null,
       tickets_price: formData.tickets_price || null,
       tickets_sold: formData.tickets_sold || null,
       available_tickets: formData.available_tickets || null,
@@ -561,30 +562,9 @@ export const EventEditor = () => {
             <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
             {t('Fler detaljer', 'More details')}
           </summary>
+
+          {/* PINTEREST & FACEBOOK EVENT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 pt-6 border-t border-white/5">
-            <div className="field-row">
-              <label className="form-label-gold">{t('Pris', 'Price')}</label>
-              <input
-                type="number"
-                name="tickets_price"
-                className="editor-input"
-                value={formData.tickets_price || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, tickets_price: Number(e.target.value) })
-                }
-              />
-            </div>
-
-            <div className="field-row">
-              <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
-              <input
-                name="ticket_url"
-                className="editor-input"
-                value={formData.ticket_url || ''}
-                onChange={handleChange}
-              />
-            </div>
-
             <div className="field-row">
               <label className="form-label-gold">{t('Pinterest länk', 'Pinterest Link')}</label>
               <input
@@ -604,7 +584,7 @@ export const EventEditor = () => {
               />
             </div>
 
-            {/* FOTOGRAF (DROPDOWN) */}
+            {/* FOTOGRAF & FACEBOOK ALBUM */}
             <div className="field-row">
               <label className="form-label-gold">{t('Fotograf', 'Photographer')}</label>
               <select
@@ -621,7 +601,6 @@ export const EventEditor = () => {
                 ))}
               </select>
             </div>
-
             <div className="field-row">
               <label className="form-label-gold">{t('Facebook album', 'Facebook Album')}</label>
               <input
@@ -632,15 +611,44 @@ export const EventEditor = () => {
               />
             </div>
 
+            {/* PRICE & TICKETS */}
             <div className="field-row">
-              <label className="form-label-gold">{t('Sålda biljetter', 'Tickets Sold')}</label>
+              <label className="form-label-gold">{t('Pris (SEK)', 'Price (SEK)')}</label>
               <input
                 type="number"
+                name="tickets_price"
                 className="editor-input"
-                value={formData.tickets_sold || ''}
-                onChange={(e) => setFormData({ ...formData, tickets_sold: Number(e.target.value) })}
+                value={formData.tickets_price || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, tickets_price: Number(e.target.value) })
+                }
               />
             </div>
+            <div className="field-row">
+              <label className="form-label-gold">
+                {t('Biljettsläpp (Datum)', 'Ticket Release Date')}
+              </label>
+              <input
+                type="date"
+                name="ticket_release_date"
+                value={formData.ticket_release_date || ''}
+                onChange={handleChange}
+                className="editor-input"
+              />
+            </div>
+
+            <div className="field-row md:col-span-2">
+              <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
+              <input
+                type="url"
+                name="ticket_url"
+                placeholder="https://..."
+                className="editor-input"
+                value={formData.ticket_url || ''}
+                onChange={handleChange}
+              />
+            </div>
+
             <div className="field-row">
               <label className="form-label-gold">
                 {t('Tillgängliga biljetter', 'Available Tickets')}
@@ -652,6 +660,15 @@ export const EventEditor = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, available_tickets: Number(e.target.value) })
                 }
+              />
+            </div>
+            <div className="field-row">
+              <label className="form-label-gold">{t('Sålda biljetter', 'Tickets Sold')}</label>
+              <input
+                type="number"
+                className="editor-input"
+                value={formData.tickets_sold || ''}
+                onChange={(e) => setFormData({ ...formData, tickets_sold: Number(e.target.value) })}
               />
             </div>
           </div>

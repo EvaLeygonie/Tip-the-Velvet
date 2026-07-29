@@ -229,18 +229,21 @@ export type Database = {
       event_sponsors: {
         Row: {
           created_at: string
+          details: string | null
           event_id: string
           role: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id: string
         }
         Insert: {
           created_at?: string
+          details?: string | null
           event_id?: string
           role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
         }
         Update: {
           created_at?: string
+          details?: string | null
           event_id?: string
           role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
@@ -334,6 +337,7 @@ export type Database = {
           slug: string
           status: Database["public"]["Enums"]["event_status"]
           subtitle: string | null
+          ticket_release_date: string | null
           ticket_url: string | null
           tickets_price: number | null
           tickets_sold: number | null
@@ -366,6 +370,7 @@ export type Database = {
           slug: string
           status?: Database["public"]["Enums"]["event_status"]
           subtitle?: string | null
+          ticket_release_date?: string | null
           ticket_url?: string | null
           tickets_price?: number | null
           tickets_sold?: number | null
@@ -398,6 +403,7 @@ export type Database = {
           slug?: string
           status?: Database["public"]["Enums"]["event_status"]
           subtitle?: string | null
+          ticket_release_date?: string | null
           ticket_url?: string | null
           tickets_price?: number | null
           tickets_sold?: number | null
