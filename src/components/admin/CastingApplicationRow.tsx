@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import type { CastingApplication } from '@/types/types'
 import { getImageSrc, formatDate } from '@/lib/utils'
@@ -13,6 +14,7 @@ import {
   BusFront,
   Home,
   DollarSign,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -329,26 +331,31 @@ export const CastingApplicationRow = ({
             <option value="no">{t('Nej', 'No')}</option>
           </select>
 
-          <button
-            onClick={handleOpenMailModal}
-            disabled={isFullyConfirmed}
-            className={`p-2 border rounded-md transition-colors shrink-0 ${
-              isFullyConfirmed
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 cursor-not-allowed'
-                : isAwaitingConfirmation
+          {isFullyConfirmed ? (
+            <Link to={`/casting/confirm/${application.id}`}>
+              <button
+                className="p-2 border rounded-md transition-colors shrink-0 bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-black"
+                title={t('Visa kontrakt', 'View contract')}
+              >
+                <Check className="h-4 w-4" />
+              </button>
+            </Link>
+          ) : (
+            <button
+              onClick={handleOpenMailModal}
+              disabled={isFullyConfirmed}
+              className={`p-2 border rounded-md transition-colors shrink-0 ${
+                isAwaitingConfirmation
                   ? 'bg-amber-500/10 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black'
                   : isRejectedAndSent
                     ? 'bg-red-500/10 border-red-500 text-red-500 hover:bg-red-500 hover:text-black'
                     : 'bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black'
-            }`}
-            title={
-              isFullyConfirmed
-                ? t('Bokning klar', 'Booking confirmed')
-                : t('Kontakta artist', 'Contact artist')
-            }
-          >
-            <Mail className="h-4 w-4" />
-          </button>
+              }`}
+              title={t('Kontakta artist', 'Contact artist')}
+            >
+              <Mail className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

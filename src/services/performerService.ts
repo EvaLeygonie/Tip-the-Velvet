@@ -58,11 +58,11 @@ export const submitArtistInfo = async (application: CreatePerformerInput): Promi
 
 //=== UPDATE ===///
 
-export const updatePerformer = (id: string, updatedData: Partial<CreatePerformerInput>) =>
-  updateRow('performers', id, updatedData as Record<string, unknown>)
-
 export const togglePerformerVisibility = (id: string, isApproved: boolean) =>
   updateRow('performers', id, { is_approved: isApproved })
+
+export const updatePerformer = (id: string, updatedData: Partial<CreatePerformerInput>) =>
+  updateRow('performers', id, updatedData as Record<string, unknown>)
 
 //=== DELETE ===///
 

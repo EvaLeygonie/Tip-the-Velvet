@@ -1,4 +1,6 @@
+import type { AudioTrackItem, ReceiptItem } from '@/components/applications/BookedArtistForm'
 import { supabase } from '@/lib/supabase'
+import type { Json } from '@/types/database.types'
 import type {
   Event,
   CastingApplication,
@@ -31,10 +33,34 @@ export const getApplicationsFromEvent = async (eventId: string): Promise<Casting
   return data || []
 }
 
-export const getCastingApplicationById = async (id: string): Promise<CastingApplication | null> => {
+export const getCastingApplicationById = async (id: string) => {
   const { data, error } = await supabase
     .from('casting_applications')
-    .select('*')
+    .select(
+      `
+      *,
+      events (
+        id,
+        title,
+        event_start
+      ),
+      performers (
+        id,
+        bio_sv,
+        bio_eng
+      ),
+      performer_acts (
+        id,
+        act_name,
+        description_sv,
+        description_eng,
+        audio_files,
+        stage_preparations,
+        pick_up_cleaning,
+        act_notes
+      )
+     `
+    )
     .eq('id', id)
     .single()
 
@@ -126,17 +152,76 @@ export const submitArtistCounterOffer = async (
   if (error) throw error
 }
 
+export interface MigrationResult {
+  performer_id: string
+  act_id: string
+}
+
 export const confirmAndMigrateArtist = async (
   app: CastingApplication,
   finalFee: number
-): Promise<void> => {
-  const { error } = await supabase.rpc('confirm_and_migrate_artist', {
+): Promise<MigrationResult> => {
+  const { data, error } = await supabase.rpc('confirm_and_migrate_artist', {
     p_application_id: app.id,
     p_final_fee: finalFee,
   })
 
   if (error) {
     console.error('Kunde inte migrera och bekräfta artist:', error)
+    throw error
+  }
+
+  return data as unknown as MigrationResult
+}
+
+export interface EventPerformerDetailsInput {
+  dietary_requirements?: string
+  arrival_time?: string
+  travel_receipts?: ReceiptItem[]
+  notes?: string
+}
+
+export const updateEventPerformerDetails = async (
+  eventId: string,
+  performerId: string,
+  details: EventPerformerDetailsInput
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({
+      ...details,
+      travel_receipts: details.travel_receipts as unknown as Json,
+    })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
+export interface PerformerActInput {
+  act_name?: string
+  description_sv?: string
+  description_eng?: string
+  audio_files?: AudioTrackItem[]
+  stage_preparations?: string
+  pick_up_cleaning?: string
+  act_notes?: string
+}
+
+export const updatePerformerAct = async (
+  actId: string,
+  actData: PerformerActInput
+): Promise<void> => {
+  const { error } = await supabase
+    .from('performer_acts')
+    .update({
+      ...actData,
+      audio_files: actData.audio_files as unknown as Json,
+    })
+    .eq('id', actId)
+
+  if (error) {
+    console.error('Kunde inte uppdatera akt-information:', error)
     throw error
   }
 }

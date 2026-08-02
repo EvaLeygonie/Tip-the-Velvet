@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           accommodation_notes: string | null
           act_description: string | null
+          act_id: string | null
           act_title: string
           admin_notes: string | null
           agreed_to_terms: boolean
@@ -36,6 +37,7 @@ export type Database = {
           needs_accommodation: boolean | null
           needs_travel_costs: boolean | null
           other_link: string | null
+          performer_id: string | null
           performer_name: string
           photographer: string | null
           promo_image_id: string | null
@@ -50,6 +52,7 @@ export type Database = {
         Insert: {
           accommodation_notes?: string | null
           act_description?: string | null
+          act_id?: string | null
           act_title: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
@@ -68,6 +71,7 @@ export type Database = {
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
           other_link?: string | null
+          performer_id?: string | null
           performer_name: string
           photographer?: string | null
           promo_image_id?: string | null
@@ -82,6 +86,7 @@ export type Database = {
         Update: {
           accommodation_notes?: string | null
           act_description?: string | null
+          act_id?: string | null
           act_title?: string
           admin_notes?: string | null
           agreed_to_terms?: boolean
@@ -100,6 +105,7 @@ export type Database = {
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
           other_link?: string | null
+          performer_id?: string | null
           performer_name?: string
           photographer?: string | null
           promo_image_id?: string | null
@@ -113,10 +119,31 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "casting_applications_act_id_fkey"
+            columns: ["act_id"]
+            isOneToOne: false
+            referencedRelation: "performer_acts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "casting_applications_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "casting_applications_performer_id_fkey"
+            columns: ["performer_id"]
+            isOneToOne: false
+            referencedRelation: "performers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "casting_applications_performer_id_fkey"
+            columns: ["performer_id"]
+            isOneToOne: false
+            referencedRelation: "public_performers"
             referencedColumns: ["id"]
           },
         ]
@@ -172,7 +199,7 @@ export type Database = {
           notes: string | null
           performer_id: string
           travel_covered: number | null
-          travel_receipt_url: string | null
+          travel_receipts: Json | null
         }
         Insert: {
           accommodation?: string | null
@@ -186,7 +213,7 @@ export type Database = {
           notes?: string | null
           performer_id: string
           travel_covered?: number | null
-          travel_receipt_url?: string | null
+          travel_receipts?: Json | null
         }
         Update: {
           accommodation?: string | null
@@ -200,7 +227,7 @@ export type Database = {
           notes?: string | null
           performer_id?: string
           travel_covered?: number | null
-          travel_receipt_url?: string | null
+          travel_receipts?: Json | null
         }
         Relationships: [
           {
@@ -534,41 +561,44 @@ export type Database = {
       performer_acts: {
         Row: {
           act_name: string
-          audio_file: string | null
+          act_notes: string | null
+          audio_files: Json | null
           created_at: string
           description_eng: string | null
           description_sv: string | null
           event_id: string | null
           id: string
           performer_id: string
-          track_artist: string | null
-          track_title: string | null
+          pick_up_cleaning: string | null
+          stage_preparations: string | null
           video_url: string | null
         }
         Insert: {
           act_name: string
-          audio_file?: string | null
+          act_notes?: string | null
+          audio_files?: Json | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
           event_id?: string | null
           id?: string
           performer_id: string
-          track_artist?: string | null
-          track_title?: string | null
+          pick_up_cleaning?: string | null
+          stage_preparations?: string | null
           video_url?: string | null
         }
         Update: {
           act_name?: string
-          audio_file?: string | null
+          act_notes?: string | null
+          audio_files?: Json | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
           event_id?: string | null
           id?: string
           performer_id?: string
-          track_artist?: string | null
-          track_title?: string | null
+          pick_up_cleaning?: string | null
+          stage_preparations?: string | null
           video_url?: string | null
         }
         Relationships: [
@@ -861,7 +891,7 @@ export type Database = {
     Functions: {
       confirm_and_migrate_artist: {
         Args: { p_application_id: string; p_final_fee: number }
-        Returns: undefined
+        Returns: Json
       }
       event_status_handler: { Args: never; Returns: undefined }
       slugify: { Args: { value: string }; Returns: string }

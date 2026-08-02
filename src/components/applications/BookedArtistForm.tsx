@@ -1,371 +1,815 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { CastingApplication } from '@/types/types'
-import { User, Music, Clock, Utensils, Receipt, Upload, Save, CheckCircle2 } from 'lucide-react'
+import { useLanguage } from '@/contexts/LanguageContext'
+import CloudinaryImage from '@/components/CloudinaryImage'
 import { toast } from 'sonner'
+import { Upload, Save, Loader2, FileText, Music, ExternalLink, Trash2, Plus } from 'lucide-react'
+import type { CastingApplication } from '@/types/types'
+import { uploadStorageFile } from '@/services/databaseService'
+import { supabase } from '@/lib/supabase'
+import { updatePerformer } from '@/services/performerService'
+import {
+  updatePerformerAct,
+  updateEventPerformerDetails,
+  type PerformerActInput,
+  type EventPerformerDetailsInput,
+} from '@/services/applicationService'
+import { buildEventFolderName, createSlug } from '@/lib/utils'
 
-interface BookedArtistFormProps {
-  application: CastingApplication
+interface ExtendedCastingApplication extends CastingApplication {
+  performer_id: string | null
+  act_id: string | null
+  events?: {
+    title: string
+    event_start: string
+  } | null
 }
 
-export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({ application }) => {
-  const [loading, setLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+export interface AudioTrackItem {
+  id: string
+  title: string
+  artist: string
+  fileName?: string
+  fileUrl?: string
+  filePath?: string
+}
 
-  // Relaterade ID:n
-  const [performerId, setPerformerId] = useState<string>('')
-  const [actId, setActId] = useState<string>('')
+export interface ReceiptItem {
+  id: string
+  name: string
+  url: string
+}
 
-  // Form State
-  const [bioSv, setBioSv] = useState('')
-  const [bioEng, setBioEng] = useState('')
-  const [promoImageId, setPromoImageId] = useState('')
+interface BookedArtistFormProps {
+  application: ExtendedCastingApplication
+  onSaveSuccess?: () => void
+}
 
-  const [trackTitle, setTrackTitle] = useState('')
-  const [trackArtist, setTrackArtist] = useState('')
-  const [audioFileUrl, setAudioFileUrl] = useState('')
+// Type Guards för säker konvertering från Supabase Json/Jsonb
+const isAudioTrackItemArray = (data: unknown): data is AudioTrackItem[] => {
+  if (!Array.isArray(data)) return false
+  return data.every(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      'id' in item &&
+      'title' in item &&
+      'artist' in item
+  )
+}
 
-  const [arrivalTime, setArrivalTime] = useState('')
-  const [dietaryRequirements, setDietaryRequirements] = useState('')
-  const [travelReceiptUrl, setTravelReceiptUrl] = useState('')
+const isReceiptItemArray = (data: unknown): data is ReceiptItem[] => {
+  if (!Array.isArray(data)) return false
+  return data.every(
+    (item) =>
+      typeof item === 'object' && item !== null && 'id' in item && 'name' in item && 'url' in item
+  )
+}
 
-  // Hämta befintlig data från tabellerna
+export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
+  application,
+  onSaveSuccess,
+}) => {
+  const { t } = useLanguage()
+
+  const [loadingInitial, setLoadingInitial] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Status för uppladdningar
+  const [uploadingAudio, setUploadingAudio] = useState(false)
+  const [uploadingReceipt, setUploadingReceipt] = useState(false)
+
+  // Tillstånd för skapande av NY låt (input-fälten)
+  const [newTrackTitle, setNewTrackTitle] = useState('')
+  const [newTrackArtist, setNewTrackArtist] = useState('')
+  const [newTrackFile, setNewTrackFile] = useState<{
+    name: string
+    url: string
+    path: string
+  } | null>(null)
+
+  // Listor för sparade objekt
+  const [audioTracks, setAudioTracks] = useState<AudioTrackItem[]>([])
+  const [receiptFiles, setReceiptFiles] = useState<ReceiptItem[]>([])
+
+  const [formData, setFormData] = useState({
+    // Sektion 1: Artist Promo
+    bio_sv: application.promo_text || '',
+    bio_eng: '',
+
+    // Sektion 2: Act Details
+    act_name: application.act_title || '',
+    act_description_sv: application.act_description || '',
+    act_description_eng: '',
+    stage_preparations: '',
+    pick_up_cleaning: '',
+    act_notes: '',
+
+    // Sektion 3: Logistik
+    dietary_requirements: '',
+  })
+
+  // Hjälpfunktion för att hämta korrekt offentlig URL från Supabase
+  const getPublicFileUrl = (pathOrUrl: string) => {
+    if (!pathOrUrl) return ''
+    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+      return pathOrUrl
+    }
+    const { data } = supabase.storage.from('artist-files').getPublicUrl(pathOrUrl)
+    return data.publicUrl
+  }
+
+  // Hämta befintlig data vid start
   useEffect(() => {
-    const loadBookingData = async () => {
+    let isMounted = true
+
+    const fetchExistingData = async () => {
       try {
-        setLoading(true)
+        setLoadingInitial(true)
 
-        // 1. Hämta artist
-        const { data: perf } = await supabase
-          .from('performers')
-          .select('id, bio_sv, bio_eng, promo_image_id')
-          .eq('email', application.email)
-          .eq('performer_name', application.performer_name)
-          .maybeSingle()
+        // 1. Performer
+        let perfData = null
+        if (application.performer_id) {
+          const { data } = await supabase
+            .from('performers')
+            .select('bio_sv, bio_eng')
+            .eq('id', application.performer_id)
+            .maybeSingle()
+          perfData = data
+        }
 
-        if (perf) {
-          setPerformerId(perf.id)
-          setBioSv(perf.bio_sv || '')
-          setBioEng(perf.bio_eng || '')
-          setPromoImageId(perf.promo_image_id || '')
-
-          // 2. Hämta akt
-          const { data: act } = await supabase
+        // 2. Act
+        let actData = null
+        if (application.act_id) {
+          const { data } = await supabase
             .from('performer_acts')
-            .select('id, track_title, track_artist, audio_file')
-            .eq('performer_id', perf.id)
-            .eq('event_id', application.event_id)
+            .select('*')
+            .eq('id', application.act_id)
+            .maybeSingle()
+          actData = data
+        }
+
+        // 3. Event Performer Logistics
+        let logisticsData = null
+        const eventFromRelation = Array.isArray(application.events)
+          ? application.events[0]
+          : application.events
+
+        const actualEventId = application.event_id || eventFromRelation?.id
+
+        if (actualEventId && application.performer_id) {
+          const { data, error } = await supabase
+            .from('event_performers')
+            .select('dietary_requirements, travel_receipts')
+            .eq('event_id', actualEventId)
+            .eq('performer_id', application.performer_id)
             .maybeSingle()
 
-          if (act) {
-            setActId(act.id)
-            setTrackTitle(act.track_title || '')
-            setTrackArtist(act.track_artist || '')
-            setAudioFileUrl(act.audio_file || '')
+          if (error) {
+            console.error('Fel vid hämtning av event_performers:', error)
+          }
+          logisticsData = data
+        }
+        if (isMounted) {
+          setFormData((prev) => ({
+            ...prev,
+            bio_sv: perfData?.bio_sv ?? prev.bio_sv,
+            bio_eng: perfData?.bio_eng ?? prev.bio_eng,
+
+            act_name: actData?.act_name ?? prev.act_name,
+            act_description_sv: actData?.description_sv ?? prev.act_description_sv,
+            act_description_eng: actData?.description_eng ?? prev.act_description_eng,
+            stage_preparations: actData?.stage_preparations ?? '',
+            pick_up_cleaning: actData?.pick_up_cleaning ?? '',
+            act_notes: actData?.act_notes ?? '',
+
+            // FIX: Sätter matpreferenser i formState
+            dietary_requirements: logisticsData?.dietary_requirements ?? '',
+          }))
+
+          // Läs in ljudfiler / låtar säkert
+          if (actData?.audio_files && isAudioTrackItemArray(actData.audio_files)) {
+            setAudioTracks(actData.audio_files)
           }
 
-          // 3. Hämta event_performer
-          const { data: ep } = await supabase
-            .from('event_performers')
-            .select('arrival_time, dietary_requirements, travel_receipt_url')
-            .eq('event_id', application.event_id)
-            .eq('performer_id', perf.id)
-            .maybeSingle()
-
-          if (ep) {
-            setArrivalTime(ep.arrival_time ? ep.arrival_time.substring(0, 16) : '')
-            setDietaryRequirements(ep.dietary_requirements || '')
-            setTravelReceiptUrl(ep.travel_receipt_url || '')
+          // Läs in kvitton säkert
+          if (logisticsData?.travel_receipts && isReceiptItemArray(logisticsData.travel_receipts)) {
+            setReceiptFiles(logisticsData.travel_receipts)
           }
         }
       } catch (err) {
-        console.error(err)
-        toast.error('Kunde inte läsa in bokningsuppgifter.')
+        console.error('Fel vid hämtning av data:', err)
       } finally {
-        setLoading(false)
+        if (isMounted) setLoadingInitial(false)
       }
     }
 
-    loadBookingData()
-  }, [application])
+    fetchExistingData()
 
-  // Ladda upp musikfil
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !actId) return
-
-    try {
-      const fileExt = file.name.split('.').pop()
-      const filePath = `${actId}/${Date.now()}.${fileExt}`
-
-      const { error: uploadErr } = await supabase.storage
-        .from('act-music')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadErr) throw uploadErr
-
-      const { data: urlData } = supabase.storage.from('act-music').getPublicUrl(filePath)
-      setAudioFileUrl(urlData.publicUrl)
-      toast.success('Ljudfil uppladdad!')
-    } catch (err) {
-      console.error(err)
-      toast.error('Gick inte att ladda upp ljudfilen.')
+    return () => {
+      isMounted = false
     }
+  }, [application.performer_id, application.act_id, application.event_id])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  // Ladda upp resekvitto
-  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !performerId) return
+  const getStorageFolderPath = (subFolder: 'audio-tracks' | 'travel-receipts') => {
+    const eventTitle = application.events?.title
+    const eventDate = application.events?.event_start
 
-    try {
-      const fileExt = file.name.split('.').pop()
-      const filePath = `${application.event_id}/${performerId}_${Date.now()}.${fileExt}`
+    const eventFolderName =
+      eventTitle && eventDate
+        ? buildEventFolderName(eventTitle, eventDate)
+        : application.event_id || 'okant-event'
 
-      const { error: uploadErr } = await supabase.storage
-        .from('travel-receipts')
-        .upload(filePath, file, { upsert: true })
+    const artistSlug = application.performer_name
+      ? createSlug(application.performer_name)
+      : application.performer_id || 'okand-artist'
 
-      if (uploadErr) throw uploadErr
-
-      const { data: urlData } = supabase.storage.from('travel-receipts').getPublicUrl(filePath)
-      setTravelReceiptUrl(urlData.publicUrl)
-      toast.success('Resekvitto uppladdat!')
-    } catch (err) {
-      console.error(err)
-      toast.error('Gick inte att ladda upp kvittot.')
-    }
+    return `${eventFolderName}/${artistSlug}/${subFolder}`
   }
 
-  const handleSaveAll = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!performerId) return
+  // --- HANTERA LÅT-SKAPANDE MED KNAPP ---
 
-    setIsSaving(true)
+  const handleTempAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingAudio(true)
     try {
-      const { error: perfError } = await supabase
-        .from('performers')
-        .update({
-          bio_sv: bioSv,
-          bio_eng: bioEng,
-          promo_image_id: promoImageId,
-        })
-        .eq('id', performerId)
+      const folderPath = getStorageFolderPath('audio-tracks')
+      const rawPath = await uploadStorageFile('artist-files', folderPath, file)
+      const publicUrl = getPublicFileUrl(rawPath)
 
-      if (perfError) throw perfError
-
-      // 2. Uppdatera event_performers
-      const { error: epError } = await supabase
-        .from('event_performers')
-        .update({
-          arrival_time: arrivalTime ? new Date(arrivalTime).toISOString() : null,
-          dietary_requirements: dietaryRequirements,
-          travel_receipt_url: travelReceiptUrl,
-        })
-        .eq('event_id', application.event_id)
-        .eq('performer_id', performerId)
-
-      if (epError) throw epError
-
-      // 3. Om act finns, uppdatera performer_acts
-      if (actId) {
-        const { error: actError } = await supabase
-          .from('performer_acts')
-          .update({
-            track_title: trackTitle,
-            track_artist: trackArtist,
-            audio_file: audioFileUrl,
-          })
-          .eq('id', actId)
-
-        if (actError) throw actError
-      }
-
-      toast.success('Dina uppgifter har sparats!')
+      setNewTrackFile({
+        name: file.name,
+        url: publicUrl,
+        path: rawPath,
+      })
+      toast.success(t('Ljudfil bifogad!', 'Audio file attached!'))
     } catch (err) {
       console.error(err)
-      toast.error('Kunde inte spara alla ändringar.')
+      toast.error(t('Kunde inte ladda upp ljudfilen.', 'Could not upload audio file.'))
     } finally {
-      setIsSaving(false)
+      setUploadingAudio(false)
+      e.target.value = ''
     }
   }
 
-  if (loading) {
-    return <div className="text-center py-8 text-sm text-foreground/70">Laddar formulär...</div>
+  const handleAddTrack = () => {
+    if (!newTrackTitle.trim() && !newTrackArtist.trim() && !newTrackFile) {
+      toast.error(
+        t(
+          'Fyll i låttitel, artist eller ladda upp en fil först.',
+          'Please fill in track title, artist or upload a file first.'
+        )
+      )
+      return
+    }
+
+    const newTrack: AudioTrackItem = {
+      id: `track-${Date.now()}`,
+      title: newTrackTitle.trim(),
+      artist: newTrackArtist.trim(),
+      fileName: newTrackFile?.name,
+      fileUrl: newTrackFile?.url,
+      filePath: newTrackFile?.path,
+    }
+
+    setAudioTracks((prev) => [...prev, newTrack])
+
+    setNewTrackTitle('')
+    setNewTrackArtist('')
+    setNewTrackFile(null)
+
+    toast.success(t('Låt tillagd i listan!', 'Track added to the list!'))
+  }
+
+  const removeTrack = (id: string) => {
+    setAudioTracks((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  // --- HANTERA RESEKVITTON ---
+
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploadingReceipt(true)
+    try {
+      const folderPath = getStorageFolderPath('travel-receipts')
+      const newItems: ReceiptItem[] = []
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const rawPath = await uploadStorageFile('artist-files', folderPath, file)
+        const publicUrl = getPublicFileUrl(rawPath)
+
+        newItems.push({
+          id: `receipt-${Date.now()}-${i}`,
+          name: file.name,
+          url: publicUrl,
+        })
+      }
+
+      setReceiptFiles((prev) => [...prev, ...newItems])
+      toast.success(t('Resekvitto(n) uppladdade!', 'Travel receipt(s) uploaded!'))
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte ladda upp kvittot.', 'Could not upload receipt.'))
+    } finally {
+      setUploadingReceipt(false)
+      e.target.value = ''
+    }
+  }
+
+  const removeReceiptFile = (id: string) => {
+    setReceiptFiles((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  // --- SPARA TILL SUPABASE ---
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      // 1. Uppdatera Performer
+      if (application.performer_id) {
+        await updatePerformer(application.performer_id, {
+          bio_sv: formData.bio_sv,
+          bio_eng: formData.bio_eng,
+        })
+      }
+
+      // 2. Uppdatera Performer Act
+      if (application.act_id) {
+        const actData: PerformerActInput & {
+          stage_preparations?: string
+          pick_up_cleaning?: string
+          audio_files?: AudioTrackItem[]
+        } = {
+          act_name: formData.act_name,
+          description_sv: formData.act_description_sv,
+          description_eng: formData.act_description_eng,
+          act_notes: formData.act_notes,
+          stage_preparations: formData.stage_preparations,
+          pick_up_cleaning: formData.pick_up_cleaning,
+          audio_files: audioTracks,
+        }
+        await updatePerformerAct(application.act_id, actData)
+      }
+
+      // 3. Uppdatera Event Performer Details
+      if (application.event_id && application.performer_id) {
+        const logisticsData: EventPerformerDetailsInput & {
+          travel_receipts?: ReceiptItem[]
+        } = {
+          dietary_requirements: formData.dietary_requirements,
+          travel_receipts: receiptFiles,
+        }
+        await updateEventPerformerDetails(
+          application.event_id,
+          application.performer_id,
+          logisticsData
+        )
+      }
+
+      toast.success(t('Informationen har sparats!', 'Information saved successfully!'))
+      if (onSaveSuccess) onSaveSuccess()
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte spara informationen', 'Failed to save information'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loadingInitial) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    )
   }
 
   return (
-    <form onSubmit={handleSaveAll} className="space-y-6">
-      {/* 1. Artistprofil */}
-      <div className="login-card space-y-4">
-        <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-          <User className="text-accent w-5 h-5" />
-          <h3 className="text-base font-medium">1. Artistprofil & Promotext</h3>
-        </div>
+    <div className="space-y-6">
+      <div className="gold-divider" />
 
-        <div className="space-y-3">
-          <div>
-            <label className="form-label-gold block text-xs mb-1">Promotext (Svenska)</label>
-            <textarea
-              rows={3}
-              value={bioSv}
-              onChange={(e) => setBioSv(e.target.value)}
-              className="login-input text-sm"
-              placeholder="Beskriv din artistprofil på svenska..."
-            />
+      <p className="subtitle">
+        {t(
+          'Här kan du se och uppdatera information inför eventet, såsom din artist promo, låtar för din akt och logistik. Du kan komma tillbaka till denna länk när som helst.',
+          'Here you can see and update your information for the event, like your promo, tracks for your act and logistics. You can return to this link anytime.'
+        )}
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* ================= SEKTION 1: ARTIST PROMO ================= */}
+        <div className="login-card space-y-6">
+          <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
+            <h2>{t('Artist Promo', 'Artist Promo')}</h2>
           </div>
 
-          <div>
-            <label className="form-label-gold block text-xs mb-1">Promotext (Engelska)</label>
-            <textarea
-              rows={3}
-              value={bioEng}
-              onChange={(e) => setBioEng(e.target.value)}
-              className="login-input text-sm"
-              placeholder="Describe your artist profile in English..."
-            />
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+            <div className="form-field md:col-span-4 flex flex-col h-full">
+              <label className="form-label-block">{t('Promobild', 'Promo Image')}</label>
+              <div className="relative flex-1 flex flex-col items-center justify-center border border-accent/20 rounded-lg p-2 bg-background/30 min-h-[220px]">
+                {application.promo_image_id ? (
+                  <CloudinaryImage
+                    publicId={application.promo_image_id}
+                    width={400}
+                    height={400}
+                    className="max-h-full max-w-full object-contain rounded"
+                  />
+                ) : (
+                  <span className="text-xs text-foreground/50">
+                    {t('Ingen bild tillgänglig', 'No image available')}
+                  </span>
+                )}
+              </div>
+            </div>
 
-          <div>
-            <label className="form-label-gold block text-xs mb-1">Promobild (Bild-ID / URL)</label>
-            <input
-              type="text"
-              value={promoImageId}
-              onChange={(e) => setPromoImageId(e.target.value)}
-              className="login-input text-sm"
-            />
-          </div>
-        </div>
-      </div>
+            <div className="md:col-span-8 flex flex-col gap-4">
+              <div className="form-field flex-1 flex flex-col">
+                <label className="form-label-gold text-xs block mb-1">
+                  {t('Promo text (Svenska)', 'Promo text (Swedish)')}
+                </label>
+                <textarea
+                  name="bio_sv"
+                  placeholder={t(
+                    'Din presentationstext på svenska...',
+                    'Your presentation in Swedish...'
+                  )}
+                  value={formData.bio_sv}
+                  onChange={handleChange}
+                  className="login-input flex-1 w-full resize-none p-3 min-h-[100px] text-sm"
+                />
+              </div>
 
-      {/* 2. Musik & Akt */}
-      <div className="login-card space-y-4">
-        <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-          <Music className="text-accent w-5 h-5" />
-          <h3 className="text-base font-medium">2. Musik & Showlåt</h3>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="form-label-gold block text-xs mb-1">Låttitel</label>
-            <input
-              type="text"
-              value={trackTitle}
-              onChange={(e) => setTrackTitle(e.target.value)}
-              className="login-input text-sm"
-              placeholder="t.ex. Feeling Good"
-            />
-          </div>
-
-          <div>
-            <label className="form-label-gold block text-xs mb-1">Originalartist</label>
-            <input
-              type="text"
-              value={trackArtist}
-              onChange={(e) => setTrackArtist(e.target.value)}
-              className="login-input text-sm"
-              placeholder="t.ex. Nina Simone"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="form-label-gold block text-xs mb-1">Ljudfil (MP3/WAV)</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={handleAudioUpload}
-              className="hidden"
-              id="audio-upload"
-            />
-            <label
-              htmlFor="audio-upload"
-              className="btn-gold-outline text-xs cursor-pointer flex items-center gap-2 py-2 px-3"
-            >
-              <Upload size={14} />
-              Välj ljudfil
-            </label>
-            {audioFileUrl && (
-              <span className="text-xs text-accent flex items-center gap-1">
-                <CheckCircle2 size={12} /> Fil uppladdad
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Logistik, Mat & Kvitton */}
-      <div className="login-card space-y-4">
-        <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-          <Clock className="text-accent w-5 h-5" />
-          <h3 className="text-base font-medium">3. Logistik & Mat</h3>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="form-label-gold block text-xs mb-1">Beräknad Ankomsttid</label>
-            <input
-              type="datetime-local"
-              value={arrivalTime}
-              onChange={(e) => setArrivalTime(e.target.value)}
-              className="login-input text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="form-label-gold block text-xs mb-1 flex items-center gap-1">
-              <Utensils size={14} />
-              Matpreferenser & Allergier
-            </label>
-            <input
-              type="text"
-              value={dietaryRequirements}
-              onChange={(e) => setDietaryRequirements(e.target.value)}
-              className="login-input text-sm"
-              placeholder="t.ex. Vegetarian, Nötallergi..."
-            />
-          </div>
-
-          <div>
-            <label className="form-label-gold block text-xs mb-1 flex items-center gap-1">
-              <Receipt size={14} />
-              Resekvitto (PDF/Bild)
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={handleReceiptUpload}
-                className="hidden"
-                id="receipt-upload"
-              />
-              <label
-                htmlFor="receipt-upload"
-                className="btn-gold-outline text-xs cursor-pointer flex items-center gap-2 py-2 px-3"
-              >
-                <Upload size={14} />
-                Ladda upp kvitto
-              </label>
-              {travelReceiptUrl && (
-                <span className="text-xs text-accent flex items-center gap-1">
-                  <CheckCircle2 size={12} /> Kvitto bifogat
-                </span>
-              )}
+              <div className="form-field flex-1 flex flex-col">
+                <label className="form-label-gold text-xs block mb-1">
+                  {t('Promo text (Engelska)', 'Promo text (English)')}
+                </label>
+                <textarea
+                  name="bio_eng"
+                  placeholder={t(
+                    'Din presentationstext på engelska...',
+                    'Your presentation in English...'
+                  )}
+                  value={formData.bio_eng}
+                  onChange={handleChange}
+                  className="login-input flex-1 w-full resize-none p-3 min-h-[100px] text-sm"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Huvudknapp för att spara allt */}
-      <button
-        type="submit"
-        disabled={isSaving}
-        className="btn-gold w-full justify-center py-3 text-base font-semibold"
-      >
-        <Save size={18} />
-        {isSaving ? 'Sparar allt...' : 'Spara ändringar'}
-      </button>
-    </form>
+        {/* ================= SEKTION 2: ACT DETAILS ================= */}
+        <div className="login-card space-y-6">
+          <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
+            <h2>{t('Act Details', 'Act Details')}</h2>
+          </div>
+
+          <div className="form-field">
+            <label className="form-label-block text-xs">
+              {t('Aktens Namn / Act Name', 'Act Name')}
+            </label>
+            <input
+              type="text"
+              name="act_name"
+              placeholder={t('T.ex. Fire Spectacular', 'e.g. Fire Spectacular')}
+              value={formData.act_name}
+              onChange={handleChange}
+              className="login-input"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="form-field">
+              <label className="form-label-gold text-xs block mb-1">
+                {t('Aktbeskrivning (Svenska)', 'Act Description (Swedish)')}
+              </label>
+              <textarea
+                name="act_description_sv"
+                rows={3}
+                placeholder={t('Beskriv din akt på svenska...', 'Describe your act in Swedish...')}
+                value={formData.act_description_sv}
+                onChange={handleChange}
+                className="login-input text-sm resize-none"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label-gold text-xs block mb-1">
+                {t('Aktbeskrivning (Engelska)', 'Act Description (English)')}
+              </label>
+              <textarea
+                name="act_description_eng"
+                rows={3}
+                placeholder={t('Beskriv din akt på engelska...', 'Describe your act in English...')}
+                value={formData.act_description_eng}
+                onChange={handleChange}
+                className="login-input text-sm resize-none"
+              />
+            </div>
+          </div>
+
+          {/* LÅT- OCH MUSIKSKAPANDE MED INTERAKTIV INPUT */}
+          <div className="space-y-4 border-t border-border/40 pt-4">
+            <label className="form-label-block text-xs font-bold text-accent">
+              {t('Låtar för akten', 'Act Songs & Audio Tracks')}
+            </label>
+
+            <div className="p-4 rounded-lg border border-accent/30 bg-accent/5 space-y-3">
+              <span className="text-xs font-semibold text-foreground/80 block">
+                {t('Lägg till låt', 'Add new song')}
+              </span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder={t('Låttitel (t.ex. Feeling Good)', 'Track Title')}
+                  value={newTrackTitle}
+                  onChange={(e) => setNewTrackTitle(e.target.value)}
+                  className="login-input text-xs"
+                />
+                <input
+                  type="text"
+                  placeholder={t('Låtartist / Kompositör (t.ex. Nina Simone)', 'Track Artist')}
+                  value={newTrackArtist}
+                  onChange={(e) => setNewTrackArtist(e.target.value)}
+                  className="login-input text-xs"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="temp-audio-up"
+                    className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5"
+                  >
+                    {uploadingAudio ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    {newTrackFile
+                      ? t('Byt ljudfil', 'Change audio file')
+                      : t('Välj ljudfil (valfritt)', 'Select audio file (optional)')}
+                  </label>
+                  <input
+                    type="file"
+                    id="temp-audio-up"
+                    className="hidden"
+                    accept="audio/*"
+                    onChange={handleTempAudioUpload}
+                  />
+                  {newTrackFile && (
+                    <span className="text-xs text-accent truncate max-w-[200px]">
+                      ✓ {newTrackFile.name}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddTrack}
+                  className="btn-gold text-xs py-1.5 px-4 flex items-center gap-1.5 ml-auto"
+                >
+                  <Plus size={14} />
+                  {t('Lägg till låt i akten', 'Add song to act')}
+                </button>
+              </div>
+            </div>
+
+            {/* Lista över sparade låtar */}
+            {audioTracks.length > 0 ? (
+              <div className="space-y-2 pt-2">
+                <span className="text-xs font-medium text-foreground/70 block">
+                  {t('Tillagda låtar:', 'Added tracks:')}
+                </span>
+                {audioTracks.map((track, idx) => (
+                  <div
+                    key={track.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border/60 bg-background/40"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                      <Music className="w-4 h-4 text-accent shrink-0" />
+                      <div className="min-w-0 flex-1 flex flex-col items-start">
+                        <p className="text-xs font-semibold text-foreground truncate w-full text-left">
+                          {idx + 1}. {track.title || t('Namnlös låt', 'Untitled track')}
+                          {track.artist ? ` - ${track.artist}` : ''}
+                        </p>
+                        {track.fileName && (
+                          <p className="text-[10px] text-accent truncate w-full text-left">
+                            Fil: {track.fileName}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {track.fileUrl && (
+                        <a
+                          href={track.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
+                          title={t('Lyssna/Öppna', 'Listen/Open')}
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeTrack(track.id)}
+                        className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
+                        title={t('Ta bort', 'Remove')}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-foreground/50 italic pt-1">
+                {t('Inga låtar tillagda ännu.', 'No songs added yet.')}
+              </p>
+            )}
+          </div>
+
+          {/* SCENFÄLT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/40 pt-4">
+            <div className="form-field">
+              <label className="form-label-block text-xs">
+                {t('Stage preparations (Förberedelser på scen)', 'Stage preparations')}
+              </label>
+              <textarea
+                name="stage_preparations"
+                rows={3}
+                placeholder={t(
+                  'T.ex. Starting off stage. Needs someone to give a push onto stage...',
+                  'e.g. Starting off stage. Needs someone to give a push onto stage...'
+                )}
+                value={formData.stage_preparations}
+                onChange={handleChange}
+                className="login-input text-sm resize-none"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label-block text-xs">
+                {t('Pick up / cleaning (Rensning av scen)', 'Pick up / cleaning')}
+              </label>
+              <textarea
+                name="pick_up_cleaning"
+                rows={3}
+                placeholder={t(
+                  'T.ex. Hat, 2 sleeves, skirt. Take down balloon between breaks...',
+                  'e.g. Hat, 2 sleeves, skirt. Take down balloon between breaks...'
+                )}
+                value={formData.pick_up_cleaning}
+                onChange={handleChange}
+                className="login-input text-sm resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label className="form-label-block text-xs">
+              {t('Övriga noteringar (Ljud, ljus & scenkrav)', 'Sound, Lighting & General Notes')}
+            </label>
+            <textarea
+              name="act_notes"
+              rows={3}
+              placeholder={t(
+                'T.ex. Önskar dämpat ljus vid start, mikrofonbehov m.m.',
+                'e.g. Soft lighting at start, microphone requirements, etc.'
+              )}
+              value={formData.act_notes}
+              onChange={handleChange}
+              className="login-input text-sm resize-none"
+            />
+          </div>
+        </div>
+
+        {/* ================= SEKTION 3: LOGISTIK ================= */}
+        <div className="login-card space-y-6">
+          <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
+            <h2>{t('Logistik', 'Logistics')}</h2>
+          </div>
+
+          <div className="form-field">
+            <label className="form-label-block text-xs">
+              {t('Matpreferenser & Allergier', 'Dietary Requirements')}
+            </label>
+            <input
+              type="text"
+              name="dietary_requirements"
+              placeholder={t('T.ex. Vegetarian, nötallergi...', 'e.g. Vegetarian, nut allergy...')}
+              value={formData.dietary_requirements}
+              onChange={handleChange}
+              className="login-input"
+            />
+          </div>
+
+          {(application.needs_travel_costs || (application.travel_cost_amount ?? 0) > 0) && (
+            <div className="form-field border-t border-border/40 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="form-label-block text-xs">
+                  {t('Resekvitton (PDF/Bild)', 'Travel Receipts (PDF/Image)')}
+                </label>
+                <label
+                  htmlFor="receipt-up-multi"
+                  className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  {uploadingReceipt ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Plus size={14} />
+                  )}
+                  {t('Ladda upp kvitto(n)', 'Upload receipt(s)')}
+                </label>
+                <input
+                  type="file"
+                  id="receipt-up-multi"
+                  className="hidden"
+                  accept="image/*,.pdf"
+                  multiple
+                  onChange={handleReceiptUpload}
+                />
+              </div>
+
+              {receiptFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {receiptFiles.map((receipt, idx) => (
+                    <div
+                      key={receipt.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-accent/40 bg-accent/10"
+                    >
+                      {/* FIX: Layoutjustering för kvitto-kortet */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                        <FileText className="w-5 h-5 text-accent shrink-0" />
+                        <div className="min-w-0 flex-1 flex flex-col items-start">
+                          <p className="text-xs font-semibold text-foreground truncate w-full text-left">
+                            {idx + 1}. {receipt.name}
+                          </p>
+                          <p className="text-[10px] text-accent font-medium text-left">
+                            ✓ Kvitto bifogat
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={receipt.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
+                          title={t('Visa kvitto', 'View receipt')}
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => removeReceiptFile(receipt.id)}
+                          className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
+                          title={t('Ta bort kvitto', 'Remove receipt')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-foreground/50 italic">
+                  {t('Inga kvitton uppladdade ännu.', 'No receipts uploaded yet.')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="btn-gold w-full py-3 text-base justify-center font-semibold flex items-center gap-2"
+        >
+          {submitting ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <Save size={18} />
+              {t('Spara information', 'Save Information')}
+            </>
+          )}
+        </button>
+      </form>
+    </div>
   )
 }

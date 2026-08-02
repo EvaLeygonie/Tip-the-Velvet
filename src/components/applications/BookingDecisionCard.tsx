@@ -16,10 +16,8 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
 }) => {
   const { t } = useLanguage()
 
-  // Beräkna initialt fee från prop
   const initialFee = application.proposed_fee ?? application.requested_fee ?? 0
 
-  // Formulär-states initierade direkt från application-propen utan useEffect
   const [fee, setFee] = useState<number>(initialFee)
   const [needsTravel, setNeedsTravel] = useState(application.needs_travel_costs || false)
   const [travelAmount, setTravelAmount] = useState<number>(application.travel_cost_amount || 0)
@@ -29,7 +27,6 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showModal, setShowModal] = useState(false)
 
-  // Kolla om ändringar gjorts jämfört med ursprungliga propen
   const isCounterOffer =
     fee !== initialFee ||
     needsTravel !== (application.needs_travel_costs || false) ||

@@ -25,3 +25,21 @@ export const deleteRow = async (table: TableName, id: string): Promise<void> => 
 
   if (result.error) throw result.error
 }
+
+//=== STORAGE ===///
+
+export const uploadStorageFile = async (
+  bucket: string,
+  folder: string,
+  file: File
+): Promise<string> => {
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+
+  const { error } = await supabase.storage.from(bucket).upload(fileName, file, { upsert: true })
+
+  if (error) throw error
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(fileName)
+  return data.publicUrl
+}
