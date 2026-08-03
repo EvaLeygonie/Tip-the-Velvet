@@ -60,6 +60,23 @@ export const buildEventFolderName = (eventTitle: string, eventDate: string) => {
   return `${date} ${eventTitle}`
 }
 
+export const getStoragePathFromUrl = (url: string, bucketName = 'artist-files') => {
+  if (!url) return ''
+  try {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const urlObj = new URL(url)
+      const pathSegments = urlObj.pathname.split('/')
+      const bucketIndex = pathSegments.indexOf(bucketName)
+      if (bucketIndex !== -1) {
+        return pathSegments.slice(bucketIndex + 1).join('/')
+      }
+    }
+  } catch (err) {
+    console.error('Kunde inte parsa URL:', err)
+  }
+  return url
+}
+
 export const getImageSrc = (imageId: string) => {
   if (!imageId) return ''
   if (imageId.startsWith('blob:') || imageId.startsWith('http')) return imageId

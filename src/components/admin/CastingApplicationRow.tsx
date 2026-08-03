@@ -70,22 +70,17 @@ export const CastingApplicationRow = ({
 
   const isSv = application.language === 'sv'
   const hasTravelNeed = application.needs_travel_costs
+  const travelCostAmount = Number(application.travel_cost_amount) || 0
   const hasAccommodationNeed = application.needs_accommodation
 
-  // RÖD: Ansökan är avvisad OCH mailet har skickats, vilket innebär att artisten fått ett formellt avslag.
   const isRejectedAndSent = application.review_status === 'no' && application.initial_reply_sent
-
-  // ORANGE: Ansökan är godkänd som "Ja" OCH mailet har skickats, men statusen är inte helt klar ännu (väntar på artisten/förhandling).
   const isAwaitingConfirmation =
     application.review_status === 'yes' &&
     application.initial_reply_sent &&
     application.booking_status !== 'confirmed'
-
-  // GRÖN: Helt klar, spikad och verifierad i systemet.
   const isFullyConfirmed =
     application.review_status === 'yes' && application.booking_status === 'confirmed'
 
-  // Styling för varje status
   let statusRowClass = 'hover:border-accent/30'
   if (isRejectedAndSent) {
     statusRowClass = 'border-red-900/65 bg-red-950/5 hover:border-red-800'
@@ -96,13 +91,12 @@ export const CastingApplicationRow = ({
       'border-emerald-500 bg-emerald-950/20 shadow-[0_0_15px_rgba(16,185,129,0.05)] cursor-default'
   }
 
-  //TODO Fixa sidan och uppdatera länken
-  const contractLink = `https://tipthevelvet.nu/casting/confirm/${application.id}`
+  const contractLink = `https://tipthevelvet.nu/casting/confirm/${application.id}?token=${application.access_token}`
 
   // MAIL TEMPLATES
   const logisticsText = isSv
-    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${hasTravelNeed ? 'Förhandlas via länken nedan' : 'Behövs ej'}\n• Boende: ${hasAccommodationNeed ? 'Community hosting löses av oss' : 'Behövs ej'}`
-    : `• Fee: ${offerFee} SEK\n• Travel costs: ${hasTravelNeed ? 'To be discussed (click on the link below)' : 'Not needed'}\n• Accommodation: ${hasAccommodationNeed ? 'Community hosting will be arranged by us' : 'Not needed'}`
+    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${hasTravelNeed ? (travelCostAmount > 0 ? `${travelCostAmount} SEK` : 'Förhandlas via länken nedan') : 'Inte angivet'}\n• Boende: ${hasAccommodationNeed ? 'Community hosting löses av oss' : 'Inte angivet'}`
+    : `• Fee: ${offerFee} SEK\n• Travel costs: ${hasTravelNeed ? (travelCostAmount > 0 ? `${travelCostAmount} SEK` : 'To be discussed (click on the link below)') : 'Not decided'}\n• Accommodation: ${hasAccommodationNeed ? 'Community hosting will be arranged by us' : 'Not decided'}`
 
   const travelNotice = hasTravelNeed
     ? isSv
@@ -114,17 +108,14 @@ export const CastingApplicationRow = ({
     ? `Vi älskade din ansökan för "${application.act_title}" och vill jättegärna erbjuda dig en plats i showen!\n\n${travelNotice}Här är det villkor och upplägg vi har tagit fram:\n${logisticsText}\n\nVia länken nedan kan vårt erbjudande granskas, förhandlas och/eller accepteras. Klicka här för att se detaljerna:\n${contractLink}\n\nVi ser verkligen fram emot att jobba med dig!`
     : `We loved your application for "${application.act_title}" and would love to offer you a spot in the show!\n\n${travelNotice}Here are the terms and details for the offer:\n${logisticsText}\n\nThrough the link below, our offer can be reviewed, negotiated, and/or accepted. Please use the following link to see the details:\n${contractLink}\n\nWe are thrilled about the prospect of working together!`
 
-  // Generera "NEJ"-mail (Standardavslag)
   const defaultNoBody = isSv
     ? `Stort tack för att du sökte till vår show med din akt "${application.act_title}"!\n\nWe har nu gått igenom alla ansökningar, och tyvärr har vi inte möjlighet att ta med din akt i just den här produktionen. Urvalet har varit otroligt svårt då vi fått in väldigt många fantastiska bidrag.\n\nVi sparar gärna dina kontaktuppgifter för framtida shower, och hoppas att vi ses eller hörs framöver!`
     : `Thank you so much for applying to our show with your act "${application.act_title}"!\n\nWe have reviewed all applications, and unfortunately, we are unable to include your act in this specific production. The selection process was highly competitive due to the volume of amazing submissions we received.\n\nWe would love to keep your details on file for future shows, and hope to cross paths in the future!`
 
-  // Generera "KANSKE"-mail
   const defaultMaybeBody = isSv
     ? `Hej ${application.performer_name}!\n\nHoppas att allt är fint med dig. Vi har gått igenom din castingansökan gällande din akt "${application.act_title}" och tycker den är väldigt intressant.\n\n [...] \n\nVarma hälsningar,\nTip the Velvet`
     : `Hi ${application.performer_name}!\n\nHope you are doing well. We have reviewed your casting application regarding your act "${application.act_title}" and find it very interesting.\n\n [...] \n\nBest regards,\nTip the Velvet`
 
-  // Välj aktiv mall baserat på review_status
   const activeDefaultBody =
     application.review_status === 'yes'
       ? defaultYesBody
@@ -162,7 +153,6 @@ export const CastingApplicationRow = ({
   const handleOpenMailModal = (e: React.MouseEvent) => {
     e.stopPropagation()
 
-    // Dynamisk ämnesrad baserad på statusvalet
     let subject = ''
     if (application.review_status === 'yes') {
       subject = hasTravelNeed
@@ -204,16 +194,15 @@ export const CastingApplicationRow = ({
 
       if (!response.ok) throw new Error('Kunde inte skicka mail via API:et.')
 
-      // Uppdatera booking_status i databasen
       let nextBookingStatus: CastingApplication['booking_status'] = 'not_contacted'
 
       if (application.review_status === 'no') {
         nextBookingStatus = 'declined'
       } else if (application.review_status === 'yes') {
-        // Godkända rader får väntande status till de bekräftats av båda parter
         nextBookingStatus = 'pending_confirmation'
       }
 
+      // HÄR SPARAS DET NYA GAGET (offerFee) TILL SUPABASE!
       await onUpdateLogistics(
         application.id,
         true, // initial_reply_sent = true
@@ -289,28 +278,39 @@ export const CastingApplicationRow = ({
             <span className="truncate block">{application.city || '—'}</span>
           </div>
 
-          {/* Gage-kolumn */}
+          {/* Gage-kolumn (Uppdaterad med resekostnad om > 0) */}
           <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-              {t('Preliminär gage', 'Preliminay fee')}
+              {t('Preliminärt gage', 'Preliminary fee')}
             </span>
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-foreground/90 flex items-center gap-0.5 whitespace-nowrap">
-                {application.requested_fee ?? '—'}{' '}
-                {application.requested_fee && <span className="text-[10px] text-accent">SEK</span>}
-              </span>
-              <div className="flex items-center gap-1 shrink-0">
-                {application.needs_travel_costs && (
-                  <span title={t('Behöver resa', 'Needs travel')}>
-                    <BusFront className="h-3.5 w-3.5 text-gold" />
-                  </span>
-                )}
-                {application.needs_accommodation && (
-                  <span title={t('Behöver boende', 'Needs accommodation')}>
-                    <Home className="h-3.5 w-3.5 text-accent/50" />
-                  </span>
-                )}
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-foreground/90 flex items-center gap-0.5 whitespace-nowrap">
+                  {application.requested_fee ?? '—'}{' '}
+                  {application.requested_fee && (
+                    <span className="text-[10px] text-accent">SEK</span>
+                  )}
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  {application.needs_travel_costs && (
+                    <span title={t('Behöver resa', 'Needs travel')}>
+                      <BusFront className="h-3.5 w-3.5 text-gold" />
+                    </span>
+                  )}
+                  {application.needs_accommodation && (
+                    <span title={t('Behöver boende', 'Needs accommodation')}>
+                      <Home className="h-3.5 w-3.5 text-accent/50" />
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* Visas om resekostnad finns angiven och är > 0 */}
+              {hasTravelNeed && travelCostAmount > 0 && (
+                <span className="text-[11px] text-amber-400 font-medium">
+                  + {travelCostAmount} SEK {t('resa', 'travel')}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -573,7 +573,7 @@ export const CastingApplicationRow = ({
               onClick={(e) => e.stopPropagation()}
             >
               <div>
-                <h4 className="font-decorative text-lg text-accent">
+                <h4 className="font-decorative text-lg text-accent text-center">
                   {application.review_status === 'yes'
                     ? t('Förbered förhandlingslänk', 'Prepare negotiation link')
                     : application.review_status === 'maybe'
@@ -609,7 +609,9 @@ export const CastingApplicationRow = ({
                       {hasTravelNeed && (
                         <span className="text-amber-400 flex items-center gap-1 font-semibold">
                           <BusFront className="h-3 w-3" />{' '}
-                          {t('Önskat reseersättning', 'Requested travel')}
+                          {travelCostAmount > 0
+                            ? `${travelCostAmount} SEK`
+                            : t('Önskat reseersättning', 'Requested travel')}
                         </span>
                       )}
                     </div>

@@ -70,20 +70,27 @@ export const AdminCasting = () => {
     await updateApplicationNotes(id, updatedNotes)
   }
 
+  // UPPDAERAD: Tar nu emot proposedFee så att det lokala statet uppdateras direkt när du skickar mail/erbjudande!
   const handleUpdateLogisticsStatus = async (
     id: string,
     initialReplySent: boolean,
-    bookingStatus: CastingApplication['booking_status']
+    bookingStatus: CastingApplication['booking_status'],
+    proposedFee?: number
   ) => {
     setApplications((prev) =>
       prev.map((app) =>
         app.id === id
-          ? { ...app, initial_reply_sent: initialReplySent, booking_status: bookingStatus }
+          ? {
+              ...app,
+              initial_reply_sent: initialReplySent,
+              booking_status: bookingStatus,
+              proposed_fee: proposedFee !== undefined ? proposedFee : app.proposed_fee,
+            }
           : app
       )
     )
     try {
-      await updateApplicationLogistics(id, initialReplySent, bookingStatus)
+      await updateApplicationLogistics(id, initialReplySent, bookingStatus, proposedFee)
     } catch (err) {
       console.error('Kunde inte uppdatera logistikstatus i databasen:', err)
     }
@@ -98,7 +105,12 @@ export const AdminCasting = () => {
   const maybeApps = applications.filter((app) => app.review_status === 'maybe')
   const noApps = applications.filter((app) => app.review_status === 'no')
 
-  const totalBudget = yesApps.reduce((sum, app) => sum + (Number(app.requested_fee) || 0), 0)
+  // UPPDAERAD BUKGETBERÄKNING: Gage (proposed eller requested) + Resekostnad
+  const totalBudget = yesApps.reduce((sum, app) => {
+    const fee = Number(app.proposed_fee) || Number(app.requested_fee) || 0
+    const travel = app.needs_travel_costs ? Number(app.travel_cost_amount) || 0 : 0
+    return sum + fee + travel
+  }, 0)
 
   const renderAppSection = (
     title: string,

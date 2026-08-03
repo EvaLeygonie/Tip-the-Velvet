@@ -33,7 +33,11 @@ export const getApplicationsFromEvent = async (eventId: string): Promise<Casting
   return data || []
 }
 
-export const getCastingApplicationById = async (id: string) => {
+export const getCastingApplicationByToken = async (id: string, token: string | null) => {
+  if (!token) {
+    throw new Error('Access token saknas i URL:en.')
+  }
+
   const { data, error } = await supabase
     .from('casting_applications')
     .select(
@@ -59,9 +63,10 @@ export const getCastingApplicationById = async (id: string) => {
         pick_up_cleaning,
         act_notes
       )
-     `
+    `
     )
     .eq('id', id)
+    .eq('access_token', token)
     .single()
 
   if (error) throw error
@@ -118,15 +123,23 @@ export const updateApplicationNotes = async (id: string, notes: string): Promise
 export const updateApplicationLogistics = async (
   id: string,
   initialReplySent: boolean,
-  bookingStatus: CastingApplication['booking_status']
+  bookingStatus: CastingApplication['booking_status'],
+  proposedFee?: number
 ): Promise<void> => {
-  const { error } = await supabase
-    .from('casting_applications')
-    .update({
-      initial_reply_sent: initialReplySent,
-      booking_status: bookingStatus,
-    })
-    .eq('id', id)
+  const updateData: {
+    initial_reply_sent: boolean
+    booking_status: CastingApplication['booking_status']
+    proposed_fee?: number
+  } = {
+    initial_reply_sent: initialReplySent,
+    booking_status: bookingStatus,
+  }
+
+  if (proposedFee !== undefined) {
+    updateData.proposed_fee = proposedFee
+  }
+
+  const { error } = await supabase.from('casting_applications').update(updateData).eq('id', id)
 
   if (error) throw error
 }
@@ -179,6 +192,8 @@ export interface EventPerformerDetailsInput {
   arrival_time?: string
   travel_receipts?: ReceiptItem[]
   notes?: string
+  plus_one_name?: string
+  plus_one_email?: string
 }
 
 export const updateEventPerformerDetails = async (

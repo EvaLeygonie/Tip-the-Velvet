@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useSearchParams, useParams } from 'react-router-dom'
 import type { CastingApplication } from '@/types/types'
-import { getCastingApplicationById } from '@/services/applicationService'
+import { getCastingApplicationByToken } from '@/services/applicationService'
 import { BookingDecisionCard } from '@/components/applications/BookingDecisionCard'
 import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
 
 export const ArtistBookingPortal = () => {
-  const { id } = useParams<{ id: string }>()
+  const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
   const [application, setApplication] = useState<CastingApplication | null>(null)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
@@ -17,18 +19,21 @@ export const ArtistBookingPortal = () => {
     let isMounted = true
 
     const fetchApplication = async () => {
-      if (!id) {
+      if (!id || !token) {
         setLoading(false)
         return
       }
 
       try {
-        const app = await getCastingApplicationById(id)
+        const app = await getCastingApplicationByToken(id, token)
         if (isMounted) {
           setApplication(app)
         }
       } catch (err) {
-        console.error(err)
+        console.error('Fel vid hämtning av bokningsansökan:', err)
+        if (isMounted) {
+          setApplication(null)
+        }
       } finally {
         if (isMounted) {
           setLoading(false)
@@ -41,7 +46,7 @@ export const ArtistBookingPortal = () => {
     return () => {
       isMounted = false
     }
-  }, [id, reloadKey])
+  }, [id, token, reloadKey])
 
   if (loading) {
     return (
@@ -54,7 +59,7 @@ export const ArtistBookingPortal = () => {
   if (!application) {
     return (
       <div className="min-h-screen flex items-center justify-center text-sm text-red-400">
-        Hittade ingen giltig bokningsansökan.
+        Hittade ingen giltig bokningsansökan eller så saknas behörighet/länktoken.
       </div>
     )
   }
@@ -71,7 +76,6 @@ export const ArtistBookingPortal = () => {
           <p className="text-md text-foreground/68">Akt: {application.act_title}</p>
         </div>
 
-        {/* Conditional Rendering */}
         {!isConfirmed ? (
           <BookingDecisionCard
             key={application.id}

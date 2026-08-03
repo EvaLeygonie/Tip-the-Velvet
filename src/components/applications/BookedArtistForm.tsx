@@ -13,7 +13,7 @@ import {
   type PerformerActInput,
   type EventPerformerDetailsInput,
 } from '@/services/applicationService'
-import { buildEventFolderName, createSlug } from '@/lib/utils'
+import { buildEventFolderName, createSlug, getStoragePathFromUrl } from '@/lib/utils'
 
 interface ExtendedCastingApplication extends CastingApplication {
   performer_id: string | null
@@ -74,11 +74,9 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  // Status för uppladdningar
   const [uploadingAudio, setUploadingAudio] = useState(false)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
-  // Tillstånd för skapande av NY låt (input-fälten)
   const [newTrackTitle, setNewTrackTitle] = useState('')
   const [newTrackArtist, setNewTrackArtist] = useState('')
   const [newTrackFile, setNewTrackFile] = useState<{
@@ -87,7 +85,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     path: string
   } | null>(null)
 
-  // Listor för sparade objekt
   const [audioTracks, setAudioTracks] = useState<AudioTrackItem[]>([])
   const [receiptFiles, setReceiptFiles] = useState<ReceiptItem[]>([])
 
@@ -106,6 +103,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
     // Sektion 3: Logistik
     dietary_requirements: '',
+    plus_one_name: '',
+    plus_one_email: '',
   })
 
   // Hjälpfunktion för att hämta korrekt offentlig URL från Supabase
@@ -118,7 +117,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     return data.publicUrl
   }
 
-  // Hämta befintlig data vid start
   useEffect(() => {
     let isMounted = true
 
@@ -159,7 +157,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         if (actualEventId && application.performer_id) {
           const { data, error } = await supabase
             .from('event_performers')
-            .select('dietary_requirements, travel_receipts')
+            .select('dietary_requirements, travel_receipts, plus_one_name, plus_one_email')
             .eq('event_id', actualEventId)
             .eq('performer_id', application.performer_id)
             .maybeSingle()
@@ -184,6 +182,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
             // FIX: Sätter matpreferenser i formState
             dietary_requirements: logisticsData?.dietary_requirements ?? '',
+            plus_one_name: logisticsData?.plus_one_name ?? '',
+            plus_one_email: logisticsData?.plus_one_email ?? '',
           }))
 
           // Läs in ljudfiler / låtar säkert
@@ -208,7 +208,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     return () => {
       isMounted = false
     }
-  }, [application.performer_id, application.act_id, application.event_id])
+  }, [application.performer_id, application.act_id, application.event_id, application.events])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -231,8 +231,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     return `${eventFolderName}/${artistSlug}/${subFolder}`
   }
 
-  // --- HANTERA LÅT-SKAPANDE MED KNAPP ---
-
+  // --- MUSIC ---
   const handleTempAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -287,12 +286,25 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     toast.success(t('Låt tillagd i listan!', 'Track added to the list!'))
   }
 
-  const removeTrack = (id: string) => {
+  const removeTrack = async (id: string) => {
+    const trackToDelete = audioTracks.find((item) => item.id === id)
+
+    if (trackToDelete) {
+      const rawPath = trackToDelete.filePath || getStoragePathFromUrl(trackToDelete.fileUrl || '')
+      if (rawPath) {
+        try {
+          const { error } = await supabase.storage.from('artist-files').remove([rawPath])
+          if (error) console.error('Kunde inte radera ljudfil från storage:', error)
+        } catch (err) {
+          console.error('Fel vid radering av ljudfil:', err)
+        }
+      }
+    }
+
     setAudioTracks((prev) => prev.filter((item) => item.id !== id))
   }
 
   // --- HANTERA RESEKVITTON ---
-
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
@@ -300,7 +312,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     setUploadingReceipt(true)
     try {
       const folderPath = getStorageFolderPath('travel-receipts')
-      const newItems: ReceiptItem[] = []
+      const newItems: (ReceiptItem & { filePath?: string })[] = []
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
@@ -311,6 +323,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           id: `receipt-${Date.now()}-${i}`,
           name: file.name,
           url: publicUrl,
+          filePath: rawPath,
         })
       }
 
@@ -325,12 +338,27 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     }
   }
 
-  const removeReceiptFile = (id: string) => {
+  const removeReceiptFile = async (id: string) => {
+    const receiptToDelete = receiptFiles.find((item) => item.id === id)
+
+    if (receiptToDelete) {
+      const rawPath =
+        (receiptToDelete as { filePath?: string }).filePath ||
+        getStoragePathFromUrl(receiptToDelete.url || '')
+      if (rawPath) {
+        try {
+          const { error } = await supabase.storage.from('artist-files').remove([rawPath])
+          if (error) console.error('Kunde inte radera kvitto från storage:', error)
+        } catch (err) {
+          console.error('Fel vid radering av kvitto:', err)
+        }
+      }
+    }
+
     setReceiptFiles((prev) => prev.filter((item) => item.id !== id))
   }
 
   // --- SPARA TILL SUPABASE ---
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
@@ -369,6 +397,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         } = {
           dietary_requirements: formData.dietary_requirements,
           travel_receipts: receiptFiles,
+          plus_one_name: formData.plus_one_name,
+          plus_one_email: formData.plus_one_email,
         }
         await updateEventPerformerDetails(
           application.event_id,
@@ -518,7 +548,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             </div>
           </div>
 
-          {/* LÅT- OCH MUSIKSKAPANDE MED INTERAKTIV INPUT */}
+          {/* MUSIC */}
           <div className="space-y-4 border-t border-border/40 pt-4">
             <label className="form-label-block text-xs font-bold text-accent">
               {t('Låtar för akten', 'Act Songs & Audio Tracks')}
@@ -647,7 +677,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/40 pt-4">
             <div className="form-field">
               <label className="form-label-block text-xs">
-                {t('Stage preparations (Förberedelser på scen)', 'Stage preparations')}
+                {t('Scen förberedelser', 'Stage preparations')}
               </label>
               <textarea
                 name="stage_preparations"
@@ -664,7 +694,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
             <div className="form-field">
               <label className="form-label-block text-xs">
-                {t('Pick up / cleaning (Rensning av scen)', 'Pick up / cleaning')}
+                {t('Plock / städ', 'Pick up / cleaning')}
               </label>
               <textarea
                 name="pick_up_cleaning"
@@ -718,6 +748,35 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             />
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/40 pt-4">
+            <div className="form-field">
+              <label className="form-label-block text-xs">
+                {t('Plus One Namn', 'Plus One Name')}
+              </label>
+              <input
+                type="text"
+                name="plus_one_name"
+                placeholder={t('T.ex. Anna Karlsson', 'e.g. Anna Karlsson')}
+                value={formData.plus_one_name}
+                onChange={handleChange}
+                className="login-input"
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label-block text-xs">
+                {t('Plus One mail', 'Plus One Email')}
+              </label>
+              <input
+                type="text"
+                name="plus_one_email"
+                placeholder={t('T.ex. anna.karlsson@example.com', 'e.g. anna.karlsson@example.com')}
+                value={formData.plus_one_email}
+                onChange={handleChange}
+                className="login-input"
+              />
+            </div>
+          </div>
+
           {(application.needs_travel_costs || (application.travel_cost_amount ?? 0) > 0) && (
             <div className="form-field border-t border-border/40 pt-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -752,7 +811,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                       key={receipt.id}
                       className="flex items-center justify-between p-3 rounded-lg border border-accent/40 bg-accent/10"
                     >
-                      {/* FIX: Layoutjustering för kvitto-kortet */}
                       <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                         <FileText className="w-5 h-5 text-accent shrink-0" />
                         <div className="min-w-0 flex-1 flex flex-col items-start">

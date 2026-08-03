@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       casting_applications: {
         Row: {
+          access_token: string | null
           accommodation_notes: string | null
           act_description: string | null
           act_id: string | null
@@ -50,6 +51,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          access_token?: string | null
           accommodation_notes?: string | null
           act_description?: string | null
           act_id?: string | null
@@ -84,6 +86,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          access_token?: string | null
           accommodation_notes?: string | null
           act_description?: string | null
           act_id?: string | null
@@ -198,6 +201,8 @@ export type Database = {
           is_revealed: boolean
           notes: string | null
           performer_id: string
+          plus_one_email: string | null
+          plus_one_name: string | null
           travel_covered: number | null
           travel_receipts: Json | null
         }
@@ -212,6 +217,8 @@ export type Database = {
           is_revealed?: boolean
           notes?: string | null
           performer_id: string
+          plus_one_email?: string | null
+          plus_one_name?: string | null
           travel_covered?: number | null
           travel_receipts?: Json | null
         }
@@ -226,6 +233,8 @@ export type Database = {
           is_revealed?: boolean
           notes?: string | null
           performer_id?: string
+          plus_one_email?: string | null
+          plus_one_name?: string | null
           travel_covered?: number | null
           travel_receipts?: Json | null
         }

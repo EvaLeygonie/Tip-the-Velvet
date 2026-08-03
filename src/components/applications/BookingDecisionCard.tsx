@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { confirmAndMigrateArtist, submitArtistCounterOffer } from '@/services/applicationService'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { toast } from 'sonner'
-import { Send, Sparkles } from 'lucide-react'
+import { Send, Sparkles, Mail } from 'lucide-react'
 import type { CastingApplication } from '@/types/types'
 
 interface BookingDecisionCardProps {
@@ -34,11 +34,32 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
     needsAccom !== (application.needs_accommodation || false) ||
     (accomNotes || '') !== (application.accommodation_notes || '')
 
+  // E-postnotis till er när artisten gör en ändring eller bekräftar
+  const sendEmailNotification = async (type: 'CONFIRMED' | 'COUNTER_OFFER') => {
+    const isConfirmed = type === 'CONFIRMED'
+
+    const subject = encodeURIComponent(
+      isConfirmed
+        ? `[Bekräftad Bokning] ${application.performer_name} - ${application.act_title}`
+        : `[Motbud/Ändring] ${application.performer_name} - ${application.act_title}`
+    )
+
+    const bodyText = isConfirmed
+      ? `Artisten ${application.performer_name} har BEKRÄFTAT erbjudandet för "${application.act_title}"!\n\nSlutgiltigt gage: ${fee} SEK.`
+      : `Artisten ${application.performer_name} har skickat ÄNDRINGAR/MOTBUD för "${application.act_title}":\n\n- Nytt önskat gage: ${fee} SEK\n- Reseersättning: ${needsTravel ? `${travelAmount} SEK` : 'Nej'}\n- Boende: ${needsAccom ? `Ja (${accomNotes})` : 'Nej'}`
+
+    const adminMailto = `mailto:velvet.gbg@gmail.com?subject=${subject}&body=${encodeURIComponent(bodyText)}`
+
+    // Trigga klientmail eller logga om automatiskt API saknas
+    window.open(adminMailto, '_blank')
+  }
+
   const handleConfirmDirect = async () => {
     setIsSubmitting(true)
 
     try {
       await confirmAndMigrateArtist(application, fee)
+      await sendEmailNotification('CONFIRMED')
 
       toast.success(t('Kontraktet har bekräftats!', 'Contract confirmed!'))
       setShowModal(false)
@@ -69,6 +90,8 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
         accommodation_notes: needsAccom ? accomNotes : null,
       })
 
+      await sendEmailNotification('COUNTER_OFFER')
+
       toast.success(t('Ditt motbud/ändringar har skickats!', 'Counter-offer submitted!'))
       onStatusChange()
     } catch (err) {
@@ -78,6 +101,16 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
       setIsSubmitting(false)
     }
   }
+
+  // Språkanpassad mailto-länk för artisten
+  const mailSubject = encodeURIComponent(
+    t(
+      `Fråga angående bokning: ${application.act_title}`,
+      `Question regarding booking: ${application.act_title}`
+    )
+  )
+
+  const mailtoUrl = `mailto:velvet.gbg@gmail.com?subject=${mailSubject}`
 
   return (
     <div className="login-card">
@@ -184,6 +217,17 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
               {t('Granska & Bekräfta plats', 'Review & Confirm Spot')}
             </button>
           )}
+
+          {/* KONTAKTKNAPP VIA MAIL */}
+          <a
+            href={mailtoUrl}
+            className="flex items-center justify-center gap-2 text-xs text-foreground/70 hover:text-accent transition-colors pt-2"
+          >
+            <Mail size={14} />
+            <span>
+              {t('Frågor eller funderingar? Kontakta oss direkt', 'Questions? Contact us directly')}
+            </span>
+          </a>
         </div>
       </form>
 
