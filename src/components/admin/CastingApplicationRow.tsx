@@ -119,7 +119,7 @@ export const CastingApplicationRow = ({
   const accomFormatted = needsAccom
     ? isSv
       ? 'Erbjuds (Community hosting / Boende)'
-      : 'Offered (Community hosting / Accom)'
+      : 'Offered (Community hosting / Accommodation)'
     : isSv
       ? 'Ej angivet / Ej aktuellt'
       : 'Not provided'
@@ -209,13 +209,9 @@ export const CastingApplicationRow = ({
 
     let subject = ''
     if (application.review_status === 'yes') {
-      subject = needsTravel
-        ? isSv
-          ? `Erbjudande & Resefråga: Casting för Tip the Velvet - ${application.act_title}`
-          : `Offer & Travel Question: Casting for Tip the Velvet - ${application.act_title}`
-        : isSv
-          ? `Erbjudande: Casting för Tip the Velvet - ${application.act_title}`
-          : `Offer: Casting for Tip the Velvet - ${application.act_title}`
+      subject = isSv
+        ? `Erbjudande: Casting för Tip the Velvet - ${application.act_title}`
+        : `Offer: Casting for Tip the Velvet - ${application.act_title}`
     } else if (application.review_status === 'no') {
       subject = isSv
         ? `Tip the Velvet - Angående din castingansökan för ${application.act_title}`
