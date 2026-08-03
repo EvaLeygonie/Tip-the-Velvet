@@ -124,12 +124,18 @@ export const updateApplicationLogistics = async (
   id: string,
   initialReplySent: boolean,
   bookingStatus: CastingApplication['booking_status'],
-  proposedFee?: number
+  proposedFee?: number,
+  needsTravelCosts?: boolean,
+  travelCostAmount?: number,
+  needsAccommodation?: boolean
 ): Promise<void> => {
   const updateData: {
     initial_reply_sent: boolean
     booking_status: CastingApplication['booking_status']
     proposed_fee?: number
+    needs_travel_costs?: boolean
+    travel_cost_amount?: number
+    needs_accommodation?: boolean
   } = {
     initial_reply_sent: initialReplySent,
     booking_status: bookingStatus,
@@ -137,6 +143,15 @@ export const updateApplicationLogistics = async (
 
   if (proposedFee !== undefined) {
     updateData.proposed_fee = proposedFee
+  }
+  if (needsTravelCosts !== undefined) {
+    updateData.needs_travel_costs = needsTravelCosts
+  }
+  if (travelCostAmount !== undefined) {
+    updateData.travel_cost_amount = travelCostAmount
+  }
+  if (needsAccommodation !== undefined) {
+    updateData.needs_accommodation = needsAccommodation
   }
 
   const { error } = await supabase.from('casting_applications').update(updateData).eq('id', id)
@@ -191,7 +206,6 @@ export const confirmAndMigrateArtist = async (
 
 export interface EventPerformerDetailsInput {
   dietary_requirements?: string
-  arrival_time?: string
   travel_receipts?: ReceiptItem[]
   travel_covered?: number
   notes?: string

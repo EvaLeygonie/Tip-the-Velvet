@@ -13,7 +13,12 @@ import {
   type PerformerActInput,
   type EventPerformerDetailsInput,
 } from '@/services/applicationService'
-import { buildEventFolderName, createSlug, getStoragePathFromUrl } from '@/lib/utils'
+import {
+  buildEventFolderName,
+  createSlug,
+  getStoragePathFromUrl,
+  getPublicFileUrl,
+} from '@/lib/utils'
 
 interface ExtendedCastingApplication extends CastingApplication {
   performer_id: string | null
@@ -108,16 +113,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     travel_covered: 0,
   })
 
-  // Hjälpfunktion för att hämta korrekt offentlig URL från Supabase
-  const getPublicFileUrl = (pathOrUrl: string) => {
-    if (!pathOrUrl) return ''
-    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-      return pathOrUrl
-    }
-    const { data } = supabase.storage.from('artist-files').getPublicUrl(pathOrUrl)
-    return data.publicUrl
-  }
-
   useEffect(() => {
     let isMounted = true
 
@@ -170,6 +165,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           }
           logisticsData = data
         }
+
         if (isMounted) {
           setFormData((prev) => ({
             ...prev,
@@ -183,7 +179,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             pick_up_cleaning: actData?.pick_up_cleaning ?? '',
             act_notes: actData?.act_notes ?? '',
 
-            // FIX: Sätter matpreferenser i formState
             dietary_requirements: logisticsData?.dietary_requirements ?? '',
             plus_one_name: logisticsData?.plus_one_name ?? '',
             plus_one_email: logisticsData?.plus_one_email ?? '',
@@ -394,21 +389,21 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         await updatePerformerAct(application.act_id, actData)
       }
 
-      // 3. Uppdatera Event Performer Details
-      if (application.event_id && application.performer_id) {
-        const logisticsData: EventPerformerDetailsInput & {
-          travel_receipts?: ReceiptItem[]
-        } = {
+      // 3. Uppdatera Event Performer Details (Inklusive travel_covered)
+      const eventFromRelation = Array.isArray(application.events)
+        ? application.events[0]
+        : application.events
+      const actualEventId = application.event_id || eventFromRelation?.id
+
+      if (actualEventId && application.performer_id) {
+        const logisticsData: EventPerformerDetailsInput = {
           dietary_requirements: formData.dietary_requirements,
           travel_receipts: receiptFiles,
           plus_one_name: formData.plus_one_name,
           plus_one_email: formData.plus_one_email,
+          travel_covered: Number(formData.travel_covered) || 0, // <-- FIX: Nu skickas reseersättningen med!
         }
-        await updateEventPerformerDetails(
-          application.event_id,
-          application.performer_id,
-          logisticsData
-        )
+        await updateEventPerformerDetails(actualEventId, application.performer_id, logisticsData)
       }
 
       toast.success(t('Informationen har sparats!', 'Information saved successfully!'))
@@ -785,10 +780,13 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             <div className="form-field border-t border-border/40 pt-4 space-y-3">
               <div className="form-field">
                 <label className="form-label-block text-xs">
-                  {t('Total reseräkning', 'Total Travel Reimbursement')}
+                  {t(
+                    'Total reseräkning (uppdatera vid behov)',
+                    'Total Travel Reimbursement (Adjust if needed)'
+                  )}
                 </label>
                 <input
-                  type="text"
+                  type="number"
                   name="travel_covered"
                   placeholder={t('T.ex. 500', 'e.g. 500')}
                   value={formData.travel_covered}
@@ -845,7 +843,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
-                          title={t('Visa kvitto', 'View receipt')}
+                          title={t('Öppna kvitto', 'Open receipt')}
                         >
                           <ExternalLink size={14} />
                         </a>
@@ -853,7 +851,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                           type="button"
                           onClick={() => removeReceiptFile(receipt.id)}
                           className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
-                          title={t('Ta bort kvitto', 'Remove receipt')}
+                          title={t('Ta bort', 'Remove')}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -862,7 +860,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-foreground/50 italic">
+                <p className="text-xs text-foreground/50 italic pt-1">
                   {t('Inga kvitton uppladdade ännu.', 'No receipts uploaded yet.')}
                 </p>
               )}
@@ -870,20 +868,17 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="btn-gold w-full py-3 text-base justify-center font-semibold flex items-center gap-2"
-        >
-          {submitting ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <>
-              <Save size={18} />
-              {t('Spara information', 'Save Information')}
-            </>
-          )}
-        </button>
+        {/* KNAPP FÖR ATT SPARA HETEN */}
+        <div className="flex justify-end pt-4">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="btn-gold flex items-center gap-2 py-3 px-6 text-sm font-semibold"
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={16} />}
+            {t('Spara information', 'Save Information')}
+          </button>
+        </div>
       </form>
     </div>
   )

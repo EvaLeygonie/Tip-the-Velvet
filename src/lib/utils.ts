@@ -1,4 +1,5 @@
 import heic2any from 'heic2any'
+import { supabase } from './supabase'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 
@@ -75,6 +76,16 @@ export const getStoragePathFromUrl = (url: string, bucketName = 'artist-files') 
     console.error('Kunde inte parsa URL:', err)
   }
   return url
+}
+
+// Hjälpfunktion för att hämta korrekt offentlig URL från Supabase
+export const getPublicFileUrl = (pathOrUrl: string) => {
+  if (!pathOrUrl) return ''
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    return pathOrUrl
+  }
+  const { data } = supabase.storage.from('artist-files').getPublicUrl(pathOrUrl)
+  return data.publicUrl
 }
 
 export const getImageSrc = (imageId: string) => {

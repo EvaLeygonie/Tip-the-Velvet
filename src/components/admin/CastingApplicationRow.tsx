@@ -383,7 +383,7 @@ export const CastingApplicationRow = ({
           </select>
 
           {isFullyConfirmed ? (
-            <Link to={`/casting/confirm/${application.id}`}>
+            <Link to={`/casting/confirm/${application.id}?token=${application.access_token}`}>
               <button
                 className="p-2 border rounded-md transition-colors shrink-0 bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-black"
                 title={t('Visa kontrakt', 'View contract')}

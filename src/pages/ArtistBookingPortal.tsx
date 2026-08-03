@@ -7,7 +7,7 @@ import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 export const ArtistBookingPortal = () => {
-  const { t } = useLanguage()
+  const { t, setLanguage } = useLanguage() // <-- Hämta setLanguage här!
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
@@ -30,6 +30,10 @@ export const ArtistBookingPortal = () => {
         const app = await getCastingApplicationByToken(id, token)
         if (isMounted) {
           setApplication(app)
+
+          if (app?.language) {
+            setLanguage(app.language as 'sv' | 'eng')
+          }
         }
       } catch (err) {
         console.error('Fel vid hämtning av bokningsansökan:', err)
@@ -48,7 +52,7 @@ export const ArtistBookingPortal = () => {
     return () => {
       isMounted = false
     }
-  }, [id, token, reloadKey])
+  }, [id, token, reloadKey, setLanguage])
 
   if (loading) {
     return (

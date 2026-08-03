@@ -70,12 +70,14 @@ export const AdminCasting = () => {
     await updateApplicationNotes(id, updatedNotes)
   }
 
-  // UPPDAERAD: Tar nu emot proposedFee så att det lokala statet uppdateras direkt när du skickar mail/erbjudande!
   const handleUpdateLogisticsStatus = async (
     id: string,
     initialReplySent: boolean,
     bookingStatus: CastingApplication['booking_status'],
-    proposedFee?: number
+    proposedFee?: number,
+    needsTravelCosts?: boolean,
+    travelCostAmount?: number,
+    needsAccommodation?: boolean
   ) => {
     setApplications((prev) =>
       prev.map((app) =>
@@ -85,12 +87,26 @@ export const AdminCasting = () => {
               initial_reply_sent: initialReplySent,
               booking_status: bookingStatus,
               proposed_fee: proposedFee !== undefined ? proposedFee : app.proposed_fee,
+              needs_travel_costs:
+                needsTravelCosts !== undefined ? needsTravelCosts : app.needs_travel_costs,
+              travel_cost_amount:
+                travelCostAmount !== undefined ? travelCostAmount : app.travel_cost_amount,
+              needs_accommodation:
+                needsAccommodation !== undefined ? needsAccommodation : app.needs_accommodation,
             }
           : app
       )
     )
     try {
-      await updateApplicationLogistics(id, initialReplySent, bookingStatus, proposedFee)
+      await updateApplicationLogistics(
+        id,
+        initialReplySent,
+        bookingStatus,
+        proposedFee,
+        needsTravelCosts,
+        travelCostAmount,
+        needsAccommodation
+      )
     } catch (err) {
       console.error('Kunde inte uppdatera logistikstatus i databasen:', err)
     }
@@ -105,7 +121,6 @@ export const AdminCasting = () => {
   const maybeApps = applications.filter((app) => app.review_status === 'maybe')
   const noApps = applications.filter((app) => app.review_status === 'no')
 
-  // UPPDAERAD BUKGETBERÄKNING: Gage (proposed eller requested) + Resekostnad
   const totalBudget = yesApps.reduce((sum, app) => {
     const fee = Number(app.proposed_fee) || Number(app.requested_fee) || 0
     const travel = app.needs_travel_costs ? Number(app.travel_cost_amount) || 0 : 0
@@ -121,12 +136,11 @@ export const AdminCasting = () => {
     if (appsList.length === 0) return null
 
     return (
-      <div className="space-y-3 pt-6">
-        <div className="flex items-center justify-between border-b border-accent/10 pb-1">
+      <div className="space-y-3 pt-4">
+        <div className="flex items-center justify-between border-b border-accent/10 pb-2">
           <h5 className="font-decorative text-base text-foreground/80">{title}</h5>
 
           <div className="flex items-center gap-3">
-            {/* Renare budget utan ram, placerad precis till vänster om artistantalet */}
             {isYesSection && (
               <div className="text-xs text-gold font-mono flex items-center gap-1 opacity-90">
                 <DollarSign className="h-3 w-3" />
@@ -152,6 +166,8 @@ export const AdminCasting = () => {
       </div>
     )
   }
+
+  const hasAnyApplications = applications.length > 0
 
   return (
     <div className="page-shell">
@@ -201,57 +217,42 @@ export const AdminCasting = () => {
           <div className="loading-text">{t('Öppnar ridån...', 'Opening the curtain...')}</div>
         </div>
       ) : (
-        <div className="mt-12 relative z-10 max-w-5xl mx-auto space-y-8">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-accent/20 pb-2">
-              <h4 className="font-decorative text-xl text-accent">
-                {t('Osorterade ansökningar', 'Unsorted applications')}
-              </h4>
-              <span className="text-xs uppercase tracking-widest px-3 py-1 bg-accent/10 border border-accent/30 text-accent rounded-full font-mono">
-                {pendingApps.length} {t('st', 'pcs')}
-              </span>
+        <div className="mt-8 relative z-10 max-w-5xl mx-auto space-y-6">
+          {!hasAnyApplications ? (
+            <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
+              {t(
+                'Inga ansökningar har inkommit för detta event ännu.',
+                'No applications received for this event yet.'
+              )}
             </div>
+          ) : (
+            <>
+              {renderAppSection(
+                t('Osorterade ansökningar', 'Unsorted applications'),
+                pendingApps,
+                'bg-accent/10 border-accent/30 text-accent'
+              )}
 
-            {pendingApps.length === 0 ? (
-              <div className="callout-panel italic text-foreground/40 bg-black/10 border-dashed border-accent/10">
-                {t(
-                  'Inga obearbetade ansökningar kvar för denna show.',
-                  'No unprocessed applications left for this show.'
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingApps.map((app) => (
-                  <CastingApplicationRow
-                    key={app.id}
-                    application={app}
-                    onStatusChange={handleStatusChange}
-                    onSaveNotes={handleSaveNotes}
-                    onUpdateLogistics={handleUpdateLogisticsStatus}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+              {renderAppSection(
+                t('Bokade / Ja', 'Booked / Yes'),
+                yesApps,
+                'bg-green-500/10 border-green-500/30 text-green-400',
+                true
+              )}
 
-          <div className="space-y-2 mt-12">
-            {renderAppSection(
-              t('Bokade / Ja', 'Booked / Yes'),
-              yesApps,
-              'bg-green-500/10 border-green-500/30 text-green-400',
-              true // Aktiverar budgeträknaren för denna sektion
-            )}
-            {renderAppSection(
-              t('Kanske / Reserver', 'Maybe / Backup'),
-              maybeApps,
-              'bg-amber-500/10 border-amber-500/30 text-amber-400'
-            )}
-            {renderAppSection(
-              t('Nej / Tackade nej', 'No / Declined'),
-              noApps,
-              'bg-red-500/10 border-red-500/30 text-red-400'
-            )}
-          </div>
+              {renderAppSection(
+                t('Kanske / Reserver', 'Maybe / Backup'),
+                maybeApps,
+                'bg-amber-500/10 border-amber-500/30 text-amber-400'
+              )}
+
+              {renderAppSection(
+                t('Nej / Tackade nej', 'No / Declined'),
+                noApps,
+                'bg-red-500/10 border-red-500/30 text-red-400'
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

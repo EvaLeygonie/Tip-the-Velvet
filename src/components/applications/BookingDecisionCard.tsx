@@ -109,9 +109,9 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
           type="button"
           onClick={() => setShowModal(true)}
           disabled={isSubmitting}
-          className="btn-gold w-full justify-center !py-3 text-base shadow-lg"
+          className="btn-gold w-full justify-center !py-3 text-sm shadow-lg"
         >
-          <Sparkles size={18} />
+          <Sparkles size={14} />
           {t('Godkänn & Bekräfta plats', 'Accept & Confirm Spot')}
         </button>
 
