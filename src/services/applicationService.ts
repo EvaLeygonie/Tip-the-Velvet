@@ -172,11 +172,13 @@ export interface MigrationResult {
 
 export const confirmAndMigrateArtist = async (
   app: CastingApplication,
-  finalFee: number
+  finalFee: number,
+  travelCovered: number
 ): Promise<MigrationResult> => {
   const { data, error } = await supabase.rpc('confirm_and_migrate_artist', {
     p_application_id: app.id,
     p_final_fee: finalFee,
+    p_travel_covered: travelCovered,
   })
 
   if (error) {
@@ -191,6 +193,7 @@ export interface EventPerformerDetailsInput {
   dietary_requirements?: string
   arrival_time?: string
   travel_receipts?: ReceiptItem[]
+  travel_covered?: number
   notes?: string
   plus_one_name?: string
   plus_one_email?: string

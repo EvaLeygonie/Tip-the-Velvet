@@ -15,6 +15,7 @@ import {
   Home,
   DollarSign,
   Check,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -26,7 +27,10 @@ interface CastingApplicationRowProps {
     id: string,
     initialReplySent: boolean,
     bookingStatus: CastingApplication['booking_status'],
-    proposedFee?: number
+    proposedFee?: number,
+    needsTravelCosts?: boolean,
+    travelCostAmount?: number,
+    needsAccommodation?: boolean
   ) => Promise<void>
 }
 
@@ -58,20 +62,28 @@ export const CastingApplicationRow = ({
   const [isExpanded, setIsExpanded] = useState(false)
   const [notes, setNotes] = useState(application.admin_notes || '')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [savingLogistics, setSavingLogistics] = useState(false)
 
   const [showMailModal, setShowMailModal] = useState(false)
   const [mailSubject, setMailSubject] = useState('')
   const [isSendingMail, setIsSendingMail] = useState(false)
   const [customMailBodyText, setCustomMailBodyText] = useState<string | null>(null)
 
+  // LOGISTIK STATE - Hålls helt fristående från propen efter mount
   const [offerFee, setOfferFee] = useState<number>(
-    Number(application.proposed_fee) || Number(application.requested_fee) || 1000
+    () => Number(application.proposed_fee) || Number(application.requested_fee) || 0
+  )
+  const [needsTravel, setNeedsTravel] = useState<boolean>(
+    () => application.needs_travel_costs || false
+  )
+  const [travelAmount, setTravelAmount] = useState<number>(
+    () => Number(application.travel_cost_amount) || 0
+  )
+  const [needsAccom, setNeedsAccom] = useState<boolean>(
+    () => application.needs_accommodation || false
   )
 
   const isSv = application.language === 'sv'
-  const hasTravelNeed = application.needs_travel_costs
-  const travelCostAmount = Number(application.travel_cost_amount) || 0
-  const hasAccommodationNeed = application.needs_accommodation
 
   const isRejectedAndSent = application.review_status === 'no' && application.initial_reply_sent
   const isAwaitingConfirmation =
@@ -93,23 +105,35 @@ export const CastingApplicationRow = ({
 
   const contractLink = `https://tipthevelvet.nu/casting/confirm/${application.id}?token=${application.access_token}`
 
-  // MAIL TEMPLATES
-  const logisticsText = isSv
-    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${hasTravelNeed ? (travelCostAmount > 0 ? `${travelCostAmount} SEK` : 'Förhandlas via länken nedan') : 'Inte angivet'}\n• Boende: ${hasAccommodationNeed ? 'Community hosting löses av oss' : 'Inte angivet'}`
-    : `• Fee: ${offerFee} SEK\n• Travel costs: ${hasTravelNeed ? (travelCostAmount > 0 ? `${travelCostAmount} SEK` : 'To be discussed (click on the link below)') : 'Not decided'}\n• Accommodation: ${hasAccommodationNeed ? 'Community hosting will be arranged by us' : 'Not decided'}`
+  // DYNAMISK MALLTEXT
+  const travelFormatted = needsTravel
+    ? travelAmount > 0
+      ? `${travelAmount} SEK`
+      : isSv
+        ? 'Erbjuds (diskuteras vidare)'
+        : 'Offered (to be discussed)'
+    : isSv
+      ? 'Ingen reseersättning'
+      : 'No travel compensation'
 
-  const travelNotice = hasTravelNeed
+  const accomFormatted = needsAccom
     ? isSv
-      ? `Eftersom du angett att du har behov av reseersättning behöver vi kolla om det får plats i vår budget eller ej innan vi bekräftar din plats.\n\n`
-      : `Since you mentioned needing travel support, we need to check if this fits our budget before confirming your spot.\n\n`
-    : ''
+      ? 'Erbjuds (Community hosting / Boende)'
+      : 'Offered (Community hosting / Accom)'
+    : isSv
+      ? 'Ej angivet / Ej aktuellt'
+      : 'Not provided'
+
+  const logisticsText = isSv
+    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${travelFormatted}\n• Boende: ${accomFormatted}`
+    : `• Fee: ${offerFee} SEK\n• Travel costs: ${travelFormatted}\n• Accommodation: ${accomFormatted}`
 
   const defaultYesBody = isSv
-    ? `Vi älskade din ansökan för "${application.act_title}" och vill jättegärna erbjuda dig en plats i showen!\n\n${travelNotice}Här är det villkor och upplägg vi har tagit fram:\n${logisticsText}\n\nVia länken nedan kan vårt erbjudande granskas, förhandlas och/eller accepteras. Klicka här för att se detaljerna:\n${contractLink}\n\nVi ser verkligen fram emot att jobba med dig!`
-    : `We loved your application for "${application.act_title}" and would love to offer you a spot in the show!\n\n${travelNotice}Here are the terms and details for the offer:\n${logisticsText}\n\nThrough the link below, our offer can be reviewed, negotiated, and/or accepted. Please use the following link to see the details:\n${contractLink}\n\nWe are thrilled about the prospect of working together!`
+    ? `Vi älskade din ansökan för "${application.act_title}" och vill jättegärna erbjuda dig en plats i showen!\n\nHär är de villkor och det upplägg vi har tagit fram:\n${logisticsText}\n\nVia länken nedan kan vårt erbjudande granskas och bekräftas. Klicka här för att se detaljerna:\n${contractLink}\n\nVi ser verkligen fram emot att jobba med dig!`
+    : `We loved your application for "${application.act_title}" and would love to offer you a spot in the show!\n\nHere are the terms and details for the offer:\n${logisticsText}\n\nThrough the link below, our offer can be reviewed and confirmed:\n${contractLink}\n\nWe are thrilled about the prospect of working together!`
 
   const defaultNoBody = isSv
-    ? `Stort tack för att du sökte till vår show med din akt "${application.act_title}"!\n\nWe har nu gått igenom alla ansökningar, och tyvärr har vi inte möjlighet att ta med din akt i just den här produktionen. Urvalet har varit otroligt svårt då vi fått in väldigt många fantastiska bidrag.\n\nVi sparar gärna dina kontaktuppgifter för framtida shower, och hoppas att vi ses eller hörs framöver!`
+    ? `Stort tack för att du sökte till vår show med din akt "${application.act_title}"!\n\nVi har nu gått igenom alla ansökningar, och tyvärr har vi inte möjlighet att ta med din akt i just den här produktionen. Urvalet har varit otroligt svårt då vi fått in väldigt många fantastiska bidrag.\n\nVi sparar gärna dina kontaktuppgifter för framtida shower, och hoppas att vi ses eller hörs framöver!`
     : `Thank you so much for applying to our show with your act "${application.act_title}"!\n\nWe have reviewed all applications, and unfortunately, we are unable to include your act in this specific production. The selection process was highly competitive due to the volume of amazing submissions we received.\n\nWe would love to keep your details on file for future shows, and hope to cross paths in the future!`
 
   const defaultMaybeBody = isSv
@@ -126,6 +150,36 @@ export const CastingApplicationRow = ({
           : ''
 
   const currentMailBodyText = customMailBodyText !== null ? customMailBodyText : activeDefaultBody
+
+  // SPARA ENDAST ERBJUDANDEVILLKOR (TYST)
+  const handleSaveLogisticsOnly = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    setSavingLogistics(true)
+
+    const finalFee = Number(offerFee)
+    const finalTravelBool = Boolean(needsTravel)
+    const finalTravelAmount = finalTravelBool ? Number(travelAmount) : 0
+    const finalAccomBool = Boolean(needsAccom)
+
+    try {
+      await onUpdateLogistics(
+        application.id,
+        application.initial_reply_sent || false,
+        application.booking_status || 'not_contacted',
+        finalFee,
+        finalTravelBool,
+        finalTravelAmount,
+        finalAccomBool
+      )
+
+      toast.success(t('Erbjudandets villkor sparades!', 'Offer terms saved!'))
+    } catch (err) {
+      console.error('Fel vid sparande av logistik:', err)
+      toast.error(t('Kunde inte spara ändringarna.', 'Could not save changes.'))
+    } finally {
+      setSavingLogistics(false)
+    }
+  }
 
   const handleSaveNotes = async () => {
     setSavingNotes(true)
@@ -155,7 +209,7 @@ export const CastingApplicationRow = ({
 
     let subject = ''
     if (application.review_status === 'yes') {
-      subject = hasTravelNeed
+      subject = needsTravel
         ? isSv
           ? `Erbjudande & Resefråga: Casting för Tip the Velvet - ${application.act_title}`
           : `Offer & Travel Question: Casting for Tip the Velvet - ${application.act_title}`
@@ -179,6 +233,11 @@ export const CastingApplicationRow = ({
 
   const handleSendCastingMail = async () => {
     setIsSendingMail(true)
+    const finalFee = Number(offerFee)
+    const finalTravelBool = Boolean(needsTravel)
+    const finalTravelAmount = finalTravelBool ? Number(travelAmount) : 0
+    const finalAccomBool = Boolean(needsAccom)
+
     try {
       const response = await fetch('/api/send-casting-email', {
         method: 'POST',
@@ -202,12 +261,14 @@ export const CastingApplicationRow = ({
         nextBookingStatus = 'pending_confirmation'
       }
 
-      // HÄR SPARAS DET NYA GAGET (offerFee) TILL SUPABASE!
       await onUpdateLogistics(
         application.id,
-        true, // initial_reply_sent = true
+        true,
         nextBookingStatus,
-        application.review_status === 'yes' ? offerFee : undefined
+        application.review_status === 'yes' ? finalFee : undefined,
+        finalTravelBool,
+        finalTravelAmount,
+        finalAccomBool
       )
 
       toast.success(t('Mailet har skickats framgångsrikt!', 'Email sent successfully!'))
@@ -230,9 +291,7 @@ export const CastingApplicationRow = ({
     >
       {/* --- STÄNGD RAD --- */}
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
-        {/* Vänster */}
         <div className="grid grid-cols-12 gap-4 items-center flex-1 min-w-0">
-          {/* Artistprofil, Namn & Akt */}
           <div className="col-span-12 md:col-span-5 flex items-center gap-3 min-w-0">
             <div className="text-accent/50 shrink-0">
               {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -260,7 +319,6 @@ export const CastingApplicationRow = ({
             </div>
           </div>
 
-          {/* Språkkolumn */}
           <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body truncate">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
               {t('Språk', 'Language')}
@@ -270,7 +328,6 @@ export const CastingApplicationRow = ({
             </span>
           </div>
 
-          {/* Platskolumn */}
           <div className="col-span-4 md:col-span-3 text-sm text-foreground/60 font-body truncate">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
               {t('Plats', 'Location')}
@@ -278,44 +335,38 @@ export const CastingApplicationRow = ({
             <span className="truncate block">{application.city || '—'}</span>
           </div>
 
-          {/* Gage-kolumn (Uppdaterad med resekostnad om > 0) */}
           <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-              {t('Preliminärt gage', 'Preliminary fee')}
+              {t('Erbjudet Gage', 'Offered Fee')}
             </span>
             <div className="flex flex-col justify-center">
               <div className="flex items-center gap-1.5">
                 <span className="font-medium text-foreground/90 flex items-center gap-0.5 whitespace-nowrap">
-                  {application.requested_fee ?? '—'}{' '}
-                  {application.requested_fee && (
-                    <span className="text-[10px] text-accent">SEK</span>
-                  )}
+                  {offerFee} <span className="text-[10px] text-accent">SEK</span>
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
-                  {application.needs_travel_costs && (
-                    <span title={t('Behöver resa', 'Needs travel')}>
+                  {needsTravel && (
+                    <span title={t('Erbjuder resa', 'Offers travel')}>
                       <BusFront className="h-3.5 w-3.5 text-gold" />
                     </span>
                   )}
-                  {application.needs_accommodation && (
-                    <span title={t('Behöver boende', 'Needs accommodation')}>
+                  {needsAccom && (
+                    <span title={t('Erbjuder boende', 'Offers accommodation')}>
                       <Home className="h-3.5 w-3.5 text-accent/50" />
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Visas om resekostnad finns angiven och är > 0 */}
-              {hasTravelNeed && travelCostAmount > 0 && (
+              {needsTravel && travelAmount > 0 && (
                 <span className="text-[11px] text-amber-400 font-medium">
-                  + {travelCostAmount} SEK {t('resa', 'travel')}
+                  + {travelAmount} SEK {t('resa', 'travel')}
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Höger sida: Status-dropdown & Mailknapp */}
         <div
           className="flex items-center gap-2 shrink-0 self-end sm:self-center"
           onClick={(e) => e.stopPropagation()}
@@ -365,7 +416,7 @@ export const CastingApplicationRow = ({
           className="border-t border-accent/10 bg-black/20 p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-left cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Detaljvy: Vänsterkolumn (Medier & Promo-bild) */}
+          {/* Vänsterkolumn */}
           <div className="space-y-4">
             {application.promo_image_id && (
               <div className="border border-accent/20 rounded-md overflow-hidden bg-black/40">
@@ -437,10 +488,9 @@ export const CastingApplicationRow = ({
             </div>
           </div>
 
-          {/* Detaljvy: Högerkolumn (Texter & Administrativa Fas-Banners) */}
+          {/* Högerkolumn */}
           <div className="md:col-span-2 flex flex-col justify-between space-y-4">
             <div className="space-y-4">
-              {/* --- DYNAMISKA FAS-BANNERS --- */}
               {application.initial_reply_sent && (
                 <>
                   {isAwaitingConfirmation && (
@@ -452,8 +502,8 @@ export const CastingApplicationRow = ({
                         </span>
                         <span className="text-foreground/60 font-sans block mt-0.5">
                           {t(
-                            'Länken till förhandlingssidan har skickats ut. Väntar på artistens bekräftelse eller motbud.',
-                            'Negotiation link sent. Waiting for artist approval or changes.'
+                            'Länken till förhandlingssidan har skickats ut. Väntar på artistens bekräftelse.',
+                            'Negotiation link sent. Waiting for artist approval.'
                           )}
                         </span>
                       </div>
@@ -467,10 +517,7 @@ export const CastingApplicationRow = ({
                           {t('BOKNING FIXAD & KLAR!', 'BOOKING FINALIZED!')}
                         </span>
                         <span className="text-foreground/70 font-sans block mt-0.5">
-                          {t(
-                            'Båda parter har godkänt villkoren via länken. Handlingen är slutförd!',
-                            'Both parties agreed to terms via link. Ready!'
-                          )}
+                          {t('Bookningen är slutförd!', 'Booking is confirmed!')}
                         </span>
                       </div>
                     </div>
@@ -494,6 +541,108 @@ export const CastingApplicationRow = ({
                 </>
               )}
 
+              {/* LOGISTIK-PANEL */}
+              <div className="bg-black/50 border border-accent/20 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-accent/10 pb-2">
+                  <span className="text-xs uppercase tracking-wider text-gold font-mono font-bold flex items-center gap-1.5">
+                    <DollarSign className="h-4 w-4" />
+                    {t('Erbjudandets Villkor & Logistik', 'Offer Terms & Logistics')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSaveLogisticsOnly}
+                    disabled={savingLogistics}
+                    className="btn-gold-outline text-[11px] py-1 px-3 flex items-center gap-1"
+                  >
+                    {savingLogistics ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Save className="w-3 h-3" />
+                    )}
+                    {t('Uppdatera erbjudandet', 'Update Offer')}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 items-start">
+                  {/* Kolumn 1: ERBJUDET GAGE */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase text-muted-foreground font-mono block">
+                      {t('Erbjudet Gage (SEK)', 'Offered Fee (SEK)')}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={offerFee}
+                      onChange={(e) => setOfferFee(Number(e.target.value))}
+                      className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
+                    />
+                    <span className="text-[10px] text-muted-foreground block pt-0.5">
+                      {t('Önskat:', 'Requested:')} {application.requested_fee ?? '—'} SEK
+                    </span>
+                  </div>
+
+                  {/* Kolumn 2: KRYSSRUTOR */}
+                  <div className="flex flex-col justify-center space-y-2.5 pt-4">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={needsTravel}
+                        onChange={(e) => setNeedsTravel(e.target.checked)}
+                        className="accent-accent h-4 w-4 rounded"
+                      />
+                      <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                        <BusFront className="h-3.5 w-3.5 text-gold" />
+                        {t('Erbjud reseersättning', 'Offer Travel Support')}
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={needsAccom}
+                        onChange={(e) => setNeedsAccom(e.target.checked)}
+                        className="accent-accent h-4 w-4 rounded"
+                      />
+                      <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                        <Home className="h-3.5 w-3.5 text-accent" />
+                        {t('Erbjud boende', 'Offer Accommodation')}
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Kolumn 3: ERBJUDEN RESEERSÄTTNING */}
+                  <div>
+                    {needsTravel ? (
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase text-gold font-mono block">
+                          {t('Erbjuden reseersättning (SEK)', 'Offered Travel Support (SEK)')}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={travelAmount}
+                          onChange={(e) => setTravelAmount(Number(e.target.value))}
+                          className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
+                          placeholder="0"
+                        />
+                        {application.needs_travel_costs && (
+                          <span className="text-[10px] text-muted-foreground block pt-0.5">
+                            {t('Artist önskade resa:', 'Artist requested travel:')}{' '}
+                            {application.travel_cost_amount
+                              ? `${application.travel_cost_amount} SEK`
+                              : t('Ja', 'Yes')}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center text-[11px] text-muted-foreground/40 italic pt-5">
+                        {t('Ingen reseersättning vald', 'No travel compensation selected')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Artisttexter */}
               <div>
                 <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-1">
@@ -515,7 +664,6 @@ export const CastingApplicationRow = ({
                 </p>
               </div>
 
-              {/* Visas enbart om artisten skrivit kommentarer */}
               {application.accommodation_notes && application.accommodation_notes.trim() !== '' && (
                 <div>
                   <span className="block uppercase tracking-wider text-[10px] text-gold font-semibold mb-1">
@@ -528,7 +676,7 @@ export const CastingApplicationRow = ({
               )}
             </div>
 
-            {/* Interna Admin-kommentarer */}
+            {/* Admin-anteckningar */}
             <div className="pt-4 border-t border-accent/10">
               <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-1">
                 {t('Admin-anteckningar (Visas ej för artist)', 'Admin Notes')}
@@ -575,12 +723,12 @@ export const CastingApplicationRow = ({
               <div>
                 <h4 className="font-decorative text-lg text-accent text-center">
                   {application.review_status === 'yes'
-                    ? t('Förbered förhandlingslänk', 'Prepare negotiation link')
+                    ? t('Förbered erbjudande-länk', 'Prepare offer link')
                     : application.review_status === 'maybe'
                       ? t('Förbered intressemail', 'Prepare follow-up email')
                       : t('Förbered svarsmail', 'Prepare reply email')}
                 </h4>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground text-center">
                   {t('Mottagare:', 'Recipient:')}{' '}
                   <span className="text-foreground font-mono">{application.email}</span> (
                   {application.performer_name})
@@ -588,33 +736,18 @@ export const CastingApplicationRow = ({
               </div>
 
               {application.review_status === 'yes' && (
-                <div className="p-3 bg-black/30 border border-accent/10 rounded space-y-2">
-                  <div className="space-y-1">
-                    <label className="text-[11px] uppercase tracking-wider text-gold flex items-center gap-1 font-mono">
-                      <DollarSign className="h-3 w-3" />
-                      {t('Erbjudet Gage (SEK) — Pris i länk', 'Offered Fee (SEK)')}
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={offerFee}
-                      onChange={(e) => setOfferFee(Number(e.target.value))}
-                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-1.5 focus:border-accent text-white"
-                    />
-                    <div className="flex justify-between items-center text-[10px] text-muted-foreground italic pt-0.5">
-                      <span>
-                        {t('Artistens önskemål:', 'Artist requested:')}{' '}
-                        {application.requested_fee || '—'} SEK
-                      </span>
-                      {hasTravelNeed && (
-                        <span className="text-amber-400 flex items-center gap-1 font-semibold">
-                          <BusFront className="h-3 w-3" />{' '}
-                          {travelCostAmount > 0
-                            ? `${travelCostAmount} SEK`
-                            : t('Önskat reseersättning', 'Requested travel')}
-                        </span>
-                      )}
-                    </div>
+                <div className="p-3 bg-black/40 border border-accent/20 rounded text-xs space-y-1 text-foreground/80 font-mono">
+                  <div className="text-gold font-bold uppercase">
+                    {t('Villkor som medföljer i mailet:', 'Terms included in mail:')}
+                  </div>
+                  <div>
+                    • {t('Gage:', 'Fee:')} {offerFee} SEK
+                  </div>
+                  <div>
+                    • {t('Resersättning:', 'Travel:')} {travelFormatted}
+                  </div>
+                  <div>
+                    • {t('Boende:', 'Accommodation:')} {accomFormatted}
                   </div>
                 </div>
               )}

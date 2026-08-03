@@ -105,6 +105,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     dietary_requirements: '',
     plus_one_name: '',
     plus_one_email: '',
+    travel_covered: 0,
   })
 
   // Hjälpfunktion för att hämta korrekt offentlig URL från Supabase
@@ -157,7 +158,9 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         if (actualEventId && application.performer_id) {
           const { data, error } = await supabase
             .from('event_performers')
-            .select('dietary_requirements, travel_receipts, plus_one_name, plus_one_email')
+            .select(
+              'dietary_requirements, travel_receipts, plus_one_name, plus_one_email, travel_covered'
+            )
             .eq('event_id', actualEventId)
             .eq('performer_id', application.performer_id)
             .maybeSingle()
@@ -184,6 +187,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             dietary_requirements: logisticsData?.dietary_requirements ?? '',
             plus_one_name: logisticsData?.plus_one_name ?? '',
             plus_one_email: logisticsData?.plus_one_email ?? '',
+            travel_covered: logisticsData?.travel_covered ?? 0,
           }))
 
           // Läs in ljudfiler / låtar säkert
@@ -779,6 +783,19 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
           {(application.needs_travel_costs || (application.travel_cost_amount ?? 0) > 0) && (
             <div className="form-field border-t border-border/40 pt-4 space-y-3">
+              <div className="form-field">
+                <label className="form-label-block text-xs">
+                  {t('Total reseräkning', 'Total Travel Reimbursement')}
+                </label>
+                <input
+                  type="text"
+                  name="travel_covered"
+                  placeholder={t('T.ex. 500', 'e.g. 500')}
+                  value={formData.travel_covered}
+                  onChange={handleChange}
+                  className="login-input"
+                />
+              </div>
               <div className="flex items-center justify-between">
                 <label className="form-label-block text-xs">
                   {t('Resekvitton (PDF/Bild)', 'Travel Receipts (PDF/Image)')}

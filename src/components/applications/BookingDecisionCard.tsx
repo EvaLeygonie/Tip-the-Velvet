@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import { confirmAndMigrateArtist, submitArtistCounterOffer } from '@/services/applicationService'
+import { confirmAndMigrateArtist } from '@/services/applicationService'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { toast } from 'sonner'
-import { Send, Sparkles, Mail } from 'lucide-react'
+import { Sparkles, Mail, CheckCircle2, Car, Home, DollarSign } from 'lucide-react'
 import type { CastingApplication } from '@/types/types'
 
 interface BookingDecisionCardProps {
@@ -16,50 +16,21 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
 }) => {
   const { t } = useLanguage()
 
-  const initialFee = application.proposed_fee ?? application.requested_fee ?? 0
-
-  const [fee, setFee] = useState<number>(initialFee)
-  const [needsTravel, setNeedsTravel] = useState(application.needs_travel_costs || false)
-  const [travelAmount, setTravelAmount] = useState<number>(application.travel_cost_amount || 0)
-  const [needsAccom, setNeedsAccom] = useState(application.needs_accommodation || false)
-  const [accomNotes, setAccomNotes] = useState(application.accommodation_notes || '')
+  const currentFee = application.proposed_fee ?? application.requested_fee ?? 0
+  const needsTravel = application.needs_travel_costs || false
+  const travelAmount = application.travel_cost_amount || 0
+  const needsAccom = application.needs_accommodation || false
+  const accomNotes = application.accommodation_notes || ''
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showModal, setShowModal] = useState(false)
 
-  const isCounterOffer =
-    fee !== initialFee ||
-    needsTravel !== (application.needs_travel_costs || false) ||
-    travelAmount !== (application.travel_cost_amount || 0) ||
-    needsAccom !== (application.needs_accommodation || false) ||
-    (accomNotes || '') !== (application.accommodation_notes || '')
-
-  // E-postnotis till er när artisten gör en ändring eller bekräftar
-  const sendEmailNotification = async (type: 'CONFIRMED' | 'COUNTER_OFFER') => {
-    const isConfirmed = type === 'CONFIRMED'
-
-    const subject = encodeURIComponent(
-      isConfirmed
-        ? `[Bekräftad Bokning] ${application.performer_name} - ${application.act_title}`
-        : `[Motbud/Ändring] ${application.performer_name} - ${application.act_title}`
-    )
-
-    const bodyText = isConfirmed
-      ? `Artisten ${application.performer_name} har BEKRÄFTAT erbjudandet för "${application.act_title}"!\n\nSlutgiltigt gage: ${fee} SEK.`
-      : `Artisten ${application.performer_name} har skickat ÄNDRINGAR/MOTBUD för "${application.act_title}":\n\n- Nytt önskat gage: ${fee} SEK\n- Reseersättning: ${needsTravel ? `${travelAmount} SEK` : 'Nej'}\n- Boende: ${needsAccom ? `Ja (${accomNotes})` : 'Nej'}`
-
-    const adminMailto = `mailto:velvet.gbg@gmail.com?subject=${subject}&body=${encodeURIComponent(bodyText)}`
-
-    // Trigga klientmail eller logga om automatiskt API saknas
-    window.open(adminMailto, '_blank')
-  }
-
   const handleConfirmDirect = async () => {
     setIsSubmitting(true)
-
     try {
-      await confirmAndMigrateArtist(application, fee)
-      await sendEmailNotification('CONFIRMED')
+      const finalTravel = needsTravel ? travelAmount : 0
+
+      await confirmAndMigrateArtist(application, currentFee, finalTravel)
 
       toast.success(t('Kontraktet har bekräftats!', 'Contract confirmed!'))
       setShowModal(false)
@@ -72,176 +43,110 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
     }
   }
 
-  const handleSendCounterOffer = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!isCounterOffer) {
-      setShowModal(true)
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      await submitArtistCounterOffer(application.id, {
-        requested_fee: fee,
-        needs_travel_costs: needsTravel,
-        travel_cost_amount: needsTravel ? travelAmount : null,
-        needs_accommodation: needsAccom,
-        accommodation_notes: needsAccom ? accomNotes : null,
-      })
-
-      await sendEmailNotification('COUNTER_OFFER')
-
-      toast.success(t('Ditt motbud/ändringar har skickats!', 'Counter-offer submitted!'))
-      onStatusChange()
-    } catch (err) {
-      console.error(err)
-      toast.error(t('Kunde inte skicka ändringarna', 'Could not send changes'))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // Språkanpassad mailto-länk för artisten
   const mailSubject = encodeURIComponent(
     t(
-      `Fråga angående bokning: ${application.act_title}`,
-      `Question regarding booking: ${application.act_title}`
+      `Fråga / Förhandling angående bokning: ${application.act_title}`,
+      `Question / Negotiation regarding booking: ${application.act_title}`
     )
   )
 
   const mailtoUrl = `mailto:velvet.gbg@gmail.com?subject=${mailSubject}`
 
   return (
-    <div className="login-card">
-      <form onSubmit={handleSendCounterOffer} className="space-y-6">
-        <div className="space-y-2">
-          <label htmlFor="fee" className="form-label-gold block">
-            {t('Erbjudet gage (SEK)', 'Offered Fee (SEK)')}
-          </label>
-          <input
-            id="fee"
-            type="number"
-            value={fee}
-            onChange={(e) => setFee(Number(e.target.value))}
-            className="login-input text-lg font-bold"
-            required
-          />
-        </div>
-
-        <div className="gold-divider my-4" />
-
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={needsTravel}
-              onChange={(e) => setNeedsTravel(e.target.checked)}
-              className="accent-accent"
-            />
-            <span className="text-sm font-medium text-foreground/90">
-              {t('Jag är i behov av reseersättning', 'I need travel reimbursement')}
-            </span>
-          </label>
-
-          {needsTravel && (
-            <div className="pl-7">
-              <label htmlFor="travelAmount" className="form-label-gold block text-[11px] mb-2">
-                {t('Ungefärligt belopp för resa (SEK)', 'Approximate travel amount (SEK)')}
-              </label>
-              <input
-                id="travelAmount"
-                type="number"
-                value={travelAmount}
-                onChange={(e) => setTravelAmount(Number(e.target.value))}
-                className="login-input mt-1"
-                placeholder="0"
-              />
-            </div>
+    <div className="login-card space-y-6">
+      <div className="text-center space-y-2">
+        <h3 className="font-decorative text-xl text-accent">
+          {t('Erbjudande om medverkan', 'Performance Offer')}
+        </h3>
+        <p className="text-sm text-foreground/90">
+          {t(
+            'Granska villkoren nedan. Om allt ser bra ut godkänner du för att gå vidare. Vill du förhandla gage reseersättning eller  boende, kontakta oss via mail (länk nedan).',
+            'Review the terms below. If everything looks good, accept to proceed. If you want to negotiate fee, travel reimbursement or accommodation, contact us via email (link below).'
           )}
+        </p>
+      </div>
+
+      <div className="gold-divider" />
+
+      {/* VILLKORSSUMMERING */}
+      <div className="space-y-4 bg-background/40 p-4 rounded-lg border border-accent/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-foreground/90">
+            <DollarSign className="w-4 h-4 text-accent" />
+            <span className="text-sm font-semibold">{t('Erbjudet gage:', 'Offered Fee:')}</span>
+          </div>
+          <span className="text-base font-bold font-mono text-gold">{currentFee} SEK</span>
         </div>
 
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={needsAccom}
-              onChange={(e) => setNeedsAccom(e.target.checked)}
-              className="accent-accent"
-            />
-            <span className="text-sm font-medium text-foreground/90">
-              {t('Jag behöver boende', 'I need accommodation')}
-            </span>
-          </label>
-
-          {needsAccom && (
-            <div className="pl-7">
-              <label htmlFor="accomNotes" className="form-label-gold block text-[11px] mb-2">
-                {t('Anteckningar: ', 'Notes: ')}
-              </label>
-              <textarea
-                id="accomNotes"
-                rows={3}
-                value={accomNotes}
-                onChange={(e) => setAccomNotes(e.target.value)}
-                className="login-input mt-1"
-                placeholder={t(
-                  'T.ex. Kör bil från Stockholm, behöver parkering...',
-                  'E.g. Driving from Stockholm, need parking...'
-                )}
-              />
-            </div>
-          )}
+        <div className="flex items-center justify-between border-t border-border/40 pt-3">
+          <div className="flex items-center gap-2 text-foreground/90">
+            <Car className="w-4 h-4 text-accent" />
+            <span className="text-sm">{t('Reseersättning:', 'Travel Reimbursement:')}</span>
+          </div>
+          <span className="text-sm font-medium">
+            {needsTravel ? `${travelAmount} SEK` : t('Behövs ej', 'Not needed')}
+          </span>
         </div>
 
-        <div className="pt-4 space-y-3">
-          {isCounterOffer ? (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-gold-outline w-full justify-center !py-3"
-            >
-              <Send size={16} />
-              {isSubmitting
-                ? t('Skickar...', 'Sending...')
-                : t('Skicka motbud / ändringar', 'Submit Counter-Offer')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowModal(true)}
-              disabled={isSubmitting}
-              className="btn-gold w-full justify-center"
-            >
-              <Sparkles size={16} />
-              {t('Granska & Bekräfta plats', 'Review & Confirm Spot')}
-            </button>
-          )}
-
-          {/* KONTAKTKNAPP VIA MAIL */}
-          <a
-            href={mailtoUrl}
-            className="flex items-center justify-center gap-2 text-xs text-foreground/70 hover:text-accent transition-colors pt-2"
-          >
-            <Mail size={14} />
-            <span>
-              {t('Frågor eller funderingar? Kontakta oss direkt', 'Questions? Contact us directly')}
-            </span>
-          </a>
+        <div className="flex items-center justify-between border-t border-border/40 pt-3">
+          <div className="flex items-center gap-2 text-foreground/90">
+            <Home className="w-4 h-4 text-accent" />
+            <span className="text-sm">{t('Boende:', 'Accommodation:')}</span>
+          </div>
+          <span className="text-sm font-medium">
+            {needsAccom
+              ? accomNotes
+                ? `Ja (${accomNotes})`
+                : t('Ja', 'Yes')
+              : t('Behövs ej', 'Not needed')}
+          </span>
         </div>
-      </form>
+      </div>
 
-      {/* Modal vid direkt bekräftelse */}
+      {/* KNAPPAR */}
+      <div className="pt-2 space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          disabled={isSubmitting}
+          className="btn-gold w-full justify-center !py-3 text-base shadow-lg"
+        >
+          <Sparkles size={18} />
+          {t('Godkänn & Bekräfta plats', 'Accept & Confirm Spot')}
+        </button>
+
+        <a
+          href={mailtoUrl}
+          className="flex items-center justify-center gap-2 text-xs text-foreground/70 hover:text-accent transition-colors pt-2"
+        >
+          <Mail size={14} />
+          <span>
+            {t(
+              'Vill du diskutera gage, reseersättning eller boende? Kontakta oss',
+              'Want to discuss fee, travel costs or accommodation? Contact us'
+            )}
+          </span>
+        </a>
+      </div>
+
+      {/* MODAL VID CONFIRM */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="login-card w-full max-w-md text-center space-y-6">
+          <div className="login-card w-full max-w-md text-center space-y-6 border-accent/40">
+            <div className="flex justify-center text-accent">
+              <CheckCircle2 size={48} />
+            </div>
             <h2 className="text-2xl text-accent font-decorative">
               {t('Slutgiltig bekräftelse', 'Final Confirmation')}
             </h2>
-            <p className="p-clean text-center opacity-90 leading-relaxed">
+            <p className="p-clean text-center opacity-90 leading-relaxed text-sm">
               {t(
-                `Du godkänner villkoren för att medverka med "${application.act_title}" till ett gage på ${fee} SEK.`,
-                `You confirm participating with "${application.act_title}" for a fee of ${fee} SEK.`
+                `Du godkänner därmed att medverka med "${application.act_title}" till ett gage på ${currentFee} SEK ${
+                  needsTravel ? `+ ${travelAmount} SEK i reseersättning` : ''
+                }.`,
+                `You hereby confirm participating with "${application.act_title}" for a fee of ${currentFee} SEK ${
+                  needsTravel ? `+ ${travelAmount} SEK travel allowance` : ''
+                }.`
               )}
             </p>
 

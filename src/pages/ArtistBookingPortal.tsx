@@ -4,8 +4,10 @@ import type { CastingApplication } from '@/types/types'
 import { getCastingApplicationByToken } from '@/services/applicationService'
 import { BookingDecisionCard } from '@/components/applications/BookingDecisionCard'
 import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 export const ArtistBookingPortal = () => {
+  const { t } = useLanguage()
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
@@ -73,7 +75,10 @@ export const ArtistBookingPortal = () => {
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight mt-4">{application.performer_name}</h1>
-          <p className="text-md text-foreground/68">Akt: {application.act_title}</p>
+          <p className="text-md text-foreground/68">
+            {t('Akt: ', 'Act: ')}
+            {application.act_title}
+          </p>
         </div>
 
         {!isConfirmed ? (
