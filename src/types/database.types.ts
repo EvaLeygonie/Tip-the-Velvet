@@ -899,7 +899,11 @@ export type Database = {
     }
     Functions: {
       confirm_and_migrate_artist: {
-        Args: { p_application_id: string; p_final_fee: number }
+        Args: {
+          p_application_id: string
+          p_final_fee: number
+          p_travel_covered: number
+        }
         Returns: Json
       }
       event_status_handler: { Args: never; Returns: undefined }

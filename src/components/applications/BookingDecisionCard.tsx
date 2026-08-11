@@ -60,7 +60,7 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
         </h3>
         <p className="text-sm text-foreground/90">
           {t(
-            'Granska villkoren nedan. Om allt ser bra ut godkänner du för att gå vidare. Vill du förhandla gage reseersättning eller  boende, kontakta oss via mail (länk nedan).',
+            'Granska villkoren nedan. Om allt ser bra ut godkänner du för att gå vidare. Vill du förhandla gage, reseersättning eller  boende, kontakta oss via mail (länk nedan).',
             'Review the terms below. If everything looks good, accept to proceed. If you want to negotiate fee, travel reimbursement or accommodation, contact us via email (link below).'
           )}
         </p>

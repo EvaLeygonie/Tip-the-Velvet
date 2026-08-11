@@ -7,7 +7,7 @@ import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 export const ArtistBookingPortal = () => {
-  const { t, setLanguage } = useLanguage() // <-- Hämta setLanguage här!
+  const { t, setLanguage } = useLanguage()
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')

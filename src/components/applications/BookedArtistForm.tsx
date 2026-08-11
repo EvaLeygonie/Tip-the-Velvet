@@ -49,7 +49,7 @@ interface BookedArtistFormProps {
   onSaveSuccess?: () => void
 }
 
-// Type Guards för säker konvertering från Supabase Json/Jsonb
+// Type Guards for Supabase Json/Jsonb conversion
 const isAudioTrackItemArray = (data: unknown): data is AudioTrackItem[] => {
   if (!Array.isArray(data)) return false
   return data.every(
@@ -93,15 +93,17 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const [audioTracks, setAudioTracks] = useState<AudioTrackItem[]>([])
   const [receiptFiles, setReceiptFiles] = useState<ReceiptItem[]>([])
 
+  const isEng = application.language === 'eng'
+
   const [formData, setFormData] = useState({
     // Sektion 1: Artist Promo
-    bio_sv: application.promo_text || '',
-    bio_eng: '',
+    bio_sv: isEng ? '' : application.promo_text || '',
+    bio_eng: isEng ? application.promo_text || '' : '',
 
     // Sektion 2: Act Details
     act_name: application.act_title || '',
-    act_description_sv: application.act_description || '',
-    act_description_eng: '',
+    act_description_sv: isEng ? '' : application.act_description || '',
+    act_description_eng: isEng ? application.act_description || '' : '',
     stage_preparations: '',
     pick_up_cleaning: '',
     act_notes: '',
@@ -169,12 +171,25 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         if (isMounted) {
           setFormData((prev) => ({
             ...prev,
-            bio_sv: perfData?.bio_sv ?? prev.bio_sv,
-            bio_eng: perfData?.bio_eng ?? prev.bio_eng,
+            bio_sv:
+              perfData?.bio_sv !== undefined && perfData?.bio_sv !== null
+                ? perfData.bio_sv
+                : prev.bio_sv,
+            bio_eng:
+              perfData?.bio_eng !== undefined && perfData?.bio_eng !== null
+                ? perfData.bio_eng
+                : prev.bio_eng,
 
             act_name: actData?.act_name ?? prev.act_name,
-            act_description_sv: actData?.description_sv ?? prev.act_description_sv,
-            act_description_eng: actData?.description_eng ?? prev.act_description_eng,
+            act_description_sv:
+              actData?.description_sv !== undefined && actData?.description_sv !== null
+                ? actData.description_sv
+                : prev.act_description_sv,
+            act_description_eng:
+              actData?.description_eng !== undefined && actData?.description_eng !== null
+                ? actData.description_eng
+                : prev.act_description_eng,
+
             stage_preparations: actData?.stage_preparations ?? '',
             pick_up_cleaning: actData?.pick_up_cleaning ?? '',
             act_notes: actData?.act_notes ?? '',
@@ -401,7 +416,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           travel_receipts: receiptFiles,
           plus_one_name: formData.plus_one_name,
           plus_one_email: formData.plus_one_email,
-          travel_covered: Number(formData.travel_covered) || 0, // <-- FIX: Nu skickas reseersättningen med!
+          travel_covered: Number(formData.travel_covered) || 0,
         }
         await updateEventPerformerDetails(actualEventId, application.performer_id, logisticsData)
       }
@@ -436,11 +451,17 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* ================= SEKTION 1: ARTIST PROMO ================= */}
+        {/* ===SEKTION 1: ARTIST PROMO === */}
         <div className="login-card space-y-6">
           <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
             <h2>{t('Artist Promo', 'Artist Promo')}</h2>
           </div>
+          <p className="text-sm text-foreground/90">
+            {t(
+              'Används för eventpromo och din artistprofil i vårt "Hall of Fame"',
+              'Used for event promo and your artist profile in our "Hall of Fame"'
+            )}
+          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
             <div className="form-field md:col-span-4 flex flex-col h-full">
