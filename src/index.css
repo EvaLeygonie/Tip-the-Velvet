@@ -2,26 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@theme {
-  /* Färger */
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-primary: hsl(var(--primary));
-  --color-secondary: hsl(var(--secondary));
-  --color-accent: hsl(var(--accent));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-border: hsl(var(--border));
-
-  /* Fonter */
-  --font-body: 'Inter', system-ui, sans-serif;
-  --font-heading: 'Playfair Display', serif;
-  --font-decorative: 'Cinzel', serif;
-
-  /* Effekter */
-  --shadow-glamour: 0 0 15px rgba(212, 175, 55, 0.5);
-}
-
 :root {
   --background: 0 40% 8%;
   --foreground: 45 40% 96%;

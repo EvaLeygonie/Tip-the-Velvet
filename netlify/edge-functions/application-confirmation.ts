@@ -7,7 +7,7 @@ interface ResendError {
 interface ApplicationBody {
   name: string
   email: string
-  language: 'sv' | 'en'
+  language: 'sv' | 'eng'
   deadline?: string
   type: 'casting' | 'staff' | 'sponsor' | 'artist'
 }

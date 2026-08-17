@@ -22,13 +22,13 @@ export const JoinUsCard = () => {
   const { t, language } = useLanguage()
 
   const ROLE_OPTIONS: RoleOption[] = [
-    { value: 'volunteer', sv: 'Volontär', en: 'Volunteer' },
-    { value: 'artistic', sv: 'Konst / Design / Marknadsföring', en: 'Art / Design / Marketing' },
-    { value: 'photographer', sv: 'Fotograf', en: 'Photographer' },
-    { value: 'technician', sv: 'Tekniker (Ljud/Ljus)', en: 'Technician (Sound/Light)' },
-    { value: 'doorman', sv: 'Dörrvärd / Entré', en: 'Doorman / Entry' },
-    { value: 'musician', sv: 'Musiker', en: 'Musician' },
+    { value: 'volunteer', sv: 'Volontär (allmänt)', en: 'Volunteer (General)' },
     { value: 'entertainment', sv: 'Underhållning / Scen', en: 'Entertainment / Stage' },
+    { value: 'musician', sv: 'Musiker', en: 'Musician' },
+    { value: 'doorman', sv: 'Dörrvärd / vakt', en: 'Doorman / Guard' },
+    { value: 'technician', sv: 'Tekniker (Ljud/Ljus)', en: 'Technician (Sound/Light)' },
+    { value: 'photographer', sv: 'Fotograf', en: 'Photographer' },
+    // { value: 'artistic', sv: 'Konst / Design / Marknadsföring', en: 'Art / Design / Marketing' },
     { value: 'other', sv: 'Annat', en: 'Other' },
   ]
 
