@@ -900,6 +900,7 @@ export type Database = {
     Functions: {
       confirm_and_migrate_artist: {
         Args: {
+          p_access_token: string
           p_application_id: string
           p_final_fee: number
           p_travel_covered: number
@@ -907,8 +908,49 @@ export type Database = {
         Returns: Json
       }
       event_status_handler: { Args: never; Returns: undefined }
+      get_casting_application_by_token: {
+        Args: { p_id: string; p_token: string }
+        Returns: Json
+      }
       slugify: { Args: { value: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
+      update_event_performer_via_token: {
+        Args: {
+          p_access_token: string
+          p_dietary_requirements?: string
+          p_event_id: string
+          p_notes?: string
+          p_performer_id: string
+          p_plus_one_email?: string
+          p_plus_one_name?: string
+          p_travel_covered?: number
+          p_travel_receipts?: Json
+        }
+        Returns: undefined
+      }
+      update_performer_act_via_token: {
+        Args: {
+          p_access_token: string
+          p_act_id: string
+          p_act_name?: string
+          p_act_notes?: string
+          p_audio_files?: Json
+          p_description_eng?: string
+          p_description_sv?: string
+          p_pick_up_cleaning?: string
+          p_stage_preparations?: string
+        }
+        Returns: undefined
+      }
+      update_performer_bio_via_token: {
+        Args: {
+          p_access_token: string
+          p_bio_eng?: string
+          p_bio_sv?: string
+          p_performer_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       booking_status_type:

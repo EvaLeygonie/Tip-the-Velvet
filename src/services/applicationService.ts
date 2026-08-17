@@ -38,39 +38,15 @@ export const getCastingApplicationByToken = async (id: string, token: string | n
     throw new Error('Access token saknas i URL:en.')
   }
 
-  const { data, error } = await supabase
-    .from('casting_applications')
-    .select(
-      `
-      *,
-      events (
-        id,
-        title,
-        event_start
-      ),
-      performers (
-        id,
-        bio_sv,
-        bio_eng
-      ),
-      performer_acts (
-        id,
-        act_name,
-        description_sv,
-        description_eng,
-        audio_files,
-        stage_preparations,
-        pick_up_cleaning,
-        act_notes
-      )
-    `
-    )
-    .eq('id', id)
-    .eq('access_token', token)
-    .single()
+  // Går via en SECURITY DEFINER-funktion (inte en direkt .select()) så att RLS aldrig
+  // behöver tillåta anon att läsa tabellen rakt av — se supabase/migrations för detaljer.
+  const { data, error } = await supabase.rpc('get_casting_application_by_token', {
+    p_id: id,
+    p_token: token,
+  })
 
   if (error) throw error
-  return data
+  return data as unknown as CastingApplication
 }
 
 //=== CREATE ===///
@@ -190,8 +166,13 @@ export const confirmAndMigrateArtist = async (
   finalFee: number,
   travelCovered: number
 ): Promise<MigrationResult> => {
+  if (!app.access_token) {
+    throw new Error('Access token saknas på ansökan.')
+  }
+
   const { data, error } = await supabase.rpc('confirm_and_migrate_artist', {
     p_application_id: app.id,
+    p_access_token: app.access_token,
     p_final_fee: finalFee,
     p_travel_covered: travelCovered,
   })
@@ -202,6 +183,28 @@ export const confirmAndMigrateArtist = async (
   }
 
   return data as unknown as MigrationResult
+}
+
+export interface PerformerBioInput {
+  bio_sv?: string
+  bio_eng?: string
+}
+
+// Skiljs medvetet från performerService.updatePerformer, som ArtistForm.tsx:s separata
+// (token-lösa) self-edit-flöde använder — ändra inte den för att "fixa" det här.
+export const updatePerformerBioViaToken = async (
+  performerId: string,
+  token: string,
+  bio: PerformerBioInput
+): Promise<void> => {
+  const { error } = await supabase.rpc('update_performer_bio_via_token', {
+    p_performer_id: performerId,
+    p_access_token: token,
+    p_bio_sv: bio.bio_sv,
+    p_bio_eng: bio.bio_eng,
+  })
+
+  if (error) throw error
 }
 
 export interface EventPerformerDetailsInput {
@@ -216,16 +219,20 @@ export interface EventPerformerDetailsInput {
 export const updateEventPerformerDetails = async (
   eventId: string,
   performerId: string,
+  token: string,
   details: EventPerformerDetailsInput
 ): Promise<void> => {
-  const { error } = await supabase
-    .from('event_performers')
-    .update({
-      ...details,
-      travel_receipts: details.travel_receipts as unknown as Json,
-    })
-    .eq('event_id', eventId)
-    .eq('performer_id', performerId)
+  const { error } = await supabase.rpc('update_event_performer_via_token', {
+    p_event_id: eventId,
+    p_performer_id: performerId,
+    p_access_token: token,
+    p_dietary_requirements: details.dietary_requirements,
+    p_travel_receipts: details.travel_receipts as unknown as Json,
+    p_travel_covered: details.travel_covered,
+    p_notes: details.notes,
+    p_plus_one_name: details.plus_one_name,
+    p_plus_one_email: details.plus_one_email,
+  })
 
   if (error) throw error
 }
@@ -242,15 +249,20 @@ export interface PerformerActInput {
 
 export const updatePerformerAct = async (
   actId: string,
+  token: string,
   actData: PerformerActInput
 ): Promise<void> => {
-  const { error } = await supabase
-    .from('performer_acts')
-    .update({
-      ...actData,
-      audio_files: actData.audio_files as unknown as Json,
-    })
-    .eq('id', actId)
+  const { error } = await supabase.rpc('update_performer_act_via_token', {
+    p_act_id: actId,
+    p_access_token: token,
+    p_act_name: actData.act_name,
+    p_description_sv: actData.description_sv,
+    p_description_eng: actData.description_eng,
+    p_audio_files: actData.audio_files as unknown as Json,
+    p_stage_preparations: actData.stage_preparations,
+    p_pick_up_cleaning: actData.pick_up_cleaning,
+    p_act_notes: actData.act_notes,
+  })
 
   if (error) {
     console.error('Kunde inte uppdatera akt-information:', error)

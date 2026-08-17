@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { toast } from 'sonner'
@@ -6,10 +6,10 @@ import { Upload, Save, Loader2, FileText, Music, ExternalLink, Trash2, Plus } fr
 import type { CastingApplication } from '@/types/types'
 import { uploadStorageFile } from '@/services/databaseService'
 import { supabase } from '@/lib/supabase'
-import { updatePerformer } from '@/services/performerService'
 import {
   updatePerformerAct,
   updateEventPerformerDetails,
+  updatePerformerBioViaToken,
   type PerformerActInput,
   type EventPerformerDetailsInput,
 } from '@/services/applicationService'
@@ -26,6 +26,31 @@ interface ExtendedCastingApplication extends CastingApplication {
   events?: {
     title: string
     event_start: string
+  } | null
+  // Nested av get_casting_application_by_token (SECURITY DEFINER) — hämtas i samma
+  // anrop som resten av ansökan, eftersom anon inte har direkt läsrättighet på dessa
+  // tabeller (se supabase/migrations-historiken för varför).
+  performers?: {
+    id: string
+    bio_sv: string | null
+    bio_eng: string | null
+  } | null
+  performer_acts?: {
+    id: string
+    act_name: string | null
+    description_sv: string | null
+    description_eng: string | null
+    audio_files: unknown
+    stage_preparations: string | null
+    pick_up_cleaning: string | null
+    act_notes: string | null
+  } | null
+  event_performers?: {
+    dietary_requirements: string | null
+    travel_receipts: unknown
+    plus_one_name: string | null
+    plus_one_email: string | null
+    travel_covered: number | null
   } | null
 }
 
@@ -76,7 +101,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 }) => {
   const { t } = useLanguage()
 
-  const [loadingInitial, setLoadingInitial] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   const [uploadingAudio, setUploadingAudio] = useState(false)
@@ -90,139 +114,48 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     path: string
   } | null>(null)
 
-  const [audioTracks, setAudioTracks] = useState<AudioTrackItem[]>([])
-  const [receiptFiles, setReceiptFiles] = useState<ReceiptItem[]>([])
-
   const isEng = application.language === 'eng'
 
-  const [formData, setFormData] = useState({
-    // Sektion 1: Artist Promo
-    bio_sv: isEng ? '' : application.promo_text || '',
-    bio_eng: isEng ? application.promo_text || '' : '',
-
-    // Sektion 2: Act Details
-    act_name: application.act_title || '',
-    act_description_sv: isEng ? '' : application.act_description || '',
-    act_description_eng: isEng ? application.act_description || '' : '',
-    stage_preparations: '',
-    pick_up_cleaning: '',
-    act_notes: '',
-
-    // Sektion 3: Logistik
-    dietary_requirements: '',
-    plus_one_name: '',
-    plus_one_email: '',
-    travel_covered: 0,
+  // application kommer redan med performers/performer_acts/event_performers nästlat
+  // (get_casting_application_by_token hämtar allt i samma SECURITY DEFINER-anrop) —
+  // anon har ingen direkt läsrättighet på dessa tabeller, så det finns inget att hämta
+  // asynkront här; initiera state direkt från proppen istället för en effekt.
+  const [audioTracks, setAudioTracks] = useState<AudioTrackItem[]>(() => {
+    const audioFiles = application.performer_acts?.audio_files
+    return audioFiles && isAudioTrackItemArray(audioFiles) ? audioFiles : []
+  })
+  const [receiptFiles, setReceiptFiles] = useState<ReceiptItem[]>(() => {
+    const receipts = application.event_performers?.travel_receipts
+    return receipts && isReceiptItemArray(receipts) ? receipts : []
   })
 
-  useEffect(() => {
-    let isMounted = true
+  const [formData, setFormData] = useState(() => {
+    const perfData = application.performers
+    const actData = application.performer_acts
+    const logisticsData = application.event_performers
 
-    const fetchExistingData = async () => {
-      try {
-        setLoadingInitial(true)
+    return {
+      // Sektion 1: Artist Promo
+      bio_sv: perfData?.bio_sv ?? (isEng ? '' : application.promo_text || ''),
+      bio_eng: perfData?.bio_eng ?? (isEng ? application.promo_text || '' : ''),
 
-        // 1. Performer
-        let perfData = null
-        if (application.performer_id) {
-          const { data } = await supabase
-            .from('performers')
-            .select('bio_sv, bio_eng')
-            .eq('id', application.performer_id)
-            .maybeSingle()
-          perfData = data
-        }
+      // Sektion 2: Act Details
+      act_name: actData?.act_name ?? application.act_title ?? '',
+      act_description_sv:
+        actData?.description_sv ?? (isEng ? '' : application.act_description || ''),
+      act_description_eng:
+        actData?.description_eng ?? (isEng ? application.act_description || '' : ''),
+      stage_preparations: actData?.stage_preparations ?? '',
+      pick_up_cleaning: actData?.pick_up_cleaning ?? '',
+      act_notes: actData?.act_notes ?? '',
 
-        // 2. Act
-        let actData = null
-        if (application.act_id) {
-          const { data } = await supabase
-            .from('performer_acts')
-            .select('*')
-            .eq('id', application.act_id)
-            .maybeSingle()
-          actData = data
-        }
-
-        // 3. Event Performer Logistics
-        let logisticsData = null
-        const eventFromRelation = Array.isArray(application.events)
-          ? application.events[0]
-          : application.events
-
-        const actualEventId = application.event_id || eventFromRelation?.id
-
-        if (actualEventId && application.performer_id) {
-          const { data, error } = await supabase
-            .from('event_performers')
-            .select(
-              'dietary_requirements, travel_receipts, plus_one_name, plus_one_email, travel_covered'
-            )
-            .eq('event_id', actualEventId)
-            .eq('performer_id', application.performer_id)
-            .maybeSingle()
-
-          if (error) {
-            console.error('Fel vid hämtning av event_performers:', error)
-          }
-          logisticsData = data
-        }
-
-        if (isMounted) {
-          setFormData((prev) => ({
-            ...prev,
-            bio_sv:
-              perfData?.bio_sv !== undefined && perfData?.bio_sv !== null
-                ? perfData.bio_sv
-                : prev.bio_sv,
-            bio_eng:
-              perfData?.bio_eng !== undefined && perfData?.bio_eng !== null
-                ? perfData.bio_eng
-                : prev.bio_eng,
-
-            act_name: actData?.act_name ?? prev.act_name,
-            act_description_sv:
-              actData?.description_sv !== undefined && actData?.description_sv !== null
-                ? actData.description_sv
-                : prev.act_description_sv,
-            act_description_eng:
-              actData?.description_eng !== undefined && actData?.description_eng !== null
-                ? actData.description_eng
-                : prev.act_description_eng,
-
-            stage_preparations: actData?.stage_preparations ?? '',
-            pick_up_cleaning: actData?.pick_up_cleaning ?? '',
-            act_notes: actData?.act_notes ?? '',
-
-            dietary_requirements: logisticsData?.dietary_requirements ?? '',
-            plus_one_name: logisticsData?.plus_one_name ?? '',
-            plus_one_email: logisticsData?.plus_one_email ?? '',
-            travel_covered: logisticsData?.travel_covered ?? 0,
-          }))
-
-          // Läs in ljudfiler / låtar säkert
-          if (actData?.audio_files && isAudioTrackItemArray(actData.audio_files)) {
-            setAudioTracks(actData.audio_files)
-          }
-
-          // Läs in kvitton säkert
-          if (logisticsData?.travel_receipts && isReceiptItemArray(logisticsData.travel_receipts)) {
-            setReceiptFiles(logisticsData.travel_receipts)
-          }
-        }
-      } catch (err) {
-        console.error('Fel vid hämtning av data:', err)
-      } finally {
-        if (isMounted) setLoadingInitial(false)
-      }
+      // Sektion 3: Logistik
+      dietary_requirements: logisticsData?.dietary_requirements ?? '',
+      plus_one_name: logisticsData?.plus_one_name ?? '',
+      plus_one_email: logisticsData?.plus_one_email ?? '',
+      travel_covered: logisticsData?.travel_covered ?? 0,
     }
-
-    fetchExistingData()
-
-    return () => {
-      isMounted = false
-    }
-  }, [application.performer_id, application.act_id, application.event_id, application.events])
+  })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -378,9 +311,13 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     setSubmitting(true)
 
     try {
+      if (!application.access_token) {
+        throw new Error('Access token saknas på ansökan.')
+      }
+
       // 1. Uppdatera Performer
       if (application.performer_id) {
-        await updatePerformer(application.performer_id, {
+        await updatePerformerBioViaToken(application.performer_id, application.access_token, {
           bio_sv: formData.bio_sv,
           bio_eng: formData.bio_eng,
         })
@@ -401,7 +338,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           pick_up_cleaning: formData.pick_up_cleaning,
           audio_files: audioTracks,
         }
-        await updatePerformerAct(application.act_id, actData)
+        await updatePerformerAct(application.act_id, application.access_token, actData)
       }
 
       // 3. Uppdatera Event Performer Details (Inklusive travel_covered)
@@ -418,7 +355,12 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           plus_one_email: formData.plus_one_email,
           travel_covered: Number(formData.travel_covered) || 0,
         }
-        await updateEventPerformerDetails(actualEventId, application.performer_id, logisticsData)
+        await updateEventPerformerDetails(
+          actualEventId,
+          application.performer_id,
+          application.access_token,
+          logisticsData
+        )
       }
 
       toast.success(t('Informationen har sparats!', 'Information saved successfully!'))
@@ -429,14 +371,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     } finally {
       setSubmitting(false)
     }
-  }
-
-  if (loadingInitial) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    )
   }
 
   return (
