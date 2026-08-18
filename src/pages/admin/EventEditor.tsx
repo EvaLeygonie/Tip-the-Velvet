@@ -152,6 +152,7 @@ export const EventEditor = () => {
             await deleteFromCloudinary(oldImageId)
           } catch (err) {
             console.error('Kunde inte radera den gammal bild:', err)
+            toast.error(t('Kunde inte radera den gamla bilden', 'Failed to delete the old image'))
           }
         }
 
@@ -244,6 +245,9 @@ export const EventEditor = () => {
           await deleteFromCloudinary(oldImageId)
         } catch (cloudinaryErr) {
           console.error('Cloudinary delete failed:', cloudinaryErr)
+          toast.error(
+            t('Kunde inte radera bilden från Cloudinary', 'Failed to delete image from Cloudinary')
+          )
         }
       }
 
@@ -254,6 +258,8 @@ export const EventEditor = () => {
     } catch (err) {
       toast.error(t('Kunde inte radera eventet', 'Failed to delete event'))
       console.error(err)
+    } finally {
+      setLoading(false)
     }
   }
 

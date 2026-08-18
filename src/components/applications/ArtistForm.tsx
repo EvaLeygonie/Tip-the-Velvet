@@ -241,14 +241,6 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
     )
   }
 
-  if (loadingArtist) {
-    return (
-      <div className="flex justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-gold" />
-      </div>
-    )
-  }
-
   return (
     <div className="application-card">
       <form onSubmit={handleSubmit} className="form-stack">
@@ -298,9 +290,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
         {/* COUNTRY & CITY */}
         <div className="form-row-2-tight">
           <div className="form-field">
-            <label className="form-label-block">
-              {t('Din hemmastad *', 'Your city of residence *')}
-            </label>
+            <label className="form-label-block">{t('hemmastad *', 'City of residence *')}</label>
             <input
               type="text"
               name="city"
@@ -473,7 +463,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
 
         <div className="form-field">
           <label className="form-label-block">
-            {t('Annan länk (frivilligt)', 'Other link (optional)')}
+            {t('Ytterligare en länk (frivilligt)', 'Additional link (optional)')}
           </label>
           <input
             type="text"

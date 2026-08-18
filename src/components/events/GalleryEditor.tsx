@@ -201,6 +201,7 @@ export const GalleryEditor = ({
       onUpdate()
     } catch (err) {
       console.error('Delete error:', err)
+      toast.error(t('Kunde inte radera bilden', 'Failed to delete image'))
     }
   }
 

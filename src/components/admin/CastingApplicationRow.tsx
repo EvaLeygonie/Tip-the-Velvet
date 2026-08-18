@@ -21,7 +21,7 @@ import { toast } from 'sonner'
 
 interface CastingApplicationRowProps {
   application: CastingApplication
-  onStatusChange: (id: string, newStatus: CastingApplication['review_status']) => void
+  onStatusChange: (id: string, newStatus: CastingApplication['review_status']) => Promise<void>
   onSaveNotes: (id: string, notes: string) => Promise<void>
   onUpdateLogistics: (
     id: string,
@@ -196,7 +196,7 @@ export const CastingApplicationRow = ({
 
   const handleStatusSelect = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     try {
-      onStatusChange(application.id, e.target.value as CastingApplication['review_status'])
+      await onStatusChange(application.id, e.target.value as CastingApplication['review_status'])
       toast.success(t('Status uppdaterad!', 'Status updated!'))
     } catch (err) {
       toast.error(t('Kunde inte uppdatera status.', 'Could not update status.'))
@@ -229,25 +229,33 @@ export const CastingApplicationRow = ({
 
   const handleSendCastingMail = async () => {
     setIsSendingMail(true)
-    const finalFee = Number(offerFee)
-    const finalTravelBool = Boolean(needsTravel)
-    const finalTravelAmount = finalTravelBool ? Number(travelAmount) : 0
-    const finalAccomBool = Boolean(needsAccom)
-
     try {
-      const response = await fetch('/api/send-casting-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: application.email,
-          name: application.performer_name,
-          subject: mailSubject,
-          bodyText: currentMailBodyText,
-          language: application.language,
-        }),
-      })
+      const finalFee = Number(offerFee)
+      const finalTravelBool = Boolean(needsTravel)
+      const finalTravelAmount = finalTravelBool ? Number(travelAmount) : 0
+      const finalAccomBool = Boolean(needsAccom)
 
-      if (!response.ok) throw new Error('Kunde inte skicka mail via API:et.')
+      try {
+        const response = await fetch('/api/send-casting-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: application.email,
+            name: application.performer_name,
+            subject: mailSubject,
+            bodyText: currentMailBodyText,
+            language: application.language,
+          }),
+        })
+
+        if (!response.ok) throw new Error('Kunde inte skicka mail via API:et.')
+      } catch (err) {
+        console.error('Fel vid mailutskick:', err)
+        toast.error(
+          t('Kunde inte skicka mailet, försök igen.', 'Could not send email, please try again.')
+        )
+        return
+      }
 
       let nextBookingStatus: CastingApplication['booking_status'] = 'not_contacted'
 
@@ -257,23 +265,28 @@ export const CastingApplicationRow = ({
         nextBookingStatus = 'pending_confirmation'
       }
 
-      await onUpdateLogistics(
-        application.id,
-        true,
-        nextBookingStatus,
-        application.review_status === 'yes' ? finalFee : undefined,
-        finalTravelBool,
-        finalTravelAmount,
-        finalAccomBool
-      )
+      try {
+        await onUpdateLogistics(
+          application.id,
+          true,
+          nextBookingStatus,
+          application.review_status === 'yes' ? finalFee : undefined,
+          finalTravelBool,
+          finalTravelAmount,
+          finalAccomBool
+        )
 
-      toast.success(t('Mailet har skickats framgångsrikt!', 'Email sent successfully!'))
-      setShowMailModal(false)
-    } catch (err) {
-      console.error('Fel vid utskick:', err)
-      toast.error(
-        t('Kunde inte skicka mailet, försök igen.', 'Could not send email, please try again.')
-      )
+        toast.success(t('Mailet har skickats framgångsrikt!', 'Email sent successfully!'))
+        setShowMailModal(false)
+      } catch (err) {
+        console.error('Fel vid statusuppdatering efter utskick:', err)
+        toast.error(
+          t(
+            'Mailet skickades, men statusen kunde inte uppdateras. Uppdatera manuellt.',
+            'Email was sent, but the status could not be updated. Please update it manually.'
+          )
+        )
+      }
     } finally {
       setIsSendingMail(false)
     }

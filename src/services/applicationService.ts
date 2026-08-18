@@ -135,27 +135,6 @@ export const updateApplicationLogistics = async (
   if (error) throw error
 }
 
-export const submitArtistCounterOffer = async (
-  id: string,
-  updates: {
-    requested_fee: number
-    needs_travel_costs: boolean
-    travel_cost_amount: number | null
-    needs_accommodation: boolean
-    accommodation_notes: string | null
-  }
-): Promise<void> => {
-  const { error } = await supabase
-    .from('casting_applications')
-    .update({
-      ...updates,
-      booking_status: 'pending_confirmation',
-    })
-    .eq('id', id)
-
-  if (error) throw error
-}
-
 export interface MigrationResult {
   performer_id: string
   act_id: string

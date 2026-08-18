@@ -62,6 +62,9 @@ export default async (request: Request) => {
           ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Tack så mycket för att du vill visas på <strong>Tip the Velvets</strong> Hall of Fame. Din info kommer dyka upp på vår <a href="https://www.tipthevelvet.nu/artists">Artist</a> sida inom kort</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi kontaktar dig inom kort!</p>`
           : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Thank you for wanting to be showcased on <strong>Tip the Velvet's</strong> Wall of Fame! Your information will be displayed soon on our <a href="https://www.tipthevelvet.nu/artists">Artist</a> page!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We'll contact you soon!</p>`
         break
+
+      default:
+        return new Response('Invalid application type', { status: 400 })
     }
 
     const htmlContent = `

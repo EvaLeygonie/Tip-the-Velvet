@@ -55,11 +55,22 @@ export const AdminCasting = () => {
   }, [selectedEventId])
 
   const handleStatusChange = async (id: string, newStatus: CastingApplication['review_status']) => {
+    const previousStatus = applications.find((app) => app.id === id)?.review_status
+
     setApplications((prev) =>
       prev.map((app) => (app.id === id ? { ...app, review_status: newStatus } : app))
     )
 
-    await updateApplicationStatus(id, newStatus)
+    try {
+      await updateApplicationStatus(id, newStatus)
+    } catch (err) {
+      setApplications((prev) =>
+        prev.map((app) =>
+          app.id === id ? { ...app, review_status: previousStatus ?? app.review_status } : app
+        )
+      )
+      throw err
+    }
   }
 
   const handleSaveNotes = async (id: string, updatedNotes: string) => {
@@ -79,6 +90,8 @@ export const AdminCasting = () => {
     travelCostAmount?: number,
     needsAccommodation?: boolean
   ) => {
+    const previous = applications.find((app) => app.id === id)
+
     setApplications((prev) =>
       prev.map((app) =>
         app.id === id
@@ -109,6 +122,10 @@ export const AdminCasting = () => {
       )
     } catch (err) {
       console.error('Kunde inte uppdatera logistikstatus i databasen:', err)
+      if (previous) {
+        setApplications((prev) => prev.map((app) => (app.id === id ? previous : app)))
+      }
+      throw err
     }
   }
 

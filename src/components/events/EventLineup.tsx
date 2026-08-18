@@ -9,7 +9,6 @@ interface EventLineupProps {
 }
 
 export const EventLineup = ({ performers }: EventLineupProps) => {
-  console.log('Här är artisterna som komponenten får:', performers)
   const { t } = useLanguage()
   const { user } = useAuth()
   const { slug } = useParams()

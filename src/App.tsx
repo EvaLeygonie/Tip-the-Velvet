@@ -69,13 +69,27 @@ export const App = () => (
               <Route path="/performers" element={<Performers />} />
               <Route path="/performers/:slug" element={<PerformerDetail />} />
 
-              <Route path="/hall-of-fame-form" element={<AddPerformer />} />
-              <Route path="/hall-of-fame-form/:slug" element={<AddPerformer />} />
-
               <Route path="/casting/confirm/:id" element={<ArtistBookingPortal />} />
 
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin/register" element={<RegisterAdmin />} />
+
+              <Route
+                path="/hall-of-fame-form"
+                element={
+                  <ProtectedRoute>
+                    <AddPerformer />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/hall-of-fame-form/:slug"
+                element={
+                  <ProtectedRoute>
+                    <AddPerformer />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
                 path="/admin/event-editor"
