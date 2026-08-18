@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { toast } from 'sonner'
 import { Lock, Mail, ArrowLeft } from 'lucide-react'
+import { AuthLayout } from '@/components/admin/AuthLayout'
 
 export const AdminLogin = () => {
   const { t } = useLanguage()
@@ -60,72 +61,55 @@ export const AdminLogin = () => {
   }
 
   return (
-    <div className="page-full">
-      <div className="bg-glow-spot" />
-
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-8">
-          <h1>Admin Portal</h1>
-          <p className="text-[13px] uppercase tracking-[0.4em] text-accent/80 font-medium">
-            • Backstage •
-          </p>
+    <AuthLayout>
+      <form onSubmit={handleLogin} className="space-y-6">
+        <div className="space-y-2">
+          <label htmlFor="email" className="form-label-gold">
+            {t('E-post', 'Email')}
+          </label>
+          <div className="relative">
+            <Mail className="login-icons" size={18} />
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@tipthevelvet.se"
+              className="login-input"
+              required
+            />
+          </div>
         </div>
 
-        <div className="login-card">
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label htmlFor="email" className="form-label-gold">
-                {t('E-post', 'Email')}
-              </label>
-              <div className="relative">
-                <Mail className="login-icons" size={18} />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@tipthevelvet.se"
-                  className="login-input"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="password" className="form-label-gold">
-                {t('Lösenord', 'Password')}
-              </label>
-              <div className="relative">
-                <Lock className="login-icons" size={18} />
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="login-input"
-                  required
-                />
-              </div>
-            </div>
-
-            <button type="submit" disabled={isLoading} className="btn-gold w-full">
-              {isLoading
-                ? t('Öppnar ridån...', 'Opening the curtain...')
-                : t('Lyft på ridån', 'Enter backstage')}
-            </button>
-          </form>
-
-          <button onClick={() => navigate('/')} className="link-back">
-            <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-            {t('Tillbaka till publika sidan', 'Back to public page')}
-          </button>
+        <div className="space-y-2">
+          <label htmlFor="password" className="form-label-gold">
+            {t('Lösenord', 'Password')}
+          </label>
+          <div className="relative">
+            <Lock className="login-icons" size={18} />
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="login-input"
+              required
+            />
+          </div>
         </div>
 
-        <p className="p-clean text-center text-s my-10 opacity-50">
-          &copy; {new Date().getFullYear()} Tip the Velvet • Restricted Access
-        </p>
-      </div>
-    </div>
+        <button type="submit" disabled={isLoading} className="btn-gold w-full">
+          {isLoading
+            ? t('Öppnar ridån...', 'Opening the curtain...')
+            : t('Lyft på ridån', 'Enter backstage')}
+        </button>
+      </form>
+
+      <button onClick={() => navigate('/')} className="link-back">
+        <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+        {t('Tillbaka till publika sidan', 'Back to public page')}
+      </button>
+    </AuthLayout>
   )
 }

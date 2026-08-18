@@ -65,14 +65,26 @@ design choice attached.
 
 ## Admin pages
 
-- [ ] **`RegisterAdmin.tsx` duplicates page chrome from `AdminLogin.tsx`** verbatim
-      (`page-full`/header/footer block) — candidate for a shared `<AuthLayout>`. Touches the
-      login flow, so worth a deliberate component design rather than a quick extraction.
-- [ ] **Minor race in `RegisterAdmin.tsx`:** a hardcoded 2.5s timeout can flip `localLoading`
-      false before a slow invite-session resolves, briefly showing "link expired" to a
-      legitimately-invited board member. Needs a real understanding of the invite-session
-      resolution flow to fix properly (replace the timeout with a state-driven check), not a
-      mechanical patch.
+- [x] **`RegisterAdmin.tsx` duplicates page chrome from `AdminLogin.tsx` — resolved
+      (2026-08-18).** Extracted `src/components/admin/AuthLayout.tsx` (`page-full`/glow-spot/
+      "Admin Portal • Backstage •" header/`login-card` wrapper/copyright footer), taking
+      `children` for the form content. Both pages now use it. `RegisterAdmin`'s
+      loading/invalid-link/success states were deliberately left as their own minimal
+      full-screen layouts (not wrapped in `AuthLayout`) since they never used that chrome in
+      the first place — forcing them in would've been a bigger change than the duplication
+      actually called for.
+- [x] **Race in `RegisterAdmin.tsx` — resolved with a real understanding of the flow
+      (2026-08-18).** Root cause: Supabase gives no explicit "this invite link is invalid"
+      event — for a genuinely bad/expired link, neither `getSession()` nor
+      `onAuthStateChange` ever fires, which is *why* the 2.5s fallback timeout existed at all.
+      But Supabase Auth actually redirects with `#error=...&error_description=...` in the URL
+      hash when the invite link is already invalid/expired at the source — a positive signal
+      the code wasn't using. Now checks that hash immediately (via a lazy `useState`
+      initializer, not a synchronous `setState` in the effect — avoids the
+      `react-hooks/set-state-in-effect` lint error) for instant, correct feedback on a truly
+      bad link, and only falls back to a timeout (raised 2.5s → 10s, since it's now a genuine
+      last-resort rather than the primary signal) for the rare case of neither an error nor a
+      session showing up in time.
 - [x] *(Now stale — resolved differently)* `AddPerformer.tsx`/`ArtistForm.tsx` used to be
       mounted ungated at public routes `/hall-of-fame-form(/:slug)` for token-based artist
       self-edit. Product decision (2026-08-18): skip token security entirely — past artists
@@ -160,4 +172,8 @@ underlying admin tables — good pattern, applied consistently.
 3. ~~Duplication cleanup pass~~ — all resolved 2026-08-18 (shared email helper, blob-guard
    helper, upload hook, ticket-button component, edge-function HTML wrapper). Also fixed a
    real bug found along the way (special-font/non-Latin names breaking image uploads).
-4. `RegisterAdmin` shared `<AuthLayout>` + the invite-session race condition. **Only item left.**
+4. ~~`RegisterAdmin` shared `<AuthLayout>` + the invite-session race condition~~ — both
+   resolved 2026-08-18.
+
+**All items resolved.** This document can be archived or kept as a historical record; nothing
+outstanding remains from the original 2026-08-17 audit pass.
