@@ -1,14 +1,23 @@
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { createSlug, formatDate, getImageSrc, processUploadedImage } from '@/lib/utils'
+import {
+  createSlug,
+  formatDate,
+  getImageSrc,
+  processUploadedImage,
+  isUnresolvedBlobUrl,
+} from '@/lib/utils'
 import type { Event, CreateCastingApplicationInput } from '@/types/types'
-import { submitCastingApplication } from '@/services/applicationService'
-import { uploadToCloudinary } from '@/services/cloudinaryService'
+import {
+  submitCastingApplication,
+  sendApplicationConfirmationEmail,
+} from '@/services/applicationService'
 import { buildEventFolderName, formatInstagramLink, formatOtherLink } from '@/lib/utils'
 import { Calendar, MapPin, Send, Loader2, BellDot, DollarSign, BusFront, Home } from 'lucide-react'
 import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
 import { CastingInfoAccordion } from './CastingInfoAccordion'
+import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload'
 
 interface PostgrestError {
   code?: string
@@ -18,6 +27,7 @@ interface PostgrestError {
 
 export const ApplicationCard = ({ event }: { event: Event }) => {
   const { language, t, setLanguage } = useLanguage()
+  const { upload: uploadToCloudinary } = useCloudinaryUpload()
 
   const preferredLang = language === 'eng' ? 'eng' : 'sv'
   const [agreed, setAgreed] = useState(false)
@@ -70,7 +80,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       const previewUrl = URL.createObjectURL(readyFile)
       setTempFile(readyFile)
       setFormData((prev) => ({ ...prev, promo_image_id: previewUrl }))
-      console.log('Image ready for upload:', readyFile, 'Preview URL:', previewUrl)
 
       toast.dismiss(loadingToast)
     } catch (error: unknown) {
@@ -78,26 +87,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       toast.error((error as Error).message || t('Kunde inte läsa bilden', 'Failed to read image'))
     } finally {
       setUploading(false)
-    }
-  }
-
-  const sendCastingEmail = async (
-    name: string,
-    email: string,
-    language: string,
-    deadline: string,
-    type: string
-  ) => {
-    try {
-      const response = await fetch('/api/application-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, language, deadline, type }),
-      })
-      return response.ok
-    } catch (error) {
-      console.error('Nätverksfel vid sändning av mail:', error)
-      return false
     }
   }
 
@@ -119,46 +108,42 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
     if (tempFile) {
       setUploading(true)
-      try {
-        const context = {
-          photographer: (formData.photographer || '').trim(),
-          artist: formData.performer_name?.trim() || '',
-          act: formData.act_title?.trim() || '',
-          event: event.title,
-          category: ImageCategory.CASTING,
+      const context = {
+        photographer: (formData.photographer || '').trim(),
+        artist: formData.performer_name?.trim() || '',
+        act: formData.act_title?.trim() || '',
+        event: event.title,
+        category: ImageCategory.CASTING,
+      }
+
+      const uploadedId = await uploadToCloudinary(
+        tempFile,
+        `Casting Calls/${eventFolder}`,
+        [ImageCategory.CASTING, eventSlug, artistSlug, actSlug],
+        imageSlug,
+        context,
+        {
+          genericErrorMessage: t('Kunde inte ladda upp bilden', 'Image upload failed'),
+          onDuplicateError: () => {
+            toast.info(
+              t(
+                'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
+                'You have already submitted an application for this act to this event! Your application is safe.'
+              ),
+              { duration: 6000 }
+            )
+          },
         }
+      )
+      setUploading(false)
 
-        finalImageId = await uploadToCloudinary(
-          tempFile,
-          `Casting Calls/${eventFolder}`,
-          [ImageCategory.CASTING, eventSlug, artistSlug, actSlug],
-          imageSlug,
-          context
-        )
-        setTempFile(null)
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : ''
-
-        const isDuplicate = errorMessage.includes('exists') || errorMessage.includes('already')
-
-        if (isDuplicate) {
-          toast.info(
-            t(
-              'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
-              'You have already submitted an application for this act to this event! Your application is safe.'
-            ),
-            { duration: 6000 }
-          )
-        } else {
-          toast.error(t('Kunde inte ladda upp bilden', 'Image upload failed'))
-          console.error(err)
-        }
-
+      if (uploadedId === null) {
         setSubmitting(false)
         return
-      } finally {
-        setUploading(false)
       }
+
+      finalImageId = uploadedId
+      setTempFile(null)
     }
 
     const formattedInstagram = formatInstagramLink(formData.instagram_link || '')
@@ -189,7 +174,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       : ''
 
     try {
-      if (payload.promo_image_id && payload.promo_image_id.startsWith('blob:')) {
+      if (isUnresolvedBlobUrl(payload.promo_image_id)) {
         toast.error(
           t(
             'Bilden hann inte laddas upp ordentligt. Försök välja bilden igen.',
@@ -217,12 +202,12 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       })
       setAgreed(false)
 
-      const emailSuccess = await sendCastingEmail(
+      const emailSuccess = await sendApplicationConfirmationEmail(
         applicantName,
         applicantEmail,
         applicantLanguage,
-        deadline,
-        'casting'
+        'casting',
+        deadline
       )
 
       if (emailSuccess) {

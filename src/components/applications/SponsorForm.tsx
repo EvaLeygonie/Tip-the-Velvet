@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { CreateSponsorInput, SponsorType } from '@/types/types'
-import { submitSponsorApplication } from '@/services/applicationService'
-import { uploadToCloudinary } from '@/services/cloudinaryService'
+import {
+  submitSponsorApplication,
+  sendApplicationConfirmationEmail,
+} from '@/services/applicationService'
+import { processUploadedImage, createSlug, isUnresolvedBlobUrl } from '@/lib/utils'
 import { Send, Loader2, Image as ImageIcon } from 'lucide-react'
 import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
+import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload'
 
 export const SponsorCard = () => {
   const { t, language } = useLanguage()
+  const { upload: uploadToCloudinary } = useCloudinaryUpload()
 
   interface SponsorOption {
     value: SponsorType
@@ -46,33 +51,25 @@ export const SponsorCard = () => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      toast.error(
-        t('Bilden är för stor. Maxstorlek är 5MB.', 'Image is too large. Maximum size is 5MB.')
-      )
-      return
-    }
+    setUploading(true)
+    const loadingToast = toast.loading(t('Bearbetar bild...', 'Processing image...'))
 
-    setTempFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
-  }
-
-  const sendConfirmEmail = async (name: string, email: string, language: string, type: string) => {
     try {
-      const response = await fetch('/api/application-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, language, type }),
-      })
-      return response.ok
-    } catch (error) {
-      console.error('Nätverksfel vid sändning av mail:', error)
-      return false
+      const readyFile = await processUploadedImage(file)
+
+      setTempFile(readyFile)
+      setPreviewUrl(URL.createObjectURL(readyFile))
+
+      toast.dismiss(loadingToast)
+    } catch (error: unknown) {
+      toast.dismiss(loadingToast)
+      toast.error((error as Error).message || t('Kunde inte läsa bilden', 'Failed to read image'))
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -91,33 +88,29 @@ export const SponsorCard = () => {
 
     if (tempFile) {
       setUploading(true)
-      const nameSlug = formData.name
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-      try {
-        const context = {
-          name: (formData.name || '').trim(),
-          category: ImageCategory.SPONSOR,
-        }
-
-        finalLogoId = await uploadToCloudinary(
-          tempFile,
-          'Sponsors',
-          [ImageCategory.SPONSOR, nameSlug],
-          `logo-${nameSlug}`,
-          context
-        )
-        setTempFile(null)
-      } catch (err) {
-        toast.error(t('Kunde inte ladda upp logotypen', 'Cloudinary upload failed'))
-        console.error(err)
-        setSubmitting(false)
-        setUploading(false)
-        return
-      } finally {
-        setUploading(false)
+      const nameSlug = createSlug(formData.name)
+      const context = {
+        name: (formData.name || '').trim(),
+        category: ImageCategory.SPONSOR,
       }
+
+      const uploadedId = await uploadToCloudinary(
+        tempFile,
+        'Sponsors',
+        [ImageCategory.SPONSOR, nameSlug],
+        `logo-${nameSlug}`,
+        context,
+        { genericErrorMessage: t('Kunde inte ladda upp logotypen', 'Cloudinary upload failed') }
+      )
+      setUploading(false)
+
+      if (uploadedId === null) {
+        setSubmitting(false)
+        return
+      }
+
+      finalLogoId = uploadedId
+      setTempFile(null)
     }
 
     const payload: CreateSponsorInput = {
@@ -135,7 +128,7 @@ export const SponsorCard = () => {
     const applicantLanguage = language
 
     try {
-      if (payload.logo_id && payload.logo_id.startsWith('blob:')) {
+      if (isUnresolvedBlobUrl(payload.logo_id)) {
         toast.error(
           t(
             'Bilden hann inte laddas upp ordentligt. Försök välja bilden igen.',
@@ -159,7 +152,7 @@ export const SponsorCard = () => {
       setPreviewUrl('')
       setAgreed(false)
 
-      const emailSuccess = await sendConfirmEmail(
+      const emailSuccess = await sendApplicationConfirmationEmail(
         applicantName,
         applicantEmail,
         applicantLanguage,

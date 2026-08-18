@@ -1,9 +1,10 @@
-import { Calendar, MapPin, Ticket, Sparkles } from 'lucide-react'
+import { Calendar, MapPin, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import type { Event } from '@/types/types'
 import { formatDate } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { TicketButton } from './TicketButton'
 
 export const FeaturedEventCard = ({ event }: { event: Event }) => {
   const { language, t } = useLanguage()
@@ -101,53 +102,10 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
               </Link>
 
               {/* BILJETTER */}
-              {(() => {
-                const now = new Date()
-                const releaseDate = event.ticket_release_date
-                  ? new Date(event.ticket_release_date)
-                  : null
-
-                // Om släppdatum finns och är i framtiden
-                const isPendingRelease = releaseDate ? releaseDate > now : false
-
-                // 1. Släppdatumet har inte passerat ännu
-                if (isPendingRelease && releaseDate) {
-                  const formattedReleaseDate = releaseDate.toLocaleDateString(
-                    language === 'sv' ? 'sv-SE' : 'en-US',
-                    { month: 'short', day: 'numeric' }
-                  )
-
-                  return (
-                    <span className="btn-gold opacity-70 cursor-not-allowed">
-                      <Ticket className="w-4 h-4 opacity-50" />
-                      {t(`Släpps ${formattedReleaseDate}`, `Releases ${formattedReleaseDate}`)}
-                    </span>
-                  )
-                }
-
-                // 2. Släppet har skett (eller inget släppdatum satt) och det finns en biljettlänk
-                if (event.ticket_url) {
-                  return (
-                    <a
-                      href={event.ticket_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-gold shadow-lg transition-all duration-300"
-                    >
-                      <Ticket className="w-4 h-4" />
-                      {t('Biljetter', 'Tickets')}
-                    </a>
-                  )
-                }
-
-                // 3. Ingen länk och inget släppdatum
-                return (
-                  <span className="btn-gold opacity-70 cursor-not-allowed">
-                    <Ticket className="w-4 h-4 opacity-50" />
-                    {t('Biljetter TBA', 'Tickets TBA')}
-                  </span>
-                )
-              })()}
+              <TicketButton
+                ticket_release_date={event.ticket_release_date}
+                ticket_url={event.ticket_url}
+              />
             </div>
           </div>
         </div>

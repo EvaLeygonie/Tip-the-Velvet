@@ -4,25 +4,28 @@ import { supabase } from './supabase'
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 
 export const createSlug = (text: string) => {
-  return (
-    text
-      .toLowerCase()
-      .trim()
-      // Säkra upp de vanligaste accenterna manuellt först
-      .replace(/[éèêë]/g, 'e')
-      .replace(/[àâäáå]/g, 'a')
-      .replace(/[öôóò]/g, 'o')
-      .replace(/[üûúù]/g, 'u')
-      .replace(/[íìîï]/g, 'i')
-      .replace(/[ç]/g, 'c')
-      // Din befintliga robusta logik körs efteråt
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/ß/g, 'ss')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-  )
+  const slug = text
+    .toLowerCase()
+    .trim()
+    // Säkra upp de vanligaste accenterna manuellt först
+    .replace(/[éèêë]/g, 'e')
+    .replace(/[àâäáå]/g, 'a')
+    .replace(/[öôóò]/g, 'o')
+    .replace(/[üûúù]/g, 'u')
+    .replace(/[íìîï]/g, 'i')
+    .replace(/[ç]/g, 'c')
+    // Din befintliga robusta logik körs efteråt
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  // Namn skrivna helt i icke-latinska tecken eller stiliserade Unicode-typsnitt
+  // (t.ex. matematiska alfanumeriska symboler) blir tomma efter saneringen ovan —
+  // faller tillbaka på ett unikt, giltigt värde istället för en tom sträng.
+  return slug || `namnlos-${Date.now().toString(36)}`
 }
 
 export const formatInstagramLink = (value: string): string => {
@@ -54,6 +57,12 @@ export const formatOtherLink = (value: string): string => {
     return `https://${clean}`
   }
   return clean
+}
+
+// Sant om ett bild-fält fortfarande pekar på en lokal blob:-preview istället för det
+// riktiga Cloudinary-ID:t — dvs. uppladdningen hann inte bli klar innan formuläret skickades.
+export const isUnresolvedBlobUrl = (value: string | null | undefined): boolean => {
+  return !!value && value.startsWith('blob:')
 }
 
 export const buildEventFolderName = (eventTitle: string, eventDate: string) => {
@@ -133,37 +142,49 @@ export const compressImage = (file: File): Promise<File> => {
 }
 
 export const processUploadedImage = async (file: File): Promise<File> => {
-  let processedFile = file
+  const process = async (): Promise<File> => {
+    let processedFile = file
 
-  const isHeic =
-    file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)
+    const isHeic =
+      file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)
 
-  if (isHeic) {
-    try {
-      const result = await heic2any({
-        blob: file,
-        toType: 'image/jpeg',
-        quality: 0.9,
-      })
-      const blob = Array.isArray(result) ? result[0] : result
-      const newFileName = file.name.replace(/\.(heic|heif)$/i, '.jpg')
-      processedFile = new File([blob], newFileName, { type: 'image/jpeg' })
-    } catch (error) {
-      console.error('HEIC-konvertering misslyckades:', error)
-      throw new Error('Kunde inte läsa bildformatet (HEIC)')
+    if (isHeic) {
+      try {
+        const result = await heic2any({
+          blob: file,
+          toType: 'image/jpeg',
+          quality: 0.9,
+        })
+        const blob = Array.isArray(result) ? result[0] : result
+        const newFileName = file.name.replace(/\.(heic|heif)$/i, '.jpg')
+        processedFile = new File([blob], newFileName, { type: 'image/jpeg' })
+      } catch (error) {
+        console.error('HEIC-konvertering misslyckades:', error)
+        throw new Error('Kunde inte läsa bildformatet (HEIC)')
+      }
     }
+
+    const FIVE_MB = 5 * 1024 * 1024
+    if (processedFile.size > FIVE_MB) {
+      try {
+        processedFile = await compressImage(processedFile)
+      } catch (error) {
+        console.warn('Komprimering misslyckades, behåller originalfilen:', error)
+      }
+    }
+
+    return processedFile
   }
 
-  const FIVE_MB = 5 * 1024 * 1024
-  if (processedFile.size > FIVE_MB) {
-    try {
-      processedFile = await compressImage(processedFile)
-    } catch (error) {
-      console.warn('Komprimering misslyckades, behåller originalfilen:', error)
-    }
-  }
+  const TIMEOUT_MS = 20000
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(
+      () => reject(new Error('Bildbearbetningen tog för lång tid. Försök med en annan bild.')),
+      TIMEOUT_MS
+    )
+  })
 
-  return processedFile
+  return Promise.race([process(), timeout])
 }
 
 export const formatDate = (language: string, dateString: string | null) => {

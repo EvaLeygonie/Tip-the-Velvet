@@ -60,8 +60,8 @@ design choice attached.
       every diverging bit (greeting wording, `from` address, body content, and `subscribe.ts`'s
       differing swallow-and-continue Resend-failure handling) left untouched. One cosmetic
       unification: `subscribe.ts`'s divider had `margin-top: 40px` vs the other two's `30px` —
-      standardized to `30px`, imperceptible visually. **Pending: deploy preview + one real send
-      through all 3 flows (application-confirmation, send-casting-email, subscribe) to confirm.**
+      standardized to `30px`, imperceptible visually. **Confirmed working** — user tested all
+      3 flows live (casting/join-us/sponsor form confirmations + newsletter signup), all fine.
 
 ## Admin pages
 
@@ -83,22 +83,64 @@ design choice attached.
 
 ## Public forms & components
 
-- [ ] **Cross-form duplication: confirmation-email sender.** `JoinUsForm.tsx`,
-      `SponsorForm.tsx`, and `ArtistForm.tsx` each re-implement an identical
-      `sendConfirmEmail`/`sendCastingEmail` fetch-to-`/api/application-confirmation` helper.
-      Extract to one shared helper.
-- [ ] **Cross-form duplication: `blob:` URL submit guard** — same defensive check pasted in
-      all three forms above. Extract to one helper (e.g. `isUnresolvedBlobUrl()`).
-- [ ] **Cross-form duplication: upload try/catch/toast wrapper** around `uploadToCloudinary`,
-      repeated in the three forms above plus `GalleryEditor.tsx`. Candidate for a shared
-      `useCloudinaryUpload()` hook.
+- [x] **Image-upload pipeline audit — 2026-08-18, prompted by a real bug report.** User
+      reported past incidents of `image_id` set with no matching Cloudinary asset; had already
+      fixed image-size and double-extension causes. Root cause of the remaining one: `createSlug()`
+      (`src/lib/utils.ts`) only handles accented Latin characters — a name written entirely in a
+      non-Latin script or a stylized Unicode font (e.g. Mathematical Alphanumeric Symbols, which
+      NFD normalization doesn't decompose) sanitizes down to an **empty string**, producing a
+      malformed/trailing-hyphen Cloudinary `public_id` that the API likely rejects. Checked
+      `CastingForm.tsx`, `ArtistForm.tsx`, `SponsorForm.tsx`, `GalleryEditor.tsx`: all correctly
+      await the Cloudinary upload and block the DB save on failure (plus a `blob:` URL guard as a
+      second line of defense) — so this wouldn't orphan a DB row, but it would hard-block
+      submission with a generic, unhelpful "upload failed" error and no indication why. Fixed by
+      making `createSlug()` fall back to a unique `namnlos-<timestamp>` slug instead of ever
+      returning empty — closes the gap for every caller at once (image naming *and* actual
+      routable slugs like event/performer URLs). Added `src/test/utils.test.ts` covering normal
+      names, accented names, and the stylized-font/empty-input fallback. Also removed a leftover
+      `console.log('Image ready for upload...')` debug statement in `CastingForm.tsx`.
+      `SponsorForm.tsx`'s logo upload now also auto-compresses via `processUploadedImage`
+      (same "Bearbetar bild..." pattern as `CastingForm`/`ArtistForm`) instead of hard-rejecting
+      files >5MB — consistent across all three forms now.
+      **Separate, unrelated bug found and fixed in the same investigation:** the "Bearbetar
+      bild..." loading toast could get permanently stuck even though `handleImageUpload`
+      completed correctly and called `toast.dismiss(id)` with the right ID (confirmed via
+      temporary diagnostic logging, since the app code showed no error at all). Root cause was
+      an upstream bug in Sonner 2.0.7 (event-listener cleanup in its internal store) — fixed in
+      2.0.8, released days before this was found. `package.json` already allowed it
+      (`^2.0.7`); ran `npm update sonner` to sync the lockfile. Confirmed fixed by live retest.
+- [x] **Cross-form duplication: confirmation-email sender — resolved (2026-08-18).** Extracted
+      to `sendApplicationConfirmationEmail(name, email, language, type, deadline?)` in
+      `applicationService.ts`. Also caught and folded in `CastingForm.tsx`'s
+      `sendCastingEmail` (not originally listed here, but identical apart from an extra
+      `deadline` param) — the shared helper accepts it as optional so all 4 forms
+      (`JoinUsForm`, `SponsorForm`, `ArtistForm`, `CastingForm`) now share one implementation.
+      Bonus fix found along the way: `SponsorForm.tsx`'s logo-naming used its own bespoke
+      inline slug (`.replace(/[^a-z0-9]/g, '-')`) instead of the shared `createSlug()` — meaning
+      it had the same empty-slug vulnerability just fixed in the item above, via an un-hardened
+      duplicate path. Switched it to use `createSlug()` directly.
+- [x] **Cross-form duplication: `blob:` URL submit guard — resolved (2026-08-18).** Extracted
+      `isUnresolvedBlobUrl()` to `src/lib/utils.ts`, used in `ArtistForm.tsx`, `CastingForm.tsx`,
+      `SponsorForm.tsx` (the toast/`setSubmitting`/`return` around it stayed local to each form
+      since that's coupled to each component's own state, not actually duplicated logic).
+- [x] **Cross-form duplication: upload try/catch/toast wrapper — resolved, light-touch scope
+      (2026-08-18).** Extracted `src/hooks/useCloudinaryUpload.ts` — wraps `uploadToCloudinary`,
+      catches errors, shows a generic toast (or a caller-supplied `onDuplicateError` handler for
+      `CastingForm`'s "already applied" case), returns `string | null` instead of throwing.
+      Wired into `ArtistForm.tsx`, `CastingForm.tsx`, `SponsorForm.tsx` only — deliberately not
+      `GalleryEditor.tsx`, whose batch/progress-tracking upload flow is a genuinely different
+      shape, not just a copy-paste variant; forcing it into the same hook would've made the hook
+      worse for everyone. Each form still owns its own `uploading` state exactly as before (the
+      hook doesn't manage timing-sensitive UI state), so this only replaced the try/catch/return
+      plumbing, not the component's control flow.
 - [x] **`ArtistForm.tsx` copy-paste field bug — resolved (2026-08-18).** `third_link` is a
       genuine free-form field (added for an artist who wanted three links), not a bug — just
       needed a distinct label. Changed to "Ytterligare en länk (frivilligt)" / "Additional
       link (optional)".
-- [ ] **Duplicated ticket-release-date/button logic** between `EventInfo.tsx` and
-      `featuredEventCard.tsx` — near-identical block in both; extract to a shared
-      `getTicketButtonState()` util or `<TicketButton>` component.
+- [x] **Duplicated ticket-release-date/button logic — resolved (2026-08-18).** Extracted to
+      `src/components/events/TicketButton.tsx` (a component, not a state-util, since the
+      duplicated logic returned JSX directly). Used in both `EventInfo.tsx` and
+      `featuredEventCard.tsx`, byte-for-byte same rendering as before.
 
 ## Clean — no action needed
 
@@ -115,6 +157,7 @@ underlying admin tables — good pattern, applied consistently.
    The admin allowlist one turned out to be a real live gap (public signup was on) — now closed.
 2. ~~Decide on `submitArtistCounterOffer` and the `ArtistForm` `third_link` field~~ — both
    resolved 2026-08-18 (deleted; relabeled).
-3. Duplication cleanup pass (shared email helper, blob-guard helper, upload hook,
-   ticket-button util, edge-function HTML wrapper). **Next up.**
-4. `RegisterAdmin` shared `<AuthLayout>` + the invite-session race condition.
+3. ~~Duplication cleanup pass~~ — all resolved 2026-08-18 (shared email helper, blob-guard
+   helper, upload hook, ticket-button component, edge-function HTML wrapper). Also fixed a
+   real bug found along the way (special-font/non-Latin names breaking image uploads).
+4. `RegisterAdmin` shared `<AuthLayout>` + the invite-session race condition. **Only item left.**

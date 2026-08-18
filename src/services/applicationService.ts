@@ -73,6 +73,29 @@ export const submitSponsorApplication = async (application: CreateSponsorInput):
   if (error) throw error
 }
 
+// Skickar bekräftelsemail via Netlify Edge Function (application-confirmation.ts).
+// `deadline` används bara av castingflödet, men skickas alltid med — mottagaren ignorerar
+// den annars.
+export const sendApplicationConfirmationEmail = async (
+  name: string,
+  email: string,
+  language: string,
+  type: 'casting' | 'staff' | 'sponsor' | 'artist',
+  deadline?: string
+): Promise<boolean> => {
+  try {
+    const response = await fetch('/api/application-confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, language, type, deadline }),
+    })
+    return response.ok
+  } catch (error) {
+    console.error('Nätverksfel vid sändning av mail:', error)
+    return false
+  }
+}
+
 //=== UPDATE ===///
 
 export const updateApplicationStatus = async (

@@ -6,6 +6,7 @@ import {
   formatInstagramLink,
   formatOtherLink,
   processUploadedImage,
+  isUnresolvedBlobUrl,
 } from '@/lib/utils'
 import type { CreatePerformerInput, Performer } from '@/types/types'
 import {
@@ -13,13 +14,15 @@ import {
   fetchPerformerBySlug,
   updatePerformer,
 } from '@/services/performerService'
-import { uploadToCloudinary } from '@/services/cloudinaryService'
+import { sendApplicationConfirmationEmail } from '@/services/applicationService'
 import { ImageCategory } from '@/types/media'
 import { Send, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload'
 
 export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
   const { language, t, setLanguage } = useLanguage()
+  const { upload: uploadToCloudinary } = useCloudinaryUpload()
 
   const preferredLang = language === 'eng' ? 'eng' : 'sv'
   const [agreed, setAgreed] = useState(false)
@@ -100,20 +103,6 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
     }
   }
 
-  const sendCastingEmail = async (name: string, email: string, language: string, type: string) => {
-    try {
-      const response = await fetch('/api/application-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, language, type }),
-      })
-      return response.ok
-    } catch (error) {
-      console.error('Nätverksfel vid sändning av mail:', error)
-      return false
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -128,29 +117,29 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
 
     if (tempFile) {
       setUploading(true)
-      try {
-        const context = {
-          photographer: (formData.photographer || '').trim(),
-          artist: formData.performer_name?.trim() || '',
-          category: ImageCategory.ARTIST_PROMO,
-        }
+      const context = {
+        photographer: (formData.photographer || '').trim(),
+        artist: formData.performer_name?.trim() || '',
+        category: ImageCategory.ARTIST_PROMO,
+      }
 
-        finalImageId = await uploadToCloudinary(
-          tempFile,
-          'Performers',
-          [ImageCategory.ARTIST_PROMO, artistSlug],
-          `Promo-${artistSlug}`,
-          context
-        )
-        setTempFile(null)
-      } catch (err) {
-        toast.error(t('Kunde inte ladda upp bilden', 'Cloudinary upload failed'))
-        console.error(err)
+      const uploadedId = await uploadToCloudinary(
+        tempFile,
+        'Performers',
+        [ImageCategory.ARTIST_PROMO, artistSlug],
+        `Promo-${artistSlug}`,
+        context,
+        { genericErrorMessage: t('Kunde inte ladda upp bilden', 'Cloudinary upload failed') }
+      )
+      setUploading(false)
+
+      if (uploadedId === null) {
         setSubmitting(false)
         return
-      } finally {
-        setUploading(false)
       }
+
+      finalImageId = uploadedId
+      setTempFile(null)
     }
 
     const formattedInstagram = formatInstagramLink(formData.instagram_link || '')
@@ -168,7 +157,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
       agreed_to_terms: true,
     }
     try {
-      if (payload.promo_image_id && payload.promo_image_id.startsWith('blob:')) {
+      if (isUnresolvedBlobUrl(payload.promo_image_id)) {
         toast.error(
           t(
             'Bilden hann inte laddas upp ordentligt. Försök välja bilden igen.',
@@ -204,7 +193,7 @@ export const ArtistForm = ({ editSlug }: { editSlug?: string }) => {
         })
         setAgreed(false)
 
-        const emailSent = await sendCastingEmail(
+        const emailSent = await sendApplicationConfirmationEmail(
           payload.performer_name,
           payload.email || '',
           preferredLang,

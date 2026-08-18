@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { CreateStaffVolunteerInput, StaffVolunteerType } from '@/types/types'
-import { submitJoinApplication } from '@/services/applicationService'
+import {
+  submitJoinApplication,
+  sendApplicationConfirmationEmail,
+} from '@/services/applicationService'
 import { Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatOtherLink } from '@/lib/utils'
@@ -50,20 +53,6 @@ export const JoinUsCard = () => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const sendConfirmEmail = async (name: string, email: string, language: string, type: string) => {
-    try {
-      const response = await fetch('/api/application-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, language, type }),
-      })
-      return response.ok
-    } catch (error) {
-      console.error('Nätverksfel vid sändning av mail:', error)
-      return false
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -103,7 +92,7 @@ export const JoinUsCard = () => {
       })
       setAgreed(false)
 
-      const emailSuccess = await sendConfirmEmail(
+      const emailSuccess = await sendApplicationConfirmationEmail(
         applicantName,
         applicantEmail,
         applicantLanguage,
