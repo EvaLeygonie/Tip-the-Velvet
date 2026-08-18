@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('heic2any', () => ({ default: vi.fn() }))
 
-import { createSlug, isUnresolvedBlobUrl } from '../lib/utils'
+import { createSlug, isUnresolvedBlobUrl, withTimeout } from '../lib/utils'
 
 describe('createSlug', () => {
   it('lowercases and hyphenates a normal name', () => {
@@ -45,5 +45,31 @@ describe('isUnresolvedBlobUrl', () => {
     expect(isUnresolvedBlobUrl(null)).toBe(false)
     expect(isUnresolvedBlobUrl(undefined)).toBe(false)
     expect(isUnresolvedBlobUrl('')).toBe(false)
+  })
+})
+
+describe('withTimeout', () => {
+  it('resolves with the original value when the promise settles before the timeout', async () => {
+    const result = await withTimeout(Promise.resolve('done'), 1000, 'Timed out')
+    expect(result).toBe('done')
+  })
+
+  it('rejects with the original error when the promise rejects before the timeout', async () => {
+    await expect(withTimeout(Promise.reject(new Error('boom')), 1000, 'Timed out')).rejects.toThrow(
+      'boom'
+    )
+  })
+
+  it('rejects with the timeout message when the promise never settles in time', async () => {
+    vi.useFakeTimers()
+    const neverSettles = new Promise(() => {})
+
+    const promise = withTimeout(neverSettles, 5000, 'Timed out')
+    const assertion = expect(promise).rejects.toThrow('Timed out')
+
+    await vi.advanceTimersByTimeAsync(5000)
+    await assertion
+
+    vi.useRealTimers()
   })
 })

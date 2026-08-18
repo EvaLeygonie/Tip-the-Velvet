@@ -3,6 +3,17 @@ import { supabase } from '@/lib/supabase'
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 
+// Cloudinarys context-metadata är key=val|key=val — dels måste de tecknen undvikas i värdet,
+// dels har Cloudinarys API visat sig avvisa (400) värden med icke-ASCII-tecken utanför vanliga
+// accenter (t.ex. namn skrivna med ett stiliserat Unicode-typsnitt). Faller tillbaka till samma
+// accent-normalisering som createSlug(), och stryker sedan allt som ändå inte är ASCII.
+const sanitizeContextValue = (val: string): string =>
+  val
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/[|=,]/g, '')
+
 //=== READ ===///
 
 export interface CloudinaryImageResult {
@@ -58,10 +69,7 @@ export const uploadToCloudinary = async (
 
   if (context) {
     const contextString = Object.entries(context)
-      .map(([key, val]) => {
-        const cleanVal = String(val).replace(/[|=,]/g, '')
-        return `${key}=${cleanVal}`
-      })
+      .map(([key, val]) => `${key}=${sanitizeContextValue(String(val))}`)
       .join('|')
     formData.append('context', contextString)
   }

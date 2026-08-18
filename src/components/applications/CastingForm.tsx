@@ -72,7 +72,11 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     if (!file) return
 
     setUploading(true)
-    const loadingToast = toast.loading(t('Bearbetar bild...', 'Processing image...'))
+    // duration är en säkerhetsnät: om toast.dismiss() av någon anledning inte tar bort
+    // toasten (setts hända sporadiskt) ska den ändå aldrig fastna på skärmen permanent.
+    const loadingToast = toast.loading(t('Bearbetar bild...', 'Processing image...'), {
+      duration: 25000,
+    })
 
     try {
       const readyFile = await processUploadedImage(file)

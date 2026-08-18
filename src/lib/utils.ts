@@ -141,6 +141,21 @@ export const compressImage = (file: File): Promise<File> => {
   })
 }
 
+// Slår in ett löfte i en tidsgräns så det alltid landar (löser eller avvisar) inom `ms`,
+// oavsett vad som händer inuti — t.ex. om nätverket ligger helt nere och en fetch annars
+// skulle kunna hänga betydligt längre än webbläsarens/OS:ets eget timeout-beteende.
+export const withTimeout = <T>(
+  promise: Promise<T>,
+  ms: number,
+  timeoutMessage: string
+): Promise<T> => {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(timeoutMessage)), ms)
+  })
+
+  return Promise.race([promise, timeout])
+}
+
 export const processUploadedImage = async (file: File): Promise<File> => {
   const process = async (): Promise<File> => {
     let processedFile = file
@@ -176,15 +191,11 @@ export const processUploadedImage = async (file: File): Promise<File> => {
     return processedFile
   }
 
-  const TIMEOUT_MS = 20000
-  const timeout = new Promise<never>((_, reject) => {
-    setTimeout(
-      () => reject(new Error('Bildbearbetningen tog för lång tid. Försök med en annan bild.')),
-      TIMEOUT_MS
-    )
-  })
-
-  return Promise.race([process(), timeout])
+  return withTimeout(
+    process(),
+    20000,
+    'Bildbearbetningen tog för lång tid. Försök med en annan bild.'
+  )
 }
 
 export const formatDate = (language: string, dateString: string | null) => {

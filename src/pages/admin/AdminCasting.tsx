@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import type { CastingApplication, Event } from '@/types/types'
 import { CastingApplicationRow } from '@/components/admin/CastingApplicationRow'
 import { DollarSign } from 'lucide-react'
+import { withTimeout } from '@/lib/utils'
 
 export const AdminCasting = () => {
   const { t } = useLanguage()
@@ -62,7 +63,14 @@ export const AdminCasting = () => {
     )
 
     try {
-      await updateApplicationStatus(id, newStatus)
+      await withTimeout(
+        updateApplicationStatus(id, newStatus),
+        15000,
+        t(
+          'Nätverksanropet tog för lång tid. Kontrollera din anslutning.',
+          'The network request took too long. Check your connection.'
+        )
+      )
     } catch (err) {
       setApplications((prev) =>
         prev.map((app) =>
@@ -111,14 +119,21 @@ export const AdminCasting = () => {
       )
     )
     try {
-      await updateApplicationLogistics(
-        id,
-        initialReplySent,
-        bookingStatus,
-        proposedFee,
-        needsTravelCosts,
-        travelCostAmount,
-        needsAccommodation
+      await withTimeout(
+        updateApplicationLogistics(
+          id,
+          initialReplySent,
+          bookingStatus,
+          proposedFee,
+          needsTravelCosts,
+          travelCostAmount,
+          needsAccommodation
+        ),
+        15000,
+        t(
+          'Nätverksanropet tog för lång tid. Kontrollera din anslutning.',
+          'The network request took too long. Check your connection.'
+        )
       )
     } catch (err) {
       console.error('Kunde inte uppdatera logistikstatus i databasen:', err)
