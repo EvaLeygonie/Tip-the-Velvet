@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { toast } from 'sonner'
@@ -27,9 +27,6 @@ interface ExtendedCastingApplication extends CastingApplication {
     title: string
     event_start: string
   } | null
-  // Nested av get_casting_application_by_token (SECURITY DEFINER) — hämtas i samma
-  // anrop som resten av ansökan, eftersom anon inte har direkt läsrättighet på dessa
-  // tabeller (se supabase/migrations-historiken för varför).
   performers?: {
     id: string
     bio_sv: string | null
@@ -102,6 +99,39 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const { t } = useLanguage()
 
   const [submitting, setSubmitting] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+
+  // Save bar visibility logic — if the user has scrolled to the bottom of the form, hide the save bar so it doesn't cover the submit button.
+  const [reachedFormEnd, setReachedFormEnd] = useState(false)
+  const [saveBarHeight, setSaveBarHeight] = useState(80)
+  const saveBarRef = useRef<HTMLDivElement | null>(null)
+  const formEndRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const el = saveBarRef.current
+    if (!el) return
+    const resizeObserver = new ResizeObserver((entries) => {
+      const height = entries[0]?.contentRect.height
+      if (height) setSaveBarHeight(height)
+    })
+    resizeObserver.observe(el)
+    return () => resizeObserver.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const el = formEndRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setReachedFormEnd(entry.isIntersecting),
+      { rootMargin: `0px 0px -${saveBarHeight}px 0px` }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [saveBarHeight])
+
+  // Storage paths staged for deletion — only actually removed from the bucket once
+  // the form is saved, so an accidental "x" click can't lose a file for good.
+  const [pendingDeletePaths, setPendingDeletePaths] = useState<string[]>([])
 
   const [uploadingAudio, setUploadingAudio] = useState(false)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
@@ -157,9 +187,20 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     }
   })
 
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    setIsDirty(true)
   }
 
   const getStorageFolderPath = (subFolder: 'audio-tracks' | 'travel-receipts') => {
@@ -194,7 +235,13 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         url: publicUrl,
         path: rawPath,
       })
-      toast.success(t('Ljudfil bifogad!', 'Audio file attached!'))
+      toast.success(
+        t(
+          'Ljudfil bifogad! Glöm inte att trycka "Lägg till låt i akten".',
+          'Audio file attached! Don\'t forget to press "Add song to act".'
+        ),
+        { duration: 7000 }
+      )
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte ladda upp ljudfilen.', 'Could not upload audio file.'))
@@ -205,11 +252,11 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   }
 
   const handleAddTrack = () => {
-    if (!newTrackTitle.trim() && !newTrackArtist.trim() && !newTrackFile) {
+    if (!newTrackTitle.trim() || !newTrackArtist.trim()) {
       toast.error(
         t(
-          'Fyll i låttitel, artist eller ladda upp en fil först.',
-          'Please fill in track title, artist or upload a file first.'
+          'Ange både låttitel och artist för att lägga till låten.',
+          'Please enter both a track title and artist to add the song.'
         )
       )
       return
@@ -229,26 +276,47 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     setNewTrackTitle('')
     setNewTrackArtist('')
     setNewTrackFile(null)
+    setIsDirty(true)
 
-    toast.success(t('Låt tillagd i listan!', 'Track added to the list!'))
+    toast.success(
+      t(
+        'Låt tillagd i listan! Glöm inte att spara formuläret.',
+        "Track added to the list! Don't forget to save the form."
+      )
+    )
   }
 
-  const removeTrack = async (id: string) => {
+  // filePath is meant to hold a bucket-relative storage path, but items saved before
+  // an earlier bugfix have it holding a full public URL instead — normalize either
+  // shape down to a real path so storage.remove() can actually find the object.
+  const resolveStoragePath = (filePath?: string, fileUrl?: string) => {
+    if (filePath) {
+      return filePath.startsWith('http') ? getStoragePathFromUrl(filePath) : filePath
+    }
+    return getStoragePathFromUrl(fileUrl || '')
+  }
+
+  // Removal only stages the file for deletion — the actual storage delete happens
+  // in handleSubmit, once the form is saved, so an accidental "x" click (or closing
+  // the tab without saving) never permanently loses a file.
+  const removeTrack = (id: string) => {
     const trackToDelete = audioTracks.find((item) => item.id === id)
 
     if (trackToDelete) {
-      const rawPath = trackToDelete.filePath || getStoragePathFromUrl(trackToDelete.fileUrl || '')
+      const rawPath = resolveStoragePath(trackToDelete.filePath, trackToDelete.fileUrl)
       if (rawPath) {
-        try {
-          const { error } = await supabase.storage.from('artist-files').remove([rawPath])
-          if (error) console.error('Kunde inte radera ljudfil från storage:', error)
-        } catch (err) {
-          console.error('Fel vid radering av ljudfil:', err)
-        }
+        setPendingDeletePaths((prev) => [...prev, rawPath])
       }
     }
 
     setAudioTracks((prev) => prev.filter((item) => item.id !== id))
+    setIsDirty(true)
+    toast(
+      t(
+        'Låten borttagen. Glöm inte att spara formuläret för att bekräfta.',
+        "Track removed. Don't forget to save the form to confirm."
+      )
+    )
   }
 
   // --- HANTERA RESEKVITTON ---
@@ -275,7 +343,13 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       }
 
       setReceiptFiles((prev) => [...prev, ...newItems])
-      toast.success(t('Resekvitto(n) uppladdade!', 'Travel receipt(s) uploaded!'))
+      setIsDirty(true)
+      toast.success(
+        t(
+          'Resekvitto(n) uppladdade! Glöm inte att spara formuläret.',
+          "Travel receipt(s) uploaded! Don't forget to save the form."
+        )
+      )
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte ladda upp kvittot.', 'Could not upload receipt.'))
@@ -285,24 +359,28 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     }
   }
 
-  const removeReceiptFile = async (id: string) => {
+  // Same deferred-delete pattern as removeTrack — staged now, deleted from storage on save.
+  const removeReceiptFile = (id: string) => {
     const receiptToDelete = receiptFiles.find((item) => item.id === id)
 
     if (receiptToDelete) {
-      const rawPath =
-        (receiptToDelete as { filePath?: string }).filePath ||
-        getStoragePathFromUrl(receiptToDelete.url || '')
+      const rawPath = resolveStoragePath(
+        (receiptToDelete as { filePath?: string }).filePath,
+        receiptToDelete.url
+      )
       if (rawPath) {
-        try {
-          const { error } = await supabase.storage.from('artist-files').remove([rawPath])
-          if (error) console.error('Kunde inte radera kvitto från storage:', error)
-        } catch (err) {
-          console.error('Fel vid radering av kvitto:', err)
-        }
+        setPendingDeletePaths((prev) => [...prev, rawPath])
       }
     }
 
     setReceiptFiles((prev) => prev.filter((item) => item.id !== id))
+    setIsDirty(true)
+    toast(
+      t(
+        'Kvittot borttaget. Glöm inte att spara formuläret för att bekräfta.',
+        "Receipt removed. Don't forget to save the form to confirm."
+      )
+    )
   }
 
   // --- SPARA TILL SUPABASE ---
@@ -363,6 +441,15 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         )
       }
 
+      // Only now, after the DB has been updated successfully, actually remove any
+      // files the artist deleted during this edit — see removeTrack/removeReceiptFile.
+      if (pendingDeletePaths.length > 0) {
+        const { error } = await supabase.storage.from('artist-files').remove(pendingDeletePaths)
+        if (error) console.error('Kunde inte radera fil(er) från storage:', error)
+        setPendingDeletePaths([])
+      }
+
+      setIsDirty(false)
       toast.success(t('Informationen har sparats!', 'Information saved successfully!'))
       if (onSaveSuccess) onSaveSuccess()
     } catch (err) {
@@ -530,11 +617,11 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 />
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 pt-1">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <label
                     htmlFor="temp-audio-up"
-                    className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5"
+                    className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5 shrink-0"
                   >
                     {uploadingAudio ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -553,21 +640,55 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                     onChange={handleTempAudioUpload}
                   />
                   {newTrackFile && (
-                    <span className="text-xs text-accent truncate max-w-[200px]">
+                    <span className="text-xs text-accent truncate min-w-0">
                       ✓ {newTrackFile.name}
                     </span>
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleAddTrack}
-                  className="btn-gold text-xs py-1.5 px-4 flex items-center gap-1.5 ml-auto"
-                >
-                  <Plus size={14} />
-                  {t('Lägg till låt i akten', 'Add song to act')}
-                </button>
+                {(() => {
+                  const canAddTrack = Boolean(newTrackTitle.trim() && newTrackArtist.trim())
+                  return (
+                    <button
+                      type="button"
+                      onClick={handleAddTrack}
+                      disabled={!canAddTrack}
+                      className={`text-xs py-1.5 px-4 flex items-center gap-1.5 shrink-0 rounded-lg ${
+                        canAddTrack ? 'btn-gold btn-gold-glow-active' : 'btn-gold-inactive'
+                      }`}
+                    >
+                      <Plus size={14} />
+                      {t('Lägg till låt i akten', 'Add song to act')}
+                    </button>
+                  )
+                })()}
               </div>
+
+              {(() => {
+                const hasTitle = Boolean(newTrackTitle.trim())
+                const hasArtist = Boolean(newTrackArtist.trim())
+                if (hasTitle && hasArtist) {
+                  return (
+                    <p className="text-[11px] text-accent/90 italic">
+                      {t(
+                        'Klart? Glöm inte att trycka "Lägg till låt i akten" — annars sparas den inte.',
+                        'Ready? Don\'t forget to press "Add song to act" — otherwise it won\'t be saved.'
+                      )}
+                    </p>
+                  )
+                }
+                if (hasTitle || hasArtist || newTrackFile) {
+                  return (
+                    <p className="text-[11px] text-foreground/60 italic">
+                      {t(
+                        'Låttitel och artist krävs för att kunna lägga till låten.',
+                        'Track title and artist are both required to add the song.'
+                      )}
+                    </p>
+                  )
+                }
+                return null
+              })()}
             </div>
 
             {/* Lista över sparade låtar */}
@@ -823,16 +944,37 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           )}
         </div>
 
-        {/* KNAPP FÖR ATT SPARA HETEN */}
-        <div className="flex justify-end pt-4">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="btn-gold flex items-center gap-2 py-3 px-6 text-sm font-semibold"
+        {/* SPARA-FÄLT — fast position längst ner i skärmen medan man scrollar genom
+            formuläret; landar i sitt normala flödesläge så fort formulärets sanna slut
+            (markerat av formEndRef) syns, så den aldrig hamnar ovanpå sidfoten. */}
+        <div ref={formEndRef}>
+          {!reachedFormEnd && <div style={{ height: saveBarHeight }} />}
+          <div
+            ref={saveBarRef}
+            className={
+              reachedFormEnd
+                ? 'z-40 border-t border-accent/30 bg-background/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.35)]'
+                : 'fixed bottom-0 left-0 right-0 z-40 border-t border-accent/30 bg-background/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.35)]'
+            }
           >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={16} />}
-            {t('Spara information', 'Save Information')}
-          </button>
+            <div className="max-w-2xl mx-auto flex items-center justify-end gap-3">
+              {isDirty && !submitting && (
+                <span className="text-xs text-accent/90 italic mr-auto">
+                  {t('Osparade ändringar', 'Unsaved changes')}
+                </span>
+              )}
+              <button
+                type="submit"
+                disabled={submitting || !isDirty}
+                className={`flex items-center gap-2 py-3 px-6 text-sm font-semibold rounded-lg ${
+                  isDirty ? 'btn-gold btn-gold-glow-active' : 'btn-gold-inactive'
+                }`}
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={16} />}
+                {t('Spara information', 'Save Information')}
+              </button>
+            </div>
+          </div>
         </div>
       </form>
     </div>
