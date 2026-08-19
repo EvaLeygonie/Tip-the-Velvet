@@ -237,7 +237,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       })
       toast.success(
         t(
-          'Ljudfil bifogad! Glöm inte att trycka "Lägg till låt i akten".',
+          'Ljudfil bifogad! Glöm inte att klicka "Lägg till låt i akten".',
           'Audio file attached! Don\'t forget to press "Add song to act".'
         ),
         { duration: 7000 }
@@ -255,8 +255,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     if (!newTrackTitle.trim() || !newTrackArtist.trim()) {
       toast.error(
         t(
-          'Ange både låttitel och artist för att lägga till låten.',
-          'Please enter both a track title and artist to add the song.'
+          'Ange både låttitel och artist för att lägga till låten. Ladda upp fil vid behov.',
+          'Please enter both a track title and artist to add the song. Upload a file if needed.'
         )
       )
       return

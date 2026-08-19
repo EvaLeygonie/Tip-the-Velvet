@@ -511,8 +511,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           </span>
           <span className="text-sm text-foreground/90 italic font-medium">
             {t(
-              'Vår standardersättning är 1000kr per akt/artist.',
-              'Our standard compensation is 1000kr per act/performer.'
+              'Vår standardersättning är 1000kr per akt.',
+              'Our standard compensation is 1000kr per act.'
             )}
           </span>
         </div>
@@ -521,7 +521,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           <div className="flex flex-col">
             <label className="form-label-block flex items-center gap-1 mb-1.5">
               <DollarSign className="h-3.5 w-3.5 text-gold" />
-              {t('Önskat gage (SEK) *', 'Requested fee (SEK) *')}
+              {t('Önskat gage per akt (SEK) *', 'Requested fee per act (SEK) *')}
             </label>
             <input
               type="number"
