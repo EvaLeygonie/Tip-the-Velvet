@@ -297,27 +297,65 @@ live test just needs the toggle flipped back on temporarily in the admin Event E
 Expanded 2026-08-19 with a dashboard-detail requirement (see below) — this changes the
 `is_selected` default from what Phase 6 originally said, see the note in Phase 6.
 
-- [ ] `AdminCasting.tsx`: mostly unaffected structurally — it already renders one row per
-      `casting_applications` row, and that row now naturally represents "one artist,
-      possibly several acts" without needing new grouping logic.
-- [ ] **Yes-section header, expanded to 3 numbers**: artist count (row count, already
-      exists) · **chosen-act count (new — `sum(is_selected) across every act in every
-      "yes" application)`** · total expected price (`totalBudget`, already exists, still
-      correct since `proposed_fee` already holds the bundled total). Point of this: "do we
-      have enough acts lined up for the show," which the artist count alone can't answer
-      once one artist can carry 2+ acts.
-- [ ] **Maybe-section header, mirrored but lighter**: artist count + chosen/waitlisted-act
-      count. No price — nothing's been formally offered at `maybe`.
-- [ ] **Per-row act counter**, format `chosen/total` (e.g. Florence submitted 2 acts, 1
-      is wanted → `1/2`). Shown on rows in the **yes** and **maybe** sections (selection
-      is meaningful in both, see Phase 6). An application nobody has acted on yet reads
-      `0/x` — not `x/x` — so the counter only climbs as a deliberate admin choice, never
-      starts pre-filled (this is the source of the Phase 6 default change below).
-      `pending`/`no` rows can still show the plain submitted-act count for at-a-glance
-      info (`x acts`), just without the "chosen/" framing, since selection isn't
-      actionable there yet.
-- [ ] `CastingApplicationRow.tsx`: add tabs (or an accordion) for act description/video
-      when `acts.length > 1`. Show all act titles in the collapsed header, not just one.
+- [x] `AdminCasting.tsx`: mostly unaffected structurally, confirmed true — it already
+      renders one row per `casting_applications` row, and that row now naturally
+      represents "one artist, possibly several acts" without needing new grouping logic.
+      Data plumbing done 2026-08-21: `applications` state and `renderAppSection`'s
+      `appsList` param retyped from `CastingApplication[]` to the new
+      `CastingApplicationWithActs[]` (moved into `types.ts` from `applicationService.ts`
+      for consistency with where the other shared domain types live) so the joined act
+      data flows down to the row component.
+- [x] **Section headers, done and broadened 2026-08-21** — originally planned as
+      yes-3-numbers + lighter-maybe-2-numbers; the user asked for it on *every* section
+      while testing, so all four now show an acts count next to the artist-count badge.
+      Yes/maybe show the **chosen** count (`sum(is_selected)` — "do we have enough lined
+      up for the show" / "how many are on the waiting list"); pending/no show the
+      **total submitted** count instead, since selection isn't a meaningful concept for
+      those yet. Yes-section keeps its existing price total alongside.
+- [x] **Per-row act counter, done 2026-08-21** — format `chosen/total` on yes/maybe rows
+      (e.g. Florence: `1/2`), plain total-only on pending/no rows (no "chosen/" framing,
+      matches the section-header logic above). Ended up sharing a column with a design
+      change made in the same pass: merged the language column into Location as a
+      `(SV)`/`(EN)` suffix, freeing a full column (with its own label) for this counter
+      rather than squeezing both into an abbreviated sliver — cleaner than either of the
+      two options floated, since it reuses the existing label+value column pattern
+      exactly rather than inventing an oddly narrow one.
+- [x] **Page-level total, added 2026-08-22 (not originally planned)** — a small centered
+      summary under the event picker: total artists (applications) and total acts
+      submitted for the currently selected event, across every status bucket. Point of it
+      per the user: comparing events against each other over time, once there's more than
+      one event's worth of history to compare.
+- [x] **Expanded-row act tabs, done 2026-08-22** — `CastingApplicationRow.tsx`'s act
+      description block now shows a tab per act (only rendered when `acts.length > 1`),
+      each labeled with its title and a `✓` if `is_selected`. Opens on the same act the
+      collapsed row's title/badge already pointed at (shares the `primaryAct` logic from
+      the title work above), so expanding a row doesn't jump to a different act than what
+      was just visible. The video link moved out of the left column's generic "Media &
+      Links" list — it's act-specific now, so it lives next to the active tab's
+      description instead, using whichever act is currently selected (falls back to the
+      legacy `application.video_url`/`act_description` if `acts` is empty, for safety
+      against any row that somehow predates the Phase 1 backfill).
+- [x] **Refined 2026-08-22**: video link repositioned onto the same row as the act tabs
+      (flush right), icon-only below the `sm` breakpoint so it doesn't crowd out the tabs
+      when there are several acts — only renders at all when the active act actually has
+      a video. **Also added the missing piece the user caught was missing**: each tab now
+      has a real checkbox toggling `casting_application_acts.is_selected` (via a new
+      `updateActSelection` in `applicationService.ts` — plain `.update()`, no RPC needed,
+      per Phase 2's note that `authenticated` already has full RLS access), wired through
+      `AdminCasting.tsx`'s `handleToggleActSelected` with the same optimistic-update/
+      rollback-on-error pattern as `handleStatusChange`. This is genuinely the core
+      select/deselect mechanism Phase 6 needs — that phase now only has to add the fee
+      math and email-template work on top of a toggle that already exists and persists.
+- [x] **Collapsed-row title, done and refined 2026-08-21** — superseded what this bullet
+      used to say ("show all act titles"), talked through with the user and landed on
+      something better: one act → show it, unchanged. Several acts → show the first
+      *selected* act's title (falls back to first-submitted if nothing's selected yet),
+      plus a small neutral `+N` pill next to it (not competing with the gold italic
+      styling) hinting there's more without literally listing every title. Deliberately
+      not "whichever tab is currently open" — a collapsed row's title needs to stay
+      stable for visual scanning, not shift based on incidental clicks. Complements
+      rather than duplicates the `chosen/total` counter above — the pill answers "is
+      there more here," the counter answers "how many have we actually chosen."
 
 ### Phase 6 — Offer terms & logistics panel
 

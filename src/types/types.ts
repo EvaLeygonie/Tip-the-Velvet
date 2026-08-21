@@ -14,6 +14,9 @@ export type Performer = Tables<'performers'>
 export type PublicPerformer = Views<'public_performers'>
 export type CastingApplication = Tables<'casting_applications'>
 export type CastingApplicationAct = Tables<'casting_application_acts'>
+export type CastingApplicationWithActs = CastingApplication & {
+  casting_application_acts: CastingApplicationAct[]
+}
 export type StaffVolunteers = Tables<'staff_volunteers'>
 export type Sponsors = Tables<'sponsors'>
 

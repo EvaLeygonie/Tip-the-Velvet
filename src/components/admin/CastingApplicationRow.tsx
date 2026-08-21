@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import type { CastingApplication } from '@/types/types'
+import type { CastingApplication, CastingApplicationWithActs } from '@/types/types'
 import { getImageSrc, formatDate } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
 import {
@@ -20,7 +20,7 @@ import {
 import { toast } from 'sonner'
 
 interface CastingApplicationRowProps {
-  application: CastingApplication
+  application: CastingApplicationWithActs
   onStatusChange: (id: string, newStatus: CastingApplication['review_status']) => Promise<void>
   onSaveNotes: (id: string, notes: string) => Promise<void>
   onUpdateLogistics: (
@@ -32,6 +32,7 @@ interface CastingApplicationRowProps {
     travelCostAmount?: number,
     needsAccommodation?: boolean
   ) => Promise<void>
+  onToggleActSelected: (applicationId: string, actId: string, isSelected: boolean) => Promise<void>
 }
 
 const Instagram = ({ size = 20 }: { size?: number }) => (
@@ -57,6 +58,7 @@ export const CastingApplicationRow = ({
   onStatusChange,
   onSaveNotes,
   onUpdateLogistics,
+  onToggleActSelected,
 }: CastingApplicationRowProps) => {
   const { language, t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -84,6 +86,33 @@ export const CastingApplicationRow = ({
   )
 
   const isSv = application.language === 'sv'
+
+  // Collapsed-row title: with one act, just show it. With several, prefer the first
+  // SELECTED act's title (a stable, meaningful signal once the admin's started deciding —
+  // matches Phase 6's is_selected also doubling as a "waitlist interest" marker on maybe
+  // rows, not just yes), falling back to the first submitted act if nothing's selected
+  // yet. Deliberately not "whichever tab is currently open" — that would make a row's
+  // title change based on incidental clicks, breaking the visual-scan stability a
+  // collapsed list depends on.
+  const acts = application.casting_application_acts ?? []
+  const primaryAct = acts.find((act) => act.is_selected) ?? acts[0]
+  const displayActTitle = primaryAct?.act_title || application.act_title
+  const extraActCount = acts.length > 1 ? acts.length - 1 : 0
+
+  // Which act's description/video the expanded row currently shows. Starts on the same
+  // act the collapsed row's title already pointed at, so opening the row doesn't jump to
+  // a different act than what was just being looked at.
+  const [activeActIndex, setActiveActIndex] = useState(() => {
+    const primaryIndex = acts.findIndex((act) => act.id === primaryAct?.id)
+    return primaryIndex >= 0 ? primaryIndex : 0
+  })
+  const activeAct = acts[activeActIndex] ?? acts[0]
+
+  // Selection is only a meaningful concept once there's a decision to make (yes/maybe) —
+  // for pending/no rows just show how many acts were submitted, no "chosen/" framing.
+  const chosenActsCount = acts.filter((act) => act.is_selected).length
+  const showChosenFraction =
+    application.review_status === 'yes' || application.review_status === 'maybe'
 
   const isRejectedAndSent = application.review_status === 'no' && application.initial_reply_sent
   const isAwaitingConfirmation =
@@ -191,6 +220,15 @@ export const CastingApplicationRow = ({
       console.error(err)
     } finally {
       setSavingNotes(false)
+    }
+  }
+
+  const handleActCheckboxChange = async (actId: string, checked: boolean) => {
+    try {
+      await onToggleActSelected(application.id, actId, checked)
+    } catch (err) {
+      toast.error(t('Kunde inte uppdatera akt-val.', 'Could not update act selection.'))
+      console.error(err)
     }
   }
 
@@ -322,26 +360,37 @@ export const CastingApplicationRow = ({
               <div className="font-decorative text-base text-foreground tracking-wide truncate">
                 {application.performer_name}
               </div>
-              <div className="text-accent italic text-xs font-heading truncate">
-                {application.act_title}
+              <div className="text-accent italic text-xs font-heading flex items-center gap-1.5 min-w-0">
+                <span className="truncate min-w-0">{displayActTitle}</span>
+                {extraActCount > 0 && (
+                  <span
+                    className="shrink-0 not-italic font-body font-semibold text-[10px] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full"
+                    title={t(`+${extraActCount} till akt(er)`, `+${extraActCount} more act(s)`)}
+                  >
+                    +{extraActCount}
+                  </span>
+                )}
               </div>
             </div>
-          </div>
-
-          <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body truncate">
-            <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
-              {t('Språk', 'Language')}
-            </span>
-            <span className="truncate block">
-              {application.language === 'sv' ? t('Svenska', 'Swedish') : t('Engelska', 'English')}
-            </span>
           </div>
 
           <div className="col-span-4 md:col-span-3 text-sm text-foreground/60 font-body truncate">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
               {t('Plats', 'Location')}
             </span>
-            <span className="truncate block">{application.city || '—'}</span>
+            <span className="truncate block">
+              {application.city || '—'}{' '}
+              <span className="text-accent/50 text-xs">({isSv ? 'SV' : 'EN'})</span>
+            </span>
+          </div>
+
+          <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body truncate">
+            <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
+              {t('Akter', 'Acts')}
+            </span>
+            <span className="truncate block">
+              {showChosenFraction ? `${chosenActsCount}/${acts.length}` : acts.length}
+            </span>
           </div>
 
           <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body">
@@ -464,9 +513,12 @@ export const CastingApplicationRow = ({
                     <Instagram /> <span>Instagram</span>
                   </a>
                 )}
-                {application.video_url && (
+                {/* Only one act — video is unambiguous and can sit with the other static
+                    links, same as before tabs existed. With several acts, the video is
+                    act-specific and lives next to the active tab instead (below). */}
+                {acts.length <= 1 && (activeAct?.video_url ?? application.video_url) && (
                   <a
-                    href={application.video_url}
+                    href={activeAct?.video_url ?? application.video_url ?? ''}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 text-accent hover:underline"
@@ -663,11 +715,52 @@ export const CastingApplicationRow = ({
               </div>
 
               <div>
+                {acts.length > 1 && (
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {acts.map((act, index) => (
+                        <div
+                          key={act.id}
+                          onClick={() => setActiveActIndex(index)}
+                          className={`flex items-center gap-1.5 text-xs pl-1.5 pr-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
+                            index === activeActIndex
+                              ? 'bg-accent/20 border-accent text-accent font-semibold'
+                              : 'bg-black/30 border-accent/20 text-foreground/70 hover:border-accent/50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={act.is_selected}
+                            onChange={(e) => handleActCheckboxChange(act.id, e.target.checked)}
+                            onClick={(e) => e.stopPropagation()}
+                            title={t('Välj akt för erbjudande', 'Select act for the offer')}
+                            className="accent-accent cursor-pointer"
+                          />
+                          <span>{act.act_title || t('Namnlös akt', 'Untitled act')}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {(activeAct?.video_url ?? application.video_url) && (
+                      <a
+                        href={activeAct?.video_url ?? application.video_url ?? ''}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 flex items-center gap-1.5 text-accent hover:underline text-xs"
+                        title={t('Kolla video', 'Watch Video')}
+                      >
+                        <Video className="h-4 w-4 shrink-0" />
+                        <span className="hidden sm:inline">{t('Kolla video', 'Watch Video')}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-1">
                   {t('Aktbeskrivning', 'Act Description')}
                 </span>
                 <p className="text-sm text-foreground/80 whitespace-pre-wrap font-body leading-relaxed bg-black/30 p-3 rounded border border-accent/5">
-                  {application.act_description || (
+                  {(activeAct?.act_description ?? application.act_description) || (
                     <i>{t('Ingen beskrivning angiven.', 'No description provided.')}</i>
                   )}
                 </p>

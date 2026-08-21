@@ -4,7 +4,7 @@ import type { Json } from '@/types/database.types'
 import type {
   Event,
   CastingApplication,
-  CastingApplicationAct,
+  CastingApplicationWithActs,
   CreateCastingApplicationInput,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
@@ -21,10 +21,6 @@ export const getEventWithCasting = async (): Promise<Event[]> => {
 
   if (error) throw error
   return data || []
-}
-
-export type CastingApplicationWithActs = CastingApplication & {
-  casting_application_acts: CastingApplicationAct[]
 }
 
 export const getApplicationsFromEvent = async (
@@ -108,6 +104,17 @@ export const sendApplicationConfirmationEmail = async (
 }
 
 //=== UPDATE ===///
+
+// No token RPC needed here — the admin is already behind Supabase Auth, and
+// `authenticated` already has full ALL access to casting_application_acts (Phase 1 RLS).
+export const updateActSelection = async (actId: string, isSelected: boolean): Promise<void> => {
+  const { error } = await supabase
+    .from('casting_application_acts')
+    .update({ is_selected: isSelected })
+    .eq('id', actId)
+
+  if (error) throw error
+}
 
 export const updateApplicationStatus = async (
   id: string,
