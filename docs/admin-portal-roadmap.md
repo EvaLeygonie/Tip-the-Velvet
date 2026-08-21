@@ -165,9 +165,17 @@ actually what's needed:
 ### Show ordering, prep/cleanup/music/notes per act — mostly already covered
 Good news here too: `performer_acts` already collects `stage_preparations`,
 `pick_up_cleaning`, `act_notes`, and `audio_files` — all via the artist's own
-`BookedArtistForm`, already part of the multi-act plan. `event_performers.display_order`
-already exists for ordering. This piece of Event Planning is mostly a new **admin-facing
-read/reorder UI** on data that's already being collected, not new schema.
+`BookedArtistForm`, already part of the multi-act plan. This piece of Event Planning is
+mostly a new **admin-facing read/reorder UI** on data that's already being collected, not
+new schema.
+
+**Correction (2026-08-21)**: this used to say `event_performers.display_order` already
+covers ordering — that's true for *performer*-level lineup order, but not for the actual
+show running order once one performer can have multiple acts (acts from different
+performers typically interleave, they don't group by performer). `performer_acts` gained
+its own `display_order` instead (added alongside `multi-act-casting-plan.md`'s Phase 1,
+see that doc for the reasoning) — that's the column this admin view should actually read
+and let the board rearrange, not `event_performers.display_order`.
 
 ### Full evening schedule / setlist
 The most open-ended piece — doors time, intermission, host segments, sponsor shoutouts,

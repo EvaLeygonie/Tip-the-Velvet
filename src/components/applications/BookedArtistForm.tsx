@@ -856,10 +856,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             <div className="form-field border-t border-border/40 pt-4 space-y-3">
               <div className="form-field">
                 <label className="form-label-block text-xs">
-                  {t(
-                    'Total reseräkning (uppdatera vid behov)',
-                    'Total Travel Reimbursement (Adjust if needed)'
-                  )}
+                  {t('Slutliga reseräkning', 'Final Travel Reimbursement')}
                 </label>
                 <input
                   type="number"

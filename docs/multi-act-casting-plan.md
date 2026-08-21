@@ -4,12 +4,40 @@ Drafted 2026-08-18. Not started yet — this is the plan to work through phase b
 Check items off as we go; leave notes inline (like `docs/audit-findings.md` does) when a
 step turns out different than planned.
 
-**Implementation note (added 2026-08-19):** schema/RPC changes (new tables, columns,
-constraints, function bodies — mainly Phases 1 and 2) will be delivered here as exact,
-ready-to-paste SQL for the user to run through their Lovable prototype, which is
-connected to the same live database, rather than executed directly during this planning
-work. Application-layer code (React/TS) still gets written and edited directly as usual —
-this only applies to raw schema/DDL/RPC changes.
+**Implementation note (added 2026-08-19, refined 2026-08-21):** schema/RPC changes (new
+tables, columns, constraints, function bodies — mainly Phases 1 and 2) are delivered here
+as exact SQL rather than run directly, since Claude Code's DB access is genuinely
+read-only (verified, not just self-imposed — see chat history 2026-08-19). Application-
+layer code (React/TS) still gets written and edited directly as usual — this only applies
+to raw schema/DDL/RPC/data-migration work.
+
+Split by whether real judgment is involved, not just DDL-vs-data: plain DDL (create table,
+add column, RLS policies) *and* fully deterministic data operations (a plain
+`INSERT ... SELECT` with no ambiguity, already verified safe against the live data) both
+go to the user to paste directly into Supabase's own SQL editor. Lovable — also connected
+to the same live database — is reserved for migration steps that genuinely need judgment
+mid-process (e.g. the Eden/Florence consolidation in Phase 1 below: deciding what survives
+when merging specific rows). Learned why the hard way on 2026-08-21: handed the Phase 1
+backfill to Lovable as a "data migration," it regenerated its own version of the SQL
+instead of running the exact script given, and reconstructed a stale reference
+(`display_order`) to a column that had already been removed from the corrected schema
+sketch. For anything fully deterministic, direct execution is more predictable than
+relaying through a second model that restates rather than runs the instructions verbatim.
+
+**Deployment-safety note (added 2026-08-19):** the database is shared with the live
+production site — there's no separate dev/staging DB, so every schema change lands in
+prod immediately. The frontend, however, only redeploys when a feature is actually
+complete (Netlify free tier — limited deploy budget, currently ~1/day until the next
+billing cycle in 8 days). That gap matters: **additive changes (new tables, new nullable
+columns) are safe any time**, since currently-deployed code simply doesn't know they
+exist. **Destructive changes (dropping/renaming columns, tightening constraints on
+existing data) must wait until after the frontend code that stops depending on the old
+shape has actually been deployed** — doing it earlier would break the live site instantly,
+including for the casting/booking portal, which real artists may be using at any moment
+(unlike the public casting form, which is currently closed to new submissions, so that
+specific write path is lower-risk to change right now). Every phase below should be read
+with this in mind — "done in the database" and "safe to build on in the frontend" are not
+the same milestone as "safe to remove the old path."
 
 ## Problem
 
@@ -66,6 +94,24 @@ and the two RPCs that assume that shape (`get_casting_application_by_token`,
 
 ## Proposed data model
 
+**On `display_order` (corrected 2026-08-21)**: originally put on this new table, moved to
+`performer_acts` instead after thinking it through with the user. The two tables mean
+genuinely different things — `casting_application_acts` is a submission record (every act
+anyone proposed, most never booked); `performer_acts` is the operational record (only
+confirmed acts, already carrying the music/prep/notes that make a show run). Show order
+belongs with the second group, for the same reason those other fields do: it isn't
+meaningful — might not even be final — until an act is actually confirmed, and
+`is_selected` here is set during offer negotiation, before the artist has even accepted.
+Also worth naming: this isn't redundant with the already-existing `event_performers.
+display_order`, which is *performer*-level lineup order — once one performer can have
+multiple acts, that's a different axis from the actual show running order, since acts
+from different performers typically interleave rather than group by performer.
+Consequence for the Event Planning admin view (`admin-portal-roadmap.md`): once an act is
+confirmed, everything it needs — name, description, video, music, prep notes, and now
+running order — lives on `performer_acts` alone. No join back to
+`casting_application_acts` needed for show-planning purposes at all; that table's job ends
+once `performer_act_id` is set.
+
 New child table:
 
 ```sql
@@ -75,7 +121,6 @@ create table casting_application_acts (
   act_title text not null,
   act_description text not null,
   video_url text,
-  display_order int not null default 0,
   is_selected boolean not null default false,  -- checked = included in the booking offer
   performer_act_id uuid references performer_acts(id),  -- set on confirm; links to the resulting booked act
   created_at timestamptz not null default now()
@@ -94,68 +139,158 @@ agreed_to_terms, requested_fee, proposed_fee, needs_travel_costs, needs_accommod
 travel_cost_amount, accommodation_notes, review_status, booking_status, access_token,
 initial_reply_sent, admin_notes, performer_id, slug.
 
-**Unique constraint**: today's `unique_artist_act_per_event` is `(email, event_id, slug)`
-— it allows multiple applications specifically *because* the slug embeds the act name.
-Once one application can hold every act, this should become `(email, event_id)` — one
-open application per artist per event. **Before applying this**, the two existing
-duplicate-application artists above need their rows manually merged (their extra acts
-copied into `casting_application_acts` under one surviving application, the duplicate
-application rows deleted) — do this as a one-time step in Phase 1, not something the
-schema migration can do automatically.
+**Unique constraint — done and verified 2026-08-21.** Final shape
+`(event_id, email, performer_name)`, not `(email, event_id)` as originally planned.
+History: originally `(email, event_id,
+slug)`, allowing multiple applications only because the slug embedded the act name. First
+correction (2026-08-19) was going to tighten it to `(email, event_id)` — one application
+per artist per event — deferred at the time because Florence Shimmermore's second
+application was intentionally on hold (see below). **Second correction (2026-08-21,
+the user's call)**: `(email, event_id)` alone is wrong — the same person can legitimately
+run two distinct performer identities at once (a solo act and a separate dance-group act,
+same email, different `performer_name`), and locking on email alone would have blocked
+that real case. Landed on `(event_id, email, performer_name)` instead, which also happens
+to match how `confirm_and_migrate_artist` already matches an existing performer — by
+`(email, performer_name)`, not email alone — so this isn't a new identity rule, just
+making `casting_applications` consistent with a rule the system already had.
+
+**Both Florence's and Eden's duplicate applications are confirmed consolidated** —
+verified by direct query after the SQL was run: Eden is down to exactly one application
+row, the `unique_artist_per_event` constraint exists with the exact intended definition,
+and a full-table scan for `(event_id, email, performer_name)` duplicates returns zero
+rows. One real correction made while preparing this: the plan was initially to just
+*invalidate* merged/duplicate rows (token nulled, audit note added) rather than delete
+them, on the assumption that was more cautious — that turned out to be wrong, since it
+would leave the row physically existing and still colliding on
+`(event_id, email, performer_name)`, permanently blocking the very constraint it was
+meant to make room for. Confirmed nothing else references `casting_applications` via
+foreign key, so the plan changed to actually deleting merged rows once their content was
+safely re-parented (acts moved to `casting_application_acts` under the surviving
+application) and the merge history recorded in the survivor's `admin_notes` — audit
+trail preserved without the row itself sticking around to block the constraint.
 
 ## Phased plan
 
 ### Phase 1 — Schema
-- [ ] Manually consolidate the 2 existing duplicate-application artists (3 apps → 1, 2
-      apps → 1) before adding the constraint.
-- [ ] Create `casting_application_acts` (SQL above).
-- [ ] Backfill: one row per existing `casting_applications` row, copying
-      `act_title`/`act_description`/`video_url`, `display_order = 0`, `is_selected = true`
-      if `booking_status IN ('pending_confirmation','confirmed')` else `false`.
-- [ ] For already-`confirmed` applications, backfill `performer_act_id` by matching the
-      existing `casting_applications.act_id`.
-- [ ] Drop `act_title`, `act_description`, `video_url`, `act_id` from `casting_applications`
-      (only after all code in later phases stops reading them).
-- [ ] Change unique constraint to `(email, event_id)`.
-- [ ] Regenerate `database.types.ts`.
+
+**SQL drafted 2026-08-19, corrected 2026-08-21 before being run** — the first draft put
+`display_order` on `casting_application_acts`; caught (by the user) that it belongs on
+`performer_acts` instead before any of this was actually executed, so no migration/cleanup
+needed, just a corrected version of the same DDL (see "On `display_order`" note above).
+RLS mirrors `casting_applications`' own existing policies exactly (checked live via
+`pg_policies` rather than guessed): `authenticated` gets full `ALL` access,
+`anon`+`authenticated` get `INSERT` only (dormant until Phase 4's public form actually
+uses it — safe to declare now regardless). Verified beforehand that no existing row has a
+blank `act_title`/`act_description`, so the table's `NOT NULL` constraints won't choke on
+legacy data once the backfill runs.
+
+- [x] Create `casting_application_acts` (corrected SQL, RLS included) — run 2026-08-21.
+- [x] Add `performer_acts.display_order int not null default 0`.
+- [x] Backfill `casting_application_acts` — one row per existing `casting_applications`
+      row at the time, `is_selected` set from `booking_status`, `performer_act_id`
+      backfilled for already-confirmed rows.
+- [x] Florence's 2 applications consolidated by hand, confirmed via direct query.
+- [x] Eden's 3 applications consolidated the same way (merged duplicates deleted once
+      re-parented), then unique constraint changed to `(event_id, email, performer_name)`
+      — not `(email, event_id)` as first planned. Run and verified 2026-08-21: Eden down
+      to exactly one application row, constraint confirmed live with the exact intended
+      definition, zero remaining duplicates anywhere in the table.
+- [ ] **Still deferred until the frontend phases (4-9) are built *and deployed*** (deployment-
+      safety note above): drop `act_title`, `act_description`, `video_url`, `act_id` from
+      `casting_applications` — the currently-deployed `CastingForm`/`AdminCasting`/
+      `BookingDecisionCard`/`BookedArtistForm` all still read/write these columns directly
+      today; dropping them now would break the live site immediately, not just once we
+      redeploy.
+- [x] Regenerate `database.types.ts` — done 2026-08-21.
+
+**Phase 1 is complete and verified.** Next up: Phase 2 (RPCs).
 
 ### Phase 2 — RPCs
-- [ ] New RPC to replace the plain insert in `submitCastingApplication` — needs to insert
-      one `casting_applications` row + N `casting_application_acts` rows atomically (a
-      client-side two-step insert risks an application with zero acts if the second call
-      fails).
-- [ ] `get_casting_application_by_token`: return `acts` as a JSON array (join
-      `casting_application_acts`), each with its nested `performer_acts` row once
-      confirmed (for `BookedArtistForm`), instead of the current singular
-      `performer_acts` object.
-- [ ] `confirm_and_migrate_artist`: loop over `casting_application_acts WHERE
-      is_selected = true`, insert one `performer_acts` row per act (instead of always
-      exactly one), set each `performer_act_id` back on the act row. `performers` upsert
-      and `event_performers` upsert stay single-row, unchanged shape.
-- [ ] `update_performer_act_via_token`: authorization currently checks
-      `casting_applications.act_id = p_act_id`. Since `act_id` goes away, re-check
-      authorization via `performer_acts.performer_id = casting_applications.performer_id
-      AND performer_acts.event_id = casting_applications.event_id AND
-      casting_applications.access_token = p_access_token` instead.
-- [ ] New admin-side function (plain authenticated update, no token RPC needed — admin is
-      already behind Supabase Auth): toggle `casting_application_acts.is_selected`.
+
+**Done and verified 2026-08-21.** Deployed as `CREATE OR REPLACE` against the exact
+existing signatures for the three modified functions, so no TypeScript-side changes were
+needed to apply this — the currently-deployed frontend didn't notice anything changed.
+
+Real gap caught and fixed before handing the SQL over, worth remembering for later
+phases: RPC/DB changes go live in prod *immediately*, but the frontend that would consume
+a new response shape doesn't deploy until its own phase ships. `get_casting_application_by_token`
+and `confirm_and_migrate_artist` both had to stay backward-compatible — keep emitting the
+old singular `performer_acts` key / `act_id` column exactly as before, *and* add the new
+multi-act capability alongside it, not replace it outright. `confirm_and_migrate_artist`
+additionally falls back to the old single-act path for any application with zero
+`casting_application_acts` rows (protects against the casting call reopening before
+Phase 4 ships the new public form and someone tries to confirm a pre-Phase-4 submission).
+
+Verified afterward: pulled all 4 function bodies back from `pg_proc` and confirmed each
+matches exactly what was written. Test-called `get_casting_application_by_token` against
+Florence's real application (safe — pure read despite being `SECURITY DEFINER`) and
+confirmed both the old singular `performer_acts` key *and* the new `acts` array resolve
+correctly — Lightbringer's music/prep data present, Lure's correctly still empty.
+`confirm_and_migrate_artist` wasn't test-invoked the same way since it writes; verified by
+code review only, to be confirmed live the next time an application is actually confirmed.
+
+- [x] New RPC `submit_casting_application(p_application jsonb, p_acts jsonb)` — inserts
+      one `casting_applications` row + N `casting_application_acts` rows atomically.
+      Uncalled by anything yet (Phase 4 wires it up), zero risk to what's live.
+- [x] `get_casting_application_by_token`: adds `acts` as a JSON array (each with its
+      nested `performer_acts` once confirmed), keeps the old singular `performer_acts`
+      key for backward compatibility.
+- [x] `confirm_and_migrate_artist`: loops over `casting_application_acts WHERE
+      is_selected = true`, inserts one `performer_acts` row per act with an
+      auto-assigned `display_order` (append-to-end per event, mirroring how
+      `event_performers.display_order` was already auto-assigned). Falls back to the
+      legacy single-act path when an application has no act rows at all yet.
+- [x] `update_performer_act_via_token`: authorization broadened from "must match this
+      application's single legacy `act_id`" to "this act belongs to the performer+event
+      this application's token is scoped to" — strictly more permissive, nothing that
+      worked before stopped working.
+- [x] Admin-side toggle for `is_selected` needs no new RPC — `authenticated` already has
+      full `ALL` access via Phase 1's RLS policy, so it's a plain `.update()` call,
+      deferred to Phase 3/6's TS work.
 
 ### Phase 3 — Types & services
-- [ ] Add `CastingApplicationAct` type (`Tables<'casting_application_acts'>`) to
-      `src/types/types.ts`.
-- [ ] Update `CreateCastingApplicationInput` shape — now `{ application: ..., acts: [...] }`
-      rather than one flat row.
-- [ ] `applicationService.ts`: rewrite `submitCastingApplication`,
-      `getApplicationsFromEvent` (now needs to also fetch each application's acts —
-      probably a join), `confirmAndMigrateArtist`, `updatePerformerAct` call sites.
+**Done 2026-08-21.** `tsc -b` confirms it — after these changes, the only remaining type
+errors are all in `CastingForm.tsx` (Phase 4, not touched yet), and the RPC-name error
+from calling `submit_casting_application` before it existed in the generated types is
+gone. `confirmAndMigrateArtist` and `updatePerformerAct` needed no changes at all — both
+already just pass IDs/tokens straight through to RPCs whose *signatures* didn't change
+(only their internal SQL did, in Phase 2).
+
+- [x] Added `CastingApplicationAct` type (`Tables<'casting_application_acts'>`) to
+      `src/types/types.ts`, plus `CastingApplicationActInput` and a redefined
+      `CreateCastingApplicationInput` — now `{ application: {...}, acts: [...] }` rather
+      than one flat row, matching `submit_casting_application`'s two-jsonb-param shape.
+- [x] `applicationService.ts`: `submitCastingApplication` now calls the
+      `submit_casting_application` RPC instead of a plain insert, returns the new
+      application's id. `getApplicationsFromEvent` now joins `casting_application_acts(*)`
+      (new `CastingApplicationWithActs` type) — ready for Phase 5's tabs, structurally
+      compatible with existing `CastingApplication[]`-typed state so nothing downstream
+      broke. `confirmAndMigrateArtist`/`updatePerformerAct`: no changes needed.
 
 ### Phase 4 — Public casting form (`CastingForm.tsx`)
-- [ ] Replace the single act_title/act_description/video_url block with a repeatable list
-      of act blocks + an "Add another act" button (and a remove button per block, but
-      never allow removing the last one).
-- [ ] Reframe the fee field's label/helper text to make "this is per act" explicit, since
-      the form no longer visually ties one fee to one act.
-- [ ] Update the duplicate-submission error handling for the new constraint shape.
+
+**Done 2026-08-21.** `tsc -b` and `eslint` both clean. Not yet tested live in a browser —
+no browser tool available here; verified by type-check/lint only. `has_casting_call` was
+checked (2026-08-21, see chat) and confirmed purely cosmetic — it only filters the
+`/casting-call` listing page, nothing blocks a real submission for a "closed" event, so a
+live test just needs the toggle flipped back on temporarily in the admin Event Editor.
+
+- [x] Replaced the single act_title/act_description/video_url block with a repeatable
+      list of act blocks (bordered, numbered "Akt 1/2/..."), an "Add another act" button
+      (soft cap of 5, `MAX_ACTS`), and a remove button per block once there's more than
+      one act.
+- [x] ~~Reframe the fee field's label/helper text to make "this is per act" explicit~~ —
+      checked the actual form, already done: it already reads "Requested fee **per act**"
+      with "Our standard compensation is 1000kr **per act**" right above it. Nothing to
+      change here.
+- [x] Updated the duplicate-submission error handling for the new constraint —
+      `unique_artist_act_per_event` → `unique_artist_per_event` in the error-message match,
+      copy changed from "already applied for this act" to "already applied to this event"
+      to match the new one-application-per-artist-per-event meaning.
+- [x] Also updated (not originally listed, but required by the rewrite): the promo image's
+      Cloudinary tags/context and the application `slug` both used to embed the act name —
+      now keyed off the *first* act (image/tags) or dropped entirely (slug is now just
+      `event-artist`, no act suffix, since one application no longer maps to one act).
 
 ### Phase 5 — Admin casting review page
 
@@ -225,6 +360,18 @@ Two things changed that:
       `performer_acts` row per selected act and exactly one `event_performers` row.
 
 ### Phase 9 — Booked artist form
+
+**Architecture principle, confirmed explicitly 2026-08-21** (the user asked, worth stating
+outright rather than leaving implicit): once `performer_act_id` is set on a
+`casting_application_acts` row, that row is frozen — a record of what was originally
+submitted/offered. All further editing happens only on `performer_acts` (and
+`performers`/`event_performers` for the shared fields), never written back to
+`casting_applications`/`casting_application_acts`. This isn't new behavior, just making it
+explicit for the multi-act case — the single-act version of `BookedArtistForm` already
+works this way today (`update_performer_act_via_token` writes to `performer_acts` only).
+Keeps the two tables' meanings clean: applications/acts = what was proposed and decided,
+performer-side tables = what's actually happening.
+
 - [ ] `BookedArtistForm.tsx`: fetch/display the array of confirmed `performer_acts` for
       this application (via the updated token RPC) instead of one. Add tabs — one per act
       — for the act-specific fields (act name/description already fixed at this point,
@@ -295,18 +442,83 @@ Proposed flow:
   (adds `performer_acts` rows for newly-added acts, updates `event_performers.final_fee`/
   `travel_covered` to the new total). Don't half-apply changes on save — avoids a state
   where the DB reflects unconfirmed terms if the artist never responds.
-- **Immediate trigger for this phase: Florence Shimmermore.** She already has "The
-  Lightbringer" confirmed (`booking_status: confirmed`, fee 1000) and a second act "The
-  Lure" sitting as a separate, still-`maybe`, never-contacted application
-  (`cae73b32-aacf-47a5-a837-25592f0d7c22`). **Do not push "The Lure" through the current
-  single-act flow to add it to her booking** — confirming it today would run the existing
-  `confirm_and_migrate_artist` RPC a second time for the same `(event_id, performer_id)`
-  and *overwrite* her already-confirmed `final_fee`/`travel_covered` instead of adding to
-  them (the exact bug above). Either wait until Phases 1/2/8/11 ship and let the real flow
-  handle her, or if it's urgent before then, do a one-off manual fix (insert a
-  `performer_acts` row for "The Lure" directly, add its fee to the existing
-  `event_performers.final_fee`) rather than using the current UI/RPC — happy to do that by
-  hand right now if you want it sooner than the migration.
+- **Immediate trigger for this phase, resolved manually 2026-08-21 — what this phase
+  needs to eventually automate.** Florence Shimmermore had "The Lightbringer" confirmed
+  (fee 1000) and a second act "The Lure" sitting as a separate, never-contacted
+  application. Held per the original decision until asked to move on it: emailed her the
+  new combined terms (2000 SEK total for both acts, 700 SEK travel unchanged — travel
+  doesn't double just because there's a second act, she's still making one trip), she
+  confirmed in writing, then by hand: re-parented "The Lure"'s act row onto the surviving
+  "Lightbringer" application, created its `performer_acts` row directly (mirroring what
+  `confirm_and_migrate_artist` will eventually do automatically), updated
+  `event_performers.final_fee` to the new total, deleted the now-empty duplicate
+  application row. Verified correct afterward via direct query, not just assumed.
+  **What she can't get yet, and why this phase still matters**: her existing portal link
+  still only shows "The Lightbringer" in `BookedArtistForm` — no tabs exist yet (Phase 9),
+  so there's no way for her to add "The Lure"'s music/stage-prep herself through the site.
+  She'll be told to send those details separately once the tabbed form actually ships,
+  rather than being promised something the current deploy can't do. This whole manual
+  sequence — email the new terms, get written confirmation, reconcile `performer_acts`/
+  `event_performers` by hand — is exactly what Phase 11's automated re-confirmation flow
+  needs to replace.
+
+### Related, flagged but not designed yet: travel cost — estimate vs. actual (2026-08-19)
+
+Noted before starting implementation, not solved now — a "check this later" item, related
+to but distinct from Phase 11 above (same fields, different concern: Phase 11 is about the
+admin changing an already-sent offer; this is about the travel number naturally being
+unknown until after the artist books their trip, even when nothing else about the offer
+changes).
+
+**Confirmed the exact mechanism** (`BookingDecisionCard.tsx:19-33`): the number shown to
+the artist and passed into `confirm_and_migrate_artist` as `p_travel_covered` is just
+`application.travel_cost_amount` — the admin's negotiated *estimate* at offer time — read
+straight through with no artist-side adjustment possible there. That becomes
+`event_performers.travel_covered` verbatim. `BookedArtistForm.tsx`'s "Total Travel
+Reimbursement (Adjust if needed)" field then treats that exact same column as if it were
+the *actual* post-booking cost. One column is quietly standing in for two different
+things — the agreed estimate and the eventual real number — with nothing distinguishing
+them once confirmed.
+
+Also confirmed, a sharper instance of the general Phase 11 bug: editing
+`casting_applications.travel_cost_amount` in the admin's Offer Terms & Logistics panel
+*after* confirmation never reaches `event_performers.travel_covered` — `BookedArtistForm`
+keeps showing the stale, originally-confirmed number regardless of later admin edits.
+
+Open questions for when we actually design this (not now):
+- Should this become two real columns (e.g. keep `travel_cost_amount` as the estimate,
+  add something like `event_performers.actual_travel_cost` for the real figure), rather
+  than one field doing both jobs?
+- Should the actual-cost field start pre-filled with the estimate, or blank? You flagged
+  the real risk either way: pre-filled risks people leaving it unchanged and never
+  entering the true number; blank risks it just never getting filled in at all. No
+  instinct yet on which is worse — worth deciding with real usage patterns in mind once
+  Phase 11's re-confirmation flow exists, since that flow already has to solve "how does a
+  changed number reach the artist-facing form" for the general case.
+
+### Related, flagged but not designed yet: an artist retracting/declining after selection (2026-08-21)
+
+Surfaced by a real case — Eden had an act (`is_selected`) chosen and an offer sent, then
+backed out. The admin's only lever today is flipping `review_status` back to `no`, which
+does nothing to `casting_application_acts.is_selected` — the two are independent columns
+with no logic linking them, so the act kept reading as chosen until manually corrected by
+hand. Distinct from both items above: Phase 11 is the admin changing terms on an offer
+still in play; the travel-cost item is a number that's naturally unknown yet; this is the
+artist actively opting out after having been selected/contacted. No performer/
+event_performers/performer_acts existed yet in Eden's case (never reached `confirmed`), so
+this specific instance was just a stale flag, not a deeper cleanup — but a version of this
+where the artist backs out *after* confirming would need to also unwind the created
+`performer_acts` row (and possibly the `event_performers` row, if it was their only act) —
+worth designing alongside Phase 11 rather than separately, since both are "something
+changed after the offer was sent, and downstream state needs to react correctly."
+
+### Related, flagged but not designed yet: accommodation_notes visibility (2026-08-21)
+
+Noted while fixing `submit_casting_application` — `accommodation_notes` (the conditional
+"allergies/travel/logistics" free text collected on the public form when travel or
+accommodation is needed) currently shows up in the admin's `CastingApplicationRow` but
+never reaches the artist-facing `BookedArtistForm` at all. Not designed now — flagged so
+it doesn't get lost. Worth finetuning once we're back in that area of the code.
 
 ## Open questions to settle before Phase 6 (not blocking earlier phases)
 
@@ -322,11 +534,12 @@ Proposed flow:
   total, so the Phase 9 price-breakdown display and any future partial-refund/discount
   logic stay accurate rather than reverse-dividing the total?
 
-## Florence: on hold
+## Florence: resolved manually 2026-08-21
 
-Confirmed with the user (2026-08-18) — nothing happens with Florence Shimmermore's second
-application until Phase 11 (post-offer changes/re-confirmation) ships. Not doing the
-manual one-off fix either; she waits for the real flow.
+Superseded — see the Phase 11 note above for the full resolution. Originally held
+(2026-08-18) until Phase 11 shipped; the user decided to move on it sooner via a manual
+fix plus direct email confirmation rather than wait, once it became clear the automated
+flow was still several phases away.
 
 ## Independent enhancement: performer role (host/headliner)
 

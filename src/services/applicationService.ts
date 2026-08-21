@@ -4,6 +4,7 @@ import type { Json } from '@/types/database.types'
 import type {
   Event,
   CastingApplication,
+  CastingApplicationAct,
   CreateCastingApplicationInput,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
@@ -22,10 +23,16 @@ export const getEventWithCasting = async (): Promise<Event[]> => {
   return data || []
 }
 
-export const getApplicationsFromEvent = async (eventId: string): Promise<CastingApplication[]> => {
+export type CastingApplicationWithActs = CastingApplication & {
+  casting_application_acts: CastingApplicationAct[]
+}
+
+export const getApplicationsFromEvent = async (
+  eventId: string
+): Promise<CastingApplicationWithActs[]> => {
   const { data, error } = await supabase
     .from('casting_applications')
-    .select('*')
+    .select('*, casting_application_acts(*)')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
 
@@ -52,11 +59,15 @@ export const getCastingApplicationByToken = async (id: string, token: string | n
 //=== CREATE ===///
 
 export const submitCastingApplication = async (
-  application: CreateCastingApplicationInput
-): Promise<void> => {
-  const { error } = await supabase.from('casting_applications').insert(application)
+  input: CreateCastingApplicationInput
+): Promise<string> => {
+  const { data, error } = await supabase.rpc('submit_casting_application', {
+    p_application: input.application as unknown as Json,
+    p_acts: input.acts as unknown as Json,
+  })
 
   if (error) throw error
+  return data as unknown as string
 }
 
 export const submitJoinApplication = async (

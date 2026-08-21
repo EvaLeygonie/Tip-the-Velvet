@@ -7,13 +7,28 @@ import {
   processUploadedImage,
   isUnresolvedBlobUrl,
 } from '@/lib/utils'
-import type { Event, CreateCastingApplicationInput } from '@/types/types'
+import type {
+  CastingApplicationActInput,
+  Event,
+  CreateCastingApplicationInput,
+} from '@/types/types'
 import {
   submitCastingApplication,
   sendApplicationConfirmationEmail,
 } from '@/services/applicationService'
 import { buildEventFolderName, formatInstagramLink, formatOtherLink } from '@/lib/utils'
-import { Calendar, MapPin, Send, Loader2, BellDot, DollarSign, BusFront, Home } from 'lucide-react'
+import {
+  Calendar,
+  MapPin,
+  Send,
+  Loader2,
+  BellDot,
+  DollarSign,
+  BusFront,
+  Home,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
 import { CastingInfoAccordion } from './CastingInfoAccordion'
@@ -24,6 +39,9 @@ interface PostgrestError {
   message?: string
   details?: string
 }
+
+const EMPTY_ACT: CastingApplicationActInput = { act_title: '', act_description: '', video_url: '' }
+const MAX_ACTS = 5
 
 export const ApplicationCard = ({ event }: { event: Event }) => {
   const { language, t, setLanguage } = useLanguage()
@@ -36,11 +54,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
   const [uploading, setUploading] = useState(false)
   const [tempFile, setTempFile] = useState<File | null>(null)
 
-  const [formData, setFormData] = useState<Partial<CreateCastingApplicationInput>>({
+  const [formData, setFormData] = useState<Partial<CreateCastingApplicationInput['application']>>({
     event_id: event.id,
     language: preferredLang,
     agreed_to_terms: false,
-    act_title: '',
     email: '',
     promo_image_id: null,
     photographer: '',
@@ -49,6 +66,10 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     needs_accommodation: false,
     accommodation_notes: '',
   })
+
+  // One application can now hold several acts — each artist submits once per event, not
+  // once per act (multi-act-casting-plan.md). Always at least one act block.
+  const [acts, setActs] = useState<CastingApplicationActInput[]>([{ ...EMPTY_ACT }])
 
   const handleLanguageChange = (lang: 'sv' | 'eng') => {
     setLanguage(lang)
@@ -65,6 +86,23 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.checked }))
+  }
+
+  const handleActChange = (
+    index: number,
+    field: keyof CastingApplicationActInput,
+    value: string
+  ) => {
+    setActs((prev) => prev.map((act, i) => (i === index ? { ...act, [field]: value } : act)))
+  }
+
+  const addAct = () => {
+    if (acts.length >= MAX_ACTS) return
+    setActs((prev) => [...prev, { ...EMPTY_ACT }])
+  }
+
+  const removeAct = (index: number) => {
+    setActs((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,9 +142,14 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     setSubmitting(true)
     const artistSlug = createSlug(formData.performer_name || '')
     const eventSlug = event.slug
-    const actSlug = createSlug(formData.act_title || '')
-    const imageSlug = `${artistSlug}-${actSlug}`
-    const applicationSlug = `${eventSlug}-${artistSlug}-${actSlug}`
+    // Image + tags are keyed off the first act — the promo image is shared across the
+    // whole application now, not one per act, so there's no single "the" act to use.
+    const firstActSlug = createSlug(acts[0]?.act_title || '')
+    const imageSlug = `${artistSlug}-${firstActSlug}`
+    // No longer suffixed with an act slug — one application per artist per event now
+    // (unique_artist_per_event), not one per act, so the slug doesn't need to
+    // differentiate acts anymore.
+    const applicationSlug = `${eventSlug}-${artistSlug}`
     const eventFolder = buildEventFolderName(event.title, event.event_start || '')
     let finalImageId = formData.promo_image_id
 
@@ -115,7 +158,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       const context = {
         photographer: (formData.photographer || '').trim(),
         artist: formData.performer_name?.trim() || '',
-        act: formData.act_title?.trim() || '',
+        act: acts[0]?.act_title?.trim() || '',
         event: event.title,
         category: ImageCategory.CASTING,
       }
@@ -123,7 +166,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       const uploadedId = await uploadToCloudinary(
         tempFile,
         `Casting Calls/${eventFolder}`,
-        [ImageCategory.CASTING, eventSlug, artistSlug, actSlug],
+        [ImageCategory.CASTING, eventSlug, artistSlug, firstActSlug],
         imageSlug,
         context,
         {
@@ -131,8 +174,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
           onDuplicateError: () => {
             toast.info(
               t(
-                'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
-                'You have already submitted an application for this act to this event! Your application is safe.'
+                'Du har redan skickat in en ansökan till det här evenemanget! Din ansökan är sparad.',
+                'You have already submitted an application to this event! Your application is safe.'
               ),
               { duration: 6000 }
             )
@@ -154,20 +197,30 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     const formattedOther = formatOtherLink(formData.other_link || '')
 
     const payload: CreateCastingApplicationInput = {
-      ...formData,
-      event_id: event.id,
-      performer_name: formData.performer_name?.trim() || '',
-      act_title: formData.act_title?.trim() || '',
-      slug: applicationSlug,
-      email: formData.email?.trim() || '',
-      promo_image_id: finalImageId,
-      language: preferredLang,
-      instagram_link: formattedInstagram,
-      other_link: formattedOther,
-      agreed_to_terms: true,
-      proposed_fee: formData.requested_fee || 1000,
-      needs_travel_costs: formData.needs_travel_costs || false,
-      needs_accommodation: formData.needs_accommodation || false,
+      application: {
+        event_id: event.id,
+        performer_name: formData.performer_name?.trim() || '',
+        email: formData.email?.trim() || '',
+        city: formData.city,
+        country: formData.country,
+        promo_image_id: finalImageId,
+        promo_text: formData.promo_text,
+        photographer: formData.photographer,
+        language: preferredLang,
+        instagram_link: formattedInstagram,
+        other_link: formattedOther,
+        agreed_to_terms: true,
+        requested_fee: formData.requested_fee || 1000,
+        needs_travel_costs: formData.needs_travel_costs || false,
+        needs_accommodation: formData.needs_accommodation || false,
+        accommodation_notes: formData.accommodation_notes,
+        slug: applicationSlug,
+      },
+      acts: acts.map((act) => ({
+        act_title: act.act_title.trim(),
+        act_description: act.act_description.trim(),
+        video_url: act.video_url || null,
+      })),
     }
 
     const applicantName = formData.performer_name?.trim() || ''
@@ -178,7 +231,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       : ''
 
     try {
-      if (isUnresolvedBlobUrl(payload.promo_image_id)) {
+      if (isUnresolvedBlobUrl(payload.application.promo_image_id)) {
         toast.error(
           t(
             'Bilden hann inte laddas upp ordentligt. Försök välja bilden igen.',
@@ -195,15 +248,14 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         language: preferredLang,
         agreed_to_terms: false,
         performer_name: '',
-        act_title: '',
         email: '',
         promo_image_id: null,
         requested_fee: 1000,
-        travel_cost_amount: 0,
         needs_travel_costs: false,
         needs_accommodation: false,
         accommodation_notes: '',
       })
+      setActs([{ ...EMPTY_ACT }])
       setAgreed(false)
 
       const emailSuccess = await sendApplicationConfirmationEmail(
@@ -233,11 +285,11 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     } catch (err: unknown) {
       const dbError = err as PostgrestError
 
-      if (dbError?.code === '23505' || dbError?.message?.includes('unique_artist_act_per_event')) {
+      if (dbError?.code === '23505' || dbError?.message?.includes('unique_artist_per_event')) {
         toast.info(
           t(
-            'Du har redan skickat in en ansökan för denna akt till det här evenemanget! Din ansökan är sparad.',
-            'You have already submitted an application for this act to this event! Your application is safe.'
+            'Du har redan skickat in en ansökan till det här evenemanget! Din ansökan är sparad.',
+            'You have already submitted an application to this event! Your application is safe.'
           ),
           { duration: 6000 }
         )
@@ -430,46 +482,91 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="gold-divider" />
 
-        <div className="form-field">
-          <label className="form-label-block">{t('Akt titel *', 'Act Title *')}</label>
-          <input
-            type="text"
-            name="act_title"
-            placeholder={t('Titel på din akt', 'Name of your act')}
-            value={formData.act_title || ''}
-            onChange={handleChange}
-            required
-          />
-        </div>
+        <div className="space-y-4">
+          <div className="flex items-baseline justify-between flex-wrap gap-2">
+            <label className="form-label-block !mb-0">
+              {t('Din akt / dina akter *', 'Your act(s) *')}
+            </label>
+            <span className="text-xs text-foreground/60">
+              {t(
+                'Har du fler än ett nummer att erbjuda? Lägg till fler akter nedan.',
+                'Got more than one act to offer? Add more below.'
+              )}
+            </span>
+          </div>
 
-        <div className="form-field">
-          <label className="form-label-block">
-            {t('Act beksrivning (SV) *', 'Act Description (ENG) *')}
-          </label>
-          <textarea
-            name="act_description"
-            placeholder={t(
-              'Berätta om ditt nummer (på svenska)',
-              'Tell us about your act (in english)'
-            )}
-            rows={4}
-            value={formData.act_description || ''}
-            onChange={handleChange}
-            required
-          />
-        </div>
+          {acts.map((act, index) => (
+            <div
+              key={index}
+              className="form-field border border-accent/20 rounded-lg p-4 space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gold">
+                  {t(`Akt ${index + 1}`, `Act ${index + 1}`)}
+                </span>
+                {acts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeAct(index)}
+                    className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
+                    title={t('Ta bort akt', 'Remove act')}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
 
-        <div className="form-field">
-          <label className="form-label-block">
-            {t('Video Link (frivilligt)', 'Video Link (optional)')}
-          </label>
-          <input
-            type="url"
-            name="video_url"
-            placeholder={t('En video länk till din akt', 'A video link to your act')}
-            value={formData.video_url || ''}
-            onChange={handleChange}
-          />
+              <div className="form-field">
+                <label className="form-label-block">{t('Akt titel *', 'Act Title *')}</label>
+                <input
+                  type="text"
+                  placeholder={t('Titel på din akt', 'Name of your act')}
+                  value={act.act_title}
+                  onChange={(e) => handleActChange(index, 'act_title', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label className="form-label-block">
+                  {t('Akt beskrivning (SV) *', 'Act Description (ENG) *')}
+                </label>
+                <textarea
+                  placeholder={t(
+                    'Berätta om ditt nummer (på svenska)',
+                    'Tell us about your act (in english)'
+                  )}
+                  rows={4}
+                  value={act.act_description}
+                  onChange={(e) => handleActChange(index, 'act_description', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label className="form-label-block">
+                  {t('Video Link (frivilligt)', 'Video Link (optional)')}
+                </label>
+                <input
+                  type="url"
+                  placeholder={t('En video länk till din akt', 'A video link to your act')}
+                  value={act.video_url || ''}
+                  onChange={(e) => handleActChange(index, 'video_url', e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+
+          {acts.length < MAX_ACTS && (
+            <button
+              type="button"
+              onClick={addAct}
+              className="btn-gold-outline text-xs py-2 px-4 flex items-center gap-1.5"
+            >
+              <Plus size={14} />
+              {t('Lägg till ytterligare akt', 'Add another act')}
+            </button>
+          )}
         </div>
 
         <div className="form-row-2-tight">
@@ -576,7 +673,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         {/* Villkorligt anteckningsfält */}
         {(formData.needs_travel_costs || formData.needs_accommodation) && (
           <div className="animate-in fade-in duration-200 form-field mt-3">
-            <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl text-left pb-2">
+            <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl text-center pb-2">
               {t(
                 'Resa ersätts, efter överenskommelse. För boende erbjuder vi community-hosting hos lokala medlemmar (ej hotell). När en ansökan har godkänts samarbetar vi för att hitta bästa möjliga lösning.',
                 "Travel costs are covered, after an agreement is reached. We offer community hosting with local members (not hotels). Once an application is accepted, we'll work together to find the best possible solution."

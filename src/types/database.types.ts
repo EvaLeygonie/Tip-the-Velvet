@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      casting_application_acts: {
+        Row: {
+          act_description: string
+          act_title: string
+          application_id: string
+          created_at: string
+          id: string
+          is_selected: boolean
+          performer_act_id: string | null
+          video_url: string | null
+        }
+        Insert: {
+          act_description: string
+          act_title: string
+          application_id: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          performer_act_id?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          act_description?: string
+          act_title?: string
+          application_id?: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          performer_act_id?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "casting_application_acts_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "casting_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "casting_application_acts_performer_act_id_fkey"
+            columns: ["performer_act_id"]
+            isOneToOne: false
+            referencedRelation: "performer_acts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       casting_applications: {
         Row: {
           access_token: string | null
@@ -575,6 +623,7 @@ export type Database = {
           created_at: string
           description_eng: string | null
           description_sv: string | null
+          display_order: number
           event_id: string | null
           id: string
           performer_id: string
@@ -589,6 +638,7 @@ export type Database = {
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
+          display_order?: number
           event_id?: string | null
           id?: string
           performer_id: string
@@ -603,6 +653,7 @@ export type Database = {
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
+          display_order?: number
           event_id?: string | null
           id?: string
           performer_id?: string
@@ -912,7 +963,15 @@ export type Database = {
         Args: { p_id: string; p_token: string }
         Returns: Json
       }
+      get_performer_by_slug_for_edit: {
+        Args: { p_slug: string }
+        Returns: Json
+      }
       slugify: { Args: { value: string }; Returns: string }
+      submit_casting_application: {
+        Args: { p_acts: Json; p_application: Json }
+        Returns: string
+      }
       unaccent: { Args: { "": string }; Returns: string }
       update_event_performer_via_token: {
         Args: {
@@ -948,6 +1007,21 @@ export type Database = {
           p_bio_eng?: string
           p_bio_sv?: string
           p_performer_id: string
+        }
+        Returns: undefined
+      }
+      update_performer_by_slug: {
+        Args: {
+          p_bio_eng?: string
+          p_bio_sv?: string
+          p_city?: string
+          p_country?: string
+          p_instagram_link?: string
+          p_other_link?: string
+          p_photographer?: string
+          p_promo_image_id?: string
+          p_slug: string
+          p_third_link?: string
         }
         Returns: undefined
       }
