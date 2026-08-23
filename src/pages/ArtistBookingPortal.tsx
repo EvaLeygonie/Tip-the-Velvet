@@ -4,10 +4,13 @@ import type { CastingApplicationPortalData } from '@/types/types'
 import { getCastingApplicationByToken } from '@/services/applicationService'
 import { BookingDecisionCard } from '@/components/applications/BookingDecisionCard'
 import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
+import { FloatingBackLink } from '@/components/FloatingBackLink'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 export const ArtistBookingPortal = () => {
   const { t, setLanguage } = useLanguage()
+  const { user } = useAuth()
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
@@ -85,12 +88,20 @@ export const ArtistBookingPortal = () => {
   return (
     <div className="min-h-screen bg-background text-foreground py-12 px-4">
       <div className="bg-glow-spot" />
+      {/* Only shown to a logged-in admin (e.g. previewing/testing a link) — the artist
+          themselves reaches this page via token, never logged in, and has nowhere
+          meaningful to "go back" to. */}
+      {user && (
+        <FloatingBackLink
+          to="/admin/casting"
+          label={t('Tillbaka till Casting', 'Back to Casting')}
+        />
+      )}
       <div className="max-w-2xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight mt-4">{application.performer_name}</h1>
           <p className="text-md text-foreground/68">
-            {headerActTitles.length > 1 ? t('Akter: ', 'Acts: ') : t('Akt: ', 'Act: ')}
             {headerActTitles.map((title, idx) => (
               <Fragment key={idx}>
                 {idx > 0 && <span className="text-accent mx-2">✦</span>}

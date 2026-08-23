@@ -72,6 +72,7 @@ export type Database = {
           initial_reply_sent: boolean | null
           instagram_link: string | null
           language: Database['public']['Enums']['language']
+          lineup_role: Database['public']['Enums']['event_performer_role']
           needs_accommodation: boolean | null
           needs_travel_costs: boolean | null
           other_link: string | null
@@ -101,6 +102,7 @@ export type Database = {
           initial_reply_sent?: boolean | null
           instagram_link?: string | null
           language?: Database['public']['Enums']['language']
+          lineup_role?: Database['public']['Enums']['event_performer_role']
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
           other_link?: string | null
@@ -130,6 +132,7 @@ export type Database = {
           initial_reply_sent?: boolean | null
           instagram_link?: string | null
           language?: Database['public']['Enums']['language']
+          lineup_role?: Database['public']['Enums']['event_performer_role']
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
           other_link?: string | null
@@ -216,6 +219,7 @@ export type Database = {
           event_id: string
           final_fee: number | null
           is_revealed: boolean
+          lineup_role: Database['public']['Enums']['event_performer_role']
           notes: string | null
           performer_id: string
           plus_one_email: string | null
@@ -232,6 +236,7 @@ export type Database = {
           event_id: string
           final_fee?: number | null
           is_revealed?: boolean
+          lineup_role?: Database['public']['Enums']['event_performer_role']
           notes?: string | null
           performer_id: string
           plus_one_email?: string | null
@@ -248,6 +253,7 @@ export type Database = {
           event_id?: string
           final_fee?: number | null
           is_revealed?: boolean
+          lineup_role?: Database['public']['Enums']['event_performer_role']
           notes?: string | null
           performer_id?: string
           plus_one_email?: string | null
@@ -1003,6 +1009,7 @@ export type Database = {
         | 'confirmed'
         | 'declined'
       casting_review_status: 'pending' | 'yes' | 'maybe' | 'no'
+      event_performer_role: 'performer' | 'host' | 'headliner'
       event_status: 'draft' | 'published' | 'cancelled' | 'archived'
       language: 'sv' | 'eng'
       sponsor_type: 'prize' | 'creation' | 'sales' | 'promo' | 'partner' | 'other'
@@ -1148,6 +1155,7 @@ export const Constants = {
         'declined',
       ],
       casting_review_status: ['pending', 'yes', 'maybe', 'no'],
+      event_performer_role: ['performer', 'host', 'headliner'],
       event_status: ['draft', 'published', 'cancelled', 'archived'],
       language: ['sv', 'eng'],
       sponsor_type: ['prize', 'creation', 'sales', 'promo', 'partner', 'other'],

@@ -3,7 +3,7 @@ import { confirmAndMigrateArtist } from '@/services/applicationService'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { formatActList } from '@/lib/utils'
 import { toast } from 'sonner'
-import { Sparkles, Mail, CheckCircle2, Car, Home, DollarSign } from 'lucide-react'
+import { Sparkles, Mail, CheckCircle2, Car, Home, DollarSign, Crown, Mic2 } from 'lucide-react'
 import type { CastingApplicationPortalData } from '@/types/types'
 
 interface BookingDecisionCardProps {
@@ -32,6 +32,15 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
     (act) => act.performer_acts?.act_name || act.act_title
   )
   const chosenActsText = formatActList(chosenActTitles, isSv)
+
+  // Only Host/Headliner get a callout — a plain Performer booking is the default and
+  // doesn't need to be called out at all.
+  const roleLabel =
+    application.lineup_role === 'host'
+      ? 'Host'
+      : application.lineup_role === 'headliner'
+        ? 'Headliner'
+        : null
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -112,6 +121,20 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
               : t('Behövs ej', 'Not needed')}
           </span>
         </div>
+
+        {roleLabel && (
+          <div className="flex items-center justify-between border-t border-border/40 pt-3">
+            <div className="flex items-center gap-2 text-foreground/90">
+              {application.lineup_role === 'host' ? (
+                <Mic2 className="w-4 h-4 text-accent" />
+              ) : (
+                <Crown className="w-4 h-4 text-accent" />
+              )}
+              <span className="text-sm">{t('Din roll:', 'Your role:')}</span>
+            </div>
+            <span className="text-sm font-medium text-gold">{roleLabel}</span>
+          </div>
+        )}
       </div>
 
       {/* KNAPPAR */}
@@ -152,10 +175,10 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
             </h2>
             <p className="p-clean text-center opacity-90 leading-relaxed text-sm">
               {t(
-                `Du godkänner därmed att medverka med ${chosenActsText} till ett gage på ${currentFee} SEK ${
+                `Du godkänner därmed att medverka med ${chosenActsText}${roleLabel ? ` som showens ${roleLabel}` : ''} till ett gage på ${currentFee} SEK ${
                   needsTravel ? `+ ${travelAmount} SEK i reseersättning` : ''
                 }.`,
-                `You hereby confirm participating with ${chosenActsText} for a fee of ${currentFee} SEK ${
+                `You hereby confirm participating with ${chosenActsText}${roleLabel ? ` as this show's ${roleLabel}` : ''} for a fee of ${currentFee} SEK ${
                   needsTravel ? `+ ${travelAmount} SEK travel allowance` : ''
                 }.`
               )}

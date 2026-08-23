@@ -103,3 +103,4 @@ export type EventStatus = Enums<'event_status'>
 export type CastingReviewStatus = Enums<'casting_review_status'>
 export type StaffVolunteerType = Enums<'staff_volunteer_type'>
 export type SponsorType = Enums<'sponsor_type'>
+export type EventPerformerRole = Enums<'event_performer_role'>

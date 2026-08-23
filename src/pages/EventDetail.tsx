@@ -10,7 +10,8 @@ import {
   type EventPerformerRow,
 } from '@/services/eventService'
 import { GalleryEditor } from '@/components/events/GalleryEditor'
-import { ArrowLeft, Images, ExternalLink, Camera } from 'lucide-react'
+import { FloatingBackLink } from '@/components/FloatingBackLink'
+import { Images, ExternalLink, Camera } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 import { getImageSrc } from '@/lib/utils'
@@ -89,12 +90,9 @@ export const EventDetail = () => {
     <div className="page-shell">
       <div className="bg-glow-spot" />
       <div className="editor-container">
+        <FloatingBackLink to="/events" label={t('Tillbaka till events', 'Back to events')} />
         <div className="section-header-triad">
-          <div className="header-side-content md:justify-start">
-            <Link to="/events">
-              <ArrowLeft className="text-accent hover:scale-105" />
-            </Link>
-          </div>
+          <div className="header-side-content md:justify-start" />
 
           <div className="text-center space-y-2">
             <h1 className="drop-shadow-[0_0_20px_currentColor]">

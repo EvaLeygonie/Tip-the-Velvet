@@ -5,6 +5,7 @@ import {
   updateApplicationNotes,
   updateApplicationStatus,
   updateApplicationLogistics,
+  syncConfirmedBookingTerms,
   updateActSelection,
 } from '@/services/applicationService'
 import { fetchEventsForAdmin } from '@/services/eventService'
@@ -150,7 +151,8 @@ export const AdminCasting = () => {
     proposedFee?: number,
     needsTravelCosts?: boolean,
     travelCostAmount?: number,
-    needsAccommodation?: boolean
+    needsAccommodation?: boolean,
+    lineupRole?: CastingApplication['lineup_role']
   ) => {
     const previous = applications.find((app) => app.id === id)
 
@@ -168,6 +170,7 @@ export const AdminCasting = () => {
                 travelCostAmount !== undefined ? travelCostAmount : app.travel_cost_amount,
               needs_accommodation:
                 needsAccommodation !== undefined ? needsAccommodation : app.needs_accommodation,
+              lineup_role: lineupRole !== undefined ? lineupRole : app.lineup_role,
             }
           : app
       )
@@ -181,7 +184,8 @@ export const AdminCasting = () => {
           proposedFee,
           needsTravelCosts,
           travelCostAmount,
-          needsAccommodation
+          needsAccommodation,
+          lineupRole
         ),
         15000,
         t(
@@ -189,6 +193,19 @@ export const AdminCasting = () => {
           'The network request took too long. Check your connection.'
         )
       )
+
+      // Confirming migrates fee/travel/role onto a separate event_performers row — once
+      // that's happened, an admin correction here (an artist stepping into someone else's
+      // slot, a renegotiated fee, etc.) needs to reach that row too, or the two silently
+      // diverge (real case: Seymour's travel offer and Florence's headliner role never
+      // made it past casting_applications).
+      if (previous?.booking_status === 'confirmed' && previous.performer_id) {
+        await syncConfirmedBookingTerms(previous.event_id, previous.performer_id, {
+          finalFee: proposedFee,
+          travelCovered: travelCostAmount,
+          lineupRole,
+        })
+      }
     } catch (err) {
       console.error('Kunde inte uppdatera logistikstatus i databasen:', err)
       if (previous) {

@@ -83,6 +83,15 @@ body {
     @apply flex justify-center;
   }
 
+  /* Fixed-position "go back" arrow — stays on screen while scrolling instead of only
+     living at the top of a (potentially long) page. top-52 clears the nav bar in every
+     state — the unscrolled nav (100px logo + py-4 padding) plus the logged-in admin
+     sub-nav row (~57px) tops out around 190px, so this leaves real margin below it
+     rather than the previous top-36, which sat right under that row's edge. */
+  .floating-back-link {
+    @apply fixed left-4 md:left-8 top-52 z-40 flex items-center justify-center w-11 h-11 rounded-full bg-background/80 backdrop-blur-md border border-accent/20 text-accent shadow-lg transition-all hover:scale-110 hover:border-accent/50;
+  }
+
   .content-grid {
     @apply grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12 items-start;
   }

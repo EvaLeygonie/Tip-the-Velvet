@@ -1,7 +1,7 @@
 import { ArtistForm } from '@/components/applications/ArtistForm'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { ArrowLeft } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { FloatingBackLink } from '@/components/FloatingBackLink'
+import { useParams } from 'react-router-dom'
 
 export const AddPerformer = () => {
   const { slug } = useParams()
@@ -11,13 +11,13 @@ export const AddPerformer = () => {
     <>
       <div className="page-shell">
         <div className="bg-glow-spot" />
+        <FloatingBackLink
+          to="/performers"
+          label={t('Tillbaka till artister', 'Back to performers')}
+        />
         <header className="header !mb-0 !pb-5">
           <div className="section-header-triad">
-            <div className="header-side-content md:justify-start">
-              <Link to="/performers">
-                <ArrowLeft className="text-accent hover:scale-105" />
-              </Link>
-            </div>
+            <div className="header-side-content md:justify-start" />
 
             <h1>{t('Lägg till artist', 'Add performer')}</h1>
 

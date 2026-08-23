@@ -145,7 +145,8 @@ export const updateApplicationLogistics = async (
   proposedFee?: number,
   needsTravelCosts?: boolean,
   travelCostAmount?: number,
-  needsAccommodation?: boolean
+  needsAccommodation?: boolean,
+  lineupRole?: CastingApplication['lineup_role']
 ): Promise<void> => {
   const updateData: {
     initial_reply_sent: boolean
@@ -154,6 +155,7 @@ export const updateApplicationLogistics = async (
     needs_travel_costs?: boolean
     travel_cost_amount?: number
     needs_accommodation?: boolean
+    lineup_role?: CastingApplication['lineup_role']
   } = {
     initial_reply_sent: initialReplySent,
     booking_status: bookingStatus,
@@ -171,8 +173,48 @@ export const updateApplicationLogistics = async (
   if (needsAccommodation !== undefined) {
     updateData.needs_accommodation = needsAccommodation
   }
+  if (lineupRole !== undefined) {
+    updateData.lineup_role = lineupRole
+  }
 
   const { error } = await supabase.from('casting_applications').update(updateData).eq('id', id)
+
+  if (error) throw error
+}
+
+// Once an application is confirmed, its casting_applications fields (fee/travel/role) and
+// the resulting event_performers row are two separate records — editing the former here
+// doesn't automatically touch the latter. Called alongside updateApplicationLogistics
+// whenever the application being edited is already booking_status = 'confirmed', so an
+// admin correction after the fact (an artist stepping in for someone who backed out, a fee
+// renegotiated by email, etc.) actually reaches what the artist's own profile/booking
+// reflects, instead of silently only updating the application record.
+export const syncConfirmedBookingTerms = async (
+  eventId: string,
+  performerId: string,
+  updates: {
+    finalFee?: number
+    travelCovered?: number
+    lineupRole?: CastingApplication['lineup_role']
+  }
+): Promise<void> => {
+  const updateData: {
+    final_fee?: number
+    travel_covered?: number
+    lineup_role?: CastingApplication['lineup_role']
+  } = {}
+
+  if (updates.finalFee !== undefined) updateData.final_fee = updates.finalFee
+  if (updates.travelCovered !== undefined) updateData.travel_covered = updates.travelCovered
+  if (updates.lineupRole !== undefined) updateData.lineup_role = updates.lineupRole
+
+  if (Object.keys(updateData).length === 0) return
+
+  const { error } = await supabase
+    .from('event_performers')
+    .update(updateData)
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
 
   if (error) throw error
 }

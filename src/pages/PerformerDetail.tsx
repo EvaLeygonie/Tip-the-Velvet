@@ -7,6 +7,7 @@ import type { Performer, PublicPerformer } from '@/types/types'
 import { fetchPerformerBySlug } from '@/services/performerService'
 import { getCloudinaryImagesByTag } from '@/services/cloudinaryService'
 import { getImageSrc } from '@/lib/utils'
+import { FloatingBackLink } from '@/components/FloatingBackLink'
 import { ArrowLeft, Images, Mail, Phone, ExternalLink, MapPin, Camera } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
 import Captions from 'yet-another-react-lightbox/plugins/captions'
@@ -125,22 +126,16 @@ export const PerformerDetail = () => {
         <div className="bg-glow-spot z-0" />
 
         <div className="w-full max-w-7xl mx-auto px-4 md:px-8 relative z-10">
+          <FloatingBackLink
+            to={fromEventSlug ? `/events/event/${fromEventSlug}` : '/performers'}
+            label={
+              fromEventSlug
+                ? t('Tillbaka till eventet', 'Back to event')
+                : t('Tillbaka till artister', 'Back to performers')
+            }
+          />
           <div className="section-header-triad">
-            <div className="header-side-content md:justify-start">
-              {fromEventSlug ? (
-                <Link
-                  to={`/events/event/${fromEventSlug}`}
-                  className="inline-flex items-center gap-2 text-accent/70 hover:text-accent text-xs font-mono uppercase tracking-wider transition-colors"
-                >
-                  <ArrowLeft size={14} />
-                  {t('Tillbaka till eventet', 'Back to event')}
-                </Link>
-              ) : (
-                <Link to="/performers">
-                  <ArrowLeft className="text-accent hover:scale-105 transition-transform" />
-                </Link>
-              )}
-            </div>
+            <div className="header-side-content md:justify-start" />
 
             <div className="text-center space-y-2 relative z-10">
               <h1 className="drop-shadow-[0_0_20px_currentColor] text-4xl font-decorative text-accent m-0 p-0">

@@ -2,7 +2,18 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { toast } from 'sonner'
-import { Upload, Save, Loader2, FileText, Music, ExternalLink, Trash2, Plus } from 'lucide-react'
+import {
+  Upload,
+  Save,
+  Loader2,
+  FileText,
+  Music,
+  ExternalLink,
+  Trash2,
+  Plus,
+  Crown,
+  Mic2,
+} from 'lucide-react'
 import type { CastingApplicationPortalData } from '@/types/types'
 import { uploadStorageFile } from '@/services/databaseService'
 import { supabase } from '@/lib/supabase'
@@ -518,6 +529,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                     publicId={application.promo_image_id}
                     width={400}
                     height={400}
+                    fit
                     className="max-h-full max-w-full object-contain rounded"
                   />
                 ) : (
@@ -984,6 +996,60 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             </div>
           )}
         </div>
+
+        {/* ================= SEKTION 4: ÖVERENSKOMMET GAGE (READ-ONLY) =================
+            Fee comes from proposed_fee (fixed at offer time, not editable here — no fee
+            field exists in this form). Travel reads formData.travel_covered live, since
+            that IS the editable "final reimbursement" field just above, so this summary
+            stays in sync as the artist fills it in. Only shows a travel line — and the
+            "=" total that goes with it — when there actually is one; with nothing to add,
+            there's nothing to calculate, so the fee line stands alone. */}
+        {(() => {
+          const proposedFee = Number(application.proposed_fee) || 0
+          const travelCovered = Number(formData.travel_covered) || 0
+          const actCount = actsFormData.length
+          const hasTravel = travelCovered > 0
+          const roleLabel =
+            application.lineup_role === 'host'
+              ? 'Host'
+              : application.lineup_role === 'headliner'
+                ? 'Headliner'
+                : null
+
+          return (
+            <div className="login-card space-y-3">
+              <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
+                <h2>{t('Överenskommet Gage', 'Agreed Compensation')}</h2>
+              </div>
+              <div className="text-sm text-foreground/80 space-y-1.5 font-mono">
+                <p>
+                  {proposedFee} SEK
+                  {actCount > 1 && ` ${t('för', 'for')} ${actCount} ${t('akter', 'acts')}`}
+                </p>
+                {hasTravel && (
+                  <>
+                    <p>
+                      + {t('Reseersättning', 'Travel Reimbursement')}: {travelCovered} SEK
+                    </p>
+                    <p className="text-accent font-bold pt-1.5 border-t border-border/30">
+                      = {t('Totalt', 'Total')}: {proposedFee + travelCovered} SEK
+                    </p>
+                  </>
+                )}
+                {roleLabel && (
+                  <p className="pt-1.5 border-t border-border/30 flex items-center justify-center gap-1.5 text-center">
+                    {application.lineup_role === 'host' ? (
+                      <Mic2 className="w-3.5 h-3.5 text-gold" />
+                    ) : (
+                      <Crown className="w-3.5 h-3.5 text-gold" />
+                    )}
+                    {t('Roll', 'Role')}: <span className="text-gold font-bold">{roleLabel}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* SPARA-FÄLT — fast position längst ner i skärmen medan man scrollar genom
             formuläret; landar i sitt normala flödesläge så fort formulärets sanna slut

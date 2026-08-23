@@ -373,9 +373,10 @@ Two things changed that:
    checkboxes with no fee math or email attached — a lightweight "mark relevant acts"
    control, not the full offer panel.
 
-- [ ] **Still open**: fee/travel/accommodation editing and the send-offer flow gated to
-      `review_status === 'yes'` — the whole Logistik-panel currently renders on any
-      expanded row regardless of status, not yet restricted.
+- [x] **Done 2026-08-24** — the whole Logistik-panel (fee/travel/accommodation/role editing
+      and "Update Offer") now only renders when `application.review_status === 'yes'`; a
+      single wrapping condition around the existing panel `<div>`, no changes to what's
+      inside it.
 - [x] **Done 2026-08-21** — act-selection checkboxes, live in both `yes` and `maybe` rows
       (same underlying `is_selected` column and toggle action, per design above). Ended up
       living on the act tabs themselves rather than a separate row, with `onToggleActSelected`
@@ -470,9 +471,8 @@ awaiting-response; flagged this scoping choice to the user rather than assume si
       `BookingDecisionCard` — user asked for it to stay in that position. Shows every
       *selected* act (`casting_application_acts.is_selected`), joined with a gold "✦"
       separator (the same glyph already used on the Dresscode page) when there's more
-      than one; falls back to the legacy singular `act_title` for pre-multi-act
-      applications with no `casting_application_acts` rows at all. Label pluralizes
-      "Akt:"/"Akter:" ("Act:"/"Acts:") based on count.
+      than one. **Refined 2026-08-24**: dropped the "Akt:"/"Akter:" label prefix entirely
+      per user feedback — just the name(s), no longer introduced by a word first.
 - [x] `BookingDecisionCard.tsx` itself: the confirmation-modal copy and the "negotiate via
       email" `mailto:` subject now both name every selected act (via a shared
       `formatActList` natural-language join, extracted from `CastingApplicationRow.tsx`
@@ -482,7 +482,13 @@ awaiting-response; flagged this scoping choice to the user rather than assume si
       bundled totals, not broken out per act (nothing asked for that yet).
 
 ### Phase 8 — Confirm & migrate
-- [ ] Covered by the Phase 2 RPC change — verify end-to-end that accepting creates one
+
+**Done 2026-08-23.** Verified live via the user's 3-act "Eva Leygonie" test application:
+querying `performer_acts` after confirming shows exactly 3 rows (one per selected act,
+sequential `display_order`), and the flow produced the single expected `event_performers`
+row per Phase 2's design.
+
+- [x] Covered by the Phase 2 RPC change — verified end-to-end that accepting creates one
       `performer_acts` row per selected act and exactly one `event_performers` row.
 
 ### Phase 9 — Booked artist form
@@ -519,12 +525,18 @@ performer-side tables = what's actually happening.
       form's exact original single-act behavior, no regression there. Bio,
       dietary/plus-one/travel-receipts stayed shared outside the tabs, unchanged. Submit
       now loops `actsFormData` and calls `updatePerformerAct` once per act.
-- [ ] **New: show the agreed price breakdown at the bottom of the form**, read-only —
-      something like `fee (1000) × acts (2) + travel (300) = Total: 2300`. Needs the
-      per-act base rate to still be known at display time, not just the collapsed total —
-      see the open question below about persisting it explicitly rather than
-      reverse-dividing `final_fee` by act count (division breaks the moment an admin
-      hand-adjusts the total for a discount/bonus that isn't an even multiple).
+- [x] **Done 2026-08-24, simplified same day per user feedback** — resolved the open
+      question below by *not* persisting a separate per-act rate column: `proposed_fee`
+      (fixed at offer time, no fee field exists in this form so it can't drift from what
+      was agreed) is the only number shown, with the act count folded in as
+      `"{fee} SEK for {N} acts"` rather than a `÷`/`≈` breakdown — no per-act rate
+      displayed at all in the end, single-act just shows the plain fee with no "for N
+      acts" suffix. Travel reads `formData.travel_covered` live, since that's the actual
+      editable "final reimbursement" field already in this same form (Sektion 3) — the
+      summary updates as the artist fills it in. **The travel line and the "=" total that
+      goes with it only render when travel is actually nonzero** — nothing to add means
+      nothing to calculate, so an artist with no travel reimbursement just sees the fee
+      line alone, no dangling "= Total" repeating the same number.
 
 ### Phase 10 — Cleanup & testing
 
@@ -632,6 +644,35 @@ Proposed flow:
   `event_performers` by hand — is exactly what Phase 11's automated re-confirmation flow
   needs to replace.
 
+**Lighter-weight fix shipped 2026-08-24 — the sync half of this phase, not the full
+re-negotiation flow.** Triggered by the exact scenario Phase 11 was written for actually
+recurring: Eden backed out after being slated as headliner, Florence was offered Eden's
+spot (her existing 2 acts plus the headliner role), accepted, and confirmed by email —
+same out-of-band pattern as her original consolidation above. The admin then corrected her
+`lineup_role` on the (already-confirmed) application via the normal Logistik-panel — and it
+silently never reached her `event_performers` row, exactly the divergence bug this phase
+already predicted. Separately, Seymour Bottoms' offered 800 SEK travel reimbursement had
+the same gap: present on `casting_applications`, never on `event_performers`.
+
+Didn't build the full proposed flow above (revert to `negotiating`, new email, re-confirm)
+— that's a real, separate feature (notifying the artist a completed booking's terms
+changed) still worth doing, but not what was blocking real data right now. Instead:
+- New `syncConfirmedBookingTerms(eventId, performerId, { finalFee?, travelCovered?,
+  lineupRole? })` in `applicationService.ts` — same conditional-field-update discipline as
+  `updateApplicationLogistics`, plain `.update()` on `event_performers` (RLS already
+  allows it, no RPC needed).
+- Wired into `AdminCasting.tsx`'s `handleUpdateLogisticsStatus` — after
+  `updateApplicationLogistics` succeeds, if the application being edited was already
+  `booking_status === 'confirmed'`, immediately syncs the same fee/travel/role values onto
+  its `event_performers` row. Applies uniformly to both call sites that reach this
+  function ("Update Offer" and send-offer-mail), no per-call-site changes needed.
+  Deliberately *not* gated behind a confirmation prompt or a status revert — for this
+  narrower "keep two records in sync" fix, the admin editing the panel is already the
+  deliberate action.
+- Seymour's and Florence's existing wrong data corrected by hand via direct SQL (same
+  established workflow as every other data fix in this doc) — not left for the sync
+  mechanism to fix retroactively, since it only runs on the *next* edit.
+
 ### Related, flagged but not designed yet: travel cost — estimate vs. actual (2026-08-19)
 
 Noted before starting implementation, not solved now — a "check this later" item, related
@@ -699,10 +740,11 @@ it doesn't get lost. Worth finetuning once we're back in that area of the code.
   *after* confirmation too.
 - Any practical cap on acts per application? Not a hard requirement, but the "Add another
   act" button probably wants a soft limit (e.g. 5) just so the form doesn't get absurd.
-- Should the per-act base rate be persisted explicitly (e.g. a
-  `casting_applications.agreed_fee_per_act` column) instead of only storing the collapsed
-  total, so the Phase 9 price-breakdown display and any future partial-refund/discount
-  logic stay accurate rather than reverse-dividing the total?
+- ~~Should the per-act base rate be persisted explicitly...~~ **Resolved 2026-08-24, no**:
+  the Phase 9 price-breakdown display reverse-divides `proposed_fee` for display only, see
+  that entry above. Left open for any *future* partial-refund/discount logic, which isn't
+  built yet — revisit if that ever needs a real per-act number to compute against, rather
+  than just to show one.
 
 ## Florence: resolved manually 2026-08-21
 
@@ -728,36 +770,65 @@ big admin build.
 needs to follow the same pattern fee/travel already use: live on `casting_applications`
 first, get copied onto the new `event_performers` row at confirm time.
 
-- [ ] **Schema**: new enum type (e.g. `event_performer_role`: `performer | host |
-      headliner`), NOT NULL DEFAULT `'performer'`. Add the column to **both**
-      `casting_applications` (set pre-offer) and `event_performers` (the booked record —
-      copied over, not re-entered). Naming: `role` reads fine scoped to these two tables,
-      but if it feels too generic once you're looking at the column list, `lineup_role` is
-      the alternative (avoids any future confusion if an actual admin-permission "role"
-      concept ever gets added, per `CLAUDE.md`'s "no role/permission system beyond logged
-      in or not" note — currently a non-issue, but cheap to preempt).
-- [ ] **`confirm_and_migrate_artist`**: copy `casting_applications.role` onto the new
-      `event_performers.role` at confirm time (same treatment as `final_fee`/
-      `travel_covered` — no new client param needed since the artist doesn't negotiate
-      their role, just sees and accepts it).
-- [ ] **Admin UI**: add a role `<select>` (Performer/Host/Headliner) to the "Offer Terms &
-      Logistics" panel in `CastingApplicationRow.tsx`, alongside the fee/travel fields —
-      same place, same save action, defaulting to Performer.
-- [ ] **Admin list at-a-glance**: consider a small badge next to the artist name in the
-      collapsed row header when role is Host or Headliner (skip it for the default
-      Performer case — no need to label the common case).
-- [ ] **Offer email**: when role is Host or Headliner, say so explicitly in the offer
-      email (both the admin-editable default template text in `CastingApplicationRow.tsx`
-      and, if it also needs the info, `netlify/edge-functions/send-casting-email.ts`).
-      Skip the mention entirely for the default Performer role — don't clutter the normal
-      case.
-- [ ] **`BookingDecisionCard.tsx`**: same rule — only show a role callout when role is
-      Host or Headliner ("You're being booked as this event's Host — thank you!"), folded
-      into what they're agreeing to when they accept. Nothing extra shown for a plain
-      Performer booking.
-- [ ] Swedish/English copy needed for all three role labels and the two callout messages,
-      per the project's `t('sv', 'eng')` convention — no translation-file lookup, inline
-      at each call site as usual.
+**Done 2026-08-24** (pending the user running the schema SQL — code written assuming it
+exists, verified once regenerated types confirm it does, per this doc's established
+deployment-safety pattern for every prior DB change).
+
+- [x] **Schema**: `event_performer_role` enum (`performer | host | headliner`), NOT NULL
+      DEFAULT `'performer'`, added to both `casting_applications` and `event_performers`.
+      Went with `lineup_role`, not the plainer `role` — exactly the preemptive reasoning
+      already written above.
+- [x] **`confirm_and_migrate_artist`**: copies `casting_applications.lineup_role` onto the
+      new `event_performers.lineup_role` at confirm time, same `INSERT`/`ON CONFLICT DO
+      UPDATE` treatment as `final_fee`/`travel_covered`. No new client param.
+- [x] **Admin UI**: role `<select>` (Artist/Host/Headliner — Performer/Host/Headliner)
+      added to the Logistik-panel's checkbox column in `CastingApplicationRow.tsx`, same
+      save action as fee/travel (`handleSaveLogisticsOnly`/send-offer both persist it).
+      Only rendered when `review_status === 'yes'`, following the gating done just above.
+- [x] **Admin list at-a-glance**: small gold badge (Crown/Mic2 icon) next to the performer
+      name in the collapsed row header — only for Host/Headliner, nothing shown for the
+      default Performer case.
+- [x] **Offer email**: `logisticsText` (the bulleted terms block `defaultYesBody` builds
+      from) gets a 4th "• Roll: ..." bullet only when Host/Headliner. No changes needed in
+      `send-casting-email.ts` — it just relays whatever `bodyText` the admin-side template
+      already composed, it was never role-aware and doesn't need to be.
+- [x] **`BookingDecisionCard.tsx`**: a role row in the offer summary box (matching the fee/
+      travel/accommodation rows already there) plus folded into the confirmation modal's
+      "you hereby confirm participating..." text — both only when Host/Headliner.
+- [x] **`BookedArtistForm.tsx`, added 2026-08-24 per user follow-up**: role also shown in
+      Sektion 4 (the same read-only "agreed compensation" card the gage lives in, "part of
+      the offer" per the user) — Host/Headliner only, nothing for the default Performer.
+      Centered under the fee/total lines per follow-up feedback the same day (the numeric
+      breakdown above it stays left-aligned; the role reads as a status line under it, not
+      another line in the same ledger).
+- [x] Swedish/English copy for all three role labels — Artist/Performer, and **both
+      Host and Headliner kept as the English word in Swedish too** (not
+      Programledare/Huvudakt as first drafted) — per explicit user correction: these are
+      the terms the local burlesque community actually uses regardless of language. Both
+      ended up plain strings rather than `t()` calls at their call sites, since neither
+      differs between languages.
+
+### Independent addition (2026-08-24, not originally planned): floating back-links site-wide
+
+While polishing `ArtistBookingPortal.tsx`, the user asked for an admin-only "back to
+Casting" arrow on that page (only meaningful for an admin previewing/testing a link — the
+artist themselves is never logged in and has nowhere to go back to), which grew into a
+site-wide pass: every "go back" arrow on a page long enough to need it now floats in a
+fixed position instead of only being reachable by scrolling back to the top.
+
+- New shared `<FloatingBackLink to label />` component (`src/components/FloatingBackLink.tsx`)
+  and one `.floating-back-link` class rather than repeating positioning utilities at each
+  call site. **Bug caught by the user on first look**: the initial `top-36` (144px) sat
+  right under the logged-in admin sub-nav row instead of clearing it — the unscrolled nav
+  is a 100px logo plus `py-4` padding plus that ~57px sub-nav row, topping out around
+  190px. Moved to `top-52` (208px) for real margin below it in every state.
+- Swapped in on `EventDetail.tsx`, `PerformerDetail.tsx` (both its "back to event" and
+  "back to performers" branches), `admin/AddPerformer.tsx`, `admin/EventEditor.tsx` — the
+  pages with long scrollable content. Left `AdminLogin.tsx` and `NotFound.tsx` alone
+  (short, centered, non-scrolling — nothing to float away from).
+- `ArtistBookingPortal.tsx`: new floating link to `/admin/casting`, gated on
+  `useAuth().user` being truthy — invisible to the artist, visible only when an admin is
+  the one looking at the link.
 
 ## Independent enhancement: returning artists' promo content vs. their existing profile
 

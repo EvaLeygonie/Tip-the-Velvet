@@ -16,6 +16,8 @@ import {
   DollarSign,
   Check,
   Loader2,
+  Crown,
+  Mic2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -30,7 +32,8 @@ interface CastingApplicationRowProps {
     proposedFee?: number,
     needsTravelCosts?: boolean,
     travelCostAmount?: number,
-    needsAccommodation?: boolean
+    needsAccommodation?: boolean,
+    lineupRole?: CastingApplication['lineup_role']
   ) => Promise<void>
   onToggleActSelected: (applicationId: string, actId: string, isSelected: boolean) => Promise<void>
 }
@@ -113,6 +116,9 @@ export const CastingApplicationRow = ({
   const [needsAccom, setNeedsAccom] = useState<boolean>(
     () => application.needs_accommodation || false
   )
+  const [lineupRole, setLineupRole] = useState<CastingApplication['lineup_role']>(
+    () => application.lineup_role || 'performer'
+  )
   // Tracks whether the "Update Offer" button has anything to actually save — an explicit
   // flag rather than comparing current state back against `application` on every render,
   // since the initial offerFee is itself a computed value (proposed_fee, or requested_fee
@@ -148,6 +154,11 @@ export const CastingApplicationRow = ({
 
   const handleNeedsAccomChange = (checked: boolean) => {
     setNeedsAccom(checked)
+    setIsLogisticsDirty(true)
+  }
+
+  const handleLineupRoleChange = (value: CastingApplication['lineup_role']) => {
+    setLineupRole(value)
     setIsLogisticsDirty(true)
   }
 
@@ -228,9 +239,22 @@ export const CastingApplicationRow = ({
       ? 'Ej angivet / Ej aktuellt'
       : 'Not provided'
 
+  // Only host/headliner get an explicit mention — the default performer role doesn't
+  // need to clutter the normal case with a line saying "you'll be a regular performer."
+  const roleLine =
+    lineupRole === 'host'
+      ? isSv
+        ? '\n• Roll: Du bokas som showens Host'
+        : "\n• Role: You're being booked as this show's Host"
+      : lineupRole === 'headliner'
+        ? isSv
+          ? '\n• Roll: Du bokas som showens Headliner'
+          : "\n• Role: You're being booked as this show's Headliner"
+        : ''
+
   const logisticsText = isSv
-    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${travelFormatted}\n• Boende: ${accomFormatted}`
-    : `• Fee: ${offerFee} SEK\n• Travel costs: ${travelFormatted}\n• Accommodation: ${accomFormatted}`
+    ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${travelFormatted}\n• Boende: ${accomFormatted}${roleLine}`
+    : `• Fee: ${offerFee} SEK\n• Travel costs: ${travelFormatted}\n• Accommodation: ${accomFormatted}${roleLine}`
 
   // A "no" is a full rejection of the application — mention everything the artist
   // submitted, regardless of what (if anything) was ever selected. Every application has
@@ -287,7 +311,8 @@ export const CastingApplicationRow = ({
         finalFee,
         finalTravelBool,
         finalTravelAmount,
-        finalAccomBool
+        finalAccomBool,
+        lineupRole
       )
 
       setIsLogisticsDirty(false)
@@ -417,7 +442,8 @@ export const CastingApplicationRow = ({
           application.review_status === 'yes' ? finalFee : undefined,
           finalTravelBool,
           finalTravelAmount,
-          finalAccomBool
+          finalAccomBool,
+          application.review_status === 'yes' ? lineupRole : undefined
         )
 
         setIsLogisticsDirty(false)
@@ -464,8 +490,21 @@ export const CastingApplicationRow = ({
               )}
             </div>
             <div className="truncate">
-              <div className="font-decorative text-base text-foreground tracking-wide truncate">
-                {application.performer_name}
+              <div className="font-decorative text-base text-foreground tracking-wide truncate flex items-center gap-1.5">
+                <span className="truncate">{application.performer_name}</span>
+                {application.lineup_role && application.lineup_role !== 'performer' && (
+                  <span
+                    className="shrink-0 not-italic font-body font-semibold text-[10px] bg-gold/15 text-gold px-1.5 py-0.5 rounded-full flex items-center gap-1"
+                    title={application.lineup_role === 'host' ? 'Host' : 'Headliner'}
+                  >
+                    {application.lineup_role === 'host' ? (
+                      <Mic2 className="h-2.5 w-2.5" />
+                    ) : (
+                      <Crown className="h-2.5 w-2.5" />
+                    )}
+                    {application.lineup_role === 'host' ? 'Host' : 'Headliner'}
+                  </span>
+                )}
               </div>
               <div className="text-accent italic text-xs font-heading flex items-center gap-1.5 min-w-0">
                 <span className="truncate min-w-0">{displayActTitle}</span>
@@ -709,119 +748,143 @@ export const CastingApplicationRow = ({
                 </>
               )}
 
-              {/* LOGISTIK-PANEL */}
-              <div className="bg-black/50 border border-accent/20 rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between border-b border-accent/10 pb-2">
-                  <span className="text-xs uppercase tracking-wider text-gold font-mono font-bold flex items-center gap-1.5">
-                    <DollarSign className="h-4 w-4" />
-                    {t('Erbjudandets Villkor & Logistik', 'Offer Terms & Logistics')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleSaveLogisticsOnly}
-                    disabled={savingLogistics || !isLogisticsDirty}
-                    className={`text-[11px] py-1 px-3 flex items-center gap-1 rounded-lg ${
-                      isLogisticsDirty ? 'btn-gold btn-gold-glow-active' : 'btn-gold-inactive'
-                    }`}
-                  >
-                    {savingLogistics ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Save className="w-3 h-3" />
-                    )}
-                    {t('Uppdatera erbjudandet', 'Update Offer')}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 items-start">
-                  {/* Kolumn 1: ERBJUDET GAGE */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase text-muted-foreground font-mono block">
-                      {acts.length > 1
-                        ? t('Erbjudet Gage — Totalt (SEK)', 'Offered Fee — Total (SEK)')
-                        : t('Erbjudet Gage (SEK)', 'Offered Fee (SEK)')}
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={offerFee}
-                      onChange={(e) => handleOfferFeeChange(Number(e.target.value))}
-                      className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
-                    />
-                    {acts.length > 1 ? (
-                      <span className="text-[10px] text-muted-foreground block pt-0.5">
-                        {t('Önskat', 'Requested')}: {application.requested_fee ?? 0} SEK ×{' '}
-                        {chosenActsCount} ={' '}
-                        {(Number(application.requested_fee) || 0) * chosenActsCount} SEK
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground block pt-0.5">
-                        {t('Önskat:', 'Requested:')} {application.requested_fee ?? '—'} SEK
-                      </span>
-                    )}
+              {/* LOGISTIK-PANEL — fee/travel/accommodation editing and the send-offer flow
+                  only make sense once the board has actually said yes; for maybe/no/pending
+                  it's just the bare act-selection checkboxes below, no fee math attached. */}
+              {application.review_status === 'yes' && (
+                <div className="bg-black/50 border border-accent/20 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-accent/10 pb-2">
+                    <span className="text-xs uppercase tracking-wider text-gold font-mono font-bold flex items-center gap-1.5">
+                      <DollarSign className="h-4 w-4" />
+                      {t('Erbjudandets Villkor & Logistik', 'Offer Terms & Logistics')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleSaveLogisticsOnly}
+                      disabled={savingLogistics || !isLogisticsDirty}
+                      className={`text-[11px] py-1 px-3 flex items-center gap-1 rounded-lg ${
+                        isLogisticsDirty ? 'btn-gold btn-gold-glow-active' : 'btn-gold-inactive'
+                      }`}
+                    >
+                      {savingLogistics ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Save className="w-3 h-3" />
+                      )}
+                      {t('Uppdatera erbjudandet', 'Update Offer')}
+                    </button>
                   </div>
 
-                  {/* Kolumn 2: KRYSSRUTOR */}
-                  <div className="flex flex-col justify-center space-y-2.5 pt-4">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 items-start">
+                    {/* Kolumn 1: ERBJUDET GAGE */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase text-muted-foreground font-mono block">
+                        {acts.length > 1
+                          ? t('Erbjudet Gage — Totalt (SEK)', 'Offered Fee — Total (SEK)')
+                          : t('Erbjudet Gage (SEK)', 'Offered Fee (SEK)')}
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={needsTravel}
-                        onChange={(e) => handleNeedsTravelChange(e.target.checked)}
-                        className="accent-accent h-4 w-4 rounded"
+                        type="number"
+                        min="0"
+                        value={offerFee}
+                        onChange={(e) => handleOfferFeeChange(Number(e.target.value))}
+                        className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
                       />
-                      <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                        <BusFront className="h-3.5 w-3.5 text-gold" />
-                        {t('Erbjud reseersättning', 'Offer Travel Support')}
-                      </span>
-                    </label>
+                      {acts.length > 1 ? (
+                        <span className="text-[10px] text-muted-foreground block pt-0.5">
+                          {t('Önskat', 'Requested')}: {application.requested_fee ?? 0} SEK ×{' '}
+                          {chosenActsCount} ={' '}
+                          {(Number(application.requested_fee) || 0) * chosenActsCount} SEK
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground block pt-0.5">
+                          {t('Önskat:', 'Requested:')} {application.requested_fee ?? '—'} SEK
+                        </span>
+                      )}
+                    </div>
 
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={needsAccom}
-                        onChange={(e) => handleNeedsAccomChange(e.target.checked)}
-                        className="accent-accent h-4 w-4 rounded"
-                      />
-                      <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                        <Home className="h-3.5 w-3.5 text-accent" />
-                        {t('Erbjud boende', 'Offer Accommodation')}
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* Kolumn 3: ERBJUDEN RESEERSÄTTNING */}
-                  <div>
-                    {needsTravel ? (
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase text-gold font-mono block">
-                          {t('Erbjuden reseersättning (SEK)', 'Offered Travel Support (SEK)')}
-                        </label>
+                    {/* Kolumn 2: KRYSSRUTOR */}
+                    <div className="flex flex-col justify-center space-y-2.5 pt-4">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
-                          type="number"
-                          min="0"
-                          value={travelAmount}
-                          onChange={(e) => handleTravelAmountChange(Number(e.target.value))}
-                          className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
-                          placeholder="0"
+                          type="checkbox"
+                          checked={needsTravel}
+                          onChange={(e) => handleNeedsTravelChange(e.target.checked)}
+                          className="accent-accent h-4 w-4 rounded"
                         />
-                        {application.needs_travel_costs && (
-                          <span className="text-[10px] text-muted-foreground block pt-0.5">
-                            {t('Artist önskade resa:', 'Artist requested travel:')}{' '}
-                            {application.travel_cost_amount
-                              ? `${application.travel_cost_amount} SEK`
-                              : t('Ja', 'Yes')}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="h-full flex items-center text-[11px] text-muted-foreground/40 italic pt-5">
-                        {t('Ingen reseersättning vald', 'No travel compensation selected')}
-                      </div>
-                    )}
+                        <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                          <BusFront className="h-3.5 w-3.5 text-gold" />
+                          {t('Erbjud reseersättning', 'Offer Travel Support')}
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={needsAccom}
+                          onChange={(e) => handleNeedsAccomChange(e.target.checked)}
+                          className="accent-accent h-4 w-4 rounded"
+                        />
+                        <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                          <Home className="h-3.5 w-3.5 text-accent" />
+                          {t('Erbjud boende', 'Offer Accommodation')}
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-2 pt-0.5">
+                        <span className="text-xs font-medium text-foreground flex items-center gap-1.5 shrink-0">
+                          <Crown className="h-3.5 w-3.5 text-gold" />
+                          {t('Roll i showen', 'Role in the show')}
+                        </span>
+                        <select
+                          value={lineupRole ?? 'performer'}
+                          onChange={(e) =>
+                            handleLineupRoleChange(
+                              e.target.value as CastingApplication['lineup_role']
+                            )
+                          }
+                          className="text-xs bg-black/60 border border-accent/20 rounded p-1.5 focus:border-accent text-white"
+                        >
+                          <option value="performer">{t('Artist', 'Performer')}</option>
+                          <option value="host">Host</option>
+                          <option value="headliner">Headliner</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    {/* Kolumn 3: ERBJUDEN RESEERSÄTTNING */}
+                    <div>
+                      {needsTravel ? (
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase text-gold font-mono block">
+                            {t('Erbjuden reseersättning (SEK)', 'Offered Travel Support (SEK)')}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={travelAmount}
+                            onChange={(e) => handleTravelAmountChange(Number(e.target.value))}
+                            className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
+                            placeholder="0"
+                          />
+                          {application.needs_travel_costs && (
+                            <span className="text-[10px] text-muted-foreground block pt-0.5">
+                              {t('Artist önskade resa:', 'Artist requested travel:')}{' '}
+                              {application.travel_cost_amount
+                                ? `${application.travel_cost_amount} SEK`
+                                : t('Ja', 'Yes')}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center text-[11px] text-muted-foreground/40 italic pt-5">
+                          {t('Ingen reseersättning vald', 'No travel compensation selected')}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Artisttexter */}
               <div>

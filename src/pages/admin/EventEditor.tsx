@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Eye, Users } from 'lucide-react'
+import { Eye, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { FloatingBackLink } from '@/components/FloatingBackLink'
 import type { Event, CreateEventInput } from '@/types/types'
 import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
 import { getAdminEventDetails, getAllVenues, getAllPhotographers } from '@/services/eventService'
@@ -269,12 +270,12 @@ export const EventEditor = () => {
   return (
     <div className="page-standard">
       <div className="editor-container">
+        <FloatingBackLink
+          to={slug ? `/events/event/${slug}` : '/events'}
+          label={t('Tillbaka', 'Back')}
+        />
         <div className="section-header-triad">
-          <div className="header-side-content md:justify-start">
-            <Link to={slug ? `/events/event/${slug}` : '/events'}>
-              <ArrowLeft className="text-accent hover:scale-105" />
-            </Link>
-          </div>
+          <div className="header-side-content md:justify-start" />
           <h1>{slug ? t('Redigera Event', 'Edit Event') : t('Skapa Event', 'Create Event')}</h1>
           <div className="hidden md:block"></div>
         </div>
