@@ -11,6 +11,10 @@ interface CastingEmailBody {
   subject: string
   bodyText: string
   language: 'sv' | 'en'
+  // Optional — overrides the default personalized "Hej {name}!"/"Darling {name}," greeting.
+  // Used by bulk sends (e.g. "email all booked artists") where a generic "Hey everyone!"
+  // reads better than addressing each recipient individually.
+  greeting?: string
 }
 
 export default async (request: Request) => {
@@ -19,7 +23,8 @@ export default async (request: Request) => {
   }
 
   try {
-    const { to, name, subject, bodyText, language } = (await request.json()) as CastingEmailBody
+    const { to, name, subject, bodyText, language, greeting } =
+      (await request.json()) as CastingEmailBody
 
     if (!to || !name || !subject || !bodyText) {
       return new Response('Missing required fields', { status: 400 })
@@ -40,7 +45,7 @@ export default async (request: Request) => {
 
     const htmlContent = renderEmailHtml({
       subject,
-      greetingHtml: isSv ? `Hej ${name}!` : `Darling ${name},`,
+      greetingHtml: greeting ?? (isSv ? `Hej ${name}!` : `Darling ${name},`),
       bodyHtml: formattedBody,
       isSv,
     })

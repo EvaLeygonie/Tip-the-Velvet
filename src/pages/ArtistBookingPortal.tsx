@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useSearchParams, useParams } from 'react-router-dom'
-import type { CastingApplication } from '@/types/types'
+import type { CastingApplicationPortalData } from '@/types/types'
 import { getCastingApplicationByToken } from '@/services/applicationService'
 import { BookingDecisionCard } from '@/components/applications/BookingDecisionCard'
 import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
@@ -11,7 +11,7 @@ export const ArtistBookingPortal = () => {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
-  const [application, setApplication] = useState<CastingApplication | null>(null)
+  const [application, setApplication] = useState<CastingApplicationPortalData | null>(null)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -72,6 +72,18 @@ export const ArtistBookingPortal = () => {
 
   const isConfirmed = application.booking_status === 'confirmed'
 
+  // Acts actually being offered/booked — falls back to the single legacy act_title for
+  // applications submitted before the multi-act casting form existed (no
+  // casting_application_acts rows at all). Prefers the confirmed performer_acts name
+  // (the artist may have renamed the act in BookedArtistForm) once one exists.
+  const selectedActs = (application.acts ?? []).filter((act) => act.is_selected)
+  const headerActTitles =
+    selectedActs.length > 0
+      ? selectedActs.map((act) => act.performer_acts?.act_name || act.act_title)
+      : application.act_title
+        ? [application.act_title]
+        : []
+
   return (
     <div className="min-h-screen bg-background text-foreground py-12 px-4">
       <div className="bg-glow-spot" />
@@ -80,8 +92,13 @@ export const ArtistBookingPortal = () => {
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight mt-4">{application.performer_name}</h1>
           <p className="text-md text-foreground/68">
-            {t('Akt: ', 'Act: ')}
-            {application.act_title}
+            {headerActTitles.length > 1 ? t('Akter: ', 'Acts: ') : t('Akt: ', 'Act: ')}
+            {headerActTitles.map((title, idx) => (
+              <Fragment key={idx}>
+                {idx > 0 && <span className="text-accent mx-2">✦</span>}
+                {title}
+              </Fragment>
+            ))}
           </p>
         </div>
 

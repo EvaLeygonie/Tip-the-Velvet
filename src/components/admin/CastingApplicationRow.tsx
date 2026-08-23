@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import type { CastingApplication, CastingApplicationWithActs } from '@/types/types'
-import { getImageSrc, formatDate } from '@/lib/utils'
+import { getImageSrc, formatDate, formatActList } from '@/lib/utils'
 import { useLanguage } from '@/contexts/LanguageContext'
 import {
   ChevronDown,
@@ -71,10 +71,39 @@ export const CastingApplicationRow = ({
   const [isSendingMail, setIsSendingMail] = useState(false)
   const [customMailBodyText, setCustomMailBodyText] = useState<string | null>(null)
 
+  const acts = application.casting_application_acts ?? []
+  // Selection is only a meaningful concept once there's a decision to make (yes/maybe) —
+  // for pending/no rows just show how many acts were submitted, no "chosen/" framing.
+  const chosenActsCount = acts.filter((act) => act.is_selected).length
+  const showChosenFraction =
+    application.review_status === 'yes' || application.review_status === 'maybe'
+  // For the fee calculation specifically: treat "nothing selected yet" as 1 act, so a
+  // fresh multi-act application defaults to showing one act's rate rather than a jarring
+  // 0 kr — matches the single-act behavior of just showing the requested fee up front.
+  const effectiveActsCountForFee = acts.length > 1 ? Math.max(chosenActsCount, 1) : 1
+
   // LOGISTIK STATE - Hålls helt fristående från propen efter mount
-  const [offerFee, setOfferFee] = useState<number>(
-    () => Number(application.proposed_fee) || Number(application.requested_fee) || 0
-  )
+  //
+  // Multi-act: always compute fresh from the currently-selected acts rather than trusting
+  // a saved proposed_fee — that total could have been saved before the current selection
+  // existed (e.g. saved as 1000 while 0 acts were checked, acts get checked later, then
+  // review_status changes and this row remounts in a new section) and blindly trusting it
+  // is exactly the bug a real test caught: a stale total that didn't reflect what was
+  // actually selected. Single-act has no such ambiguity — proposed_fee there always means
+  // exactly what it says, so it's still respected as-is.
+  const computeFreshOfferFee = () =>
+    (Number(application.requested_fee) || 0) * effectiveActsCountForFee
+  const [offerFee, setOfferFee] = useState<number>(() => {
+    if (acts.length <= 1 && application.proposed_fee) return Number(application.proposed_fee)
+    return computeFreshOfferFee()
+  })
+  // Multi-act only: the per-act rate currently driving the live total. Starts as the
+  // artist's own ask, but a manual edit to the total field derives a new rate from it
+  // (total ÷ current act count, rounded) — so from then on, further act-count changes
+  // multiply/divide around what the admin actually set, not the original ask. The
+  // artist's original request stays available separately as a fixed reference (rendered
+  // below), never overwritten by this.
+  const [perActRate, setPerActRate] = useState<number>(() => Number(application.requested_fee) || 0)
   const [needsTravel, setNeedsTravel] = useState<boolean>(
     () => application.needs_travel_costs || false
   )
@@ -84,6 +113,59 @@ export const CastingApplicationRow = ({
   const [needsAccom, setNeedsAccom] = useState<boolean>(
     () => application.needs_accommodation || false
   )
+  // Tracks whether the "Update Offer" button has anything to actually save — an explicit
+  // flag rather than comparing current state back against `application` on every render,
+  // since the initial offerFee is itself a computed value (proposed_fee, or requested_fee
+  // × selected acts) that a naive comparison would mismatch on load and falsely show as
+  // dirty. Set true by any local edit below (including the auto-recompute effect — that's
+  // exactly the case this button exists for, see prior chat: recompute is local-only,
+  // not a save) and cleared after a successful save. Also starts true if the saved
+  // proposed_fee didn't actually match the fresh multi-act computation above (the exact
+  // stale-total bug just fixed) — the admin should see a visible "this needs saving" cue
+  // rather than the total silently self-correcting with no indication anything changed.
+  const [isLogisticsDirty, setIsLogisticsDirty] = useState<boolean>(() => {
+    if (acts.length <= 1) return false
+    return Number(application.proposed_fee || 0) !== computeFreshOfferFee()
+  })
+
+  const handleOfferFeeChange = (value: number) => {
+    setOfferFee(value)
+    setIsLogisticsDirty(true)
+    if (acts.length > 1) {
+      setPerActRate(Math.round(value / effectiveActsCountForFee))
+    }
+  }
+
+  const handleNeedsTravelChange = (checked: boolean) => {
+    setNeedsTravel(checked)
+    setIsLogisticsDirty(true)
+  }
+
+  const handleTravelAmountChange = (value: number) => {
+    setTravelAmount(value)
+    setIsLogisticsDirty(true)
+  }
+
+  const handleNeedsAccomChange = (checked: boolean) => {
+    setNeedsAccom(checked)
+    setIsLogisticsDirty(true)
+  }
+
+  // Recompute the offer total whenever act selection actually changes (not on mount —
+  // that would clobber an already-saved custom proposed_fee, see offerFee's initializer
+  // above). Deliberately keyed only on the act count, not perActRate — this must NOT
+  // re-fire just because handleOfferFeeChange updated perActRate a moment ago, or it'd
+  // immediately re-derive the total from the rounded rate and visibly correct whatever
+  // the admin just typed (e.g. 2500 ÷ 3 rounds to 833, which recomputes to 2499).
+  const prevActsCountForFeeRef = useRef(effectiveActsCountForFee)
+  useEffect(() => {
+    if (acts.length <= 1) return
+    if (effectiveActsCountForFee === prevActsCountForFeeRef.current) return
+    prevActsCountForFeeRef.current = effectiveActsCountForFee
+    setOfferFee(Math.round(perActRate * effectiveActsCountForFee))
+    setIsLogisticsDirty(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveActsCountForFee, acts.length])
 
   const isSv = application.language === 'sv'
 
@@ -94,7 +176,6 @@ export const CastingApplicationRow = ({
   // yet. Deliberately not "whichever tab is currently open" — that would make a row's
   // title change based on incidental clicks, breaking the visual-scan stability a
   // collapsed list depends on.
-  const acts = application.casting_application_acts ?? []
   const primaryAct = acts.find((act) => act.is_selected) ?? acts[0]
   const displayActTitle = primaryAct?.act_title || application.act_title
   const extraActCount = acts.length > 1 ? acts.length - 1 : 0
@@ -107,12 +188,6 @@ export const CastingApplicationRow = ({
     return primaryIndex >= 0 ? primaryIndex : 0
   })
   const activeAct = acts[activeActIndex] ?? acts[0]
-
-  // Selection is only a meaningful concept once there's a decision to make (yes/maybe) —
-  // for pending/no rows just show how many acts were submitted, no "chosen/" framing.
-  const chosenActsCount = acts.filter((act) => act.is_selected).length
-  const showChosenFraction =
-    application.review_status === 'yes' || application.review_status === 'maybe'
 
   const isRejectedAndSent = application.review_status === 'no' && application.initial_reply_sent
   const isAwaitingConfirmation =
@@ -157,17 +232,30 @@ export const CastingApplicationRow = ({
     ? `• Gage: ${offerFee} SEK\n• Resekostnader: ${travelFormatted}\n• Boende: ${accomFormatted}`
     : `• Fee: ${offerFee} SEK\n• Travel costs: ${travelFormatted}\n• Accommodation: ${accomFormatted}`
 
+  // A "no" is a full rejection of the application — mention everything the artist
+  // submitted, regardless of what (if anything) was ever selected.
+  const submittedActTitles =
+    acts.length > 0 ? acts.map((act) => act.act_title) : [application.act_title]
+  // "Yes"/"maybe" only concern the acts actually chosen — falls back to everything
+  // submitted if nothing's been selected yet (a mail naming zero acts would be worse).
+  const selectedActTitlesRaw = acts.filter((act) => act.is_selected).map((act) => act.act_title)
+  const chosenActTitles =
+    selectedActTitlesRaw.length > 0 ? selectedActTitlesRaw : submittedActTitles
+
+  const submittedActsText = formatActList(submittedActTitles, isSv)
+  const chosenActsText = formatActList(chosenActTitles, isSv)
+
   const defaultYesBody = isSv
-    ? `Vi älskade din ansökan för "${application.act_title}" och vill jättegärna erbjuda dig en plats i showen!\n\nHär är de villkor och det upplägg vi har tagit fram:\n${logisticsText}\n\nVia länken nedan kan vårt erbjudande granskas och bekräftas. Klicka här för att se detaljerna:\n${contractLink}\n\nVi ser verkligen fram emot att jobba med dig!`
-    : `We loved your application for "${application.act_title}" and would love to offer you a spot in the show!\n\nHere are the terms and details for the offer:\n${logisticsText}\n\nThrough the link below, our offer can be reviewed and confirmed:\n${contractLink}\n\nWe are thrilled about the prospect of working together!`
+    ? `Vi älskade din ansökan för ${chosenActsText} och vill jättegärna erbjuda dig en plats i showen!\n\nHär är de villkor och det upplägg vi har tagit fram:\n${logisticsText}\n\nVia länken nedan kan vårt erbjudande granskas och bekräftas. Klicka här för att se detaljerna:\n${contractLink}\n\nVi ser verkligen fram emot att jobba med dig!`
+    : `We loved your application for ${chosenActsText} and would love to offer you a spot in the show!\n\nHere are the terms and details for the offer:\n${logisticsText}\n\nThrough the link below, our offer can be reviewed and confirmed:\n${contractLink}\n\nWe are thrilled about the prospect of working together!`
 
   const defaultNoBody = isSv
-    ? `Stort tack för att du sökte till vår show med din akt "${application.act_title}"!\n\nVi har nu gått igenom alla ansökningar, och tyvärr har vi inte möjlighet att ta med din akt i just den här produktionen. Urvalet har varit otroligt svårt då vi fått in väldigt många fantastiska bidrag.\n\nVi sparar gärna dina kontaktuppgifter för framtida shower, och hoppas att vi ses eller hörs framöver!`
-    : `Thank you so much for applying to our show with your act "${application.act_title}"!\n\nWe have reviewed all applications, and unfortunately, we are unable to include your act in this specific production. The selection process was highly competitive due to the volume of amazing submissions we received.\n\nWe would love to keep your details on file for future shows, and hope to cross paths in the future!`
+    ? `Stort tack för att du sökte till vår show med ${submittedActTitles.length > 1 ? 'dina akter' : 'din akt'} ${submittedActsText}!\n\nVi har nu gått igenom alla ansökningar, och tyvärr har vi inte möjlighet att ta med ${submittedActTitles.length > 1 ? 'dessa akter' : 'din akt'} i just den här produktionen. Urvalet har varit otroligt svårt då vi fått in väldigt många fantastiska bidrag.\n\nVi sparar gärna dina kontaktuppgifter för framtida shower, och hoppas att vi ses eller hörs framöver!`
+    : `Thank you so much for applying to our show with ${submittedActTitles.length > 1 ? 'your acts' : 'your act'} ${submittedActsText}!\n\nWe have reviewed all applications, and unfortunately, we are unable to include ${submittedActTitles.length > 1 ? 'these acts' : 'your act'} in this specific production. The selection process was highly competitive due to the volume of amazing submissions we received.\n\nWe would love to keep your details on file for future shows, and hope to cross paths in the future!`
 
   const defaultMaybeBody = isSv
-    ? `Hej ${application.performer_name}!\n\nHoppas att allt är fint med dig. Vi har gått igenom din castingansökan gällande din akt "${application.act_title}" och tycker den är väldigt intressant.\n\n [...] \n\nVarma hälsningar,\nTip the Velvet`
-    : `Hi ${application.performer_name}!\n\nHope you are doing well. We have reviewed your casting application regarding your act "${application.act_title}" and find it very interesting.\n\n [...] \n\nBest regards,\nTip the Velvet`
+    ? `Hej ${application.performer_name}!\n\nHoppas att allt är fint med dig. Vi har gått igenom din castingansökan gällande ${chosenActTitles.length > 1 ? 'dina akter' : 'din akt'} ${chosenActsText} och tycker den är väldigt intressant.\n\n [...] \n\nVarma hälsningar,\nTip the Velvet`
+    : `Hi ${application.performer_name}!\n\nHope you are doing well. We have reviewed your casting application regarding ${chosenActTitles.length > 1 ? 'your acts' : 'your act'} ${chosenActsText} and find it very interesting.\n\n [...] \n\nBest regards,\nTip the Velvet`
 
   const activeDefaultBody =
     application.review_status === 'yes'
@@ -201,6 +289,7 @@ export const CastingApplicationRow = ({
         finalAccomBool
       )
 
+      setIsLogisticsDirty(false)
       toast.success(t('Erbjudandets villkor sparades!', 'Offer terms saved!'))
     } catch (err) {
       console.error('Fel vid sparande av logistik:', err)
@@ -242,22 +331,38 @@ export const CastingApplicationRow = ({
     }
   }
 
-  const handleOpenMailModal = (e: React.MouseEvent) => {
+  const handleOpenMailModal = async (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // The draft preview below reads the offer live from local state, but the artist's
+    // confirmation link reads proposed_fee straight from the database — if the admin never
+    // pressed "Update Offer", those two can disagree (email promises one figure, the
+    // artist's actual contract link still shows the old one). Sync as soon as the offer is
+    // about to be shown/sent, not only when explicitly saved, so the two can never diverge.
+    if (application.review_status === 'yes' && isLogisticsDirty) {
+      await handleSaveLogisticsOnly()
+    }
+
+    // Subjects only name a specific act when there's exactly one — with several, listing
+    // them all would make the subject line unwieldy, so it stays generic there and the
+    // body (which always lists every relevant act, however many) carries the detail.
+    const noSubjectActSuffix = submittedActTitles.length === 1 ? ` för ${submittedActsText}` : ''
+    const noSubjectActSuffixEn = submittedActTitles.length === 1 ? ` for ${submittedActsText}` : ''
+    const chosenSubjectActSuffix = chosenActTitles.length === 1 ? ` ${chosenActsText}` : ''
 
     let subject = ''
     if (application.review_status === 'yes') {
       subject = isSv
-        ? `Erbjudande: Casting för Tip the Velvet - ${application.act_title}`
-        : `Offer: Casting for Tip the Velvet - ${application.act_title}`
+        ? `Erbjudande: Casting för Tip the Velvet${chosenSubjectActSuffix ? ` -${chosenSubjectActSuffix}` : ''}`
+        : `Offer: Casting for Tip the Velvet${chosenSubjectActSuffix ? ` -${chosenSubjectActSuffix}` : ''}`
     } else if (application.review_status === 'no') {
       subject = isSv
-        ? `Tip the Velvet - Angående din castingansökan för ${application.act_title}`
-        : `Tip the Velvet - Regarding your casting application for ${application.act_title}`
+        ? `Tip the Velvet - Angående din castingansökan${noSubjectActSuffix}`
+        : `Tip the Velvet - Regarding your casting application${noSubjectActSuffixEn}`
     } else {
       subject = isSv
-        ? `Tip the Velvet - Gällande din akt ${application.act_title}`
-        : `Tip the Velvet - Regarding your act ${application.act_title}`
+        ? `Tip the Velvet - Gällande din ansökan${chosenSubjectActSuffix ? ` -${chosenSubjectActSuffix}` : ''}`
+        : `Tip the Velvet - Regarding your application${chosenSubjectActSuffix ? ` -${chosenSubjectActSuffix}` : ''}`
     }
 
     setMailSubject(subject)
@@ -314,6 +419,7 @@ export const CastingApplicationRow = ({
           finalAccomBool
         )
 
+        setIsLogisticsDirty(false)
         toast.success(t('Mailet har skickats framgångsrikt!', 'Email sent successfully!'))
         setShowMailModal(false)
       } catch (err) {
@@ -612,8 +718,10 @@ export const CastingApplicationRow = ({
                   <button
                     type="button"
                     onClick={handleSaveLogisticsOnly}
-                    disabled={savingLogistics}
-                    className="btn-gold-outline text-[11px] py-1 px-3 flex items-center gap-1"
+                    disabled={savingLogistics || !isLogisticsDirty}
+                    className={`text-[11px] py-1 px-3 flex items-center gap-1 rounded-lg ${
+                      isLogisticsDirty ? 'btn-gold btn-gold-glow-active' : 'btn-gold-inactive'
+                    }`}
                   >
                     {savingLogistics ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -628,18 +736,28 @@ export const CastingApplicationRow = ({
                   {/* Kolumn 1: ERBJUDET GAGE */}
                   <div className="space-y-1">
                     <label className="text-[10px] uppercase text-muted-foreground font-mono block">
-                      {t('Erbjudet Gage (SEK)', 'Offered Fee (SEK)')}
+                      {acts.length > 1
+                        ? t('Erbjudet Gage — Totalt (SEK)', 'Offered Fee — Total (SEK)')
+                        : t('Erbjudet Gage (SEK)', 'Offered Fee (SEK)')}
                     </label>
                     <input
                       type="number"
                       min="0"
                       value={offerFee}
-                      onChange={(e) => setOfferFee(Number(e.target.value))}
+                      onChange={(e) => handleOfferFeeChange(Number(e.target.value))}
                       className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
                     />
-                    <span className="text-[10px] text-muted-foreground block pt-0.5">
-                      {t('Önskat:', 'Requested:')} {application.requested_fee ?? '—'} SEK
-                    </span>
+                    {acts.length > 1 ? (
+                      <span className="text-[10px] text-muted-foreground block pt-0.5">
+                        {t('Önskat', 'Requested')}: {application.requested_fee ?? 0} SEK ×{' '}
+                        {chosenActsCount} ={' '}
+                        {(Number(application.requested_fee) || 0) * chosenActsCount} SEK
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground block pt-0.5">
+                        {t('Önskat:', 'Requested:')} {application.requested_fee ?? '—'} SEK
+                      </span>
+                    )}
                   </div>
 
                   {/* Kolumn 2: KRYSSRUTOR */}
@@ -648,7 +766,7 @@ export const CastingApplicationRow = ({
                       <input
                         type="checkbox"
                         checked={needsTravel}
-                        onChange={(e) => setNeedsTravel(e.target.checked)}
+                        onChange={(e) => handleNeedsTravelChange(e.target.checked)}
                         className="accent-accent h-4 w-4 rounded"
                       />
                       <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
@@ -661,7 +779,7 @@ export const CastingApplicationRow = ({
                       <input
                         type="checkbox"
                         checked={needsAccom}
-                        onChange={(e) => setNeedsAccom(e.target.checked)}
+                        onChange={(e) => handleNeedsAccomChange(e.target.checked)}
                         className="accent-accent h-4 w-4 rounded"
                       />
                       <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
@@ -682,7 +800,7 @@ export const CastingApplicationRow = ({
                           type="number"
                           min="0"
                           value={travelAmount}
-                          onChange={(e) => setTravelAmount(Number(e.target.value))}
+                          onChange={(e) => handleTravelAmountChange(Number(e.target.value))}
                           className="w-full text-xs bg-black/60 border border-accent/20 rounded p-2 focus:border-accent text-white font-bold"
                           placeholder="0"
                         />

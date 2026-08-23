@@ -1,4 +1,4 @@
-import type { Tables, TablesInsert, Enums, Database } from './database.types'
+import type { Tables, TablesInsert, Enums, Database, Json } from './database.types'
 
 //=== VIEWS ===//
 
@@ -16,6 +16,43 @@ export type CastingApplication = Tables<'casting_applications'>
 export type CastingApplicationAct = Tables<'casting_application_acts'>
 export type CastingApplicationWithActs = CastingApplication & {
   casting_application_acts: CastingApplicationAct[]
+}
+
+// Columns get_casting_application_by_token actually selects off performer_acts once an
+// act has been confirmed/migrated — a subset, not the full table row.
+export interface ConfirmedActDetails {
+  id: string
+  act_name: string | null
+  description_sv: string | null
+  description_eng: string | null
+  audio_files: Json
+  stage_preparations: string | null
+  pick_up_cleaning: string | null
+  act_notes: string | null
+}
+
+// One entry in the RPC's 'acts' array — the submitted act plus its confirmed
+// performer_acts data nested in (null until that specific act is migrated).
+export type CastingApplicationActFull = CastingApplicationAct & {
+  performer_acts: ConfirmedActDetails | null
+}
+
+// Full shape get_casting_application_by_token returns — what ArtistBookingPortal,
+// BookingDecisionCard and BookedArtistForm all read from. 'performer_acts' (singular) is
+// the old legacy single-act key kept for backward compatibility; 'acts' is the new
+// per-act array (Phase 9 of multi-act-casting-plan.md).
+export type CastingApplicationPortalData = CastingApplication & {
+  events?: { id: string; title: string; event_start: string } | null
+  performers?: { id: string; bio_sv: string | null; bio_eng: string | null } | null
+  performer_acts?: ConfirmedActDetails | null
+  event_performers?: {
+    dietary_requirements: string | null
+    travel_receipts: Json
+    plus_one_name: string | null
+    plus_one_email: string | null
+    travel_covered: number | null
+  } | null
+  acts?: CastingApplicationActFull[]
 }
 export type StaffVolunteers = Tables<'staff_volunteers'>
 export type Sponsors = Tables<'sponsors'>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   getApplicationsFromEvent,
   updateApplicationNotes,
@@ -10,8 +11,9 @@ import { fetchEventsForAdmin } from '@/services/eventService'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { CastingApplication, CastingApplicationWithActs, Event } from '@/types/types'
 import { CastingApplicationRow } from '@/components/admin/CastingApplicationRow'
-import { DollarSign, Music, Users } from 'lucide-react'
+import { DollarSign, Music, Users, Mail, Loader2 } from 'lucide-react'
 import { withTimeout } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export const AdminCasting = () => {
   const { t } = useLanguage()
@@ -23,6 +25,19 @@ export const AdminCasting = () => {
   const [applications, setApplications] = useState<CastingApplicationWithActs[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [showBulkMailModal, setShowBulkMailModal] = useState(false)
+  const [bulkSubjectSv, setBulkSubjectSv] = useState('')
+  const [bulkSubjectEn, setBulkSubjectEn] = useState('')
+  // Kept separate from bulkBodySv/En (not just baked into the body text) — the edge
+  // function otherwise auto-prepends a personalized "Hej {name}!" per recipient, so this
+  // has to reach it as a real override, not just sit as the first line of the body, or
+  // every artist would see both greetings stacked on top of each other.
+  const [bulkGreetingSv, setBulkGreetingSv] = useState('')
+  const [bulkGreetingEn, setBulkGreetingEn] = useState('')
+  const [bulkBodySv, setBulkBodySv] = useState('')
+  const [bulkBodyEn, setBulkBodyEn] = useState('')
+  const [isSendingBulkMail, setIsSendingBulkMail] = useState(false)
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -192,6 +207,65 @@ export const AdminCasting = () => {
   const maybeApps = applications.filter((app) => app.review_status === 'maybe')
   const noApps = applications.filter((app) => app.review_status === 'no')
 
+  // "Booked artists" — actually confirmed, not just review_status='yes' (which also
+  // includes artists not yet contacted or still awaiting their own confirmation).
+  const bookedApps = yesApps.filter((app) => app.booking_status === 'confirmed')
+  const selectedEvent = events.find((e) => e.id === selectedEventId)
+
+  const openBulkMailModal = () => {
+    const eventTitle = selectedEvent?.title ?? ''
+    setBulkSubjectSv(`Inför ${eventTitle}`)
+    setBulkSubjectEn(`Regarding ${eventTitle}`)
+    setBulkGreetingSv('Hej allihopa!')
+    setBulkGreetingEn('Hey everyone!')
+    setBulkBodySv('\n\nVarma hälsningar,\nTip the Velvet')
+    setBulkBodyEn('\n\nBest regards,\nTip the Velvet')
+    setShowBulkMailModal(true)
+  }
+
+  const handleSendBulkMail = async () => {
+    setIsSendingBulkMail(true)
+    try {
+      const results = await Promise.allSettled(
+        bookedApps.map((app) => {
+          const isRecipientSv = app.language === 'sv'
+          return fetch('/api/send-casting-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: app.email,
+              name: app.performer_name,
+              subject: isRecipientSv ? bulkSubjectSv : bulkSubjectEn,
+              bodyText: isRecipientSv ? bulkBodySv : bulkBodyEn,
+              language: app.language,
+              greeting: isRecipientSv ? bulkGreetingSv : bulkGreetingEn,
+            }),
+          }).then((res) => {
+            if (!res.ok) throw new Error(`Failed to send to ${app.email}`)
+          })
+        })
+      )
+
+      const failedCount = results.filter((r) => r.status === 'rejected').length
+
+      if (failedCount === 0) {
+        toast.success(
+          t('Mail skickat till alla bokade artister!', 'Email sent to all booked artists!')
+        )
+        setShowBulkMailModal(false)
+      } else {
+        toast.error(
+          t(
+            `${failedCount} av ${bookedApps.length} mail kunde inte skickas.`,
+            `${failedCount} of ${bookedApps.length} emails could not be sent.`
+          )
+        )
+      }
+    } finally {
+      setIsSendingBulkMail(false)
+    }
+  }
+
   const totalBudget = yesApps.reduce((sum, app) => {
     const fee = Number(app.proposed_fee) || Number(app.requested_fee) || 0
     const travel = app.needs_travel_costs ? Number(app.travel_cost_amount) || 0 : 0
@@ -232,21 +306,38 @@ export const AdminCasting = () => {
     return (
       <div className="space-y-3 pt-4">
         <div className="flex items-center justify-between border-b border-accent/10 pb-2">
-          <h5 className="font-decorative text-base text-foreground/80">{title}</h5>
+          <div className="flex items-center gap-2">
+            <h5 className="font-decorative text-base text-foreground/80">{title}</h5>
+            {isYesSection && (
+              <button
+                type="button"
+                onClick={openBulkMailModal}
+                disabled={bookedApps.length === 0}
+                className="p-1.5 border rounded-md transition-colors shrink-0 bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-accent/10 disabled:hover:text-accent"
+                title={
+                  bookedApps.length === 0
+                    ? t('Inga bokade artister ännu', 'No booked artists yet')
+                    : t('Maila alla bokade artister', 'Email all booked artists')
+                }
+              >
+                <Mail className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-xs text-accent/80 font-mono flex items-center gap-1 opacity-90">
-              <Music className="h-3 w-3" />
-              <span>
-                {actsCount} {actLabel(actsCount)}
-              </span>
-            </div>
             {isYesSection && (
               <div className="text-xs text-gold font-mono flex items-center gap-1 opacity-90">
                 <DollarSign className="h-3 w-3" />
                 <span>Total: {totalBudget} SEK</span>
               </div>
             )}
+            <div className="text-xs text-accent/80 font-mono flex items-center gap-1 opacity-90">
+              <Music className="h-3 w-3" />
+              <span>
+                {actsCount} {actLabel(actsCount)}
+              </span>
+            </div>
             <span className={`text-xs font-mono px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
               {appsList.length}
             </span>
@@ -376,6 +467,144 @@ export const AdminCasting = () => {
           )}
         </div>
       )}
+
+      {showBulkMailModal &&
+        typeof window !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 text-left"
+            onClick={() => setShowBulkMailModal(false)}
+          >
+            <div
+              className="velvet-surface border border-accent/30 max-w-2xl w-full p-6 space-y-4 rounded-lg shadow-2xl relative"
+              style={{ backgroundColor: '#141111' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div>
+                <h4 className="font-decorative text-lg text-accent text-center">
+                  {t('Maila alla bokade artister', 'Email all booked artists')}
+                </h4>
+                <p className="text-xs text-muted-foreground text-center">
+                  {bookedApps.length}{' '}
+                  {t(
+                    `mottagare (${bookedApps.filter((a) => a.language === 'sv').length} svenska, ${bookedApps.filter((a) => a.language !== 'sv').length} engelska)`,
+                    `recipients (${bookedApps.filter((a) => a.language === 'sv').length} Swedish, ${bookedApps.filter((a) => a.language !== 'sv').length} English)`
+                  )}
+                  .{' '}
+                  {t(
+                    'Varje artist får versionen på sitt eget språk.',
+                    'Each artist gets the version in their own language.'
+                  )}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <span className="block text-[11px] uppercase tracking-wider text-gold font-mono">
+                    {t('Svenska', 'Swedish')}
+                  </span>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono block">
+                      {t('Ämnesrad', 'Subject')}
+                    </label>
+                    <input
+                      type="text"
+                      value={bulkSubjectSv}
+                      onChange={(e) => setBulkSubjectSv(e.target.value)}
+                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono block">
+                      {t('Hälsning', 'Greeting')}
+                    </label>
+                    <input
+                      type="text"
+                      value={bulkGreetingSv}
+                      onChange={(e) => setBulkGreetingSv(e.target.value)}
+                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono block">
+                      {t('Mailtext', 'Email Text')}
+                    </label>
+                    <textarea
+                      value={bulkBodySv}
+                      onChange={(e) => setBulkBodySv(e.target.value)}
+                      className="w-full h-40 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <span className="block text-[11px] uppercase tracking-wider text-gold font-mono">
+                    {t('Engelska', 'English')}
+                  </span>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono block">
+                      {t('Ämnesrad', 'Subject')}
+                    </label>
+                    <input
+                      type="text"
+                      value={bulkSubjectEn}
+                      onChange={(e) => setBulkSubjectEn(e.target.value)}
+                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono block">
+                      {t('Hälsning', 'Greeting')}
+                    </label>
+                    <input
+                      type="text"
+                      value={bulkGreetingEn}
+                      onChange={(e) => setBulkGreetingEn(e.target.value)}
+                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono block">
+                      {t('Mailtext', 'Email Text')}
+                    </label>
+                    <textarea
+                      value={bulkBodyEn}
+                      onChange={(e) => setBulkBodyEn(e.target.value)}
+                      className="w-full h-40 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-accent/10">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkMailModal(false)}
+                  className="px-4 py-2 text-xs border border-accent/20 rounded text-foreground/70 hover:bg-white/5 transition-colors"
+                  disabled={isSendingBulkMail}
+                >
+                  {t('Avbryt', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendBulkMail}
+                  className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5"
+                  disabled={isSendingBulkMail || bookedApps.length === 0}
+                >
+                  {isSendingBulkMail ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Mail className="h-3.5 w-3.5" />
+                  )}
+                  {isSendingBulkMail
+                    ? t('Skickar...', 'Sending...')
+                    : t('Skicka till alla', 'Send to all')}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

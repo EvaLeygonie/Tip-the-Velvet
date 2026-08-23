@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
 import { confirmAndMigrateArtist } from '@/services/applicationService'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { formatActList } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Sparkles, Mail, CheckCircle2, Car, Home, DollarSign } from 'lucide-react'
-import type { CastingApplication } from '@/types/types'
+import type { CastingApplicationPortalData } from '@/types/types'
 
 interface BookingDecisionCardProps {
-  application: CastingApplication
+  application: CastingApplicationPortalData
   onStatusChange: () => void
 }
 
@@ -14,13 +15,25 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
   application,
   onStatusChange,
 }) => {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+  const isSv = language === 'sv'
 
   const currentFee = application.proposed_fee ?? application.requested_fee ?? 0
   const needsTravel = application.needs_travel_costs || false
   const travelAmount = application.travel_cost_amount || 0
   const needsAccom = application.needs_accommodation || false
   const accomNotes = application.accommodation_notes || ''
+
+  // Same "which acts matter" logic as the portal header — falls back to the legacy
+  // single act_title for pre-multi-act applications.
+  const selectedActs = (application.acts ?? []).filter((act) => act.is_selected)
+  const chosenActTitles =
+    selectedActs.length > 0
+      ? selectedActs.map((act) => act.performer_acts?.act_name || act.act_title)
+      : application.act_title
+        ? [application.act_title]
+        : []
+  const chosenActsText = formatActList(chosenActTitles, isSv)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -45,8 +58,8 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
 
   const mailSubject = encodeURIComponent(
     t(
-      `Fråga / Förhandling angående bokning: ${application.act_title}`,
-      `Question / Negotiation regarding booking: ${application.act_title}`
+      `Fråga / Förhandling angående bokning: ${chosenActsText}`,
+      `Question / Negotiation regarding booking: ${chosenActsText}`
     )
   )
 
@@ -141,10 +154,10 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
             </h2>
             <p className="p-clean text-center opacity-90 leading-relaxed text-sm">
               {t(
-                `Du godkänner därmed att medverka med "${application.act_title}" till ett gage på ${currentFee} SEK ${
+                `Du godkänner därmed att medverka med ${chosenActsText} till ett gage på ${currentFee} SEK ${
                   needsTravel ? `+ ${travelAmount} SEK i reseersättning` : ''
                 }.`,
-                `You hereby confirm participating with "${application.act_title}" for a fee of ${currentFee} SEK ${
+                `You hereby confirm participating with ${chosenActsText} for a fee of ${currentFee} SEK ${
                   needsTravel ? `+ ${travelAmount} SEK travel allowance` : ''
                 }.`
               )}

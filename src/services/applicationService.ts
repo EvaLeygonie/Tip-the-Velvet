@@ -5,6 +5,7 @@ import type {
   Event,
   CastingApplication,
   CastingApplicationWithActs,
+  CastingApplicationPortalData,
   CreateCastingApplicationInput,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
@@ -49,7 +50,7 @@ export const getCastingApplicationByToken = async (id: string, token: string | n
   })
 
   if (error) throw error
-  return data as unknown as CastingApplication
+  return data as unknown as CastingApplicationPortalData
 }
 
 //=== CREATE ===///

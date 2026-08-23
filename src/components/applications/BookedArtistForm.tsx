@@ -3,7 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { toast } from 'sonner'
 import { Upload, Save, Loader2, FileText, Music, ExternalLink, Trash2, Plus } from 'lucide-react'
-import type { CastingApplication } from '@/types/types'
+import type { CastingApplicationPortalData } from '@/types/types'
 import { uploadStorageFile } from '@/services/databaseService'
 import { supabase } from '@/lib/supabase'
 import {
@@ -19,37 +19,6 @@ import {
   getStoragePathFromUrl,
   getPublicFileUrl,
 } from '@/lib/utils'
-
-interface ExtendedCastingApplication extends CastingApplication {
-  performer_id: string | null
-  act_id: string | null
-  events?: {
-    title: string
-    event_start: string
-  } | null
-  performers?: {
-    id: string
-    bio_sv: string | null
-    bio_eng: string | null
-  } | null
-  performer_acts?: {
-    id: string
-    act_name: string | null
-    description_sv: string | null
-    description_eng: string | null
-    audio_files: unknown
-    stage_preparations: string | null
-    pick_up_cleaning: string | null
-    act_notes: string | null
-  } | null
-  event_performers?: {
-    dietary_requirements: string | null
-    travel_receipts: unknown
-    plus_one_name: string | null
-    plus_one_email: string | null
-    travel_covered: number | null
-  } | null
-}
 
 export interface AudioTrackItem {
   id: string
@@ -67,8 +36,21 @@ export interface ReceiptItem {
 }
 
 interface BookedArtistFormProps {
-  application: ExtendedCastingApplication
+  application: CastingApplicationPortalData
   onSaveSuccess?: () => void
+}
+
+interface ActFormState {
+  key: string
+  actId: string | null
+  label: string
+  act_name: string
+  act_description_sv: string
+  act_description_eng: string
+  stage_preparations: string
+  pick_up_cleaning: string
+  act_notes: string
+  audioTracks: AudioTrackItem[]
 }
 
 // Type Guards for Supabase Json/Jsonb conversion
@@ -146,38 +128,73 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
   const isEng = application.language === 'eng'
 
-  // application kommer redan med performers/performer_acts/event_performers nästlat
-  // (get_casting_application_by_token hämtar allt i samma SECURITY DEFINER-anrop) —
-  // anon har ingen direkt läsrättighet på dessa tabeller, så det finns inget att hämta
-  // asynkront här; initiera state direkt från proppen istället för en effekt.
-  const [audioTracks, setAudioTracks] = useState<AudioTrackItem[]>(() => {
-    const audioFiles = application.performer_acts?.audio_files
-    return audioFiles && isAudioTrackItemArray(audioFiles) ? audioFiles : []
-  })
   const [receiptFiles, setReceiptFiles] = useState<ReceiptItem[]>(() => {
     const receipts = application.event_performers?.travel_receipts
     return receipts && isReceiptItemArray(receipts) ? receipts : []
   })
 
+  // application kommer redan med performers/performer_acts/event_performers/acts nästlat
+  // (get_casting_application_by_token hämtar allt i samma SECURITY DEFINER-anrop) —
+  // anon har ingen direkt läsrättighet på dessa tabeller, så det finns inget att hämta
+  // asynkront här; initiera state direkt från proppen istället för en effekt.
+  //
+  // Ett block per vald akt (confirm_and_migrate_artist skapar en performer_acts-rad per
+  // vald akt) — faller tillbaka till det gamla, ensamma performer_acts/act_id-fältet för
+  // ansökningar som bokades innan multi-act-formuläret fanns (inga casting_application_acts
+  // -rader alls).
+  const [actsFormData, setActsFormData] = useState<ActFormState[]>(() => {
+    const confirmedActs = (application.acts ?? []).filter((act) => act.is_selected)
+
+    if (confirmedActs.length > 0) {
+      return confirmedActs.map((act) => {
+        const actData = act.performer_acts
+        const audioFiles = actData?.audio_files
+        return {
+          key: act.id,
+          actId: act.performer_act_id,
+          label: actData?.act_name || act.act_title,
+          act_name: actData?.act_name ?? act.act_title ?? '',
+          act_description_sv: actData?.description_sv ?? (isEng ? '' : act.act_description || ''),
+          act_description_eng: actData?.description_eng ?? (isEng ? act.act_description || '' : ''),
+          stage_preparations: actData?.stage_preparations ?? '',
+          pick_up_cleaning: actData?.pick_up_cleaning ?? '',
+          act_notes: actData?.act_notes ?? '',
+          audioTracks: audioFiles && isAudioTrackItemArray(audioFiles) ? audioFiles : [],
+        }
+      })
+    }
+
+    const actData = application.performer_acts
+    const audioFiles = actData?.audio_files
+    return [
+      {
+        key: 'legacy',
+        actId: application.act_id,
+        label: actData?.act_name || application.act_title || '',
+        act_name: actData?.act_name ?? application.act_title ?? '',
+        act_description_sv:
+          actData?.description_sv ?? (isEng ? '' : application.act_description || ''),
+        act_description_eng:
+          actData?.description_eng ?? (isEng ? application.act_description || '' : ''),
+        stage_preparations: actData?.stage_preparations ?? '',
+        pick_up_cleaning: actData?.pick_up_cleaning ?? '',
+        act_notes: actData?.act_notes ?? '',
+        audioTracks: audioFiles && isAudioTrackItemArray(audioFiles) ? audioFiles : [],
+      },
+    ]
+  })
+
+  const [activeActIndex, setActiveActIndex] = useState(0)
+  const activeAct = actsFormData[activeActIndex] ?? actsFormData[0]
+
   const [formData, setFormData] = useState(() => {
     const perfData = application.performers
-    const actData = application.performer_acts
     const logisticsData = application.event_performers
 
     return {
       // Sektion 1: Artist Promo
       bio_sv: perfData?.bio_sv ?? (isEng ? '' : application.promo_text || ''),
       bio_eng: perfData?.bio_eng ?? (isEng ? application.promo_text || '' : ''),
-
-      // Sektion 2: Act Details
-      act_name: actData?.act_name ?? application.act_title ?? '',
-      act_description_sv:
-        actData?.description_sv ?? (isEng ? '' : application.act_description || ''),
-      act_description_eng:
-        actData?.description_eng ?? (isEng ? application.act_description || '' : ''),
-      stage_preparations: actData?.stage_preparations ?? '',
-      pick_up_cleaning: actData?.pick_up_cleaning ?? '',
-      act_notes: actData?.act_notes ?? '',
 
       // Sektion 3: Logistik
       dietary_requirements: logisticsData?.dietary_requirements ?? '',
@@ -201,6 +218,25 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     setIsDirty(true)
+  }
+
+  // Same as handleChange, but writes into the currently active act's block instead of
+  // the shared formData — act fields are per-act (Phase 9 of multi-act-casting-plan.md).
+  const handleActFieldChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setActsFormData((prev) =>
+      prev.map((act, idx) => (idx === activeActIndex ? { ...act, [name]: value } : act))
+    )
+    setIsDirty(true)
+  }
+
+  // Switches the active act tab, discarding any half-filled "new track" draft so it can
+  // never end up attached to the wrong act.
+  const handleSelectAct = (index: number) => {
+    setActiveActIndex(index)
+    setNewTrackTitle('')
+    setNewTrackArtist('')
+    setNewTrackFile(null)
   }
 
   const getStorageFolderPath = (subFolder: 'audio-tracks' | 'travel-receipts') => {
@@ -271,7 +307,11 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       filePath: newTrackFile?.path,
     }
 
-    setAudioTracks((prev) => [...prev, newTrack])
+    setActsFormData((prev) =>
+      prev.map((act, idx) =>
+        idx === activeActIndex ? { ...act, audioTracks: [...act.audioTracks, newTrack] } : act
+      )
+    )
 
     setNewTrackTitle('')
     setNewTrackArtist('')
@@ -300,7 +340,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   // in handleSubmit, once the form is saved, so an accidental "x" click (or closing
   // the tab without saving) never permanently loses a file.
   const removeTrack = (id: string) => {
-    const trackToDelete = audioTracks.find((item) => item.id === id)
+    const trackToDelete = activeAct?.audioTracks.find((item) => item.id === id)
 
     if (trackToDelete) {
       const rawPath = resolveStoragePath(trackToDelete.filePath, trackToDelete.fileUrl)
@@ -309,7 +349,13 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       }
     }
 
-    setAudioTracks((prev) => prev.filter((item) => item.id !== id))
+    setActsFormData((prev) =>
+      prev.map((act, idx) =>
+        idx === activeActIndex
+          ? { ...act, audioTracks: act.audioTracks.filter((item) => item.id !== id) }
+          : act
+      )
+    )
     setIsDirty(true)
     toast(
       t(
@@ -401,22 +447,23 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         })
       }
 
-      // 2. Uppdatera Performer Act
-      if (application.act_id) {
+      // 2. Uppdatera varje vald akts Performer Act (en per flik)
+      for (const act of actsFormData) {
+        if (!act.actId) continue
         const actData: PerformerActInput & {
           stage_preparations?: string
           pick_up_cleaning?: string
           audio_files?: AudioTrackItem[]
         } = {
-          act_name: formData.act_name,
-          description_sv: formData.act_description_sv,
-          description_eng: formData.act_description_eng,
-          act_notes: formData.act_notes,
-          stage_preparations: formData.stage_preparations,
-          pick_up_cleaning: formData.pick_up_cleaning,
-          audio_files: audioTracks,
+          act_name: act.act_name,
+          description_sv: act.act_description_sv,
+          description_eng: act.act_description_eng,
+          act_notes: act.act_notes,
+          stage_preparations: act.stage_preparations,
+          pick_up_cleaning: act.pick_up_cleaning,
+          audio_files: act.audioTracks,
         }
-        await updatePerformerAct(application.act_id, application.access_token, actData)
+        await updatePerformerAct(act.actId, application.access_token, actData)
       }
 
       // 3. Uppdatera Event Performer Details (Inklusive travel_covered)
@@ -545,6 +592,25 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             <h2>{t('Act Details', 'Act Details')}</h2>
           </div>
 
+          {actsFormData.length > 1 && (
+            <div className="flex flex-wrap gap-1.5 -mt-2">
+              {actsFormData.map((act, index) => (
+                <button
+                  type="button"
+                  key={act.key}
+                  onClick={() => handleSelectAct(index)}
+                  className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                    index === activeActIndex
+                      ? 'bg-accent/20 border-accent text-accent font-semibold'
+                      : 'bg-black/30 border-accent/20 text-foreground/70 hover:border-accent/50'
+                  }`}
+                >
+                  {act.label || t('Namnlös akt', 'Untitled act')}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="form-field">
             <label className="form-label-block text-xs">
               {t('Aktens Namn / Act Name', 'Act Name')}
@@ -553,8 +619,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
               type="text"
               name="act_name"
               placeholder={t('T.ex. Fire Spectacular', 'e.g. Fire Spectacular')}
-              value={formData.act_name}
-              onChange={handleChange}
+              value={activeAct?.act_name ?? ''}
+              onChange={handleActFieldChange}
               className="login-input"
             />
           </div>
@@ -568,8 +634,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 name="act_description_sv"
                 rows={3}
                 placeholder={t('Beskriv din akt på svenska...', 'Describe your act in Swedish...')}
-                value={formData.act_description_sv}
-                onChange={handleChange}
+                value={activeAct?.act_description_sv ?? ''}
+                onChange={handleActFieldChange}
                 className="login-input text-sm resize-none"
               />
             </div>
@@ -582,8 +648,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 name="act_description_eng"
                 rows={3}
                 placeholder={t('Beskriv din akt på engelska...', 'Describe your act in English...')}
-                value={formData.act_description_eng}
-                onChange={handleChange}
+                value={activeAct?.act_description_eng ?? ''}
+                onChange={handleActFieldChange}
                 className="login-input text-sm resize-none"
               />
             </div>
@@ -692,12 +758,12 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             </div>
 
             {/* Lista över sparade låtar */}
-            {audioTracks.length > 0 ? (
+            {(activeAct?.audioTracks.length ?? 0) > 0 ? (
               <div className="space-y-2 pt-2">
                 <span className="text-xs font-medium text-foreground/70 block">
                   {t('Tillagda låtar:', 'Added tracks:')}
                 </span>
-                {audioTracks.map((track, idx) => (
+                {(activeAct?.audioTracks ?? []).map((track, idx) => (
                   <div
                     key={track.id}
                     className="flex items-center justify-between p-3 rounded-lg border border-border/60 bg-background/40"
@@ -761,8 +827,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                   'T.ex. Starting off stage. Needs someone to give a push onto stage...',
                   'e.g. Starting off stage. Needs someone to give a push onto stage...'
                 )}
-                value={formData.stage_preparations}
-                onChange={handleChange}
+                value={activeAct?.stage_preparations ?? ''}
+                onChange={handleActFieldChange}
                 className="login-input text-sm resize-none"
               />
             </div>
@@ -778,8 +844,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                   'T.ex. Hat, 2 sleeves, skirt. Take down balloon between breaks...',
                   'e.g. Hat, 2 sleeves, skirt. Take down balloon between breaks...'
                 )}
-                value={formData.pick_up_cleaning}
-                onChange={handleChange}
+                value={activeAct?.pick_up_cleaning ?? ''}
+                onChange={handleActFieldChange}
                 className="login-input text-sm resize-none"
               />
             </div>
@@ -796,8 +862,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 'T.ex. Önskar dämpat ljus vid start, mikrofonbehov m.m.',
                 'e.g. Soft lighting at start, microphone requirements, etc.'
               )}
-              value={formData.act_notes}
-              onChange={handleChange}
+              value={activeAct?.act_notes ?? ''}
+              onChange={handleActFieldChange}
               className="login-input text-sm resize-none"
             />
           </div>

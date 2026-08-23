@@ -232,3 +232,13 @@ export const localToUtc = (localString: string): string => {
   if (!localString) return ''
   return new Date(localString).toISOString()
 }
+
+// "X" / "X and Y" / "X, Y and Z" — natural-language join for however many act names a
+// mail or on-screen summary needs to mention, rather than a raw comma dump. Each name is
+// quoted individually so the result reads cleanly inline (e.g. in a sentence).
+export const formatActList = (titles: string[], svLang: boolean): string => {
+  const quoted = titles.map((title) => `"${title}"`)
+  if (quoted.length <= 1) return quoted[0] ?? ''
+  if (quoted.length === 2) return quoted.join(svLang ? ' och ' : ' and ')
+  return `${quoted.slice(0, -1).join(', ')} ${svLang ? 'och' : 'and'} ${quoted[quoted.length - 1]}`
+}

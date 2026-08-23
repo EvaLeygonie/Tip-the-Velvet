@@ -376,28 +376,122 @@ Two things changed that:
    checkboxes with no fee math or email attached — a lightweight "mark relevant acts"
    control, not the full offer panel.
 
-- [ ] Fee/travel/accommodation editing and the send-offer flow stay gated to
-      `review_status === 'yes'`, as originally planned.
-- [ ] The act-selection checkbox row itself is available for both `yes` and `maybe`
-      (different surrounding UI/copy per status — full panel for yes, bare checklist for
-      maybe — same underlying `is_selected` column and toggle action).
-- [ ] Recompute displayed total fee live as `requested_fee × checked-count` (yes only),
-      while keeping the field editable (admin can still hand-override the total).
-- [ ] Update `defaultYesBody`/mail templates to list the selected acts instead of one
-      `act_title`.
-- [ ] Persist `is_selected` per act alongside the existing `updateApplicationLogistics`
-      call (or a sibling call) for yes; a simpler direct toggle (no fee recompute) for
-      maybe.
+- [ ] **Still open**: fee/travel/accommodation editing and the send-offer flow gated to
+      `review_status === 'yes'` — the whole Logistik-panel currently renders on any
+      expanded row regardless of status, not yet restricted.
+- [x] **Done 2026-08-21** — act-selection checkboxes, live in both `yes` and `maybe` rows
+      (same underlying `is_selected` column and toggle action, per design above). Ended up
+      living on the act tabs themselves rather than a separate row, with `onToggleActSelected`
+      persisting immediately (own dedicated action, not bundled into `updateApplicationLogistics`
+      — see Phase 5's tab-selection entry for the full implementation).
+- [x] **Done and refined 2026-08-21/22** — live fee recompute, ended up more sophisticated
+      than "requested_fee × checked-count" alone:
+  - The offer total auto-recomputes whenever act selection changes, but is driven by an
+    editable **per-act rate** (`perActRate`) rather than the artist's `requested_fee`
+    directly — starts equal to `requested_fee`, but a manual edit to the total field
+    derives a new rate from it (`total ÷ current act count`, rounded), which then becomes
+    what further act-count changes multiply/divide against. The artist's original ask
+    stays visible as an unchanging one-line reference (`Önskat: 1000 SEK × 2 = 2000 SEK`,
+    always computed from the real `requested_fee`, independent of any admin override).
+  - Single-act applications are entirely unaffected — same plain editable total as
+    always, no rate/multiplier concept involved.
+  - **"Update Offer" now lights up gold (`btn-gold`/`btn-gold-glow-active`) when there's
+    an actual unsaved change, and sits inactive/discreet (`btn-gold-inactive`, disabled)
+    otherwise** — added after confirming the auto-recompute is genuinely local-only (not
+    a database write); the button remains the only two ways `proposed_fee` actually
+    persists (the other being send-offer, which saves internally too). Tracked via an
+    explicit `isLogisticsDirty` flag (not a live comparison against `application`, since
+    the initial `offerFee` is itself a computed value a naive comparison would mismatch
+    on load) — set by any manual edit *and* by the auto-recompute effect, cleared on
+    successful save via either path.
+- [x] **Done 2026-08-22** — `defaultYesBody`/`defaultNoBody`/`defaultMaybeBody` all list the
+      relevant acts (via a `formatActList` natural-join helper) instead of one `act_title`,
+      with singular/plural wording based on count. "No" mentions everything submitted
+      (full rejection); "yes"/"maybe" mention the selected acts (falling back to all
+      submitted if none are selected yet). Subject lines only name a specific act when
+      there's exactly one, to avoid an unwieldy subject with several.
+- [x] **Bug found and fixed 2026-08-22/23** — two related staleness bugs in the live fee
+      recompute, both found via real testing against a two-act application moved between
+      review statuses:
+  1. **Stale `proposed_fee` on mount.** `offerFee`'s initializer trusted any truthy saved
+     `application.proposed_fee` unconditionally, before checking act count — so moving a
+     row to `yes` could show a stale single-act fee (saved before any acts were selected)
+     until the admin touched a checkbox and forced a recompute. Fixed: multi-act
+     applications now always compute fresh from the current act selection on mount; only
+     single-act rows still trust a saved `proposed_fee` directly. `isLogisticsDirty` also
+     now starts `true` when the saved value doesn't match the fresh computation, so
+     "Update Offer" visibly signals it needs pressing rather than the number silently
+     self-correcting with no cue.
+  2. **Preview/database divergence.** Even after fix 1, the corrected total was still only
+     local component state until "Update Offer" (or send-offer) was actually clicked. The
+     admin could open the mail-compose modal, see the correct live total in the draft (it
+     reads local state), and separately check the artist's confirmation link — which reads
+     `proposed_fee` straight from the database via `get_casting_application_by_token` — and
+     see the old, unsaved figure. Fixed in `handleOpenMailModal`: for `yes` applications
+     with unsaved changes (`isLogisticsDirty`), it now awaits `handleSaveLogisticsOnly()`
+     before building the subject/opening the modal, so the database is already in sync the
+     moment a draft becomes visible — not deferred until send. (Send-offer itself was
+     already safe; `handleSendCastingMail` has always persisted the final fee right after a
+     successful send.) Scoped to `yes` only, since `no`/`maybe` templates never reference
+     the fee.
+
+### Independent addition (2026-08-23, not originally planned): bulk-email booked artists
+
+A mail icon in the Yes-section header (next to the artist-count badge, same `Mail` icon
+and square-button styling as the per-row "Contact artist" button) opens a modal for
+emailing every booked artist at once. Scoped to `booking_status === 'confirmed'`, not just
+`review_status === 'yes'` — "booked" reads as actually-confirmed, not merely offered/
+awaiting-response; flagged this scoping choice to the user rather than assume silently.
+
+- Two full subject+body pairs (Swedish/English) in one modal, not one field with a
+  language toggle — admin writes both versions up front, each recipient gets the one
+  matching their own `application.language`.
+- Default subject template: `Inför {event}` (sv) / `Regarding {event}` (en), using the
+  currently-selected event's title. Default body: just the sign-off
+  ("Varma hälsningar,\nTip the Velvet" / "Best regards,\nTip the Velvet") — greeting and
+  content left for the admin to fill in.
+- **Edge function change**: `send-casting-email.ts` always auto-prepended a personalized
+  `Hej {name}!`/`Darling {name},` greeting, which doesn't fit a bulk "Hey everyone!"
+  send. Added an optional `greeting` field to override it — backward compatible, the
+  existing per-row single-artist flow doesn't pass it and keeps its exact prior behavior.
+  Bulk send passes `Hej allihopa!` / `Hey everyone!`.
+- Sends are fired via `Promise.allSettled` (one fetch per recipient) so one failed
+  delivery doesn't block the rest; reports how many of N failed rather than an all-or-
+  nothing error.
 
 ### Phase 7 — Artist decision portal
-- [ ] `BookingDecisionCard.tsx`: show the list of selected act titles instead of one, next
-      to the bundled total fee. Accept/decline flow otherwise unchanged.
+
+**Done 2026-08-23.** `tsc -b` and `eslint .` both clean. Not yet tested live in a browser.
+
+- [x] Added `get_casting_application_by_token`'s type shape to the frontend:
+      `CastingApplicationPortalData`/`CastingApplicationActFull`/`ConfirmedActDetails` in
+      `types.ts`, replacing the ad hoc `ExtendedCastingApplication` interface that used to
+      live only inside `BookedArtistForm.tsx` — now one shared type all three portal
+      components (`ArtistBookingPortal`, `BookingDecisionCard`, `BookedArtistForm`) use.
+- [x] The act list itself moved to `ArtistBookingPortal.tsx`'s header (under the artist
+      name, where the old singular "Akt: X" line already lived) rather than into
+      `BookingDecisionCard` — user asked for it to stay in that position. Shows every
+      *selected* act (`casting_application_acts.is_selected`), joined with a gold "✦"
+      separator (the same glyph already used on the Dresscode page) when there's more
+      than one; falls back to the legacy singular `act_title` for pre-multi-act
+      applications with no `casting_application_acts` rows at all. Label pluralizes
+      "Akt:"/"Akter:" ("Act:"/"Acts:") based on count.
+- [x] `BookingDecisionCard.tsx` itself: the confirmation-modal copy and the "negotiate via
+      email" `mailto:` subject now both name every selected act (via a shared
+      `formatActList` natural-language join, extracted from `CastingApplicationRow.tsx`
+      into `lib/utils.ts` so both the admin and artist-facing sides use the exact same
+      "X" / "X and Y" / "X, Y and Z" phrasing) instead of the one `act_title`. Accept/
+      decline flow and fee/travel/accommodation summary otherwise unchanged — those stay
+      bundled totals, not broken out per act (nothing asked for that yet).
 
 ### Phase 8 — Confirm & migrate
 - [ ] Covered by the Phase 2 RPC change — verify end-to-end that accepting creates one
       `performer_acts` row per selected act and exactly one `event_performers` row.
 
 ### Phase 9 — Booked artist form
+
+**Tabs done 2026-08-23** (the price-breakdown line item below is still open — not asked
+for yet). `tsc -b` and `eslint .` both clean. Not yet tested live in a browser.
 
 **Architecture principle, confirmed explicitly 2026-08-21** (the user asked, worth stating
 outright rather than leaving implicit): once `performer_act_id` is set on a
@@ -410,12 +504,24 @@ works this way today (`update_performer_act_via_token` writes to `performer_acts
 Keeps the two tables' meanings clean: applications/acts = what was proposed and decided,
 performer-side tables = what's actually happening.
 
-- [ ] `BookedArtistForm.tsx`: fetch/display the array of confirmed `performer_acts` for
-      this application (via the updated token RPC) instead of one. Add tabs — one per act
-      — for the act-specific fields (act name/description already fixed at this point,
-      but audio tracks, stage preparations, pick-up/cleaning, act notes are still
-      per-act and need their own tab each). Bio, dietary/plus-one/travel-receipts stay
-      shared, outside the tabs, exactly as now.
+- [x] **Done 2026-08-23.** `BookedArtistForm.tsx` now derives one `ActFormState` block per
+      confirmed act (`application.acts` filtered to `is_selected`, each carrying its own
+      nested `performer_acts` data), with a tab bar — one pill per act, same visual
+      language as the admin's act tabs (`bg-accent/20 border-accent` active /
+      `bg-black/30 border-accent/20` inactive) — shown whenever there's more than one.
+      Kept act name/description editable per act after all (the plan's "already fixed"
+      note read as "already correctly initialized," not "should become read-only" — no
+      indication the artist should lose the ability to fix a typo post-confirmation), so
+      every act field ended up per-tab: name, description (sv/eng), audio tracks
+      (including the whole add-track upload flow), stage preparations, pick-up/cleaning,
+      and notes. The "new track" draft (title/artist/temp file) is shared scratch state
+      for whichever tab is active and is explicitly cleared on tab switch, so a half-typed
+      draft can never get attached to the wrong act. Falls back to a single tab sourced
+      from the old singular `performer_acts`/`act_id` fields for pre-multi-act
+      applications (no `casting_application_acts` rows at all) — identical to the
+      form's exact original single-act behavior, no regression there. Bio,
+      dietary/plus-one/travel-receipts stayed shared outside the tabs, unchanged. Submit
+      now loops `actsFormData` and calls `updatePerformerAct` once per act.
 - [ ] **New: show the agreed price breakdown at the bottom of the form**, read-only —
       something like `fee (1000) × acts (2) + travel (300) = Total: 2300`. Needs the
       per-act base rate to still be known at display time, not just the collapsed total —
