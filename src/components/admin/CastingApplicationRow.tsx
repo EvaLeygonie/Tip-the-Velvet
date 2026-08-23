@@ -177,7 +177,7 @@ export const CastingApplicationRow = ({
   // title change based on incidental clicks, breaking the visual-scan stability a
   // collapsed list depends on.
   const primaryAct = acts.find((act) => act.is_selected) ?? acts[0]
-  const displayActTitle = primaryAct?.act_title || application.act_title
+  const displayActTitle = primaryAct?.act_title
   const extraActCount = acts.length > 1 ? acts.length - 1 : 0
 
   // Which act's description/video the expanded row currently shows. Starts on the same
@@ -233,9 +233,10 @@ export const CastingApplicationRow = ({
     : `• Fee: ${offerFee} SEK\n• Travel costs: ${travelFormatted}\n• Accommodation: ${accomFormatted}`
 
   // A "no" is a full rejection of the application — mention everything the artist
-  // submitted, regardless of what (if anything) was ever selected.
-  const submittedActTitles =
-    acts.length > 0 ? acts.map((act) => act.act_title) : [application.act_title]
+  // submitted, regardless of what (if anything) was ever selected. Every application has
+  // at least one casting_application_acts row (Phase 1 backfill + submit_casting_application
+  // always inserting >=1), so no fallback to the now-dropped legacy act_title is needed.
+  const submittedActTitles = acts.map((act) => act.act_title)
   // "Yes"/"maybe" only concern the acts actually chosen — falls back to everything
   // submitted if nothing's been selected yet (a mail naming zero acts would be worse).
   const selectedActTitlesRaw = acts.filter((act) => act.is_selected).map((act) => act.act_title)
@@ -622,9 +623,9 @@ export const CastingApplicationRow = ({
                 {/* Only one act — video is unambiguous and can sit with the other static
                     links, same as before tabs existed. With several acts, the video is
                     act-specific and lives next to the active tab instead (below). */}
-                {acts.length <= 1 && (activeAct?.video_url ?? application.video_url) && (
+                {acts.length <= 1 && activeAct?.video_url && (
                   <a
-                    href={activeAct?.video_url ?? application.video_url ?? ''}
+                    href={activeAct.video_url}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 text-accent hover:underline"
@@ -859,9 +860,9 @@ export const CastingApplicationRow = ({
                       ))}
                     </div>
 
-                    {(activeAct?.video_url ?? application.video_url) && (
+                    {activeAct?.video_url && (
                       <a
-                        href={activeAct?.video_url ?? application.video_url ?? ''}
+                        href={activeAct.video_url}
                         target="_blank"
                         rel="noreferrer"
                         className="shrink-0 flex items-center gap-1.5 text-accent hover:underline text-xs"
@@ -878,7 +879,7 @@ export const CastingApplicationRow = ({
                   {t('Aktbeskrivning', 'Act Description')}
                 </span>
                 <p className="text-sm text-foreground/80 whitespace-pre-wrap font-body leading-relaxed bg-black/30 p-3 rounded border border-accent/5">
-                  {(activeAct?.act_description ?? application.act_description) || (
+                  {activeAct?.act_description || (
                     <i>{t('Ingen beskrivning angiven.', 'No description provided.')}</i>
                   )}
                 </p>

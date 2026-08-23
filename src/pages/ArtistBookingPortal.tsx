@@ -72,17 +72,15 @@ export const ArtistBookingPortal = () => {
 
   const isConfirmed = application.booking_status === 'confirmed'
 
-  // Acts actually being offered/booked — falls back to the single legacy act_title for
-  // applications submitted before the multi-act casting form existed (no
-  // casting_application_acts rows at all). Prefers the confirmed performer_acts name
-  // (the artist may have renamed the act in BookedArtistForm) once one exists.
-  const selectedActs = (application.acts ?? []).filter((act) => act.is_selected)
-  const headerActTitles =
-    selectedActs.length > 0
-      ? selectedActs.map((act) => act.performer_acts?.act_name || act.act_title)
-      : application.act_title
-        ? [application.act_title]
-        : []
+  // Acts actually being offered/booked — falls back to every submitted act if none has
+  // been marked selected yet (a blank header would be worse). Prefers the confirmed
+  // performer_acts name (the artist may have renamed the act in BookedArtistForm) once
+  // one exists.
+  const allActs = application.acts ?? []
+  const selectedActs = allActs.filter((act) => act.is_selected)
+  const headerActTitles = (selectedActs.length > 0 ? selectedActs : allActs).map(
+    (act) => act.performer_acts?.act_name || act.act_title
+  )
 
   return (
     <div className="min-h-screen bg-background text-foreground py-12 px-4">

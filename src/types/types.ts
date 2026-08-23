@@ -38,13 +38,12 @@ export type CastingApplicationActFull = CastingApplicationAct & {
 }
 
 // Full shape get_casting_application_by_token returns — what ArtistBookingPortal,
-// BookingDecisionCard and BookedArtistForm all read from. 'performer_acts' (singular) is
-// the old legacy single-act key kept for backward compatibility; 'acts' is the new
-// per-act array (Phase 9 of multi-act-casting-plan.md).
+// BookingDecisionCard and BookedArtistForm all read from. Phase 10 (multi-act-casting-plan.md)
+// dropped the old legacy singular 'performer_acts' key/act_id column — 'acts' (the per-act
+// array) is the only source now.
 export type CastingApplicationPortalData = CastingApplication & {
   events?: { id: string; title: string; event_start: string } | null
   performers?: { id: string; bio_sv: string | null; bio_eng: string | null } | null
-  performer_acts?: ConfirmedActDetails | null
   event_performers?: {
     dietary_requirements: string | null
     travel_receipts: Json

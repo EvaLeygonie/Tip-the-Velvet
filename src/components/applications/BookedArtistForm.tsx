@@ -139,49 +139,27 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   // asynkront här; initiera state direkt från proppen istället för en effekt.
   //
   // Ett block per vald akt (confirm_and_migrate_artist skapar en performer_acts-rad per
-  // vald akt) — faller tillbaka till det gamla, ensamma performer_acts/act_id-fältet för
-  // ansökningar som bokades innan multi-act-formuläret fanns (inga casting_application_acts
-  // -rader alls).
+  // vald akt) — en bekräftad bokning (booking_status = 'confirmed') garanterar alltid
+  // minst en vald akt med en migrerad performer_acts-rad, så inget fallback behövs längre.
   const [actsFormData, setActsFormData] = useState<ActFormState[]>(() => {
     const confirmedActs = (application.acts ?? []).filter((act) => act.is_selected)
 
-    if (confirmedActs.length > 0) {
-      return confirmedActs.map((act) => {
-        const actData = act.performer_acts
-        const audioFiles = actData?.audio_files
-        return {
-          key: act.id,
-          actId: act.performer_act_id,
-          label: actData?.act_name || act.act_title,
-          act_name: actData?.act_name ?? act.act_title ?? '',
-          act_description_sv: actData?.description_sv ?? (isEng ? '' : act.act_description || ''),
-          act_description_eng: actData?.description_eng ?? (isEng ? act.act_description || '' : ''),
-          stage_preparations: actData?.stage_preparations ?? '',
-          pick_up_cleaning: actData?.pick_up_cleaning ?? '',
-          act_notes: actData?.act_notes ?? '',
-          audioTracks: audioFiles && isAudioTrackItemArray(audioFiles) ? audioFiles : [],
-        }
-      })
-    }
-
-    const actData = application.performer_acts
-    const audioFiles = actData?.audio_files
-    return [
-      {
-        key: 'legacy',
-        actId: application.act_id,
-        label: actData?.act_name || application.act_title || '',
-        act_name: actData?.act_name ?? application.act_title ?? '',
-        act_description_sv:
-          actData?.description_sv ?? (isEng ? '' : application.act_description || ''),
-        act_description_eng:
-          actData?.description_eng ?? (isEng ? application.act_description || '' : ''),
+    return confirmedActs.map((act) => {
+      const actData = act.performer_acts
+      const audioFiles = actData?.audio_files
+      return {
+        key: act.id,
+        actId: act.performer_act_id,
+        label: actData?.act_name || act.act_title,
+        act_name: actData?.act_name ?? act.act_title ?? '',
+        act_description_sv: actData?.description_sv ?? (isEng ? '' : act.act_description || ''),
+        act_description_eng: actData?.description_eng ?? (isEng ? act.act_description || '' : ''),
         stage_preparations: actData?.stage_preparations ?? '',
         pick_up_cleaning: actData?.pick_up_cleaning ?? '',
         act_notes: actData?.act_notes ?? '',
         audioTracks: audioFiles && isAudioTrackItemArray(audioFiles) ? audioFiles : [],
-      },
-    ]
+      }
+    })
   })
 
   const [activeActIndex, setActiveActIndex] = useState(0)

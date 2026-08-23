@@ -24,15 +24,13 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
   const needsAccom = application.needs_accommodation || false
   const accomNotes = application.accommodation_notes || ''
 
-  // Same "which acts matter" logic as the portal header — falls back to the legacy
-  // single act_title for pre-multi-act applications.
-  const selectedActs = (application.acts ?? []).filter((act) => act.is_selected)
-  const chosenActTitles =
-    selectedActs.length > 0
-      ? selectedActs.map((act) => act.performer_acts?.act_name || act.act_title)
-      : application.act_title
-        ? [application.act_title]
-        : []
+  // Same "which acts matter" logic as the portal header — falls back to every submitted
+  // act if none has been marked selected yet.
+  const allActs = application.acts ?? []
+  const selectedActs = allActs.filter((act) => act.is_selected)
+  const chosenActTitles = (selectedActs.length > 0 ? selectedActs : allActs).map(
+    (act) => act.performer_acts?.act_name || act.act_title
+  )
   const chosenActsText = formatActList(chosenActTitles, isSv)
 
   const [isSubmitting, setIsSubmitting] = useState(false)

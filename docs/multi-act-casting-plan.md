@@ -195,12 +195,9 @@ legacy data once the backfill runs.
       — not `(email, event_id)` as first planned. Run and verified 2026-08-21: Eden down
       to exactly one application row, constraint confirmed live with the exact intended
       definition, zero remaining duplicates anywhere in the table.
-- [ ] **Still deferred until the frontend phases (4-9) are built *and deployed*** (deployment-
-      safety note above): drop `act_title`, `act_description`, `video_url`, `act_id` from
-      `casting_applications` — the currently-deployed `CastingForm`/`AdminCasting`/
-      `BookingDecisionCard`/`BookedArtistForm` all still read/write these columns directly
-      today; dropping them now would break the live site immediately, not just once we
-      redeploy.
+- [x] **Done 2026-08-23** — see Phase 10 below. Dropped `act_title`, `act_description`,
+      `video_url`, `act_id` from `casting_applications` once the frontend phases were both
+      built and live-verified.
 - [x] Regenerate `database.types.ts` — done 2026-08-21.
 
 **Phase 1 is complete and verified.** Next up: Phase 2 (RPCs).
@@ -530,12 +527,41 @@ performer-side tables = what's actually happening.
       hand-adjusts the total for a discount/bonus that isn't an even multiple).
 
 ### Phase 10 — Cleanup & testing
-- [ ] Drop the now-unused columns from `casting_applications` (see Phase 1, deferred here
-      since code must stop reading them first).
-- [ ] Full smoke test: submit a 3-act application → review as yes → select 2 of 3 acts →
-      send offer → confirm as artist → verify 2 `performer_acts` rows + 1
-      `event_performers` row → fill in `BookedArtistForm` per-act tabs → save.
-- [ ] Re-run `npm run build` / `npm run lint`.
+
+**Done 2026-08-23.** Frontend deployed to `main`/prod first; user then ran a real 3-act
+smoke test live (create → review as yes → select acts → confirm → open `BookedArtistForm`)
+and confirmed it worked end to end before anything destructive touched the DB — the
+deployment-safety gate held as designed.
+
+- [x] Full smoke test — done live by the user directly on prod (no staging exists): 3-act
+      application through review → offer → artist confirm → `BookedArtistForm`. Confirmed
+      working before the column drop below was even attempted.
+- [x] Dropped `act_title`, `act_description`, `video_url`, `act_id` from
+      `casting_applications`. Turned out not to be a plain `DROP COLUMN` — three RPCs still
+      read or wrote them and had to be fixed first (`CREATE OR REPLACE`, same signatures,
+      verified live via `pg_get_functiondef` afterward):
+  - `submit_casting_application` stopped writing the first act's title/description/video
+    onto the parent row (they only ever belonged on `casting_application_acts`).
+  - `confirm_and_migrate_artist` lost its pre-Phase-4 fallback branch (provably
+    unreachable — Phase 1's backfill plus `submit_casting_application` always inserting
+    ≥1 act row means every application has at least one `casting_application_acts` row
+    now) and stopped writing `casting_applications.act_id` in its final `UPDATE`.
+  - `get_casting_application_by_token` dropped the legacy singular `'performer_acts'` key
+    (resolved via the now-gone `act_id`) — `'acts'` is the only source from here on.
+  - A broad `ilike` search across every function body (not just a targeted grep — the
+    first regex attempt used `\b` for a word boundary, which Postgres's regex flavor
+    treats as a literal backspace character, not `\y`, so it silently missed
+    `get_casting_application_by_token`; re-run without it before trusting the "only 3
+    functions" conclusion) also confirmed no view or trigger touched these columns.
+  - Frontend fallback code that depended on these columns (`CastingApplicationRow.tsx`,
+    `ArtistBookingPortal.tsx`, `BookingDecisionCard.tsx`, `BookedArtistForm.tsx`) was dead
+    for the same reason the RPC branch was — removed rather than left as an inert shim,
+    replaced where relevant with "fall back to every submitted/all acts if none is
+    selected yet" (reusing the pattern `CastingApplicationRow.tsx` already had), not a
+    reference to the dropped columns.
+  - `database.types.ts` regenerated afterward and confirmed `casting_applications.Row` no
+    longer lists the four columns.
+- [x] Re-ran `npm run build` / `tsc -b` / `eslint .` — all clean.
 
 ### Phase 11 — Post-offer changes & re-confirmation (added 2026-08-18)
 
