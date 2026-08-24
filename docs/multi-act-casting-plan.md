@@ -1,8 +1,14 @@
 # Multi-act casting applications — migration plan
 
-Drafted 2026-08-18. Not started yet — this is the plan to work through phase by phase.
-Check items off as we go; leave notes inline (like `docs/audit-findings.md` does) when a
-step turns out different than planned.
+**Status: closed 2026-08-25 — all 11 phases shipped and live-verified.** The
+casting → booking → confirm pipeline fully supports multiple acts per application,
+end to end, deployed to prod. Everything that came up along the way but wasn't part of
+getting there — lower-priority features, deferred design questions — has been moved to
+`docs/extra-features.md`; what stayed in this doc is done work, kept as history/context.
+Nothing further is expected here.
+
+Drafted 2026-08-18. Check items off as we go; leave notes inline (like
+`docs/audit-findings.md` does) when a step turns out different than planned.
 
 **Implementation note (added 2026-08-19, refined 2026-08-21):** schema/RPC changes (new
 tables, columns, constraints, function bodies — mainly Phases 1 and 2) are delivered here
@@ -577,72 +583,10 @@ deployment-safety gate held as designed.
 
 ### Phase 11 — Post-offer changes & re-confirmation (added 2026-08-18)
 
-**Confirmed real bug, not hypothetical**: I checked — today, editing fee/travel/
-accommodation in the "Offer Terms & Logistics" panel (`CastingApplicationRow.tsx:554-653`)
-has **zero gating on `booking_status`**. The admin can change the numbers freely after the
-offer's been sent, or even after the artist has already confirmed, with no warning and no
-notification to the artist. Worse: since `confirm_and_migrate_artist`'s `event_performers`
-upsert is `ON CONFLICT (event_id, performer_id) DO UPDATE SET final_fee=…` (a full
-overwrite, not additive), editing `proposed_fee` post-confirmation changes the number the
-admin sees in `AdminCasting`'s budget total (which reads `proposed_fee` off the
-application row) **without touching the artist's actual booked `event_performers.final_fee`
-at all** — the two numbers silently diverge. This needs fixing regardless of the multi-act
-work, but the multi-act work makes it urgent, since "add another act to an already-
-confirmed artist" is now a real, expected operation, not an edge case.
-
-Proposed flow:
-- Any of: changing which acts are selected, changing the fee, or changing travel/
-  accommodation terms, **after `initial_reply_sent = true`**, should:
-  1. Revert `booking_status` away from `confirmed` (or `pending_confirmation`) to
-     `negotiating` — this enum value already exists on `booking_status` and is currently
-     defined-but-never-used anywhere in the app, so this is a free, semantically correct
-     re-use rather than a new column.
-  2. Send the artist a new email (new edge function template, or a variant of the
-     existing offer email) pointing at their same portal link, explaining the terms
-     changed and asking them to review again.
-  3. `ArtistBookingPortal.tsx` already branches purely on `booking_status === 'confirmed'`
-     (`isConfirmed`, line 73) to decide whether to show `BookingDecisionCard` or
-     `BookedArtistForm` — so reverting the status is enough to automatically kick the
-     artist back to the decision card with no portal restructuring needed. Only need to
-     adjust `BookingDecisionCard`'s copy to distinguish "new offer" vs. "updated offer,
-     please re-confirm."
-  4. `CastingApplicationRow.tsx`'s existing `isAwaitingConfirmation` boolean is
-     `review_status === 'yes' && initial_reply_sent && booking_status !== 'confirmed'` —
-     already exactly true the moment `booking_status` moves off `confirmed`, so the row
-     automatically goes back to the existing amber "awaiting confirmation" styling for
-     free too (this is what "the row should get back to orange" already maps to — no new
-     color needed).
-  5. Admin-side: don't just silently allow the edit — surface a confirmation prompt when
-     editing terms on an application that's `pending_confirmation` or `confirmed`
-     ("This artist already confirmed different terms — saving will ask them to
-     re-approve before they can continue"), so it's a deliberate action, not an accident.
-- **Open question**: what happens to the already-created `performer_acts`/
-  `event_performers` rows (and anything the artist already filled into
-  `BookedArtistForm` — audio tracks, stage prep notes) while a re-confirmation is
-  pending? Recommend: leave them untouched until the artist actually re-confirms — a new
-  "reconfirm" action (extends the Phase 2 RPC work) reconciles everything atomically then
-  (adds `performer_acts` rows for newly-added acts, updates `event_performers.final_fee`/
-  `travel_covered` to the new total). Don't half-apply changes on save — avoids a state
-  where the DB reflects unconfirmed terms if the artist never responds.
-- **Immediate trigger for this phase, resolved manually 2026-08-21 — what this phase
-  needs to eventually automate.** Florence Shimmermore had "The Lightbringer" confirmed
-  (fee 1000) and a second act "The Lure" sitting as a separate, never-contacted
-  application. Held per the original decision until asked to move on it: emailed her the
-  new combined terms (2000 SEK total for both acts, 700 SEK travel unchanged — travel
-  doesn't double just because there's a second act, she's still making one trip), she
-  confirmed in writing, then by hand: re-parented "The Lure"'s act row onto the surviving
-  "Lightbringer" application, created its `performer_acts` row directly (mirroring what
-  `confirm_and_migrate_artist` will eventually do automatically), updated
-  `event_performers.final_fee` to the new total, deleted the now-empty duplicate
-  application row. Verified correct afterward via direct query, not just assumed.
-  **What she can't get yet, and why this phase still matters**: her existing portal link
-  still only shows "The Lightbringer" in `BookedArtistForm` — no tabs exist yet (Phase 9),
-  so there's no way for her to add "The Lure"'s music/stage-prep herself through the site.
-  She'll be told to send those details separately once the tabbed form actually ships,
-  rather than being promised something the current deploy can't do. This whole manual
-  sequence — email the new terms, get written confirmation, reconcile `performer_acts`/
-  `event_performers` by hand — is exactly what Phase 11's automated re-confirmation flow
-  needs to replace.
+**The full proposed flow (revert to `negotiating`, notify the artist by email, force a
+re-confirm) moved to `docs/extra-features.md` (2026-08-25)** — lower priority given
+current deadlines, per the user. What actually shipped is the lighter fix below, which
+covers the real bug that was blocking live data.
 
 **Lighter-weight fix shipped 2026-08-24 — the sync half of this phase, not the full
 re-negotiation flow.** Triggered by the exact scenario Phase 11 was written for actually
@@ -654,9 +598,10 @@ silently never reached her `event_performers` row, exactly the divergence bug th
 already predicted. Separately, Seymour Bottoms' offered 800 SEK travel reimbursement had
 the same gap: present on `casting_applications`, never on `event_performers`.
 
-Didn't build the full proposed flow above (revert to `negotiating`, new email, re-confirm)
-— that's a real, separate feature (notifying the artist a completed booking's terms
-changed) still worth doing, but not what was blocking real data right now. Instead:
+Didn't build the full proposed flow (revert to `negotiating`, new email, re-confirm — now
+in `docs/extra-features.md`) — that's a real, separate feature (notifying the artist a
+completed booking's terms changed) still worth doing, but not what was blocking real data
+right now. Instead:
 - New `syncConfirmedBookingTerms(eventId, performerId, { finalFee?, travelCovered?,
   lineupRole? })` in `applicationService.ts` — same conditional-field-update discipline as
   `updateApplicationLogistics`, plain `.update()` on `event_performers` (RLS already
@@ -673,79 +618,41 @@ changed) still worth doing, but not what was blocking real data right now. Inste
   established workflow as every other data fix in this doc) — not left for the sync
   mechanism to fix retroactively, since it only runs on the *next* edit.
 
-### Related, flagged but not designed yet: travel cost — estimate vs. actual (2026-08-19)
+### Travel cost — estimate vs. actual as two real columns — moved to `docs/extra-features.md` (2026-08-25)
 
-Noted before starting implementation, not solved now — a "check this later" item, related
-to but distinct from Phase 11 above (same fields, different concern: Phase 11 is about the
-admin changing an already-sent offer; this is about the travel number naturally being
-unknown until after the artist books their trip, even when nothing else about the offer
-changes).
-
-**Confirmed the exact mechanism** (`BookingDecisionCard.tsx:19-33`): the number shown to
-the artist and passed into `confirm_and_migrate_artist` as `p_travel_covered` is just
-`application.travel_cost_amount` — the admin's negotiated *estimate* at offer time — read
-straight through with no artist-side adjustment possible there. That becomes
-`event_performers.travel_covered` verbatim. `BookedArtistForm.tsx`'s "Total Travel
-Reimbursement (Adjust if needed)" field then treats that exact same column as if it were
-the *actual* post-booking cost. One column is quietly standing in for two different
-things — the agreed estimate and the eventual real number — with nothing distinguishing
-them once confirmed.
-
-Also confirmed, a sharper instance of the general Phase 11 bug: editing
-`casting_applications.travel_cost_amount` in the admin's Offer Terms & Logistics panel
-*after* confirmation never reaches `event_performers.travel_covered` — `BookedArtistForm`
-keeps showing the stale, originally-confirmed number regardless of later admin edits.
-
-Open questions for when we actually design this (not now):
-- Should this become two real columns (e.g. keep `travel_cost_amount` as the estimate,
-  add something like `event_performers.actual_travel_cost` for the real figure), rather
-  than one field doing both jobs? **Still open** — the fix below is display-only, doesn't
-  touch the schema, still one overloaded column underneath.
-- Should the actual-cost field start pre-filled with the estimate, or blank? You flagged
-  the real risk either way: pre-filled risks people leaving it unchanged and never
-  entering the true number; blank risks it just never getting filled in at all. No
-  instinct yet on which is worse — worth deciding with real usage patterns in mind once
-  Phase 11's re-confirmation flow exists, since that flow already has to solve "how does a
-  changed number reach the artist-facing form" for the general case.
-
-**Display-only fix shipped 2026-08-24**, surfaced by a real case: Luminous Starling's
+**Display-only fix shipped 2026-08-24** (stays here as history): Luminous Starling's
 portal showed "Offered fee 1000kr" with no mention of travel at all, even though
 `needs_travel_costs` was true and 1000 SEK had been offered — because Sektion 4 only ever
 checked `travel_covered > 0`, and hers was still 0 (real state — she hadn't booked her
-trip and filled it in yet, confirmed via query this wasn't the Phase 11 sync bug: nothing
-had been edited post-confirmation here, the number was just genuinely not entered yet).
-"No travel line" and "travel not settled yet" looked identical to the artist. Fixed in
-`BookedArtistForm.tsx`'s Sektion 4 — a third state between "no travel line" (not part of
-the offer) and the firm "+ Travel: X SEK / = Total" (settled): when travel is part of the
-offer but `travel_covered` is still 0, an italic "+ Travel reimbursement to be added
-(estimated ~{offered amount} SEK)" line, deliberately with **no** "= Total" line under it,
-since stating a total would be wrong until the real number exists. Also updated the actual
-input field's placeholder (previously a generic "e.g. 500") to show the real offered
-estimate, so the hint appears right where the artist types the answer, not just above it.
+trip and filled it in yet). "No travel line" and "travel not settled yet" looked identical
+to the artist. Fixed in `BookedArtistForm.tsx`'s Sektion 4 — a third state between "no
+travel line" (not part of the offer) and the firm "+ Travel: X SEK / = Total" (settled):
+when travel is part of the offer but `travel_covered` is still 0, an italic "+ Travel
+reimbursement to be added (estimated ~{offered amount} SEK)" line, deliberately with
+**no** "= Total" line under it. Also updated the input field's placeholder to show the
+real offered estimate.
 
-### Related, flagged but not designed yet: an artist retracting/declining after selection (2026-08-21)
+The deeper "should this genuinely be two columns" design question — deliberately deferred,
+not urgent, nothing currently broken by leaving it as one column — see `extra-features.md`
+for the full writeup and the one open sub-question that's still unresolved.
 
-Surfaced by a real case — Eden had an act (`is_selected`) chosen and an offer sent, then
-backed out. The admin's only lever today is flipping `review_status` back to `no`, which
-does nothing to `casting_application_acts.is_selected` — the two are independent columns
-with no logic linking them, so the act kept reading as chosen until manually corrected by
-hand. Distinct from both items above: Phase 11 is the admin changing terms on an offer
-still in play; the travel-cost item is a number that's naturally unknown yet; this is the
-artist actively opting out after having been selected/contacted. No performer/
-event_performers/performer_acts existed yet in Eden's case (never reached `confirmed`), so
-this specific instance was just a stale flag, not a deeper cleanup — but a version of this
-where the artist backs out *after* confirming would need to also unwind the created
-`performer_acts` row (and possibly the `event_performers` row, if it was their only act) —
-worth designing alongside Phase 11 rather than separately, since both are "something
-changed after the offer was sent, and downstream state needs to react correctly."
+### An artist retracting/declining after selection — moved to `docs/extra-features.md` (2026-08-25)
 
-### Related, flagged but not designed yet: accommodation_notes visibility (2026-08-21)
+Grouped there with the Phase 11 re-confirmation flow, since both are "something changed
+after the offer was sent, and downstream state needs to react correctly." Originally
+surfaced by a real case (Eden backing out after being selected) — see that doc for the
+full writeup.
 
-Noted while fixing `submit_casting_application` — `accommodation_notes` (the conditional
-"allergies/travel/logistics" free text collected on the public form when travel or
-accommodation is needed) currently shows up in the admin's `CastingApplicationRow` but
-never reaches the artist-facing `BookedArtistForm` at all. Not designed now — flagged so
-it doesn't get lost. Worth finetuning once we're back in that area of the code.
+### accommodation_notes visibility — designed 2026-08-25, see `admin-portal-roadmap.md`
+
+Noted while fixing `submit_casting_application` (2026-08-21) — `accommodation_notes` (the
+conditional "allergies/travel/logistics" free text collected on the public form when
+travel or accommodation is needed) shows up in the admin's `CastingApplicationRow` but
+never reaches the artist-facing `BookedArtistForm`, and has nowhere to live for a
+confirmed artist. Now folded into a real design — a general, admin-editable
+`event_performers.logistics_notes`, pre-filled from this field at confirm time — logged in
+`admin-portal-roadmap.md`'s Event Planning section rather than here, since that's where it
+belongs (operational show-running info, not a casting decision). Not built yet.
 
 ## Open questions to settle before Phase 6 (not blocking earlier phases)
 
@@ -846,95 +753,11 @@ fixed position instead of only being reachable by scrolling back to the top.
   `useAuth().user` being truthy — invisible to the artist, visible only when an admin is
   the one looking at the link.
 
-## Independent enhancement: returning artists' promo content vs. their existing profile
+## Returning artists' promo content vs. their existing profile — moved to `docs/extra-features.md` (2026-08-25)
 
-Added 2026-08-19, design finalized the same day. Doesn't depend on the multi-act work, but
-**overlaps directly with `confirm_and_migrate_artist`**, which Phases 2 and 8 above are
-already rewriting — do this in the same pass rather than touching that function twice.
-
-**What's true today** (traced from the live RPC body, not guessing): `performers` has its
-own `promo_image_id`/`bio_sv`/`bio_eng`, and the entire public site (Hall of Fame, performer
-detail, event lineup) reads exclusively from `performers`/`public_performers`, never from
-`casting_applications`. On confirm, a brand-new performer gets `promo_image_id`/bio copied
-in from the application (fine, it's their first profile). A **returning** performer match
-only ever gets `photographer` patched — their new application's image/text are never
-touched, silently orphaned on the now-confirmed application row, never shown anywhere.
-`BookedArtistForm.tsx` already renders `bio_sv`/`bio_eng` as two always-visible textareas
-side by side (confirmed in code, `BookedArtistForm.tsx:507-537`) and already saves them to
-`performers` via `update_performer_bio_via_token` — this existing dual-textarea pattern is
-what the design below reuses, just repointed.
-
-**Finalized design (2026-08-19):**
-
-- **Public `CastingForm.tsx` is unchanged** — still asks for one promo image + one
-  promo text (in the applicant's chosen language) every time, exactly as today. No new
-  field needed on the public form (see below for why).
-- **New column: `event_performers.is_returning_artist boolean not null default false`**
-  (or `is_returning_performer` — same idea, pick whichever reads better once we're
-  writing the SQL). Set at confirm time in the same branch that already exists in
-  `confirm_and_migrate_artist` — `true` when the `ELSE` (existing performer matched)
-  branch runs, `false` when the `IF v_performer_id IS NULL` (brand-new) branch runs. This
-  has to be persisted at that exact moment — by the time `BookedArtistForm` loads, a
-  `performers` row exists either way, so "new vs. returning" can't be reconstructed after
-  the fact. `event_performers` is the right table for it (not `performers`): it's an
-  event-scoped fact — the same performer could be a newcomer this event and returning at
-  the next one.
-- **New columns: `casting_applications.promo_text_sv` / `promo_text_eng`**, replacing the
-  single `promo_text` (which only ever held one language). At submission time, only the
-  one matching the applicant's chosen `language` gets filled — exactly mirroring how
-  `performers.bio_sv`/`bio_eng` already works today. The other language gets filled in
-  later, reusing the *same already-existing* dual-textarea UI in `BookedArtistForm` — this
-  is why no new public-form field is needed; the "translation" step already happens at the
-  booking-form stage today (that's what those two always-visible textareas are for), it
-  just currently writes straight to `performers` regardless of new/returning status.
-- **`BookedArtistForm.tsx`'s Artist Promo section branches on `is_returning_artist`**:
-  - **Returning**: the `bio_sv`/`bio_eng` textareas edit and save to
-    `casting_applications.promo_text_sv/eng` only — the existing profile is left alone.
-    Add one extra explicit button: *"Use this photo & text as my profile"* — a deliberate,
-    artist-triggered action (not automatic, not admin-mediated) that copies the
-    application's image + both languages onto their `performers` row, overwriting what's
-    there. Needs a clear "this will replace your current public profile" confirmation
-    before it fires, since it's a real overwrite.
-  - **Newcomer**: the same two textareas write to **both** `casting_applications.promo_text_sv/eng`
-    **and** `performers.bio_sv/eng` simultaneously — no separate button needed, since
-    there's no existing profile to protect yet. Add a short info note near the fields
-    explaining this text becomes their public website profile too. The promo **image**
-    stays locked/read-only in both cases (matches today — no upload control exists here at
-    all, out of scope for this change).
-- **Data-integrity gap found while checking your "one application had no promo text"
-  observation, confirmed real**: the `promo_text` textarea in `CastingForm.tsx` does have
-  `required` on it (`CastingForm.tsx:415`) and the label shows an asterisk — but that's
-  purely an HTML client-side attribute with nothing backing it in the database. Found
-  exactly one existing row with `promo_text IS NULL` (`Madame Dragonfly`,
-  `3f427c7a-faf6-401a-8ca3-6eb870f4593d`) — its `NULL` value (not even an empty string)
-  strongly suggests it didn't come through the real form at all, more likely a manually
-  inserted test/admin row. **Recommend adding an actual `NOT NULL` (or non-empty `CHECK`)
-  constraint** on the new `promo_text_sv`/`promo_text_eng` columns once split — cheap,
-  low-risk, closes the gap between what the form claims is required and what the database
-  actually enforces. Folding this into Phase 1's schema work.
-- **Cloudinary folder consistency** (the "irks me a little" point): still recommend
-  skipping a physical move — real effort for a cosmetic win, and risks touching a live
-  public-id. If it's ever worth doing, just adding the `artist-promo` tag to an asset once
-  it's copied onto a profile (via the new "use this as my profile" button, or at
-  newcomer-migration time) gets it discoverable the same way without moving anything.
-  Still optional, low-priority polish.
-
-## Future phase (not started, deferred until after casting/booking is fixed): event-plan promo downloads
-
-Added 2026-08-19. Explicitly **not** part of the current work — flagged now only because
-it directly motivated the `promo_text_sv`/`promo_text_eng` split above, and validates that
-decision rather than the other way around.
-
-**The idea**: on `/admin/event-plan` (currently a stub per `CLAUDE.md` — the next big admin
-build after this casting/booking work), show the list of an event's booked artists with a
-download button per artist for their promo picture + text **in both Swedish and English**,
-so the board can quickly grab ready-to-post content for social media announcements leading
-up to a show.
-
-**Why this shapes today's decision**: this feature needs both languages of promo text to
-actually exist in the database ahead of time, sourced from the application (not the
-performer profile, since — per the design above — a returning artist's application content
-is deliberately kept separate from their profile unless they choose to merge it). Without
-today's `promo_text_sv`/`promo_text_eng` split, this future feature would have nothing
-proper to read from. No further design work needed now — just noting the dependency so the
-schema decision above is made with this in mind, not revisited later.
+Along with its dependent "event-plan promo downloads" idea. Verified live before moving —
+two returning performers' current profiles genuinely still differ from what they wrote on
+their casting applications (real content differences, not just stale copies), confirming
+the underlying bug this design fixes is real. Not time-pressured: all performers for the
+current season are already cast, and the two returning artists among them kept their
+existing profiles untouched, exactly as the current (unfixed) code does today.

@@ -1,15 +1,18 @@
 # Admin portal roadmap — light overview
 
-Drafted 2026-08-19. **This is deliberately not a phased implementation plan** like
-`multi-act-casting-plan.md` — it's a wishlist/overview, written now specifically to catch
-schema-level overlaps early. Detailed phasing for each tab happens later, once the
-multi-act casting/booking work has actually shipped and the data shapes it introduces
-(multi-act performers, roles, returning-vs-newcomer) are real — designing this in full
-detail today risks building against a shape that's about to change.
+Drafted 2026-08-19. **Written deliberately as a wishlist/overview, not a phased
+implementation plan** like `multi-act-casting-plan.md` — the original reasoning was to
+catch schema-level overlaps early without designing in detail against a data shape
+(multi-act performers, roles, returning-vs-newcomer) that was still about to change.
 
-Sequencing: multi-act casting/booking work first (already phased in the other doc), then
-this. Within this doc, the order below is also roughly the intended build order:
-foundation → Casting (already covered elsewhere) → Contacts → Event Planning → Dashboard
+**That's no longer the case — multi-act casting/booking shipped and closed 2026-08-25**
+(see that doc). This is the next thing to build. The sections below are still genuinely
+just an overview, not real phases — whoever picks this up next should feel free to turn
+the relevant section into a proper phased plan (mirroring `multi-act-casting-plan.md`'s
+structure) once work actually starts, rather than treating this doc's current shape as final.
+
+Within this doc, the order below is roughly the intended build order: foundation →
+Casting (done, see `multi-act-casting-plan.md`) → Contacts → Event Planning → Dashboard
 last.
 
 ## Foundation: event-scoped admin shell
@@ -29,12 +32,12 @@ layout instead of being duplicated per page.
 
 ## Casting tab
 
-Already being redesigned in `multi-act-casting-plan.md` — no new notes here except: it
-adopts the shared event picker above instead of keeping its own local one, and the
-"preliminary budget" number you want visible here is the same yes-section total already
-sketched in that doc (Phase 5). A full, dedicated **Budget tab** (tracking total funds,
-all expenses, not just casting fees) is explicitly deferred — noted for later, not
-designed now.
+**Done** — see `multi-act-casting-plan.md` (closed 2026-08-25). One remaining wiring item
+for whenever the shared event picker below gets built: this tab should adopt it instead of
+keeping its own local one. The "preliminary budget" number visible here is the same
+yes-section total already shipped in that doc (Phase 5). A full, dedicated **Budget tab**
+(tracking total funds, all expenses, not just casting fees) is still explicitly
+deferred — noted for later, not designed now.
 
 ## Contacts tab (rename candidate)
 
@@ -54,11 +57,21 @@ database directly.
 - **Flag**: `events` already has both `photographer_id` (uuid, no enforced FK constraint
   in the DB — worth confirming at build time what it's actually meant to point at) and a
   free-text `photographer` column, and separately `performers`/`casting_applications` each
-  have their *own* free-text `photographer` field too. These are likely two genuinely
-  different concepts — "who's staffed to shoot this event" (event-level, assignable from
-  the roster, what this tab is for) vs. "photo credit for this specific promo image"
-  (per-performer, could be anyone, doesn't need to be on staff) — worth confirming that
-  distinction explicitly before merging them into one mechanism.
+  have their *own* free-text `photographer` field too. These are two genuinely different
+  concepts — "who's staffed to shoot this event" (event-level, assignable from the roster,
+  what this tab is for) vs. "photo credit for this specific promo image" (per-performer,
+  could be anyone, doesn't need to be on staff) — worth confirming that distinction
+  explicitly before merging them into one mechanism.
+  **The per-performer half is now confirmed, not just suspected (2026-08-25)**: found and
+  fixed a real bug where `confirm_and_migrate_artist` was overwriting a *returning*
+  performer's `photographer` credit with whoever shot their *new* application's photo,
+  while leaving `promo_image_id` (the still-displayed old photo) untouched — a genuine
+  photo-credit mismatch risk, confirmed via `PerformerDetail.tsx` rendering `photographer`
+  directly under `promo_image_id` as that specific image's credit line. Fixed by leaving a
+  returning performer's row untouched entirely at confirm time. Doesn't resolve the
+  event-level `photographer_id`/`photographer` question above, but confirms the
+  per-performer field is exactly "credit for this specific image," not a general fact
+  about the artist.
 - Needs to stay in sync with wherever venue/photographer already get set on an event
   (`EventEditor.tsx`'s dropdowns) — one source of truth, not two competing UIs writing the
   same relationship.
@@ -66,9 +79,11 @@ database directly.
 ## Event Planning tab (the big one)
 
 ### Artist list + promo downloads
-Builds directly on the `promo_text_sv`/`promo_text_eng` split already logged in
-`multi-act-casting-plan.md`'s "Future phase" section — no new notes, just confirming the
-dependency is already accounted for.
+Depends on the `promo_text_sv`/`promo_text_eng` split (part of the "returning artists'
+promo content" design) — moved to `docs/extra-features.md` (2026-08-25) along with this
+exact dependency note, since the split itself isn't built yet and isn't time-pressured
+(current season is already fully cast). Check that doc before starting this piece —
+without the split, there's nothing proper to download in both languages.
 
 ### Reveal mechanism — mostly already exists
 Checked the actual schema/code rather than assume:
@@ -129,6 +144,43 @@ Checked the actual schema/code rather than assume:
     ```
   - (Performers don't need an equivalent flag — their accumulating `performer_acts` rows
     already *are* the "we've worked with them" record, one per event they've performed at.)
+
+### Per-artist logistics notes (travel/accommodation/allergies) — designed 2026-08-25, not built
+
+Surfaced by a real case: two performers carpooling to a show, only one needing a travel
+reimbursement — and no field anywhere to record that they're traveling together. Also
+resolves a gap `multi-act-casting-plan.md` already flagged ("Related, flagged but not
+designed yet: accommodation_notes visibility") — `casting_applications.accommodation_notes`
+(the artist's own free text, collected on the public form when travel/accommodation is
+needed — its actual copy already asks broadly about allergies, travel, and accommodation
+logistics, not just "where will you sleep") currently reaches the admin's casting review
+but never the artist-facing `BookedArtistForm`, and has nowhere to live once an artist is
+actually confirmed and the board needs to track operational details across the whole
+lineup, not just one application at a time.
+
+**Design**:
+- **One general `event_performers.logistics_notes` (text, admin-editable)** rather than
+  several narrow columns for travel/allergies/etc. separately — these genuinely overlap in
+  practice (a note about carpooling is also a travel note; an allergy note affects both
+  catering and, indirectly, accommodation), and the *existing* `accommodation_notes` field
+  was already conceived this broadly per its own on-form copy. One flexible field the
+  admin maintains beats three half-empty ones.
+- **Pre-filled from `casting_applications.accommodation_notes` at confirm time**, same
+  copy-on-confirm pattern already used for `final_fee`/`travel_covered`/`lineup_role` in
+  `confirm_and_migrate_artist` — extend that function to copy this too. The admin then
+  edits *that copy* going forward; the original application's `accommodation_notes` stays
+  untouched as a frozen record of what the artist originally said (same "frozen record"
+  principle used throughout `multi-act-casting-plan.md` for `casting_application_acts`).
+- **Keep the existing `event_performers.accommodation` column** (already exists in the
+  schema, confirmed completely unused anywhere in the app today) for a short, structured
+  answer to "where is this person actually sleeping" — a scannable per-artist list, kept
+  separate from the free-form `logistics_notes` blob so it stays usable as an actual list
+  rather than something you have to read every note to extract.
+- **Belongs on the Event Planning tab**, not the Casting review flow — this is ongoing
+  "running the show" operational info (who's traveling with whom, who's sleeping where,
+  allergies for catering), not a casting decision. Once Event Planning has a real artist
+  overview (see "Artist list + promo downloads" above), these fields are natural additions
+  to that same per-artist row/detail view.
 
 ### Staffing & sponsor positions overview
 
