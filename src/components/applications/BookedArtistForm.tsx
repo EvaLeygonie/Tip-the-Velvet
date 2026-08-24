@@ -917,7 +917,14 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 <input
                   type="number"
                   name="travel_covered"
-                  placeholder={t('T.ex. 500', 'e.g. 500')}
+                  placeholder={
+                    application.travel_cost_amount
+                      ? t(
+                          `Uppskattat ca ${application.travel_cost_amount}`,
+                          `Estimated ~${application.travel_cost_amount}`
+                        )
+                      : t('T.ex. 500', 'e.g. 500')
+                  }
                   value={formData.travel_covered}
                   onChange={handleChange}
                   className="login-input"
@@ -1001,14 +1008,23 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             Fee comes from proposed_fee (fixed at offer time, not editable here — no fee
             field exists in this form). Travel reads formData.travel_covered live, since
             that IS the editable "final reimbursement" field just above, so this summary
-            stays in sync as the artist fills it in. Only shows a travel line — and the
-            "=" total that goes with it — when there actually is one; with nothing to add,
-            there's nothing to calculate, so the fee line stands alone. */}
+            stays in sync as the artist fills it in.
+
+            Three states, not two — travel being *part of the offer* (needs_travel_costs)
+            and travel having a *settled amount* (travel_covered, filled in by the artist
+            once they actually know it) are different things. Real case that caught this:
+            an artist offered travel reimbursement, not yet booked her trip, saw nothing
+            about travel at all here — the "no travel" and "travel not decided yet" states
+            looked identical. Now: no line when travel isn't part of the offer at all; a
+            firm "+ Travel: X SEK" + "= Total" once she's entered a real figure; and, in
+            between, a "+ Travel costs: TBD (~offered estimate)" placeholder with no "="
+            line — a real total shouldn't be stated until travel actually has a number. */}
         {(() => {
           const proposedFee = Number(application.proposed_fee) || 0
           const travelCovered = Number(formData.travel_covered) || 0
+          const needsTravel = application.needs_travel_costs || false
+          const offeredTravelEstimate = Number(application.travel_cost_amount) || 0
           const actCount = actsFormData.length
-          const hasTravel = travelCovered > 0
           const roleLabel =
             application.lineup_role === 'host'
               ? 'Host'
@@ -1021,12 +1037,12 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
               <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
                 <h2>{t('Överenskommet Gage', 'Agreed Compensation')}</h2>
               </div>
-              <div className="text-sm text-foreground/80 space-y-1.5 font-mono">
+              <div className="text-sm text-foreground space-y-1.5 font-mono">
                 <p>
                   {proposedFee} SEK
                   {actCount > 1 && ` ${t('för', 'for')} ${actCount} ${t('akter', 'acts')}`}
                 </p>
-                {hasTravel && (
+                {needsTravel && travelCovered > 0 && (
                   <>
                     <p>
                       + {t('Reseersättning', 'Travel Reimbursement')}: {travelCovered} SEK
@@ -1035,6 +1051,15 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                       = {t('Totalt', 'Total')}: {proposedFee + travelCovered} SEK
                     </p>
                   </>
+                )}
+                {needsTravel && travelCovered === 0 && (
+                  <p className="text-foreground/60 italic">
+                    +{' '}
+                    {t(
+                      `Reseersättning tillkommer (uppskattat ca ${offeredTravelEstimate} SEK) — fyll i den slutliga summan ovan när den är klar`,
+                      `Travel reimbursement to be added (estimated ~${offeredTravelEstimate} SEK) — fill in the final amount above once known`
+                    )}
+                  </p>
                 )}
                 {roleLabel && (
                   <p className="pt-1.5 border-t border-border/30 flex items-center justify-center gap-1.5 text-center">

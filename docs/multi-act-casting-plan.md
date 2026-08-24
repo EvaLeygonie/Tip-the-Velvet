@@ -699,13 +699,29 @@ keeps showing the stale, originally-confirmed number regardless of later admin e
 Open questions for when we actually design this (not now):
 - Should this become two real columns (e.g. keep `travel_cost_amount` as the estimate,
   add something like `event_performers.actual_travel_cost` for the real figure), rather
-  than one field doing both jobs?
+  than one field doing both jobs? **Still open** — the fix below is display-only, doesn't
+  touch the schema, still one overloaded column underneath.
 - Should the actual-cost field start pre-filled with the estimate, or blank? You flagged
   the real risk either way: pre-filled risks people leaving it unchanged and never
   entering the true number; blank risks it just never getting filled in at all. No
   instinct yet on which is worse — worth deciding with real usage patterns in mind once
   Phase 11's re-confirmation flow exists, since that flow already has to solve "how does a
   changed number reach the artist-facing form" for the general case.
+
+**Display-only fix shipped 2026-08-24**, surfaced by a real case: Luminous Starling's
+portal showed "Offered fee 1000kr" with no mention of travel at all, even though
+`needs_travel_costs` was true and 1000 SEK had been offered — because Sektion 4 only ever
+checked `travel_covered > 0`, and hers was still 0 (real state — she hadn't booked her
+trip and filled it in yet, confirmed via query this wasn't the Phase 11 sync bug: nothing
+had been edited post-confirmation here, the number was just genuinely not entered yet).
+"No travel line" and "travel not settled yet" looked identical to the artist. Fixed in
+`BookedArtistForm.tsx`'s Sektion 4 — a third state between "no travel line" (not part of
+the offer) and the firm "+ Travel: X SEK / = Total" (settled): when travel is part of the
+offer but `travel_covered` is still 0, an italic "+ Travel reimbursement to be added
+(estimated ~{offered amount} SEK)" line, deliberately with **no** "= Total" line under it,
+since stating a total would be wrong until the real number exists. Also updated the actual
+input field's placeholder (previously a generic "e.g. 500") to show the real offered
+estimate, so the hint appears right where the artist types the answer, not just above it.
 
 ### Related, flagged but not designed yet: an artist retracting/declining after selection (2026-08-21)
 
