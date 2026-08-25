@@ -7,11 +7,13 @@ import {
   updateApplicationLogistics,
   syncConfirmedBookingTerms,
   updateActSelection,
+  cancelConfirmedBooking,
 } from '@/services/applicationService'
-import { fetchEventsForAdmin } from '@/services/eventService'
 import { useLanguage } from '@/contexts/LanguageContext'
-import type { CastingApplication, CastingApplicationWithActs, Event } from '@/types/types'
+import { useCurrentEvent } from '@/contexts/CurrentEventContext'
+import type { CastingApplication, CastingApplicationWithActs } from '@/types/types'
 import { CastingApplicationRow } from '@/components/admin/CastingApplicationRow'
+import { EventPicker } from '@/components/admin/EventPicker'
 import { DollarSign, Music, Users, Mail, Loader2 } from 'lucide-react'
 import { withTimeout } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -21,8 +23,7 @@ export const AdminCasting = () => {
   const actLabel = (count: number) => t(count === 1 ? 'akt' : 'akter', count === 1 ? 'act' : 'acts')
   const artistLabel = (count: number) =>
     t(count === 1 ? 'artist' : 'artister', count === 1 ? 'artist' : 'artists')
-  const [events, setEvents] = useState<Event[]>([])
-  const [selectedEventId, setSelectedEventId] = useState<string>('')
+  const { selectedEventId, selectedEvent } = useCurrentEvent()
   const [applications, setApplications] = useState<CastingApplicationWithActs[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -39,22 +40,6 @@ export const AdminCasting = () => {
   const [bulkBodySv, setBulkBodySv] = useState('')
   const [bulkBodyEn, setBulkBodyEn] = useState('')
   const [isSendingBulkMail, setIsSendingBulkMail] = useState(false)
-
-  useEffect(() => {
-    const loadEvents = async () => {
-      try {
-        const data = await fetchEventsForAdmin()
-        if (data.length > 0) {
-          setEvents(data)
-          setSelectedEventId(data[0].id)
-        }
-      } catch (err) {
-        console.error('Kunde inte hämta event:', err)
-        setError('Kunde inte läsa in eventlistan.')
-      }
-    }
-    loadEvents()
-  }, [])
 
   useEffect(() => {
     if (!selectedEventId) return
@@ -215,9 +200,48 @@ export const AdminCasting = () => {
     }
   }
 
-  const todayStr = new Date().toISOString().split('T')[0]
-  const upcomingEvents = events.filter((e) => e.event_start && e.event_start >= todayStr)
-  const archivedEvents = events.filter((e) => !e.event_start || e.event_start < todayStr)
+  // Removing an already-confirmed artist — deletes their event_performers/performer_acts
+  // for this event (and the performers row too, if they now have no footprint left at any
+  // other event) via cancel_confirmed_booking, then reflects the same locally: cancelled
+  // booking_status, whatever review_status the admin picked, and every one of this
+  // application's acts reset to unselected (the RPC does this same reset server-side).
+  const handleCancelConfirmedBooking = async (
+    id: string,
+    newReviewStatus: CastingApplication['review_status']
+  ) => {
+    const previous = applications
+
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === id
+          ? {
+              ...app,
+              booking_status: 'cancelled',
+              review_status: newReviewStatus,
+              casting_application_acts: app.casting_application_acts.map((act) => ({
+                ...act,
+                is_selected: false,
+              })),
+            }
+          : app
+      )
+    )
+
+    try {
+      await withTimeout(
+        cancelConfirmedBooking(id, newReviewStatus),
+        15000,
+        t(
+          'Nätverksanropet tog för lång tid. Kontrollera din anslutning.',
+          'The network request took too long. Check your connection.'
+        )
+      )
+    } catch (err) {
+      console.error('Kunde inte avboka artisten:', err)
+      setApplications(previous)
+      throw err
+    }
+  }
 
   const pendingApps = applications.filter((app) => app.review_status === 'pending')
   const yesApps = applications.filter((app) => app.review_status === 'yes')
@@ -227,7 +251,6 @@ export const AdminCasting = () => {
   // "Booked artists" — actually confirmed, not just review_status='yes' (which also
   // includes artists not yet contacted or still awaiting their own confirmation).
   const bookedApps = yesApps.filter((app) => app.booking_status === 'confirmed')
-  const selectedEvent = events.find((e) => e.id === selectedEventId)
 
   const openBulkMailModal = () => {
     const eventTitle = selectedEvent?.title ?? ''
@@ -365,10 +388,12 @@ export const AdminCasting = () => {
             <CastingApplicationRow
               key={app.id}
               application={app}
+              eventTitle={selectedEvent?.title ?? ''}
               onStatusChange={handleStatusChange}
               onSaveNotes={handleSaveNotes}
               onUpdateLogistics={handleUpdateLogisticsStatus}
               onToggleActSelected={handleToggleActSelected}
+              onCancelConfirmedBooking={handleCancelConfirmedBooking}
             />
           ))}
         </div>
@@ -384,36 +409,7 @@ export const AdminCasting = () => {
       <h1>{t('Casting-hantering', 'Casting handling')}</h1>
       <div className="gold-divider" />
 
-      {/* Eventväljare */}
-      <div className="max-w-md mx-auto my-8 space-y-2 text-center relative z-10">
-        <label className="form-label-gold block">
-          {t('Välj show / event', 'Select show / event')}
-        </label>
-        <select
-          value={selectedEventId}
-          onChange={(e) => setSelectedEventId(e.target.value)}
-          className="text-center"
-        >
-          {upcomingEvents.length > 0 && (
-            <optgroup label={t('✨ Kommande Event', '✨ Upcoming Events')}>
-              {upcomingEvents.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.title} ({evt.event_start?.split('T')[0]})
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {archivedEvents.length > 0 && (
-            <optgroup label={t('📜 Arkiverade Event', '📜 Archived Events')}>
-              {archivedEvents.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.title} ({evt.event_start?.split('T')[0]})
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
-      </div>
+      <EventPicker />
 
       {hasAnyApplications && (
         <div className="flex items-center justify-center gap-6 text-sm text-foreground/70 font-body -mt-4 mb-6 relative z-10">

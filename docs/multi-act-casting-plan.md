@@ -5,7 +5,8 @@ casting → booking → confirm pipeline fully supports multiple acts per applic
 end to end, deployed to prod. Everything that came up along the way but wasn't part of
 getting there — lower-priority features, deferred design questions — has been moved to
 `docs/extra-features.md`; what stayed in this doc is done work, kept as history/context.
-Nothing further is expected here.
+One real addition landed after closing (see the bottom of this doc) — "closed" means the
+core work is done, not that the doc stopped being updated.
 
 Drafted 2026-08-18. Check items off as we go; leave notes inline (like
 `docs/audit-findings.md` does) when a step turns out different than planned.
@@ -761,3 +762,77 @@ their casting applications (real content differences, not just stale copies), co
 the underlying bug this design fixes is real. Not time-pressured: all performers for the
 current season are already cast, and the two returning artists among them kept their
 existing profiles untouched, exactly as the current (unfixed) code does today.
+
+### Independent addition (2026-08-25, after this doc was closed): removing a confirmed artist
+
+Surfaced while testing — no lever existed for "an artist confirmed, then backed out"
+short of hand-editing the database (the exact gap the "artist retracting/declining" item,
+now in `docs/extra-features.md`, had already flagged). Built as a real, immediate feature
+rather than deferred, since it was actively blocking testing.
+
+**Design, per the user**: no separate "cancel" button — deliberately reuses the existing
+review_status `<select>`. Moving a `booking_status = 'confirmed'` application's
+review_status away from `'yes'` now opens a confirmation modal instead of silently
+applying the change; the select stays controlled by `application.review_status`, so
+dismissing the modal without confirming just snaps it back with no extra reset logic
+needed. `initial_reply_sent` is left as `true` — the artist genuinely was contacted and
+did confirm, undoing the booking doesn't make that untrue.
+
+- **New enum value, not a rename**: added `'cancelled'` to `booking_status_type` rather
+  than repurposing the already-unused `'negotiating'` — that value is specifically
+  earmarked in `docs/extra-features.md`'s re-confirmation flow for a *different* future
+  case (terms changed on a still-active offer), so reusing it here would have collided
+  with that later.
+- **New RPC `cancel_confirmed_booking(p_application_id, p_new_review_status)`**: deletes
+  the performer's `performer_acts` and `event_performers` rows for *this event only*
+  (not touching any other event they've performed at), resets `is_selected` on the
+  application's acts, and sets `booking_status = 'cancelled'` plus whatever
+  `review_status` the admin picked — all atomically, one transaction.
+- **"Was this performer new?" resolved by checking current reality, not a stored flag**:
+  after the deletes above, if the performer has zero `performer_acts` and zero
+  `event_performers` rows left at *any* event, their `performers` row is deleted too,
+  rather than leaving an orphaned empty profile behind. Deliberately not based on a
+  point-in-time "is_returning_artist"-style flag (which doesn't exist yet anyway, see the
+  returning-artist-promo design above) — checking actual current footprint is more
+  robust and can't drift out of sync.
+- **New status treatment in `CastingApplicationRow.tsx`**: a distinct `isCancelled` state
+  (red, "Artist removed from the show"), checked *before* `isRejectedAndSent` so it wins
+  even if the admin's fallback review_status happens to be `'no'` — a booked-then-removed
+  artist is a meaningfully different case from a plain rejection, not the same bucket.
+- **Bug found and fixed in passing**: `gold` was never actually a registered Tailwind
+  color (confirmed via the compiled CSS output — `text-gold`/`bg-gold` generated zero
+  rules anywhere in the app, not just in new code). First attempted fix registered a new
+  `--gold` token; reverted per explicit user feedback — `--accent` (`hsl(45 95% 55%)`) is
+  already the intended gold tone used for H1s etc. site-wide, so every role tag/icon in
+  this feature uses `text-accent`/`bg-accent` instead. The other, pre-existing
+  `text-gold`/`bg-gold` usages elsewhere in the app (JoinUs, CastingForm, RegisterAdmin,
+  this row's own logistics panel) were left alone — still silently broken exactly as they
+  were before this was noticed, not in scope to fix here.
+- **Cancellation email, added same day**: confirming the removal now also emails the
+  artist automatically — fixed bilingual template (not admin-composed, unlike the
+  offer/rejection emails), reusing `/api/send-casting-email` with `eventTitle` newly
+  passed down as a prop from `AdminCasting.tsx`'s `selectedEvent`. Sent in its own
+  try/catch *after* the RPC succeeds, so a failed send reports as "removed, but the email
+  didn't go out — notify manually" rather than looking like the whole removal failed.
+- **`ArtistBookingPortal.tsx` failsafe, added same day**: the portal used to branch purely
+  on `!isConfirmed` — meaning `declined`, `cancelled`, or even `not_contacted` all fell
+  through to showing `BookingDecisionCard`, letting an artist who was rejected or just
+  removed still see an "Accept & Confirm" button on an old link. Now explicit:
+  `booking_status === 'confirmed'` shows `BookedArtistForm`; `'negotiating'` or
+  `'pending_confirmation'` shows `BookingDecisionCard`; anything else (including the new
+  `'cancelled'`) shows a dedicated error state instead, with distinct copy for cancelled
+  vs. declined vs. any other/unexpected status.
+- **Bug found live-testing the cancel flow, fixed same day**: re-adding a cancelled
+  application to the "yes" pile showed *both* the amber "awaiting confirmation" block and
+  the red "cancelled" block at once — `isAwaitingConfirmation` only excluded
+  `booking_status === 'confirmed'`, not `'cancelled'` too, even though `isRejectedAndSent`
+  already had that exact exclusion right next to it. Same one-line fix applied.
+- **Re-adding a cancelled artist, designed and built same day**: deliberately *not* a
+  second confirmation modal — cancelling is destructive (deletes records), re-adding
+  isn't (fee/travel/role are still sitting untouched on the application row, nothing to
+  lose). Moving a cancelled application's review_status back to `'yes'` now silently
+  resets `booking_status` to `'not_contacted'` and `initial_reply_sent` to `false`,
+  dropping it back into the exact same flow any fresh "yes" goes through — no new RPC,
+  `confirm_and_migrate_artist` already handles either outcome correctly (recreates the
+  performer if their profile was deleted, or just adds a fresh act if they still exist
+  from elsewhere) once the artist re-confirms.

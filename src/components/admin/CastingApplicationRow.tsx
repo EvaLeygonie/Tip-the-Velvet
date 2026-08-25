@@ -18,11 +18,13 @@ import {
   Loader2,
   Crown,
   Mic2,
+  TriangleAlert,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface CastingApplicationRowProps {
   application: CastingApplicationWithActs
+  eventTitle: string
   onStatusChange: (id: string, newStatus: CastingApplication['review_status']) => Promise<void>
   onSaveNotes: (id: string, notes: string) => Promise<void>
   onUpdateLogistics: (
@@ -36,6 +38,10 @@ interface CastingApplicationRowProps {
     lineupRole?: CastingApplication['lineup_role']
   ) => Promise<void>
   onToggleActSelected: (applicationId: string, actId: string, isSelected: boolean) => Promise<void>
+  onCancelConfirmedBooking: (
+    applicationId: string,
+    newReviewStatus: CastingApplication['review_status']
+  ) => Promise<void>
 }
 
 const Instagram = ({ size = 20 }: { size?: number }) => (
@@ -58,10 +64,12 @@ const Instagram = ({ size = 20 }: { size?: number }) => (
 
 export const CastingApplicationRow = ({
   application,
+  eventTitle,
   onStatusChange,
   onSaveNotes,
   onUpdateLogistics,
   onToggleActSelected,
+  onCancelConfirmedBooking,
 }: CastingApplicationRowProps) => {
   const { language, t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -73,6 +81,16 @@ export const CastingApplicationRow = ({
   const [mailSubject, setMailSubject] = useState('')
   const [isSendingMail, setIsSendingMail] = useState(false)
   const [customMailBodyText, setCustomMailBodyText] = useState<string | null>(null)
+
+  // Set instead of calling onStatusChange directly whenever the admin tries to move a
+  // *confirmed* booking away from 'yes' — handleStatusSelect intercepts that specific case
+  // and opens the cancel-booking modal below instead, holding the target status here until
+  // the admin actually confirms (or the modal is dismissed and nothing happens at all).
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [pendingReviewStatus, setPendingReviewStatus] = useState<
+    CastingApplication['review_status'] | null
+  >(null)
+  const [isCancellingBooking, setIsCancellingBooking] = useState(false)
 
   const acts = application.casting_application_acts ?? []
   // Selection is only a meaningful concept once there's a decision to make (yes/maybe) —
@@ -200,16 +218,35 @@ export const CastingApplicationRow = ({
   })
   const activeAct = acts[activeActIndex] ?? acts[0]
 
-  const isRejectedAndSent = application.review_status === 'no' && application.initial_reply_sent
+  // Checked ahead of isRejectedAndSent below — an artist who was booked and then removed
+  // is a meaningfully different, more severe case than a plain "no," even if the admin
+  // picked 'no' as the fallback review_status once removing them (a very likely choice).
+  const isCancelled = application.booking_status === 'cancelled'
+  const isRejectedAndSent =
+    application.review_status === 'no' && application.initial_reply_sent && !isCancelled
   const isAwaitingConfirmation =
     application.review_status === 'yes' &&
     application.initial_reply_sent &&
-    application.booking_status !== 'confirmed'
+    application.booking_status !== 'confirmed' &&
+    !isCancelled
   const isFullyConfirmed =
     application.review_status === 'yes' && application.booking_status === 'confirmed'
 
+  // Shared everywhere the role needs showing — collapsed-row icon, status-section tag.
+  // Default 'performer' is deliberately invisible everywhere, only Host/Headliner ever
+  // render anything.
+  const roleLabel =
+    application.lineup_role === 'host'
+      ? 'Host'
+      : application.lineup_role === 'headliner'
+        ? 'Headliner'
+        : null
+  const RoleIcon = application.lineup_role === 'host' ? Mic2 : Crown
+
   let statusRowClass = 'hover:border-accent/30'
-  if (isRejectedAndSent) {
+  if (isCancelled) {
+    statusRowClass = 'border-red-700/70 bg-red-950/10 hover:border-red-600'
+  } else if (isRejectedAndSent) {
     statusRowClass = 'border-red-900/65 bg-red-950/5 hover:border-red-800'
   } else if (isAwaitingConfirmation) {
     statusRowClass = 'border-amber-600/50 bg-amber-950/10 hover:border-amber-500'
@@ -348,12 +385,99 @@ export const CastingApplicationRow = ({
   }
 
   const handleStatusSelect = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value as CastingApplication['review_status']
+
+    // Moving a *confirmed* booking away from 'yes' needs a deliberate extra step, not a
+    // silent status flip — the artist actually confirmed a spot, so undoing that has to
+    // also unwind event_performers/performer_acts, not just relabel the application. The
+    // select stays controlled by application.review_status, so simply not updating state
+    // here is enough to snap it back to 'yes' if the modal gets dismissed.
+    if (application.booking_status === 'confirmed' && newStatus !== 'yes') {
+      setPendingReviewStatus(newStatus)
+      setShowCancelModal(true)
+      return
+    }
+
+    // Re-adding a previously cancelled artist — not destructive like cancelling was (fee/
+    // travel/role are still sitting untouched on this row, nothing to lose), so no modal:
+    // just reset back to a clean starting point for the normal 'yes' flow to take over
+    // from (admin re-sends the still-preserved terms, artist re-confirms as usual).
+    if (application.booking_status === 'cancelled' && newStatus === 'yes') {
+      try {
+        await onStatusChange(application.id, newStatus)
+        await onUpdateLogistics(application.id, false, 'not_contacted')
+        toast.success(
+          t(
+            'Artisten är tillbaka i "Ja"-högen — redo att kontaktas på nytt.',
+            'The artist is back in the "Yes" pile — ready to be contacted again.'
+          )
+        )
+      } catch (err) {
+        toast.error(t('Kunde inte återställa ansökan.', 'Could not restore the application.'))
+        console.error(err)
+      }
+      return
+    }
+
     try {
-      await onStatusChange(application.id, e.target.value as CastingApplication['review_status'])
+      await onStatusChange(application.id, newStatus)
       toast.success(t('Status uppdaterad!', 'Status updated!'))
     } catch (err) {
       toast.error(t('Kunde inte uppdatera status.', 'Could not update status.'))
       console.error(err)
+    }
+  }
+
+  const handleConfirmCancelBooking = async () => {
+    if (!pendingReviewStatus) return
+    setIsCancellingBooking(true)
+    try {
+      await onCancelConfirmedBooking(application.id, pendingReviewStatus)
+      toast.success(
+        t('Artisten har tagits bort från showen.', 'The artist has been removed from the show.')
+      )
+      setShowCancelModal(false)
+      setPendingReviewStatus(null)
+
+      // Notify the artist — separate try/catch so a failed send doesn't read as the removal
+      // itself having failed (it already succeeded above). Fixed template, not composed by
+      // the admin — "so everyone is on board" means this should never be an easy-to-forget
+      // manual step.
+      try {
+        const cancelSubject = isSv
+          ? `Ändring gällande din bokning – ${eventTitle}`
+          : `Update regarding your booking – ${eventTitle}`
+        const cancelBody = isSv
+          ? `Hej ${application.performer_name}!\n\nVi måste tyvärr meddela att din plats i showen ${eventTitle} (${chosenActsText}) har blivit avbokad.\n\nHör gärna av dig om du har några frågor.\n\nVarma hälsningar,\nTip the Velvet`
+          : `Hi ${application.performer_name}!\n\nWe're sorry to let you know that your spot in the show ${eventTitle} (${chosenActsText}) has been cancelled.\n\nPlease don't hesitate to reach out if you have any questions.\n\nBest regards,\nTip the Velvet`
+
+        const response = await fetch('/api/send-casting-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: application.email,
+            name: application.performer_name,
+            subject: cancelSubject,
+            bodyText: cancelBody,
+            language: application.language,
+          }),
+        })
+
+        if (!response.ok) throw new Error('Kunde inte skicka avbokningsmail via API:et.')
+      } catch (emailErr) {
+        console.error('Fel vid avbokningsmail:', emailErr)
+        toast.error(
+          t(
+            'Artisten togs bort, men avbokningsmailet kunde inte skickas — meddela dem manuellt.',
+            'The artist was removed, but the cancellation email could not be sent — please notify them manually.'
+          )
+        )
+      }
+    } catch (err) {
+      toast.error(t('Kunde inte ta bort artisten.', 'Could not remove the artist.'))
+      console.error(err)
+    } finally {
+      setIsCancellingBooking(false)
     }
   }
 
@@ -492,18 +616,14 @@ export const CastingApplicationRow = ({
             <div className="truncate">
               <div className="font-decorative text-base text-foreground tracking-wide truncate flex items-center gap-1.5">
                 <span className="truncate">{application.performer_name}</span>
-                {application.lineup_role && application.lineup_role !== 'performer' && (
-                  <span
-                    className="shrink-0 not-italic font-body font-semibold text-[10px] bg-gold/15 text-gold px-1.5 py-0.5 rounded-full flex items-center gap-1"
-                    title={application.lineup_role === 'host' ? 'Host' : 'Headliner'}
+                {roleLabel && (
+                  <RoleIcon
+                    className="shrink-0 h-4 w-4 text-accent"
+                    strokeWidth={2}
+                    aria-label={roleLabel}
                   >
-                    {application.lineup_role === 'host' ? (
-                      <Mic2 className="h-2.5 w-2.5" />
-                    ) : (
-                      <Crown className="h-2.5 w-2.5" />
-                    )}
-                    {application.lineup_role === 'host' ? 'Host' : 'Headliner'}
-                  </span>
+                    <title>{roleLabel}</title>
+                  </RoleIcon>
                 )}
               </div>
               <div className="text-accent italic text-xs font-heading flex items-center gap-1.5 min-w-0">
@@ -701,32 +821,67 @@ export const CastingApplicationRow = ({
               {application.initial_reply_sent && (
                 <>
                   {isAwaitingConfirmation && (
-                    <div className="p-3 rounded border text-xs font-mono flex items-center gap-2 bg-amber-500/10 border-amber-500/30 text-amber-400">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                      <div>
-                        <span className="font-bold uppercase tracking-wider block">
-                          {t('Väntar på överenskommelse', 'Awaiting agreement')}
-                        </span>
-                        <span className="text-foreground/60 font-sans block mt-0.5">
-                          {t(
-                            'Länken till förhandlingssidan har skickats ut. Väntar på artistens bekräftelse.',
-                            'Negotiation link sent. Waiting for artist approval.'
-                          )}
-                        </span>
+                    <div className="p-3 rounded border text-xs font-mono flex items-center justify-between gap-2 bg-amber-500/10 border-amber-500/30 text-amber-400">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                        <div>
+                          <span className="font-bold uppercase tracking-wider block">
+                            {t('Väntar på överenskommelse', 'Awaiting agreement')}
+                          </span>
+                          <span className="text-foreground/60 font-sans block mt-0.5">
+                            {t(
+                              'Länken till förhandlingssidan har skickats ut. Väntar på artistens bekräftelse.',
+                              'Negotiation link sent. Waiting for artist approval.'
+                            )}
+                          </span>
+                        </div>
                       </div>
+                      {roleLabel && (
+                        <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-accent/15 text-accent px-2 py-1 rounded-full">
+                          <RoleIcon className="h-3 w-3" />
+                          {roleLabel}
+                        </span>
+                      )}
                     </div>
                   )}
                   {isFullyConfirmed && (
-                    <div className="p-3 rounded border text-xs font-mono flex items-center gap-2 bg-emerald-500/10 border-emerald-500/40 text-emerald-400">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <div>
-                        <span className="font-bold uppercase tracking-wider block text-emerald-400">
-                          {t('BOKNING FIXAD & KLAR!', 'BOOKING FINALIZED!')}
-                        </span>
-                        <span className="text-foreground/70 font-sans block mt-0.5">
-                          {t('Bookningen är slutförd!', 'Booking is confirmed!')}
+                    <div className="p-3 rounded border text-xs font-mono flex items-center justify-between gap-2 bg-emerald-500/10 border-emerald-500/40 text-emerald-400">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="font-bold uppercase tracking-wider">
+                          {t('Artist bokad och bekräftad', 'Artist booked and confirmed')}
                         </span>
                       </div>
+                      {roleLabel && (
+                        <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-accent/15 text-accent px-2 py-1 rounded-full">
+                          <RoleIcon className="h-3 w-3" />
+                          {roleLabel}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {isCancelled && (
+                    <div className="p-3 rounded border text-xs font-mono flex items-center justify-between gap-2 bg-red-500/10 border-red-600/40 text-red-400">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                        <div>
+                          <span className="font-bold uppercase tracking-wider block">
+                            {t('Artist borttagen från showen', 'Artist removed from the show')}
+                          </span>
+                          <span className="text-foreground/60 font-sans block mt-0.5">
+                            {t(
+                              'Bekräftad bokning avbokades av admin.',
+                              'Confirmed booking was cancelled by admin.'
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      {roleLabel && (
+                        <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-accent/15 text-accent px-2 py-1 rounded-full">
+                          <RoleIcon className="h-3 w-3" />
+                          {roleLabel}
+                        </span>
+                      )}
                     </div>
                   )}
                   {isRejectedAndSent && (
@@ -833,7 +988,7 @@ export const CastingApplicationRow = ({
 
                       <label className="flex items-center gap-2 pt-0.5">
                         <span className="text-xs font-medium text-foreground flex items-center gap-1.5 shrink-0">
-                          <Crown className="h-3.5 w-3.5 text-gold" />
+                          <Crown className="h-3.5 w-3.5 text-accent" />
                           {t('Roll i showen', 'Role in the show')}
                         </span>
                         <select
@@ -1076,6 +1231,67 @@ export const CastingApplicationRow = ({
                 >
                   <Mail className="h-3.5 w-3.5" />
                   {isSendingMail ? t('Skickar...', 'Sending...') : t('Skicka mail', 'Send email')}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* --- PORTAL MODAL (AVBOKA BEKRÄFTAD ARTIST) --- */}
+      {showCancelModal &&
+        typeof window !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 text-left"
+            onClick={() => !isCancellingBooking && setShowCancelModal(false)}
+          >
+            <div
+              className="velvet-surface border border-red-600/40 max-w-md w-full p-6 space-y-4 rounded-lg shadow-2xl relative"
+              style={{ backgroundColor: '#141111' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 justify-center text-red-400">
+                <TriangleAlert className="h-5 w-5" />
+                <h4 className="font-decorative text-lg text-center">
+                  {t('Ta bort artist från showen?', 'Remove artist from the show?')}
+                </h4>
+              </div>
+              <p className="text-sm text-foreground/80 text-center">
+                {t(
+                  `${application.performer_name} har redan bekräftat sin plats. Att fortsätta tar bort dem från bokningen permanent — deras plats i lineupen och akter för det här eventet raderas. Om det var en helt ny artistprofil (ingen historik vid andra event) raderas den också.`,
+                  `${application.performer_name} has already confirmed their spot. Continuing will permanently remove them from the booking — their lineup slot and acts for this event will be deleted. If their profile was brand new (no history at other events), it will be deleted too.`
+                )}
+              </p>
+              <p className="text-xs text-foreground/50 text-center italic">
+                {t('Detta går inte att ångra.', 'This cannot be undone.')}
+              </p>
+              <div className="flex gap-3 justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCancelModal(false)
+                    setPendingReviewStatus(null)
+                  }}
+                  className="px-4 py-2 text-xs border border-accent/20 rounded text-foreground/70 hover:bg-white/5 transition-colors"
+                  disabled={isCancellingBooking}
+                >
+                  {t('Avbryt', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCancelBooking}
+                  className="text-xs py-2 px-4 flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-60"
+                  disabled={isCancellingBooking}
+                >
+                  {isCancellingBooking ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <TriangleAlert className="h-3.5 w-3.5" />
+                  )}
+                  {isCancellingBooking
+                    ? t('Tar bort...', 'Removing...')
+                    : t('Ja, ta bort artisten', 'Yes, remove artist')}
                 </button>
               </div>
             </div>

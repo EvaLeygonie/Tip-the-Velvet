@@ -924,6 +924,13 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_confirmed_booking: {
+        Args: {
+          p_application_id: string
+          p_new_review_status: Database['public']['Enums']['casting_review_status']
+        }
+        Returns: Json
+      }
       confirm_and_migrate_artist: {
         Args: {
           p_access_token: string
@@ -1008,6 +1015,7 @@ export type Database = {
         | 'pending_confirmation'
         | 'confirmed'
         | 'declined'
+        | 'cancelled'
       casting_review_status: 'pending' | 'yes' | 'maybe' | 'no'
       event_performer_role: 'performer' | 'host' | 'headliner'
       event_status: 'draft' | 'published' | 'cancelled' | 'archived'
@@ -1153,6 +1161,7 @@ export const Constants = {
         'pending_confirmation',
         'confirmed',
         'declined',
+        'cancelled',
       ],
       casting_review_status: ['pending', 'yes', 'maybe', 'no'],
       event_performer_role: ['performer', 'host', 'headliner'],

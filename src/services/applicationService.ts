@@ -219,6 +219,28 @@ export const syncConfirmedBookingTerms = async (
   if (error) throw error
 }
 
+export interface CancelBookingResult {
+  performer_deleted: boolean
+}
+
+// Admin removing a confirmed artist — deletes their event_performers/performer_acts for
+// this event, resets act selection on the application, and (only if the performer has no
+// footprint left at any other event — i.e. was effectively new for this booking) deletes
+// the performers row entirely too. See cancel_confirmed_booking's own comment for the
+// full behavior; this just wraps the RPC call.
+export const cancelConfirmedBooking = async (
+  applicationId: string,
+  newReviewStatus: CastingApplication['review_status']
+): Promise<CancelBookingResult> => {
+  const { data, error } = await supabase.rpc('cancel_confirmed_booking', {
+    p_application_id: applicationId,
+    p_new_review_status: newReviewStatus,
+  })
+
+  if (error) throw error
+  return data as unknown as CancelBookingResult
+}
+
 export interface MigrationResult {
   performer_id: string
   act_id: string

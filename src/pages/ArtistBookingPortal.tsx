@@ -73,7 +73,44 @@ export const ArtistBookingPortal = () => {
     )
   }
 
-  const isConfirmed = application.booking_status === 'confirmed'
+  const bookingStatus = application.booking_status
+  const showDecisionCard =
+    bookingStatus === 'negotiating' || bookingStatus === 'pending_confirmation'
+  const showBookedForm = bookingStatus === 'confirmed'
+
+  // Failsafe — only these two states have a real page to show. Anything else (an old link
+  // to an application that was declined, or cancelled after having been confirmed, or
+  // never contacted at all) must not silently fall through to the decision card, since
+  // that would let a declined or removed artist "accept" a spot that no longer exists.
+  if (!showDecisionCard && !showBookedForm) {
+    const isCancelled = bookingStatus === 'cancelled'
+    const isDeclined = bookingStatus === 'declined'
+
+    return (
+      <div className="min-h-screen flex items-center justify-center text-center px-4">
+        <div className="max-w-md space-y-2">
+          <p className="text-lg font-semibold text-red-400">
+            {isCancelled
+              ? t('Din bokning har avbokats', 'Your booking has been cancelled')
+              : isDeclined
+                ? t('Din ansökan gick tyvärr inte vidare', 'Your application was not selected')
+                : t('Länken är inte giltig just nu', 'This link is not valid right now')}
+          </p>
+          <p className="text-sm text-foreground/60">
+            {isCancelled
+              ? t(
+                  'Om du har frågor, hör gärna av dig till oss.',
+                  'If you have any questions, please reach out to us.'
+                )
+              : t(
+                  'Kontakta oss om du tror att detta är ett misstag.',
+                  'Contact us if you believe this is a mistake.'
+                )}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // Acts actually being offered/booked — falls back to every submitted act if none has
   // been marked selected yet (a blank header would be worse). Prefers the confirmed
@@ -111,14 +148,14 @@ export const ArtistBookingPortal = () => {
           </p>
         </div>
 
-        {!isConfirmed ? (
+        {showBookedForm ? (
+          <BookedArtistForm application={application} />
+        ) : (
           <BookingDecisionCard
             key={application.id}
             application={application}
             onStatusChange={refetchData}
           />
-        ) : (
-          <BookedArtistForm application={application} />
         )}
       </div>
     </div>

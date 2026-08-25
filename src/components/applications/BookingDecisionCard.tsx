@@ -132,7 +132,7 @@ export const BookingDecisionCard: React.FC<BookingDecisionCardProps> = ({
               )}
               <span className="text-sm">{t('Din roll:', 'Your role:')}</span>
             </div>
-            <span className="text-sm font-medium text-gold">{roleLabel}</span>
+            <span className="text-sm font-medium text-accent">{roleLabel}</span>
           </div>
         )}
       </div>

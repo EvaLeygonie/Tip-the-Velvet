@@ -15,6 +15,9 @@ interface CastingEmailBody {
   // Used by bulk sends (e.g. "email all booked artists") where a generic "Hey everyone!"
   // reads better than addressing each recipient individually.
   greeting?: string
+  // Optional — overrides the sender display name (default "Tip the Velvet Casting"), so
+  // non-casting senders (e.g. the Contacts page emailing a sponsor/venue) don't read oddly.
+  fromName?: string
 }
 
 export default async (request: Request) => {
@@ -23,7 +26,7 @@ export default async (request: Request) => {
   }
 
   try {
-    const { to, name, subject, bodyText, language, greeting } =
+    const { to, name, subject, bodyText, language, greeting, fromName } =
       (await request.json()) as CastingEmailBody
 
     if (!to || !name || !subject || !bodyText) {
@@ -57,7 +60,7 @@ export default async (request: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Tip the Velvet Casting <no-reply@tipthevelvet.nu>',
+        from: `${fromName ?? 'Tip the Velvet Casting'} <no-reply@tipthevelvet.nu>`,
         to: [to],
         reply_to: 'velvet.gbg@gmail.com',
         subject: subject,

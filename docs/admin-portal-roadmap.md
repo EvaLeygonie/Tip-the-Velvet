@@ -17,27 +17,40 @@ last.
 
 ## Foundation: event-scoped admin shell
 
-Right now the event picker lives inside `AdminCasting.tsx` alone. Since the board plans
-one event at a time, the proposal is to lift it out into a shared spot in the admin
-chrome (nav bar, side or directly under it), so every `/admin/*` tab reads from one
-"currently selected event" instead of each tab (or none of them) having its own picker.
-Include past events in the same picker, for comparison.
+**Built 2026-08-25, then revised same day after a first pass.** First attempt put the
+picker in the shared nav bar (global chrome, every `/admin/*` page), on the assumption
+that "the board plans one event at a time" meant every tab wanted the same "currently
+selected event" framing. Reconsidered once the actual planned tabs were laid out
+end-to-end: **only Casting and Event Planning are genuinely 100%-event-scoped.** Contacts
+is a plain roster (staff/volunteers/sponsors/venues, not tied to one event), Dashboard is
+explicitly cross-event (org-wide to-dos, a calendar of meetings/lifecycle milestones,
+incoming applications overview), and the new Budget/Economy tab below is explicitly
+*comparative across* events. A global nav picker forced that one-event frame onto pages
+where it didn't apply, looked visually heavy competing with the nav links, and caused a
+layout-shift flicker on login (the nav is one always-mounted component, so it rendered
+once without the picker, then jumped in size the instant the event fetch resolved).
 
-This is infrastructure that every other tab below depends on — probably worth building
-first among the event-plan work, before Contacts/Event Planning/Dashboard, rather than
-building those tabs first and retrofitting a shared picker under them. Likely shape:
-a `CurrentEventContext` (mirroring how `AuthContext`/`LanguageContext` already work),
-wrapped around the admin routes, with the picker itself living once in the shared admin
-layout instead of being duplicated per page.
+**Current shape**: kept `CurrentEventContext` (`src/contexts/CurrentEventContext.tsx`,
+mirrors `AuthContext`) as the shared state — Casting and Event Planning (and wherever the
+event-specific Budget section above ends up) read/write one selection without each
+re-fetching or re-picking independently. Dropped the picker from `Navigation.tsx`
+entirely. The picker itself is a plain reusable component
+(`src/components/admin/EventPicker.tsx`) rendered locally at the top of each event-scoped
+page instead — restoring the original placement/feel from `AdminCasting.tsx` (under the
+page title, with the artist/act counts reacting live right underneath it), which turned
+out to already be the right pattern rather than something to lift out of. Casting has
+adopted it; Event Planning should do the same once built, rather than each page
+reinventing its own local event state. Dashboard and Contacts intentionally get **no**
+picker — see each tab's own section for why.
 
 ## Casting tab
 
-**Done** — see `multi-act-casting-plan.md` (closed 2026-08-25). One remaining wiring item
-for whenever the shared event picker below gets built: this tab should adopt it instead of
-keeping its own local one. The "preliminary budget" number visible here is the same
-yes-section total already shipped in that doc (Phase 5). A full, dedicated **Budget tab**
-(tracking total funds, all expenses, not just casting fees) is still explicitly
-deferred — noted for later, not designed now.
+**Done** — see `multi-act-casting-plan.md` (closed 2026-08-25). Adopted the shared
+`CurrentEventContext`/`EventPicker` from the Foundation section above, replacing its
+former local event state. The "preliminary budget" number visible here is the same
+yes-section total already shipped in that doc (Phase 5). A full, dedicated **Budget /
+Economy tab** (tracking total funds, all expenses, not just casting fees) is still
+deferred — see that section below, now a nearer-term priority than a "later" placeholder.
 
 ## Contacts tab (rename candidate)
 
@@ -238,8 +251,52 @@ forcing a table shape from this description alone. Likely candidate shape to con
 later: a single ordered `event_schedule_items` table mixing act references and freeform
 entries, but that's a placeholder thought, not a decision.
 
+## Budget / Economy tab
+
+Added 2026-08-25, per direct request — flagged as an important feature to work on soon,
+not just a "later" placeholder anymore (previously only noted as a deferred stub under the
+Casting tab, above).
+
+Two related but distinct pieces, per the user's description:
+
+- **Org-wide Economy/Budget tab** — total organization funds, all expenses (not just
+  casting fees, which is currently the only cost visible anywhere, as the Casting tab's
+  preliminary yes-section total per `multi-act-casting-plan.md` Phase 5). Should let the
+  board compare ticket sales and revenue **against past events**, not just look at the
+  current one in isolation — a comparative/historical view, not just a live tally.
+- **Event-specific budget section** — tracking a single event's own budget (income vs.
+  costs for that show specifically). **Open question, not decided**: whether this lives
+  directly on the Event Planning tab, or deserves its own space. Event Planning already
+  covers a lot (artist list, reveal mechanism, per-artist logistics notes, staffing, show
+  ordering, the full schedule) — a budget section might be one thing too many bolted onto
+  that page. Needs a look once Event Planning's own shape is clearer, rather than deciding
+  now.
+
+No schema or UI design done yet — this section exists to mark it as a near-term priority,
+not to plan it.
+
 ## Dashboard tab (last, by design)
 
-Correctly sequenced last — it's a pure rollup (what's left to do, unfilled positions,
-missing booking-form info from artists, etc.) over data that only exists once the tabs
-above are built. No new schema of its own expected.
+Correctly sequenced last — it's a pure rollup over data that only exists once the tabs
+above are built.
+
+**Scope, per the user (2026-08-25)** — richer than originally sketched here:
+
+- General overview of incoming applications — not just casting, also volunteers/staff and
+  sponsor submissions (once Contacts exists to feed it).
+- To-do lists, both event-related and general/org-level (not tied to any one event).
+- A calendar / important-dates section — meetings, plus the event lifecycle's own
+  timing-sensitive moments (e.g. releasing tickets, starting artist promo a set window
+  before the event date). This is squarely the project's stated guiding goal (see
+  `CLAUDE.md`): surfacing a due-date warning instead of relying on someone remembering.
+  Unlike the rest of this tab, this piece likely **does** need new schema (recurring
+  meetings, per-event milestone dates/reminders) — correcting the original "no new schema
+  of its own expected" note below, which predates this fuller scope.
+- **Open question, not decided**: whether Dashboard needs its own event picker/scoping at
+  all. Leaning no for now — most of what's described above (org-wide to-dos, the calendar,
+  the cross-application overview) is inherently cross-event, not single-event. Revisit only
+  if a specific dashboard widget turns out to need a "for the currently selected event"
+  framing.
+
+Otherwise as originally scoped: what's left to do, unfilled staffing positions, missing
+booking-form info from artists, etc. — no new schema expected for that part specifically.

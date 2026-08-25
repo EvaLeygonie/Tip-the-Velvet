@@ -103,15 +103,22 @@ Surfaced by a real case — Eden had an act (`is_selected`) chosen and an offer 
 backed out. The admin's only lever today is flipping `review_status` back to `no`, which
 does nothing to `casting_application_acts.is_selected` — the two are independent columns
 with no logic linking them, so the act kept reading as chosen until manually corrected by
-hand. In Eden's case nothing had been confirmed yet, so it was just a stale flag — but a
-version of this where the artist backs out *after* confirming would need to also unwind
-the created `performer_acts` row (and possibly the `event_performers` row, if it was
-their only act). Also discussed as a possible admin UI button ("artist backed out") next
-to the booked/confirmed section on the application card — the FK constraint on
-`casting_application_acts.performer_act_id` was already fixed to `ON DELETE SET NULL`
-(matching its sibling `casting_applications.act_id`) specifically so a performer/act
-*can* be deleted cleanly once this feature exists, even though the feature itself isn't
-built yet.
+hand. In Eden's case nothing had been confirmed yet, so it was just a stale flag.
+
+**The post-confirmation half is now built (2026-08-25)** — see
+`multi-act-casting-plan.md`'s "removing a confirmed artist" addendum: a new
+`cancel_confirmed_booking` RPC unwinds `performer_acts`/`event_performers` (and the
+`performers` row too, if the artist has no footprint left anywhere else) when the admin
+moves a *confirmed* booking's review_status away from `'yes'`, triggered via a
+confirmation modal on the existing status `<select>` rather than a separate button. The
+FK constraint on `casting_application_acts.performer_act_id` (`ON DELETE SET NULL`,
+fixed earlier specifically to enable this) is what lets that delete happen cleanly.
+
+**Eden's original case — an artist backing out *before* confirming — is still open**:
+that path never reaches the new RPC (it only triggers when `booking_status ===
+'confirmed'`), so flipping review_status away from 'yes' on a not-yet-confirmed
+application still leaves `casting_application_acts.is_selected` stale, exactly as before.
+Worth closing this gap the same way if it comes up again.
 
 ## Returning artists' promo content vs. their existing profile
 
@@ -205,6 +212,25 @@ sourced from the application (not the performer profile, since a returning artis
 application content is deliberately kept separate from their profile unless they choose
 to merge it, per the design above). No further design work done on this piece yet; just
 noting the dependency so it isn't rediscovered later.
+
+## Marketing planning: newsletter templates, scheduled sends, social media tracking
+
+Added 2026-08-25, per user request — a new admin page/section beyond what's already
+scoped in `admin-portal-roadmap.md`, without a firm timeline yet, so it lives here instead.
+
+**The idea**, roughly:
+- A page for building newsletter templates and setting up an automatic email-sending
+  schedule — presumably built on the existing Mailchimp integration
+  (`netlify/edge-functions/subscribe.ts`), though no design done yet on how a
+  template/schedule system would actually connect to it.
+- A way to keep track of what needs to get posted on social media (no platform, format, or
+  workflow decided).
+- Like most of the admin side, a mix of event-related content (promo for a specific show)
+  and general/org content not tied to any one event — same event-vs-general split called
+  out for Dashboard's to-do lists in `admin-portal-roadmap.md`.
+
+No further design done — this is a backlog placeholder, not a plan. Revisit once there's
+time and appetite, same as everything else in this doc.
 
 ## Performer mailing list for casting call announcements
 

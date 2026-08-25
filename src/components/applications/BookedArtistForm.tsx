@@ -1064,11 +1064,11 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 {roleLabel && (
                   <p className="pt-1.5 border-t border-border/30 flex items-center justify-center gap-1.5 text-center">
                     {application.lineup_role === 'host' ? (
-                      <Mic2 className="w-3.5 h-3.5 text-gold" />
+                      <Mic2 className="w-3.5 h-3.5 text-accent" />
                     ) : (
-                      <Crown className="w-3.5 h-3.5 text-gold" />
+                      <Crown className="w-3.5 h-3.5 text-accent" />
                     )}
-                    {t('Roll', 'Role')}: <span className="text-gold font-bold">{roleLabel}</span>
+                    {t('Roll', 'Role')}: <span className="text-accent font-bold">{roleLabel}</span>
                   </p>
                 )}
               </div>
