@@ -484,6 +484,22 @@ export const CastingApplicationRow = ({
   const handleOpenMailModal = async (e: React.MouseEvent) => {
     e.stopPropagation()
 
+    // A "yes" offer is inherently tied to specific acts at a specific price — with
+    // nothing selected on a multi-act application, chosenActTitles below falls back to
+    // naming every submitted act (correct for a "no" rejection, wrong here) while the fee
+    // still only prices one act's worth — real bug caught live: an email that named all 3
+    // acts but charged for 1. Block composing the email at all until that's resolved,
+    // rather than let a wrong draft ever get built.
+    if (application.review_status === 'yes' && acts.length > 1 && chosenActsCount === 0) {
+      toast.error(
+        t(
+          'Välj minst en akt innan du skickar erbjudandet.',
+          'Select at least one act before sending the offer.'
+        )
+      )
+      return
+    }
+
     // The draft preview below reads the offer live from local state, but the artist's
     // confirmation link reads proposed_fee straight from the database — if the admin never
     // pressed "Update Offer", those two can disagree (email promises one figure, the
@@ -929,6 +945,15 @@ export const CastingApplicationRow = ({
                       {t('Uppdatera erbjudandet', 'Update Offer')}
                     </button>
                   </div>
+
+                  {acts.length > 1 && chosenActsCount === 0 && (
+                    <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2">
+                      {t(
+                        'Inga akter är valda — välj minst en akt nedan innan du skickar erbjudandet.',
+                        'No acts are selected — choose at least one act below before sending the offer.'
+                      )}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 items-start">
                     {/* Kolumn 1: ERBJUDET GAGE */}

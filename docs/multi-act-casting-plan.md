@@ -836,3 +836,41 @@ did confirm, undoing the booking doesn't make that untrue.
   `confirm_and_migrate_artist` already handles either outcome correctly (recreates the
   performer if their profile was deleted, or just adds a fresh act if they still exist
   from elsewhere) once the artist re-confirms.
+- **Real bug caught live-testing the offer email, fixed 2026-08-25**: sent a "yes" offer
+  on a 3-act application with 0 acts selected — the email named all 3 acts, but priced
+  the offer as 1 act (1000kr, the default). Root cause was two deliberate fallbacks
+  interacting badly: `chosenActTitles` falls back to naming *every submitted act* when
+  nothing's selected (correct for a "no" rejection — mention everything they sent — wrong
+  for a "yes" offer), while `effectiveActsCountForFee` separately falls back to pricing
+  as if exactly *one* act were selected. Neither fallback is wrong on its own; combined on
+  a "yes" with zero selected, they produce an email that's internally inconsistent. Fixed
+  by not letting that state reach an email at all: `handleOpenMailModal` now blocks
+  (toast, no draft ever built) when `review_status === 'yes'`, the application has more
+  than one act, and none are selected — plus a matching inline warning inside the
+  Logistik-panel itself, visible before the admin even reaches for the send button. Once
+  at least one act is selected, both fallbacks stop applying (`chosenActTitles` no longer
+  needs one, `effectiveActsCountForFee` becomes a no-op `Math.max`), so acts named and
+  fee charged were already provably consistent for every other case — the zero-selected
+  state was the only gap.
+- **Promo image not showing at all in `BookedArtistForm.tsx`, investigated and fixed
+  2026-08-25 — moderate confidence, not visually confirmed (no browser tool available)**.
+  Ruled out the data layer first: confirmed via direct query that both
+  `casting_applications.promo_image_id` and the newly-created `performers.promo_image_id`
+  held the correct value, and that `get_casting_application_by_token` returns it
+  correctly too — the same public ID renders fine elsewhere (performer profile, admin
+  casting row). Traced into `@cloudinary/react`'s `AdvancedImage`: it does *not* render
+  `src` directly — it sets it **asynchronously** via a ref, in `componentDidMount`/
+  `componentDidUpdate`, through an internal `HtmlImageLayer` that resolves a promise
+  before ever calling `setAttribute('src', …)`. `CloudinaryImage.tsx` was rebuilding an
+  entire new `Cloudinary`/`CloudinaryImage` object graph on *every render*, with no
+  memoization — meaning every re-render of any ancestor retriggered that whole async
+  chain from scratch. `BookedArtistForm` re-renders far more than the pages where this
+  worked (a `ResizeObserver` and an `IntersectionObserver` for the sticky save bar, plus
+  many `useState` hooks, several firing shortly after mount) — a very plausible
+  environment for overlapping async `src`-set calls to interfere with each other and
+  never settle. Fixed by wrapping the image-object construction in `useMemo` keyed on
+  `[publicId, width, height, fit, gravityFace]`, so it only rebuilds when those actually
+  change, not on every unrelated re-render. Correct and worth keeping regardless of
+  whether it's the exact mechanism of this specific bug — rebuilding an SDK object graph
+  every render was already wasteful. **Needs a real visual check** to confirm the promo
+  image now actually appears.
