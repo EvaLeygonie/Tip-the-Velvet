@@ -40,6 +40,25 @@ export async function fetchEventsForAdmin(): Promise<Event[]> {
   return (data || []) as Event[]
 }
 
+// Used by the public Join Us form to decide what to show about volunteer recruitment —
+// returns the event regardless of staff_recruitment_open so the form can distinguish
+// "open" from "closed but still worth mentioning" rather than seeing nothing either way.
+export const getNearestUpcomingEvent = async (): Promise<
+  Pick<Event, 'id' | 'title' | 'event_start' | 'staff_recruitment_open'> | null
+> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, title, event_start, staff_recruitment_open')
+    .eq('status', 'published')
+    .gte('event_start', new Date().toISOString())
+    .order('event_start', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export const getEventWithImages = async (slug: string, isOldEvent: boolean) => {
   if (isOldEvent) {
     const { data, error } = await supabase

@@ -67,16 +67,37 @@ export const submitCastingApplication = async (
   return data as unknown as string
 }
 
+// staff_volunteers only has an INSERT policy for anon (no SELECT — the public roster isn't
+// publicly readable), so .select() after insert would fail: PostgREST reads the row back
+// to return it, and that read gets rejected by RLS even though the insert itself was fine.
+// Generating the id client-side sidesteps needing a read-back at all.
 export const submitJoinApplication = async (
   application: CreateStaffVolunteerInput
-): Promise<void> => {
-  const { error } = await supabase.from('staff_volunteers').insert(application)
+): Promise<{ id: string }> => {
+  const id = crypto.randomUUID()
+  const { error } = await supabase.from('staff_volunteers').insert({ ...application, id })
 
   if (error) throw error
+  return { id }
 }
 
 export const submitSponsorApplication = async (application: CreateSponsorInput): Promise<void> => {
   const { error } = await supabase.from('sponsors').insert(application)
+
+  if (error) throw error
+}
+
+// Fired only when the applicant opted into the "I'm also interested in [Event]" checkbox
+// on the Join Us form — a bonus flag on top of the standing staff_volunteers application,
+// not core to the submission itself (see JoinUsForm.tsx's non-blocking try/catch around
+// this call).
+export const submitStaffEventInterest = async (
+  eventId: string,
+  staffId: string
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_invitations')
+    .insert({ event_id: eventId, staff_id: staffId, status: 'interested' })
 
   if (error) throw error
 }

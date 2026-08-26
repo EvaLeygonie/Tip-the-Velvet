@@ -189,6 +189,7 @@ export const EventEditor = () => {
       status: formData.status || 'draft',
       has_casting_call: formData.has_casting_call || false,
       casting_call_deadline: formData.casting_call_deadline || null,
+      staff_recruitment_open: formData.staff_recruitment_open || false,
       casting_info_sv: formData.casting_info_sv || null,
       casting_info_eng: formData.casting_info_eng || null,
       description_sv: formData.description_sv || null,

@@ -62,6 +62,23 @@ database directly.
 
 - List every entry per table (a reusable roster, not scoped to one event), each with an
   "assign to the current event" action + a role picker.
+  **Refined 2026-08-25** — this stays true even though the page itself is deliberately
+  *not* event-scoped (see Foundation above: no picker, no "viewing roster for Event X"
+  framing, since browsing/searching/editing the roster isn't an event-scoped operation).
+  A single per-row action can still target an event without that contradicting the page
+  staying event-agnostic. Shape: an "Add to event" button per staff/volunteer row opens a
+  small popover (not a page-level picker) — silently defaults to whatever
+  `CurrentEventContext.selectedEventId` already is (the context still exists globally,
+  it's just never rendered here), only surfacing a dropdown to override when more than one
+  event genuinely qualifies (rare, per the user, but has happened). Two actions inside
+  that popover, both operating on the `event_staff_invitations` table designed under
+  "Volunteer outreach & response deadline" below:
+  1. **Mark interested** — a quick manual annotation (the admin recording "this person
+     told me by email/in person they want to help"), not an email trigger.
+  2. **Confirm** — skips the invitation record entirely and inserts straight into
+     `event_staff_volunteers`, for when the admin already knows for certain.
+  Reuses the exact schema the checkbox below needs rather than a separate mechanism —
+  worth building alongside it, not after.
 - For staff/volunteers, the role enum already exists and is already exactly what this
   needs: `staff_volunteers`/`event_staff_volunteers` (join) with roles `photographer |
   technician | doorman | artistic | volunteer | musician | entertainment | other` — modeled
@@ -249,12 +266,33 @@ per-event application with a yes/no answer coming. Deliberately **not** somethin
 now — this depends on Event Planning existing first, since the whole point is reaching out
 about *a specific event*. Brainstormed here so the shape isn't lost before then.
 
-**Quick, cheap mitigation available right now, separate from everything below**: the
-actual root cause is the public Join Us form's copy never saying "this is a standing
-application to our volunteer pool, not tied to one show — we'll reach out closer to a
-specific event." Fixing that copy is a one-line change that stops *new* applicants from
-hitting the same confusion, independent of whether the fuller system below ever gets
-built. Worth doing on its own timeline, not blocked on Event Planning.
+**Quick, cheap mitigation available right now, separate from everything below** — copy
+drafted 2026-08-25, not yet applied. The actual root cause is that neither the public Join
+Us form nor its confirmation email ever says "this is a standing application to our
+volunteer pool, not tied to one show." Both are one-line-ish changes, independent of
+whether the fuller system below ever gets built:
+
+- **`src/pages/JoinUs.tsx` / `JoinUsForm.tsx`**: the marketing copy above the form (`Vad
+  roligt att du vill joina vårt kollektiv` etc.) is fine as-is and doesn't need touching —
+  the gap is that nothing sits right above the form fields themselves, which is what
+  people actually read closely before submitting. Add a short note there:
+  - SV: *"En sak att veta innan du skickar in: den här ansökan sparas i vårt kollektiv och
+    är inte kopplad till ett specifikt event. Vi hör av oss så fort vi har en plats som
+    passar dig — det kan ta ett tag, men vi glömmer dig inte!"*
+  - EN: *"One thing to know before you apply: this application joins our general
+    collective and isn't tied to one specific event. We'll reach out as soon as we have a
+    spot that fits — it might take a little while, but we won't forget you!"*
+- **`netlify/edge-functions/application-confirmation.ts`**, `case 'staff'` branch: already
+  closer to correct than the form ("we'll let you know next time we're in need of your
+  special talents") but not explicit enough. Strengthen the second paragraph:
+  - SV: *"Din ansökan sparas i vårt kollektiv av volontärer och personal — den är inte
+    knuten till ett specifikt event. Vi hör av oss med en konkret fråga så fort vi
+    planerar ett event som passar din roll, vilket kan ta allt från några veckor till
+    några månader."*
+  - EN: *"Your application joins our general pool of volunteers and staff — it isn't tied
+    to one specific event. We'll reach out with a concrete ask as soon as we're planning a
+    show that fits your role, which could take anywhere from a few weeks to a few
+    months."*
 
 **The system itself**: mirrors the shape the casting flow already proved out, rather than
 inventing something new. Casting's problem was identical in kind — a pool of people whose
@@ -266,34 +304,93 @@ today, which is exactly the gap:
 
 - **New per-event invitation record** (name/shape not decided —
   `event_staff_invitations` or similar), roughly: `event_id`, `staff_id`, `status`
-  (`invited | confirmed | declined | not_needed`), `invited_at`, `responded_at`,
-  `response_deadline`. `event_staff_volunteers` keeps meaning exactly what it already
-  means — the people actually working this event — and only gets a row once an
+  (`interested | invited | confirmed | declined | not_needed`), `invited_at`,
+  `responded_at`, `response_deadline`. `event_staff_volunteers` keeps meaning exactly what
+  it already means — the people actually working this event — and only gets a row once an
   invitation reaches `confirmed`. Simpler than casting's equivalent step: no "migration"
   of profile data is needed (`staff_volunteers` already holds the full profile, unlike
   `performers`, which doesn't exist until an artist is confirmed), so this is just a
   status update plus one row insert, not an RPC doing several things atomically.
+  `interested` is the person-initiated twin of admin-initiated `invited` (see the
+  Join-Us checkbox below) — both converge on the same admin review step from there, so no
+  separate handling is needed downstream for "who asked first."
+- **Event Planning gets a "who wants to work this event" view once it exists** — a plain
+  list reading `event_staff_invitations` filtered by `event_id`, showing everyone at
+  `interested`/`invited` for that event regardless of how they got there (self-checkbox,
+  emailed in and marked by hand via the Contacts button above, or admin-initiated invite).
+  Not built now — same "depends on Event Planning existing" reasoning as the rest of this
+  subsection — but worth noting this list comes essentially for free once the schema below
+  exists, since it's just a filtered read, not new tracking.
+- **New applicants: an "I'm also interested in [Event]" checkbox on the Join Us form —
+  brainstormed 2026-08-25, not built.** Only shows when there's something to opt into:
+  needs a new `events.staff_recruitment_open` boolean (admin toggle, mirrors
+  `has_casting_call`'s shape) gating whether `JoinUsForm.tsx` fetches and displays the
+  currently-recruiting event's name/date next to the checkbox. On submit, checking it adds
+  one more insert alongside the existing `staff_volunteers` insert — a row in the
+  invitation table above with `status: 'interested'`. No RPC needed (unlike casting's
+  multi-act submit), just two sequential client-side inserts, same as how this form
+  already works today.
+- **Existing pool members expressing interest in a new event — decided 2026-08-25:
+  reply-by-email, not a self-service lookup page.** Seriously considered a public "enter
+  your email, see if you're in our database, register interest" page, and rejected it:
+  a public lookup-by-email surface either leaks who's in the database or needs real auth
+  to do safely, and — more importantly — it cuts against the scale worry below rather than
+  helping it. Zero-friction self-service invites *more* inbound interest, not less. Since
+  every email this system sends already carries `reply_to: 'velvet.gbg@gmail.com'`
+  (`send-casting-email.ts`'s pattern, reused for Contacts), the answer is simpler: existing
+  members just reply to whatever email they last got, or email in directly, and the admin
+  marks interest by hand via the Contacts page that already exists. Keeps every inbound
+  expression of interest funneled through one human-reviewed channel instead of a form
+  anyone can quietly submit to at any volume.
+- **Scale worry — staged/waved invites, not one flat blast.** Real concern raised: at ~15
+  volunteers today this is manageable, but a single "email everyone in the pool" blast
+  stops scaling once the pool grows — too many replies at once becomes its own
+  coordination problem. Mitigation: invite in waves rather than all at once — round one
+  goes only to people already at `interested` for this event (via the checkbox above, or
+  who emailed in) plus anyone with `worked_with = true` (the proven-reliable pool);
+  only widen to a full general-pool blast (the "Two email sends" bullet below) if that
+  round isn't enough. Caps the first round's size by construction instead of hoping the
+  right number of people happen to reply to one big ask.
 - **Two email sends, both reusing the bulk-mail pattern already built** (`AdminCasting.tsx`'s
   "email all booked artists" modal, `ContactMailModal.tsx` on the Contacts page) — no new
   send mechanism needed, just a new trigger context:
-  1. Initial invite to the eligible pool for this event (filtered by role — likely just
-     the general volunteer-type roles, not the three paid ones, though worth deciding at
-     build time whether paid roles want the same "are you available this time" framing
-     with a fee attached, closer to how casting already negotiates).
+  1. Initial invite to the eligible pool for this event (staged per the bullet above;
+     filtered by role — likely just the general volunteer-type roles, not the three paid
+     ones, though worth deciding at build time whether paid roles want the same "are you
+     available this time" framing with a fee attached, closer to how casting already
+     negotiates).
   2. A manually-triggered "not needed this time, we'll keep you on file for next event"
      batch send to whoever's still sitting at `invited` once the admin judges they have
      enough confirmed — **a deliberate admin action, not an automatic threshold**. This
      matches, not contradicts, what the Staffing section above already decided ("no fixed
      requirement system, take anyone who wants to help") — it just adds a deliberate
      cutoff moment once the admin decides they have enough, rather than a stored target
-     count anywhere.
+     count anywhere. **Include an opt-out line** ("reply if you'd rather we remove you from
+     our list") — cheap at current volume, handled manually via the delete button Contacts
+     already has; no token-based self-service unsubscribe link needed yet.
 - **The "stricter frame" ask — a real response deadline**, so people stop assuming they
   can show up and volunteer for free entry without ever having confirmed. `response_deadline`
   on the invitation record (likely computed relative to the event date, e.g. "N days
-  before") is the natural home for this, and ties directly into the Dashboard's already-
-  planned calendar/important-dates section (`## Dashboard tab` below) — a due-date warning
-  for "volunteer responses close in 3 days" is exactly the kind of thing that section
-  exists for, rather than a separate reminder mechanism.
+  before" — user suggested defaulting to roughly a month out, seems reasonable as a
+  starting default, admin-overridable per event) is the natural home for this, and ties
+  directly into the Dashboard's already-planned calendar/important-dates section
+  (`## Dashboard tab` below) — a due-date warning for "volunteer responses close in 3
+  days" is exactly the kind of thing that section exists for, rather than a separate
+  reminder mechanism.
+- **"No more volunteers needed" social post** — doesn't need anything built. It's a manual
+  post whenever slots fill, same bucket as the social-media-tracking idea already parked
+  in `extra-features.md`; can happen with or without that page existing.
+- **Admin-facing status/"no more needed" control belongs on Event Planning, not
+  EventEditor** — corrected 2026-08-26. First pass put the recruitment status line + the
+  one-way cutoff button on `EventEditor.tsx` (alongside casting call, in the same "event
+  details" panel). Moved out per feedback: this is ongoing "running the show" operational
+  status, not a one-time event-detail field — same category of thing as the per-artist
+  logistics notes and staffing overview above, which already belong on Event Planning
+  rather than the editor. Removed from `EventEditor.tsx` entirely (the `events.
+  staff_recruitment_open` column and its save-payload line stay untouched — only the UI
+  moved, not the data); the status line + button design itself (plain "Open"/"Closed" text
+  plus a button shown only while open) is unchanged, just waiting for a home once Event
+  Planning exists, same as everything else in this subsection.
 - **Open question, not decided**: does the "since the new website went live" backlog (
   people who already applied under the old, unclear framing) get a one-time invite blast
   once this system exists, or does it only apply going forward from whenever it's built?

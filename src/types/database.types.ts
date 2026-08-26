@@ -1,10 +1,16 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.1'
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -41,18 +47,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'casting_application_acts_application_id_fkey'
-            columns: ['application_id']
+            foreignKeyName: "casting_application_acts_application_id_fkey"
+            columns: ["application_id"]
             isOneToOne: false
-            referencedRelation: 'casting_applications'
-            referencedColumns: ['id']
+            referencedRelation: "casting_applications"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'casting_application_acts_performer_act_id_fkey'
-            columns: ['performer_act_id']
+            foreignKeyName: "casting_application_acts_performer_act_id_fkey"
+            columns: ["performer_act_id"]
             isOneToOne: false
-            referencedRelation: 'performer_acts'
-            referencedColumns: ['id']
+            referencedRelation: "performer_acts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -62,7 +68,9 @@ export type Database = {
           accommodation_notes: string | null
           admin_notes: string | null
           agreed_to_terms: boolean
-          booking_status: Database['public']['Enums']['booking_status_type'] | null
+          booking_status:
+            | Database["public"]["Enums"]["booking_status_type"]
+            | null
           city: string | null
           country: string | null
           created_at: string
@@ -71,8 +79,8 @@ export type Database = {
           id: string
           initial_reply_sent: boolean | null
           instagram_link: string | null
-          language: Database['public']['Enums']['language']
-          lineup_role: Database['public']['Enums']['event_performer_role']
+          language: Database["public"]["Enums"]["language"]
+          lineup_role: Database["public"]["Enums"]["event_performer_role"]
           needs_accommodation: boolean | null
           needs_travel_costs: boolean | null
           other_link: string | null
@@ -83,7 +91,7 @@ export type Database = {
           promo_text: string | null
           proposed_fee: number | null
           requested_fee: number | null
-          review_status: Database['public']['Enums']['casting_review_status']
+          review_status: Database["public"]["Enums"]["casting_review_status"]
           slug: string | null
           travel_cost_amount: number | null
         }
@@ -92,7 +100,9 @@ export type Database = {
           accommodation_notes?: string | null
           admin_notes?: string | null
           agreed_to_terms?: boolean
-          booking_status?: Database['public']['Enums']['booking_status_type'] | null
+          booking_status?:
+            | Database["public"]["Enums"]["booking_status_type"]
+            | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -101,8 +111,8 @@ export type Database = {
           id?: string
           initial_reply_sent?: boolean | null
           instagram_link?: string | null
-          language?: Database['public']['Enums']['language']
-          lineup_role?: Database['public']['Enums']['event_performer_role']
+          language?: Database["public"]["Enums"]["language"]
+          lineup_role?: Database["public"]["Enums"]["event_performer_role"]
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
           other_link?: string | null
@@ -113,7 +123,7 @@ export type Database = {
           promo_text?: string | null
           proposed_fee?: number | null
           requested_fee?: number | null
-          review_status?: Database['public']['Enums']['casting_review_status']
+          review_status?: Database["public"]["Enums"]["casting_review_status"]
           slug?: string | null
           travel_cost_amount?: number | null
         }
@@ -122,7 +132,9 @@ export type Database = {
           accommodation_notes?: string | null
           admin_notes?: string | null
           agreed_to_terms?: boolean
-          booking_status?: Database['public']['Enums']['booking_status_type'] | null
+          booking_status?:
+            | Database["public"]["Enums"]["booking_status_type"]
+            | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -131,8 +143,8 @@ export type Database = {
           id?: string
           initial_reply_sent?: boolean | null
           instagram_link?: string | null
-          language?: Database['public']['Enums']['language']
-          lineup_role?: Database['public']['Enums']['event_performer_role']
+          language?: Database["public"]["Enums"]["language"]
+          lineup_role?: Database["public"]["Enums"]["event_performer_role"]
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
           other_link?: string | null
@@ -143,31 +155,31 @@ export type Database = {
           promo_text?: string | null
           proposed_fee?: number | null
           requested_fee?: number | null
-          review_status?: Database['public']['Enums']['casting_review_status']
+          review_status?: Database["public"]["Enums"]["casting_review_status"]
           slug?: string | null
           travel_cost_amount?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: 'casting_applications_event_id_fkey'
-            columns: ['event_id']
+            foreignKeyName: "casting_applications_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: 'events'
-            referencedColumns: ['id']
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'casting_applications_performer_id_fkey'
-            columns: ['performer_id']
+            foreignKeyName: "casting_applications_performer_id_fkey"
+            columns: ["performer_id"]
             isOneToOne: false
-            referencedRelation: 'performers'
-            referencedColumns: ['id']
+            referencedRelation: "performers"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'casting_applications_performer_id_fkey'
-            columns: ['performer_id']
+            foreignKeyName: "casting_applications_performer_id_fkey"
+            columns: ["performer_id"]
             isOneToOne: false
-            referencedRelation: 'public_performers'
-            referencedColumns: ['id']
+            referencedRelation: "public_performers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -201,11 +213,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'event_images_event_id_fkey'
-            columns: ['event_id']
+            foreignKeyName: "event_images_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: 'events'
-            referencedColumns: ['id']
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -219,7 +231,7 @@ export type Database = {
           event_id: string
           final_fee: number | null
           is_revealed: boolean
-          lineup_role: Database['public']['Enums']['event_performer_role']
+          lineup_role: Database["public"]["Enums"]["event_performer_role"]
           notes: string | null
           performer_id: string
           plus_one_email: string | null
@@ -236,7 +248,7 @@ export type Database = {
           event_id: string
           final_fee?: number | null
           is_revealed?: boolean
-          lineup_role?: Database['public']['Enums']['event_performer_role']
+          lineup_role?: Database["public"]["Enums"]["event_performer_role"]
           notes?: string | null
           performer_id: string
           plus_one_email?: string | null
@@ -253,7 +265,7 @@ export type Database = {
           event_id?: string
           final_fee?: number | null
           is_revealed?: boolean
-          lineup_role?: Database['public']['Enums']['event_performer_role']
+          lineup_role?: Database["public"]["Enums"]["event_performer_role"]
           notes?: string | null
           performer_id?: string
           plus_one_email?: string | null
@@ -263,25 +275,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'event_performers_event_id_fkey'
-            columns: ['event_id']
+            foreignKeyName: "event_performers_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: 'events'
-            referencedColumns: ['id']
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'event_performers_performer_id_fkey'
-            columns: ['performer_id']
+            foreignKeyName: "event_performers_performer_id_fkey"
+            columns: ["performer_id"]
             isOneToOne: false
-            referencedRelation: 'performers'
-            referencedColumns: ['id']
+            referencedRelation: "performers"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'event_performers_performer_id_fkey'
-            columns: ['performer_id']
+            foreignKeyName: "event_performers_performer_id_fkey"
+            columns: ["performer_id"]
             isOneToOne: false
-            referencedRelation: 'public_performers'
-            referencedColumns: ['id']
+            referencedRelation: "public_performers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -290,37 +302,92 @@ export type Database = {
           created_at: string
           details: string | null
           event_id: string
-          role: Database['public']['Enums']['sponsor_type'] | null
+          role: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id: string
         }
         Insert: {
           created_at?: string
           details?: string | null
           event_id?: string
-          role?: Database['public']['Enums']['sponsor_type'] | null
+          role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
         }
         Update: {
           created_at?: string
           details?: string | null
           event_id?: string
-          role?: Database['public']['Enums']['sponsor_type'] | null
+          role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'event_sponsors_event_id_fkey'
-            columns: ['event_id']
+            foreignKeyName: "event_sponsors_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: 'events'
-            referencedColumns: ['id']
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'event_sponsors_sponsor_id_fkey'
-            columns: ['sponsor_id']
+            foreignKeyName: "event_sponsors_sponsor_id_fkey"
+            columns: ["sponsor_id"]
             isOneToOne: false
-            referencedRelation: 'sponsors'
-            referencedColumns: ['id']
+            referencedRelation: "sponsors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_staff_invitations: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          invited_at: string | null
+          responded_at: string | null
+          response_deadline: string | null
+          staff_id: string
+          status: Database["public"]["Enums"]["event_staff_invitation_status"]
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          invited_at?: string | null
+          responded_at?: string | null
+          response_deadline?: string | null
+          staff_id: string
+          status?: Database["public"]["Enums"]["event_staff_invitation_status"]
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          invited_at?: string | null
+          responded_at?: string | null
+          response_deadline?: string | null
+          staff_id?: string
+          status?: Database["public"]["Enums"]["event_staff_invitation_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_staff_invitations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_staff_invitations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "public_photographers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_staff_invitations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_volunteers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -328,45 +395,45 @@ export type Database = {
         Row: {
           created_at: string
           event_id: string
-          role: Database['public']['Enums']['staff_volunteer_type']
+          role: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details: string | null
           staff_id: string
         }
         Insert: {
           created_at?: string
           event_id: string
-          role?: Database['public']['Enums']['staff_volunteer_type']
+          role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           staff_id: string
         }
         Update: {
           created_at?: string
           event_id?: string
-          role?: Database['public']['Enums']['staff_volunteer_type']
+          role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           staff_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'event_staff_volunteers_event_id_fkey'
-            columns: ['event_id']
+            foreignKeyName: "event_staff_volunteers_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: 'events'
-            referencedColumns: ['id']
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'event_staff_volunteers_staff_id_fkey'
-            columns: ['staff_id']
+            foreignKeyName: "event_staff_volunteers_staff_id_fkey"
+            columns: ["staff_id"]
             isOneToOne: false
-            referencedRelation: 'public_photographers'
-            referencedColumns: ['id']
+            referencedRelation: "public_photographers"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'event_staff_volunteers_staff_id_fkey'
-            columns: ['staff_id']
+            foreignKeyName: "event_staff_volunteers_staff_id_fkey"
+            columns: ["staff_id"]
             isOneToOne: false
-            referencedRelation: 'staff_volunteers'
-            referencedColumns: ['id']
+            referencedRelation: "staff_volunteers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -394,7 +461,8 @@ export type Database = {
           pinterest_link: string | null
           reveal_date: string | null
           slug: string
-          status: Database['public']['Enums']['event_status']
+          staff_recruitment_open: boolean
+          status: Database["public"]["Enums"]["event_status"]
           subtitle: string | null
           ticket_release_date: string | null
           ticket_url: string | null
@@ -427,7 +495,8 @@ export type Database = {
           pinterest_link?: string | null
           reveal_date?: string | null
           slug: string
-          status?: Database['public']['Enums']['event_status']
+          staff_recruitment_open?: boolean
+          status?: Database["public"]["Enums"]["event_status"]
           subtitle?: string | null
           ticket_release_date?: string | null
           ticket_url?: string | null
@@ -460,7 +529,8 @@ export type Database = {
           pinterest_link?: string | null
           reveal_date?: string | null
           slug?: string
-          status?: Database['public']['Enums']['event_status']
+          staff_recruitment_open?: boolean
+          status?: Database["public"]["Enums"]["event_status"]
           subtitle?: string | null
           ticket_release_date?: string | null
           ticket_url?: string | null
@@ -472,32 +542,32 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'events_photographer_id_fkey'
-            columns: ['photographer_id']
+            foreignKeyName: "events_photographer_id_fkey"
+            columns: ["photographer_id"]
             isOneToOne: false
-            referencedRelation: 'public_photographers'
-            referencedColumns: ['id']
+            referencedRelation: "public_photographers"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'events_photographer_id_fkey'
-            columns: ['photographer_id']
+            foreignKeyName: "events_photographer_id_fkey"
+            columns: ["photographer_id"]
             isOneToOne: false
-            referencedRelation: 'staff_volunteers'
-            referencedColumns: ['id']
+            referencedRelation: "staff_volunteers"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'events_venue_id_fkey'
-            columns: ['venue_id']
+            foreignKeyName: "events_venue_id_fkey"
+            columns: ["venue_id"]
             isOneToOne: false
-            referencedRelation: 'public_venues'
-            referencedColumns: ['id']
+            referencedRelation: "public_venues"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'events_venue_id_fkey'
-            columns: ['venue_id']
+            foreignKeyName: "events_venue_id_fkey"
+            columns: ["venue_id"]
             isOneToOne: false
-            referencedRelation: 'venues'
-            referencedColumns: ['id']
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -531,11 +601,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'old_event_images_event_id_fkey'
-            columns: ['event_id']
+            foreignKeyName: "old_event_images_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: 'old_events'
-            referencedColumns: ['id']
+            referencedRelation: "old_events"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -638,18 +708,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'performer_acts_performer_id_fkey'
-            columns: ['performer_id']
+            foreignKeyName: "performer_acts_performer_id_fkey"
+            columns: ["performer_id"]
             isOneToOne: false
-            referencedRelation: 'performers'
-            referencedColumns: ['id']
+            referencedRelation: "performers"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'performer_acts_performer_id_fkey'
-            columns: ['performer_id']
+            foreignKeyName: "performer_acts_performer_id_fkey"
+            columns: ["performer_id"]
             isOneToOne: false
-            referencedRelation: 'public_performers'
-            referencedColumns: ['id']
+            referencedRelation: "public_performers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -665,7 +735,7 @@ export type Database = {
           id: string
           instagram_link: string | null
           is_approved: boolean | null
-          language: Database['public']['Enums']['language']
+          language: Database["public"]["Enums"]["language"]
           other_link: string | null
           performer_name: string
           phone: string | null
@@ -685,7 +755,7 @@ export type Database = {
           id?: string
           instagram_link?: string | null
           is_approved?: boolean | null
-          language?: Database['public']['Enums']['language']
+          language?: Database["public"]["Enums"]["language"]
           other_link?: string | null
           performer_name: string
           phone?: string | null
@@ -705,7 +775,7 @@ export type Database = {
           id?: string
           instagram_link?: string | null
           is_approved?: boolean | null
-          language?: Database['public']['Enums']['language']
+          language?: Database["public"]["Enums"]["language"]
           other_link?: string | null
           performer_name?: string
           phone?: string | null
@@ -726,7 +796,7 @@ export type Database = {
           name: string
           phone: string | null
           sponsor_details: string | null
-          sponsor_type: Database['public']['Enums']['sponsor_type'] | null
+          sponsor_type: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Insert: {
           agreed_to_terms?: boolean | null
@@ -737,7 +807,7 @@ export type Database = {
           name: string
           phone?: string | null
           sponsor_details?: string | null
-          sponsor_type?: Database['public']['Enums']['sponsor_type'] | null
+          sponsor_type?: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Update: {
           agreed_to_terms?: boolean | null
@@ -748,7 +818,7 @@ export type Database = {
           name?: string
           phone?: string | null
           sponsor_details?: string | null
-          sponsor_type?: Database['public']['Enums']['sponsor_type'] | null
+          sponsor_type?: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Relationships: []
       }
@@ -762,7 +832,7 @@ export type Database = {
           link: string | null
           name: string
           phone: string | null
-          role: Database['public']['Enums']['staff_volunteer_type']
+          role: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details: string | null
           worked_with: boolean | null
         }
@@ -775,7 +845,7 @@ export type Database = {
           link?: string | null
           name: string
           phone?: string | null
-          role?: Database['public']['Enums']['staff_volunteer_type']
+          role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           worked_with?: boolean | null
         }
@@ -788,7 +858,7 @@ export type Database = {
           link?: string | null
           name?: string
           phone?: string | null
-          role?: Database['public']['Enums']['staff_volunteer_type']
+          role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           worked_with?: boolean | null
         }
@@ -885,19 +955,19 @@ export type Database = {
           id: string | null
           link: string | null
           name: string | null
-          role: Database['public']['Enums']['staff_volunteer_type'] | null
+          role: Database["public"]["Enums"]["staff_volunteer_type"] | null
         }
         Insert: {
           id?: string | null
           link?: string | null
           name?: string | null
-          role?: Database['public']['Enums']['staff_volunteer_type'] | null
+          role?: Database["public"]["Enums"]["staff_volunteer_type"] | null
         }
         Update: {
           id?: string | null
           link?: string | null
           name?: string | null
-          role?: Database['public']['Enums']['staff_volunteer_type'] | null
+          role?: Database["public"]["Enums"]["staff_volunteer_type"] | null
         }
         Relationships: []
       }
@@ -927,7 +997,7 @@ export type Database = {
       cancel_confirmed_booking: {
         Args: {
           p_application_id: string
-          p_new_review_status: Database['public']['Enums']['casting_review_status']
+          p_new_review_status: Database["public"]["Enums"]["casting_review_status"]
         }
         Returns: Json
       }
@@ -940,7 +1010,7 @@ export type Database = {
         }
         Returns: Json
       }
-      event_status_handler: { Args: never; Returns: undefined }
+      event_status_handler: { Args: Record<PropertyKey, never>; Returns: undefined }
       get_casting_application_by_token: {
         Args: { p_id: string; p_token: string }
         Returns: Json
@@ -954,7 +1024,7 @@ export type Database = {
         Args: { p_acts: Json; p_application: Json }
         Returns: string
       }
-      unaccent: { Args: { '': string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
       update_event_performer_via_token: {
         Args: {
           p_access_token: string
@@ -1010,26 +1080,38 @@ export type Database = {
     }
     Enums: {
       booking_status_type:
-        | 'not_contacted'
-        | 'negotiating'
-        | 'pending_confirmation'
-        | 'confirmed'
-        | 'declined'
-        | 'cancelled'
-      casting_review_status: 'pending' | 'yes' | 'maybe' | 'no'
-      event_performer_role: 'performer' | 'host' | 'headliner'
-      event_status: 'draft' | 'published' | 'cancelled' | 'archived'
-      language: 'sv' | 'eng'
-      sponsor_type: 'prize' | 'creation' | 'sales' | 'promo' | 'partner' | 'other'
+        | "not_contacted"
+        | "negotiating"
+        | "pending_confirmation"
+        | "confirmed"
+        | "declined"
+        | "cancelled"
+      casting_review_status: "pending" | "yes" | "maybe" | "no"
+      event_performer_role: "performer" | "host" | "headliner"
+      event_staff_invitation_status:
+        | "interested"
+        | "invited"
+        | "confirmed"
+        | "declined"
+        | "not_needed"
+      event_status: "draft" | "published" | "cancelled" | "archived"
+      language: "sv" | "eng"
+      sponsor_type:
+        | "prize"
+        | "creation"
+        | "sales"
+        | "promo"
+        | "partner"
+        | "other"
       staff_volunteer_type:
-        | 'photographer'
-        | 'technician'
-        | 'doorman'
-        | 'artistic'
-        | 'volunteer'
-        | 'musician'
-        | 'entertainment'
-        | 'other'
+        | "photographer"
+        | "technician"
+        | "doorman"
+        | "artistic"
+        | "volunteer"
+        | "musician"
+        | "entertainment"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1037,31 +1119,33 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -1070,23 +1154,23 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -1095,23 +1179,23 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -1120,63 +1204,70 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema['Enums']
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema['CompositeTypes']
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
-    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
   public: {
     Enums: {
       booking_status_type: [
-        'not_contacted',
-        'negotiating',
-        'pending_confirmation',
-        'confirmed',
-        'declined',
-        'cancelled',
+        "not_contacted",
+        "negotiating",
+        "pending_confirmation",
+        "confirmed",
+        "declined",
+        "cancelled",
       ],
-      casting_review_status: ['pending', 'yes', 'maybe', 'no'],
-      event_performer_role: ['performer', 'host', 'headliner'],
-      event_status: ['draft', 'published', 'cancelled', 'archived'],
-      language: ['sv', 'eng'],
-      sponsor_type: ['prize', 'creation', 'sales', 'promo', 'partner', 'other'],
+      casting_review_status: ["pending", "yes", "maybe", "no"],
+      event_performer_role: ["performer", "host", "headliner"],
+      event_staff_invitation_status: [
+        "interested",
+        "invited",
+        "confirmed",
+        "declined",
+        "not_needed",
+      ],
+      event_status: ["draft", "published", "cancelled", "archived"],
+      language: ["sv", "eng"],
+      sponsor_type: ["prize", "creation", "sales", "promo", "partner", "other"],
       staff_volunteer_type: [
-        'photographer',
-        'technician',
-        'doorman',
-        'artistic',
-        'volunteer',
-        'musician',
-        'entertainment',
-        'other',
+        "photographer",
+        "technician",
+        "doorman",
+        "artistic",
+        "volunteer",
+        "musician",
+        "entertainment",
+        "other",
       ],
     },
   },

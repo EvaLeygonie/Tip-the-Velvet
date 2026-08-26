@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import type { CreateStaffVolunteerInput, StaffVolunteerType } from '@/types/types'
+import type { CreateStaffVolunteerInput, StaffVolunteerType, Event } from '@/types/types'
 import {
   submitJoinApplication,
+  submitStaffEventInterest,
   sendApplicationConfirmationEmail,
 } from '@/services/applicationService'
+import { getNearestUpcomingEvent } from '@/services/eventService'
 import { Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatOtherLink } from '@/lib/utils'
+import { formatOtherLink, formatDate } from '@/lib/utils'
 
 interface PostgrestError {
   code?: string
@@ -47,6 +49,24 @@ export const JoinUsCard = () => {
     agreed_to_terms: false,
   })
 
+  const [nearestEvent, setNearestEvent] = useState<Pick<
+    Event,
+    'id' | 'title' | 'event_start' | 'staff_recruitment_open'
+  > | null>(null)
+  const [interestedInEvent, setInterestedInEvent] = useState(false)
+
+  useEffect(() => {
+    const loadNearestEvent = async () => {
+      try {
+        const event = await getNearestUpcomingEvent()
+        setNearestEvent(event)
+      } catch (err) {
+        console.error('Kunde inte hämta kommande event:', err)
+      }
+    }
+    loadNearestEvent()
+  }, [])
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -80,7 +100,15 @@ export const JoinUsCard = () => {
     const applicantLanguage = language
 
     try {
-      await submitJoinApplication(payload)
+      const created = await submitJoinApplication(payload)
+
+      if (interestedInEvent && nearestEvent?.staff_recruitment_open) {
+        try {
+          await submitStaffEventInterest(nearestEvent.id, created.id)
+        } catch (err) {
+          console.error('Kunde inte spara eventintresse:', err)
+        }
+      }
 
       setFormData({
         name: '',
@@ -91,6 +119,7 @@ export const JoinUsCard = () => {
         agreed_to_terms: false,
       })
       setAgreed(false)
+      setInterestedInEvent(false)
 
       const emailSuccess = await sendApplicationConfirmationEmail(
         applicantName,
@@ -137,6 +166,37 @@ export const JoinUsCard = () => {
 
   return (
     <div className="application-card">
+      <p className="text-sm text-foreground/70 italic leading-relaxed mb-4">
+        {t(
+          'Den här ansökan sparas i vårt kollektiv. Vi hör av oss så fort vi har en plats som passar dig — det kan ta ett tag, men vi glömmer dig inte!',
+          "This application joins our general collective. We'll reach out as soon as we have a spot that fits — it might take a little while, but we won't forget you!"
+        )}
+      </p>
+
+      {nearestEvent && nearestEvent.staff_recruitment_open && (
+        <div className="form-checkbox-row">
+          <input
+            type="checkbox"
+            checked={interestedInEvent}
+            onChange={(e) => setInterestedInEvent(e.target.checked)}
+            className="mt-0.5"
+          />
+          <label className="text-sm text-foreground/90 leading-relaxed cursor-pointer font-medium">
+            {t(
+              `Jag är intresserad av att hjälpa till på ${nearestEvent.title} den ${formatDate(language, nearestEvent.event_start)}`,
+              `I'm interested in helping at ${nearestEvent.title} on ${formatDate(language, nearestEvent.event_start)}`
+            )}
+          </label>
+        </div>
+      )}
+      {nearestEvent && !nearestEvent.staff_recruitment_open && (
+        <p className="text-sm text-foreground/70 italic leading-relaxed">
+          {t(
+            `Inga fler volontärer behövs för ${nearestEvent.title} just nu, men skicka gärna in en ansökan ändå!`,
+            `No more volunteers are needed for ${nearestEvent.title} right now, but please send in an application anyway!`
+          )}
+        </p>
+      )}
       <div className="form-stack">
         {/* NAME & EMAIL */}
         <div className="form-row-2">

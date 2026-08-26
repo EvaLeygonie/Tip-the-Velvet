@@ -62,8 +62,8 @@ export const JoinUs = () => {
                   <span>
                     <strong>{t('Setup:', 'Setup:')}</strong>{' '}
                     {t(
-                      'Volontärer som kan hjälpa innan eventet.',
-                      'Volunteers to help us set up before the event.'
+                      'Volontärer som kan hjälpa dekorera lokalen innan eventet (från kl.13 på eventdagen).',
+                      'Volunteers to help us set up/decorate the venue before the event (from 13:00 on the day of the event).'
                     )}
                   </span>
                 </li>
@@ -72,8 +72,8 @@ export const JoinUs = () => {
                   <span>
                     <strong>{t('Dörr & Gästlista:', 'Door & Guestlist:')}</strong>{' '}
                     {t(
-                      'Volontärer som kan turas om i entrén med att välkomna våra gäster och boka av namn från gästlistan',
-                      'Volunteers taking turn in the entrance to welcome our guests and check their names off the guest list.'
+                      'Volontärer som kan turas om i entrén med att välkomna våra gäster och boka av namn från gästlistan (från kl.18).',
+                      'Volunteers taking turn in the entrance to welcome our guests and check their names off the guest list (from 18:00).'
                     )}
                   </span>
                 </li>
@@ -84,6 +84,16 @@ export const JoinUs = () => {
                     {t(
                       'Ljus, ljud, stage hands/kittens och annan scenkonst.',
                       'Light, sound, stage hand/kittens, and other show-related logistics.'
+                    )}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-accent">✦</span>
+                  <span>
+                    <strong>{t('Plock:', 'Takedown:')}</strong>{' '}
+                    {t(
+                      'Volontärer som kan hjälpa ta ner dekorationer efter eventet (1.30 - 2.30).',
+                      'Volunteers to help us take down decorations after the event (f1.30-2.30).'
                     )}
                   </span>
                 </li>

@@ -48,8 +48,8 @@ export default async (request: Request) => {
 
       case 'staff':
         emailHtml = isSv
-          ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill joina vårt kollektiv!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi hör av oss nästa gång vi har behov av dina unika talanger!</p>`
-          : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to be a part of our collective!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We'll let you know next time we're in need of your special talents!</p>`
+          ? `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Vi har tagit emot din ansökan till <strong>Tip the Velvet</strong>. Vad roligt att du vill joina vårt kollektiv!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Din ansökan sparas i vårt kollektiv av volontärer och personal — den är inte knuten till ett specifikt event. Vi hör av oss med en konkret fråga så fort vi planerar ett event som passar din roll.</p>`
+          : `<p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">We have received your application for <strong>Tip the Velvet</strong>. Thank you for wanting to be a part of our collective!</p><p style="margin: 0 0 16px 0; padding: 0; line-height: 1.5;">Your application joins our general pool of volunteers and staff — it isn't tied to one specific event. We'll reach out with a concrete ask as soon as we're planning a show that fits your role.</p>`
         break
 
       case 'sponsor':

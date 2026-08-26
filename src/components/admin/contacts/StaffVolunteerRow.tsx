@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Mail, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mail, CalendarPlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import type { StaffVolunteers, StaffVolunteerType } from '@/types/types'
+import { AddToEventPopover } from './AddToEventPopover'
+import type { StaffVolunteers, StaffVolunteerType, EventStaffInvitationStatus } from '@/types/types'
 
 interface StaffVolunteerRowProps {
   row: StaffVolunteers
@@ -12,6 +13,10 @@ interface StaffVolunteerRowProps {
   onDelete: (id: string) => Promise<void>
   onEmail: (row: StaffVolunteers) => void
   onCancelNew?: (id: string) => void
+  // Status for whichever event Contacts is currently showing (see AdminContacts.tsx) —
+  // undefined means this person has no relation to that event at all.
+  eventStatus?: EventStaffInvitationStatus
+  onEventStatusChanged?: () => void
 }
 
 export const StaffVolunteerRow = ({
@@ -22,10 +27,13 @@ export const StaffVolunteerRow = ({
   onDelete,
   onEmail,
   onCancelNew,
+  eventStatus,
+  onEventStatusChanged,
 }: StaffVolunteerRowProps) => {
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
+  const [showEventPopover, setShowEventPopover] = useState(false)
   const [draft, setDraft] = useState({
     name: row.name,
     email: row.email ?? '',
@@ -111,8 +119,18 @@ export const StaffVolunteerRow = ({
               {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </div>
             <div className="truncate">
-              <div className="font-decorative text-base text-foreground tracking-wide truncate">
-                {row.name || t('(Namnlös)', '(Unnamed)')}
+              <div className="font-decorative text-base text-foreground tracking-wide truncate flex items-center gap-1.5">
+                <span className="truncate">{row.name || t('(Namnlös)', '(Unnamed)')}</span>
+                {eventStatus === 'confirmed' && (
+                  <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-green-400">
+                    {t('Bekräftad', 'Confirmed')}
+                  </span>
+                )}
+                {eventStatus === 'interested' && (
+                  <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-sky-400">
+                    {t('Intresserad', 'Interested')}
+                  </span>
+                )}
               </div>
               {row.role_details && (
                 <div className="text-accent italic text-xs font-heading truncate">
@@ -171,6 +189,26 @@ export const StaffVolunteerRow = ({
           >
             <Mail className="h-4 w-4" />
           </button>
+          {!isNew && (
+            <>
+              <button
+                onClick={() => setShowEventPopover(true)}
+                className="p-2 border rounded-md transition-colors shrink-0 bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black"
+                title={t('Lägg till i event', 'Add to event')}
+              >
+                <CalendarPlus className="h-4 w-4" />
+              </button>
+              {showEventPopover && (
+                <AddToEventPopover
+                  onClose={() => setShowEventPopover(false)}
+                  staffId={row.id}
+                  role={row.role}
+                  roleDetails={row.role_details}
+                  onChanged={onEventStatusChanged}
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
 

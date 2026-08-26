@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import {
   getStaffVolunteers,
   getSponsors,
@@ -8,6 +9,7 @@ import {
   createStaffVolunteer,
   createSponsor,
   createVenue,
+  getStaffEventStatuses,
 } from '@/services/contactsService'
 import { updateRow, deleteRow } from '@/services/databaseService'
 import type {
@@ -18,6 +20,7 @@ import type {
   SponsorType,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
+  EventStaffInvitationStatus,
 } from '@/types/types'
 import { ContactsToolbar } from '@/components/admin/contacts/ContactsToolbar'
 import { ContactMailModal } from '@/components/admin/contacts/ContactMailModal'
@@ -36,7 +39,14 @@ const ROLE_ORDER: StaffVolunteerType[] = [
   'other',
 ]
 
-const SPONSOR_TYPE_ORDER: SponsorType[] = ['prize', 'creation', 'sales', 'promo', 'partner', 'other']
+const SPONSOR_TYPE_ORDER: SponsorType[] = [
+  'prize',
+  'creation',
+  'sales',
+  'promo',
+  'partner',
+  'other',
+]
 
 const blankStaff = (): StaffVolunteers => ({
   id: crypto.randomUUID(),
@@ -78,8 +88,39 @@ const blankVenue = (): Venue => ({
 
 export const AdminContacts = () => {
   const { t } = useLanguage()
+  const { upcomingEvents, selectedEventId } = useCurrentEvent()
   const [activeTab, setActiveTab] = useState<'staff' | 'sponsors' | 'venues'>('staff')
   const [loading, setLoading] = useState(true)
+
+  // Local, not written back to CurrentEventContext — switching which event's status is
+  // shown here shouldn't silently change what's selected on Casting/Event Planning too.
+  // Defaults to the shared selection once it's loaded (CurrentEventContext fetches
+  // independently of this page's own data, so it may not be ready on first render).
+  const [statusEventId, setStatusEventId] = useState('')
+  const [staffEventStatuses, setStaffEventStatuses] = useState<
+    Record<string, EventStaffInvitationStatus>
+  >({})
+
+  useEffect(() => {
+    const syncDefault = () => {
+      if (selectedEventId && !statusEventId) setStatusEventId(selectedEventId)
+    }
+    syncDefault()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId])
+
+  useEffect(() => {
+    if (!statusEventId) return
+    const loadStatuses = async () => {
+      try {
+        const statuses = await getStaffEventStatuses(statusEventId)
+        setStaffEventStatuses(statuses)
+      } catch (err) {
+        console.error('Kunde inte hämta eventstatus:', err)
+      }
+    }
+    loadStatuses()
+  }, [statusEventId])
 
   const [staffRows, setStaffRows] = useState<StaffVolunteers[]>([])
   const [sponsorRows, setSponsorRows] = useState<Sponsors[]>([])
@@ -162,6 +203,20 @@ export const AdminContacts = () => {
         return t('Övrigt', 'Other')
     }
   }
+
+  const refreshStaffEventStatuses = async () => {
+    if (!statusEventId) return
+    try {
+      const statuses = await getStaffEventStatuses(statusEventId)
+      setStaffEventStatuses(statuses)
+    } catch (err) {
+      console.error('Kunde inte hämta eventstatus:', err)
+    }
+  }
+
+  const statusEvent = upcomingEvents.find((e) => e.id === statusEventId)
+  const interestedCount = Object.values(staffEventStatuses).filter((s) => s === 'interested').length
+  const confirmedCount = Object.values(staffEventStatuses).filter((s) => s === 'confirmed').length
 
   const roleOptions = ROLE_ORDER.map((role) => ({ value: role, label: roleLabel(role) }))
   const sponsorTypeOptions = SPONSOR_TYPE_ORDER.map((type) => ({
@@ -268,13 +323,34 @@ export const AdminContacts = () => {
 
   const renderRoleSection = (role: StaffVolunteerType, rows: StaffVolunteers[]) => {
     if (rows.length === 0) return null
+    const sectionInterested = rows.filter((r) => staffEventStatuses[r.id] === 'interested').length
+    const sectionConfirmed = rows.filter((r) => staffEventStatuses[r.id] === 'confirmed').length
     return (
       <div key={role} className="space-y-3 pt-4">
         <div className="flex items-center justify-between border-b border-accent/10 pb-2">
           <h5 className="font-decorative text-base text-foreground/80">{roleLabel(role)}</h5>
-          <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-            {rows.length}
-          </span>
+          <div className="flex items-center gap-3">
+            {(sectionInterested > 0 || sectionConfirmed > 0) && (
+              <span className="text-[11px] font-mono flex items-center gap-1.5">
+                {sectionInterested > 0 && (
+                  <span className="text-sky-400">
+                    {sectionInterested} {t('intresserade', 'interested')}
+                  </span>
+                )}
+                {sectionInterested > 0 && sectionConfirmed > 0 && (
+                  <span className="text-foreground/30">·</span>
+                )}
+                {sectionConfirmed > 0 && (
+                  <span className="text-green-400">
+                    {sectionConfirmed} {t('bekräftade', 'confirmed')}
+                  </span>
+                )}
+              </span>
+            )}
+            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
+              {rows.length}
+            </span>
+          </div>
         </div>
         <div className="space-y-3">
           {rows.map((row) => (
@@ -285,6 +361,8 @@ export const AdminContacts = () => {
               onSave={handleSaveStaff}
               onDelete={handleDeleteStaff}
               onEmail={openMailModalFor}
+              eventStatus={staffEventStatuses[row.id]}
+              onEventStatusChanged={refreshStaffEventStatuses}
             />
           ))}
         </div>
@@ -302,7 +380,11 @@ export const AdminContacts = () => {
         <button
           type="button"
           onClick={() => setActiveTab('staff')}
-          className={activeTab === 'staff' ? 'btn-gold text-xs py-2 px-4' : 'btn-gold-outline text-xs py-2 px-4'}
+          className={
+            activeTab === 'staff'
+              ? 'btn-gold text-xs py-2 px-4'
+              : 'btn-gold-outline text-xs py-2 px-4'
+          }
         >
           {t('Personal & Volontärer', 'Staff & Volunteers')}
         </button>
@@ -310,7 +392,9 @@ export const AdminContacts = () => {
           type="button"
           onClick={() => setActiveTab('sponsors')}
           className={
-            activeTab === 'sponsors' ? 'btn-gold text-xs py-2 px-4' : 'btn-gold-outline text-xs py-2 px-4'
+            activeTab === 'sponsors'
+              ? 'btn-gold text-xs py-2 px-4'
+              : 'btn-gold-outline text-xs py-2 px-4'
           }
         >
           {t('Sponsorer', 'Sponsors')}
@@ -319,7 +403,9 @@ export const AdminContacts = () => {
           type="button"
           onClick={() => setActiveTab('venues')}
           className={
-            activeTab === 'venues' ? 'btn-gold text-xs py-2 px-4' : 'btn-gold-outline text-xs py-2 px-4'
+            activeTab === 'venues'
+              ? 'btn-gold text-xs py-2 px-4'
+              : 'btn-gold-outline text-xs py-2 px-4'
           }
         >
           {t('Platser', 'Venues')}
@@ -348,6 +434,35 @@ export const AdminContacts = () => {
                 onAdd={() => setStaffDrafts((prev) => [blankStaff(), ...prev])}
                 addLabel={t('Lägg till', 'Add')}
               />
+              {upcomingEvents.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-3 mb-3 text-sm">
+                  <span className="text-foreground/60">{t('Status för:', 'Status for:')}</span>
+                  {upcomingEvents.length > 1 ? (
+                    <select
+                      value={statusEventId}
+                      onChange={(e) => setStatusEventId(e.target.value)}
+                      className="admin-select !text-xs"
+                    >
+                      {upcomingEvents.map((evt) => (
+                        <option key={evt.id} value={evt.id}>
+                          {evt.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-accent font-semibold">{statusEvent?.title}</span>
+                  )}
+                  <span className="text-foreground/40">•</span>
+                  <span className="text-sky-400">
+                    {interestedCount} {t('intresserade', 'interested')}
+                  </span>
+                  <span className="text-foreground/40">·</span>
+                  <span className="text-green-400">
+                    {confirmedCount} {t('bekräftade', 'confirmed')}
+                  </span>
+                </div>
+              )}
+
               <div className="space-y-3">
                 {staffDrafts.map((d) => (
                   <StaffVolunteerRow
@@ -358,7 +473,9 @@ export const AdminContacts = () => {
                     onSave={handleSaveStaff}
                     onDelete={handleDeleteStaff}
                     onEmail={openMailModalFor}
-                    onCancelNew={(id) => setStaffDrafts((prev) => prev.filter((d2) => d2.id !== id))}
+                    onCancelNew={(id) =>
+                      setStaffDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                    }
                   />
                 ))}
               </div>
@@ -367,7 +484,40 @@ export const AdminContacts = () => {
                   {t('Inga kontakter hittades.', 'No contacts found.')}
                 </div>
               ) : (
-                ROLE_ORDER.map((role) => renderRoleSection(role, filteredStaff.filter((r) => r.role === role)))
+                ROLE_ORDER.map((role) =>
+                  renderRoleSection(
+                    role,
+                    filteredStaff.filter((r) => r.role === role)
+                  )
+                )
+              )}
+              {upcomingEvents.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-3 mb-4 text-sm">
+                  <span className="text-foreground/60">{t('Status för:', 'Status for:')}</span>
+                  {upcomingEvents.length > 1 ? (
+                    <select
+                      value={statusEventId}
+                      onChange={(e) => setStatusEventId(e.target.value)}
+                      className="admin-select !text-xs"
+                    >
+                      {upcomingEvents.map((evt) => (
+                        <option key={evt.id} value={evt.id}>
+                          {evt.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-accent font-semibold">{statusEvent?.title}</span>
+                  )}
+                  <span className="text-foreground/40">•</span>
+                  <span className="text-sky-400">
+                    {interestedCount} {t('intresserade', 'interested')}
+                  </span>
+                  <span className="text-foreground/40">·</span>
+                  <span className="text-green-400">
+                    {confirmedCount} {t('bekräftade', 'confirmed')}
+                  </span>
+                </div>
               )}
             </>
           )}
@@ -398,7 +548,9 @@ export const AdminContacts = () => {
                     onSave={handleSaveSponsor}
                     onDelete={handleDeleteSponsor}
                     onEmail={openMailModalFor}
-                    onCancelNew={(id) => setSponsorDrafts((prev) => prev.filter((d2) => d2.id !== id))}
+                    onCancelNew={(id) =>
+                      setSponsorDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                    }
                   />
                 ))}
                 {filteredSponsors.length === 0 && sponsorDrafts.length === 0 ? (
@@ -442,7 +594,9 @@ export const AdminContacts = () => {
                     onSave={handleSaveVenue}
                     onDelete={handleDeleteVenue}
                     onEmail={openMailModalFor}
-                    onCancelNew={(id) => setVenueDrafts((prev) => prev.filter((d2) => d2.id !== id))}
+                    onCancelNew={(id) =>
+                      setVenueDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                    }
                   />
                 ))}
                 {filteredVenues.length === 0 && venueDrafts.length === 0 ? (
