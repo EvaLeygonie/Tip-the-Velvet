@@ -88,6 +88,19 @@ database directly.
 - Needs to stay in sync with wherever venue/photographer already get set on an event
   (`EventEditor.tsx`'s dropdowns) — one source of truth, not two competing UIs writing the
   same relationship.
+- **Paid vs. volunteer roles — addressed 2026-08-25, no table split needed.** Real concern
+  raised: photographer/technician/doorman get paid for their work via the join form,
+  which is a genuinely different relationship than a general volunteer helping out — but
+  they all submit through the same `staff_volunteers` table/form today. Decided: keep one
+  table, don't split it. The existing `fee` column (already built, already shown per row
+  in this tab) already carries the signal — paid roles have a value, general volunteers
+  are `null` — and the tab's existing role-grouped layout already visually separates
+  photographer/technician/doorman from volunteer/artistic/musician/entertainment/other
+  without any extra work. **One nuance to know about, not to fix now**: `fee` here reads
+  as that person's standing/default rate, not a per-event negotiated amount — the same
+  "estimate vs. actual" shape already flagged for artist travel costs in
+  `extra-features.md`. Only worth revisiting if a specific event ever needs to pay someone
+  a different amount than their usual rate and that needs to be tracked.
 
 ## Event Planning tab (the big one)
 
@@ -226,6 +239,67 @@ actually what's needed:
     Worth pairing with a softer `UNIQUE(event_id, staff_id, role, role_details)` constraint
     so accidental duplicate-add-the-same-task-twice is still caught, while genuinely
     different tasks for the same person aren't.
+
+### Volunteer outreach & response deadline — brainstormed 2026-08-25, not built
+
+Surfaced by a real case: someone who submitted the general Join Us volunteer application
+asked when they'd hear back about "their" event — revealing that applicants don't realize
+`staff_volunteers` is a standing pool ("apply once, we keep you on file"), not a
+per-event application with a yes/no answer coming. Deliberately **not** something to build
+now — this depends on Event Planning existing first, since the whole point is reaching out
+about *a specific event*. Brainstormed here so the shape isn't lost before then.
+
+**Quick, cheap mitigation available right now, separate from everything below**: the
+actual root cause is the public Join Us form's copy never saying "this is a standing
+application to our volunteer pool, not tied to one show — we'll reach out closer to a
+specific event." Fixing that copy is a one-line change that stops *new* applicants from
+hitting the same confusion, independent of whether the fuller system below ever gets
+built. Worth doing on its own timeline, not blocked on Event Planning.
+
+**The system itself**: mirrors the shape the casting flow already proved out, rather than
+inventing something new. Casting's problem was identical in kind — a pool of people whose
+relationship to *one specific event* needs tracking (invited → responded →
+confirmed/declined) separately from their standing profile — and it solved it by keeping
+`casting_applications` as the per-event negotiation record, only creating an
+`event_performers` row once actually confirmed. Staffing has no per-event record at all
+today, which is exactly the gap:
+
+- **New per-event invitation record** (name/shape not decided —
+  `event_staff_invitations` or similar), roughly: `event_id`, `staff_id`, `status`
+  (`invited | confirmed | declined | not_needed`), `invited_at`, `responded_at`,
+  `response_deadline`. `event_staff_volunteers` keeps meaning exactly what it already
+  means — the people actually working this event — and only gets a row once an
+  invitation reaches `confirmed`. Simpler than casting's equivalent step: no "migration"
+  of profile data is needed (`staff_volunteers` already holds the full profile, unlike
+  `performers`, which doesn't exist until an artist is confirmed), so this is just a
+  status update plus one row insert, not an RPC doing several things atomically.
+- **Two email sends, both reusing the bulk-mail pattern already built** (`AdminCasting.tsx`'s
+  "email all booked artists" modal, `ContactMailModal.tsx` on the Contacts page) — no new
+  send mechanism needed, just a new trigger context:
+  1. Initial invite to the eligible pool for this event (filtered by role — likely just
+     the general volunteer-type roles, not the three paid ones, though worth deciding at
+     build time whether paid roles want the same "are you available this time" framing
+     with a fee attached, closer to how casting already negotiates).
+  2. A manually-triggered "not needed this time, we'll keep you on file for next event"
+     batch send to whoever's still sitting at `invited` once the admin judges they have
+     enough confirmed — **a deliberate admin action, not an automatic threshold**. This
+     matches, not contradicts, what the Staffing section above already decided ("no fixed
+     requirement system, take anyone who wants to help") — it just adds a deliberate
+     cutoff moment once the admin decides they have enough, rather than a stored target
+     count anywhere.
+- **The "stricter frame" ask — a real response deadline**, so people stop assuming they
+  can show up and volunteer for free entry without ever having confirmed. `response_deadline`
+  on the invitation record (likely computed relative to the event date, e.g. "N days
+  before") is the natural home for this, and ties directly into the Dashboard's already-
+  planned calendar/important-dates section (`## Dashboard tab` below) — a due-date warning
+  for "volunteer responses close in 3 days" is exactly the kind of thing that section
+  exists for, rather than a separate reminder mechanism.
+- **Open question, not decided**: does the "since the new website went live" backlog (
+  people who already applied under the old, unclear framing) get a one-time invite blast
+  once this system exists, or does it only apply going forward from whenever it's built?
+  Leaning toward: yes, a one-time backlog invite makes sense precisely because those
+  people are the ones currently confused — but worth deciding with the actual backlog size
+  in view, not guessing now.
 
 ### Show ordering, prep/cleanup/music/notes per act — mostly already covered
 Good news here too: `performer_acts` already collects `stage_preparations`,
