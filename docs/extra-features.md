@@ -260,3 +260,16 @@ performer can decide whether to apply without needing to click through first.
 - Needs a way to track opt-in status per performer (a new column, or this may live
   entirely in Mailchimp's own audience/tag data with no new column needed — depends on
   the audience-vs-tag decision above).
+
+## Event hashtags — column or generator
+
+Added 2026-08-27, deferred by the user while building the Event Planning "Artists"
+section (per-artist promo image download + copy-to-clipboard sv/eng promo text). For now
+the board pastes/rewrites hashtags by hand for each social post; revisit once a
+"Communication tab" (bulk social/email planning) actually gets built.
+
+**The idea, not designed in detail yet**: either a free-text `events.hashtags` column the
+board fills in once per event and copies from, or generating a hashtag set on the fly from
+already-known data — event name, venue, performer name(s), post type (reveal vs. general
+promo). A generator is more work and needs a real design pass (which fields feed it, how
+much to auto-vs-hand-tune); a plain column is closer to free.

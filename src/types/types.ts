@@ -12,6 +12,7 @@ export type OldEvent = Tables<'old_events'>
 export type EventImage = Tables<'event_images'>
 export type Performer = Tables<'performers'>
 export type PublicPerformer = Views<'public_performers'>
+export type EventPerformer = Tables<'event_performers'>
 export type CastingApplication = Tables<'casting_applications'>
 export type CastingApplicationAct = Tables<'casting_application_acts'>
 export type CastingApplicationWithActs = CastingApplication & {

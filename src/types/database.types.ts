@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -236,6 +236,7 @@ export type Database = {
           performer_id: string
           plus_one_email: string | null
           plus_one_name: string | null
+          reveal_date: string | null
           travel_covered: number | null
           travel_receipts: Json | null
         }
@@ -253,6 +254,7 @@ export type Database = {
           performer_id: string
           plus_one_email?: string | null
           plus_one_name?: string | null
+          reveal_date?: string | null
           travel_covered?: number | null
           travel_receipts?: Json | null
         }
@@ -270,6 +272,7 @@ export type Database = {
           performer_id?: string
           plus_one_email?: string | null
           plus_one_name?: string | null
+          reveal_date?: string | null
           travel_covered?: number | null
           travel_receipts?: Json | null
         }
@@ -1010,7 +1013,7 @@ export type Database = {
         }
         Returns: Json
       }
-      event_status_handler: { Args: Record<PropertyKey, never>; Returns: undefined }
+      event_status_handler: { Args: never; Returns: undefined }
       get_casting_application_by_token: {
         Args: { p_id: string; p_token: string }
         Returns: Json

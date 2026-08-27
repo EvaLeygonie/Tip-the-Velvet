@@ -5,6 +5,7 @@ import type {
   CreateEventInput,
   CreateEventImageInput,
   Performer,
+  EventPerformer,
 } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
@@ -117,6 +118,76 @@ export const getEventPerformers = async (eventId: string): Promise<EventPerforme
   if (error) throw error
 
   return (data || []) as unknown as EventPerformerRow[]
+}
+
+export interface AdminEventPerformerRow extends EventPerformer {
+  performer: Performer
+  // The promo image submitted with THIS event's casting application, not
+  // performer.promo_image_id — a returning performer's profile picture is left untouched
+  // at confirm time, so it can be a completely different (often older) image than what
+  // they submitted for this specific event/act. Falls back to the profile picture only if
+  // no matching application row exists (e.g. a performer added by hand).
+  eventPromoImageId: string | null
+}
+
+export const getEventPerformersForAdmin = async (
+  eventId: string
+): Promise<AdminEventPerformerRow[]> => {
+  const [lineup, applications] = await Promise.all([
+    supabase
+      .from('event_performers')
+      .select('*, performer:performers(*)')
+      .eq('event_id', eventId)
+      .order('display_order', { ascending: true }),
+    supabase
+      .from('casting_applications')
+      .select('performer_id, promo_image_id')
+      .eq('event_id', eventId)
+      .not('performer_id', 'is', null),
+  ])
+
+  if (lineup.error) throw lineup.error
+  if (applications.error) throw applications.error
+
+  const appImageByPerformerId = new Map(
+    (applications.data || []).map((a) => [a.performer_id as string, a.promo_image_id])
+  )
+
+  return ((lineup.data || []) as unknown as AdminEventPerformerRow[]).map((row) => ({
+    ...row,
+    eventPromoImageId:
+      appImageByPerformerId.get(row.performer_id) ?? row.performer?.promo_image_id ?? null,
+  }))
+}
+
+// Keyed on the composite (event_id, performer_id) — event_performers has no surrogate `id`
+// column, so the generic updateRow() helper (which assumes one) can't be reused here.
+export const schedulePerformerReveal = async (
+  eventId: string,
+  performerId: string,
+  date: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ reveal_date: date })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
+// Only flips event_performers.is_revealed — a first-time performer also needs
+// performers.is_approved set true (that's what actually gates the public_performers view),
+// which the caller handles alongside this via performerService.togglePerformerVisibility
+// when performer.is_approved is still false.
+export const revealPerformerNow = async (eventId: string, performerId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ is_revealed: true })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
 }
 
 export const getAdminEventDetails = async (slug: string) => {
