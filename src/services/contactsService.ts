@@ -7,6 +7,7 @@ import type {
   CreateSponsorInput,
   CreateVenueInput,
   StaffVolunteerType,
+  SponsorType,
   EventStaffInvitationStatus,
 } from '@/types/types'
 
@@ -119,9 +120,15 @@ export const markStaffInterested = async (eventId: string, staffId: string): Pro
 // Skips the invitation record entirely and writes straight onto the confirmed roster, for
 // when the admin already knows for certain. Upserts against event_staff_volunteers's
 // composite PK so re-clicking updates in place rather than erroring.
+//
+// Photographer is special-cased: events.photographer_id/photographer (set from
+// EventEditor.tsx) and this roster are two views onto the same fact — confirming a
+// photographer here needs to update both, and since there's only one photographer per
+// event, any other photographer's roster row for this event is removed first.
 export const confirmStaffForEvent = async (
   eventId: string,
   staffId: string,
+  staffName: string,
   role: StaffVolunteerType,
   roleDetails: string | null
 ): Promise<void> => {
@@ -133,4 +140,51 @@ export const confirmStaffForEvent = async (
     )
 
   if (error) throw error
+
+  if (role === 'photographer') {
+    const { error: cleanupError } = await supabase
+      .from('event_staff_volunteers')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('role', 'photographer')
+      .neq('staff_id', staffId)
+    if (cleanupError) throw cleanupError
+
+    const { error: eventError } = await supabase
+      .from('events')
+      .update({ photographer_id: staffId, photographer: staffName })
+      .eq('id', eventId)
+    if (eventError) throw eventError
+  }
+}
+
+//=== SPONSOR EVENT ASSIGNMENT ===///
+
+// Sponsor "interest" is a real conversation, not a status worth tracking — this is the
+// only sponsor/event write that exists, straight onto the confirmed roster
+// (event_sponsors). Upserts against its composite PK so re-clicking updates in place.
+export const confirmSponsorForEvent = async (
+  eventId: string,
+  sponsorId: string,
+  sponsorType: SponsorType | null,
+  details: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_sponsors')
+    .upsert(
+      { event_id: eventId, sponsor_id: sponsorId, role: sponsorType, details },
+      { onConflict: 'event_id,sponsor_id' }
+    )
+
+  if (error) throw error
+}
+
+export const getConfirmedSponsorIds = async (eventId: string): Promise<Set<string>> => {
+  const { data, error } = await supabase
+    .from('event_sponsors')
+    .select('sponsor_id')
+    .eq('event_id', eventId)
+
+  if (error) throw error
+  return new Set((data || []).map((r) => r.sponsor_id))
 }

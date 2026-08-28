@@ -1,12 +1,22 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Mail, Loader2, Image as ImageIcon, Download } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Loader2,
+  Image as ImageIcon,
+  Download,
+  CalendarPlus,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload'
 import { deleteFromCloudinary } from '@/services/cloudinaryService'
+import { confirmSponsorForEvent } from '@/services/contactsService'
 import { createSlug, processUploadedImage } from '@/lib/utils'
 import { ImageCategory } from '@/types/media'
+import { AddToEventPopover } from './AddToEventPopover'
 import type { Sponsors, SponsorType } from '@/types/types'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -19,6 +29,10 @@ interface SponsorRowProps {
   onDelete: (id: string) => Promise<void>
   onEmail: (row: Sponsors) => void
   onCancelNew?: (id: string) => void
+  // Whether this sponsor is confirmed for whichever event Contacts is currently showing
+  // status for (see AdminContacts.tsx) — sponsors have no "interested" stage, just this.
+  isConfirmedForEvent?: boolean
+  onConfirmed?: () => void
 }
 
 export const SponsorRow = ({
@@ -29,10 +43,13 @@ export const SponsorRow = ({
   onDelete,
   onEmail,
   onCancelNew,
+  isConfirmedForEvent,
+  onConfirmed,
 }: SponsorRowProps) => {
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
+  const [showEventPopover, setShowEventPopover] = useState(false)
   const [draft, setDraft] = useState({
     name: row.name,
     email: row.email ?? '',
@@ -135,10 +152,11 @@ export const SponsorRow = ({
   }
 
   const logoInputId = `logo-upload-${row.id}`
+  const rowStatusClass = isConfirmedForEvent ? 'border-emerald-500/70 bg-emerald-950/20' : ''
 
   return (
     <div
-      className="admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer"
+      className={`admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer ${rowStatusClass}`}
       style={{ padding: 0 }}
       onClick={() => setIsExpanded(!isExpanded)}
     >
@@ -163,8 +181,13 @@ export const SponsorRow = ({
               )}
             </div>
             <div className="truncate">
-              <div className="font-decorative text-base text-foreground tracking-wide truncate">
-                {row.name || t('(Namnlös)', '(Unnamed)')}
+              <div className="font-decorative text-base text-foreground tracking-wide truncate flex items-center gap-1.5">
+                <span className="truncate">{row.name || t('(Namnlös)', '(Unnamed)')}</span>
+                {isConfirmedForEvent && (
+                  <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-green-400">
+                    {t('Bekräftad', 'Confirmed')}
+                  </span>
+                )}
               </div>
               {row.sponsor_type && (
                 <div className="text-accent italic text-xs font-heading truncate">
@@ -205,6 +228,26 @@ export const SponsorRow = ({
           >
             <Mail className="h-4 w-4" />
           </button>
+          {!isNew && (
+            <>
+              <button
+                onClick={() => setShowEventPopover(true)}
+                className="p-2 border rounded-md transition-colors shrink-0 bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black"
+                title={t('Lägg till i event', 'Add to event')}
+              >
+                <CalendarPlus className="h-4 w-4" />
+              </button>
+              {showEventPopover && (
+                <AddToEventPopover
+                  onClose={() => setShowEventPopover(false)}
+                  onConfirm={(eventId) =>
+                    confirmSponsorForEvent(eventId, row.id, row.sponsor_type, row.sponsor_details)
+                  }
+                  onChanged={onConfirmed}
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
 

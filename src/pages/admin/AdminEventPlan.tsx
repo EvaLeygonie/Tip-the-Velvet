@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
+import { UtensilsCrossed } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import { EventPicker } from '@/components/admin/EventPicker'
 import { getEventPerformersForAdmin } from '@/services/eventService'
 import type { AdminEventPerformerRow } from '@/services/eventService'
-import { ArtistOverviewCard } from '@/components/admin/eventplan/ArtistOverviewCard'
 
 export const AdminEventPlan = () => {
   const { t } = useLanguage()
-  const { selectedEventId, selectedEvent } = useCurrentEvent()
+  const { selectedEventId } = useCurrentEvent()
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -19,7 +19,7 @@ export const AdminEventPlan = () => {
       setLoading(true)
       try {
         const data = await getEventPerformersForAdmin(selectedEventId)
-        setPerformers(data)
+        setPerformers(data.performers)
       } catch (err) {
         console.error('Kunde inte hämta artister:', err)
       } finally {
@@ -28,12 +28,6 @@ export const AdminEventPlan = () => {
     }
     loadPerformers()
   }, [selectedEventId])
-
-  const handleChanged = (performerId: string, patch: Partial<AdminEventPerformerRow>) => {
-    setPerformers((prev) =>
-      prev.map((row) => (row.performer_id === performerId ? { ...row, ...patch } : row))
-    )
-  }
 
   return (
     <div className="page-shell">
@@ -44,9 +38,9 @@ export const AdminEventPlan = () => {
       <EventPicker />
 
       {selectedEventId && (
-        <div className="max-w-5xl mx-auto mt-8 space-y-4">
+        <div className="max-w-3xl mx-auto mt-8 space-y-4">
           <h3 className="font-decorative text-lg text-foreground/90">
-            {t('Artister', 'Artists')}
+            {t('Artistlogistik', 'Artist logistics')}
           </h3>
 
           {loading ? (
@@ -61,14 +55,30 @@ export const AdminEventPlan = () => {
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {performers.map((row) => (
-                <ArtistOverviewCard
+                <div
                   key={row.performer_id}
-                  row={row}
-                  event={{ id: selectedEventId, title: selectedEvent?.title ?? '' }}
-                  onChanged={handleChanged}
-                />
+                  className="admin-panel velvet-surface p-3 flex items-center gap-3"
+                >
+                  <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">
+                    {row.performer.performer_name}
+                  </span>
+                  {row.plus_one_name && (
+                    <span
+                      title={`+1: ${row.plus_one_name}`}
+                      className="shrink-0 text-[10px] font-body font-semibold text-sky-400 border border-sky-400/30 rounded-full px-1.5 py-0.5"
+                    >
+                      +1
+                    </span>
+                  )}
+                  {row.dietary_requirements && (
+                    <span className="flex items-center gap-1.5 text-xs text-foreground/60 italic min-w-0">
+                      <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-accent/50" />
+                      <span className="truncate">{row.dietary_requirements}</span>
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
           )}

@@ -3,7 +3,16 @@ import { ChevronDown, ChevronUp, Mail, CalendarPlus, Loader2 } from 'lucide-reac
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { AddToEventPopover } from './AddToEventPopover'
+import { markStaffInterested, confirmStaffForEvent } from '@/services/contactsService'
 import type { StaffVolunteers, StaffVolunteerType, EventStaffInvitationStatus } from '@/types/types'
+
+// Mirrors CastingApplicationRow.tsx's statusRowClass convention rather than inventing a
+// new one — plain border/bg tint, no pill, so it reads at a glance without competing with
+// the name badge.
+const EVENT_STATUS_ROW_CLASS: Record<string, string> = {
+  confirmed: 'border-emerald-500/70 bg-emerald-950/20',
+  interested: 'border-orange-500/60 bg-orange-950/10',
+}
 
 interface StaffVolunteerRowProps {
   row: StaffVolunteers
@@ -106,9 +115,11 @@ export const StaffVolunteerRow = ({
     }
   }
 
+  const rowStatusClass = eventStatus ? (EVENT_STATUS_ROW_CLASS[eventStatus] ?? '') : ''
+
   return (
     <div
-      className="admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer"
+      className={`admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer ${rowStatusClass}`}
       style={{ padding: 0 }}
       onClick={() => setIsExpanded(!isExpanded)}
     >
@@ -201,9 +212,10 @@ export const StaffVolunteerRow = ({
               {showEventPopover && (
                 <AddToEventPopover
                   onClose={() => setShowEventPopover(false)}
-                  staffId={row.id}
-                  role={row.role}
-                  roleDetails={row.role_details}
+                  onMarkInterested={(eventId) => markStaffInterested(eventId, row.id)}
+                  onConfirm={(eventId) =>
+                    confirmStaffForEvent(eventId, row.id, row.name, row.role, row.role_details)
+                  }
                   onChanged={onEventStatusChanged}
                 />
               )}

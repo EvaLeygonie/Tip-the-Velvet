@@ -3,7 +3,17 @@ import { Link, useLocation } from 'react-router-dom'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
-import { Settings, LogOut, BarChart3, ClipboardList, Users, Menu, X, LogIn } from 'lucide-react'
+import {
+  Settings,
+  LogOut,
+  BarChart3,
+  ClipboardList,
+  Users,
+  Menu,
+  X,
+  LogIn,
+  Megaphone,
+} from 'lucide-react'
 import logoFull from '@/assets/header-logo.png'
 
 export const Navigation = () => {
@@ -42,6 +52,7 @@ export const Navigation = () => {
   const adminSubLinks = [
     { to: '/admin', label: 'Dashboard', icon: BarChart3 },
     { to: '/admin/event-plan', label: t('Eventplanering', 'Event Planning'), icon: Settings },
+    { to: '/admin/marketing', label: t('Marknadsföring', 'Marketing'), icon: Megaphone },
     { to: '/admin/casting', label: t('Hantera Casting', 'Manage Casting'), icon: ClipboardList },
     { to: '/admin/contacts', label: t('Kontakter', 'Contacts'), icon: Users },
   ]

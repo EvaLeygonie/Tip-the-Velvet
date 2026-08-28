@@ -11,9 +11,20 @@ interface VenueRowProps {
   onDelete: (id: string) => Promise<void>
   onEmail: (row: Venue) => void
   onCancelNew?: (id: string) => void
+  // True when this venue is the one booked (events.venue_id) for whichever event Contacts
+  // is currently showing status for — see AdminContacts.tsx.
+  isBookedForEvent?: boolean
 }
 
-export const VenueRow = ({ row, isNew = false, onSave, onDelete, onEmail, onCancelNew }: VenueRowProps) => {
+export const VenueRow = ({
+  row,
+  isNew = false,
+  onSave,
+  onDelete,
+  onEmail,
+  onCancelNew,
+  isBookedForEvent,
+}: VenueRowProps) => {
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
@@ -91,8 +102,13 @@ export const VenueRow = ({ row, isNew = false, onSave, onDelete, onEmail, onCanc
               {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </div>
             <div className="truncate">
-              <div className="font-decorative text-base text-foreground tracking-wide truncate">
-                {row.name || t('(Namnlös)', '(Unnamed)')}
+              <div className="font-decorative text-base text-foreground tracking-wide truncate flex items-center gap-1.5">
+                <span className="truncate">{row.name || t('(Namnlös)', '(Unnamed)')}</span>
+                {isBookedForEvent && (
+                  <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-green-400">
+                    {t('Bokad', 'Booked')}
+                  </span>
+                )}
               </div>
               <div className="text-accent italic text-xs font-heading truncate">{row.location}</div>
             </div>

@@ -26,6 +26,7 @@ import { RegisterAdmin } from '@/pages/admin/RegisterAdmin'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { EventEditor } from '@/pages/admin/EventEditor'
 import { AdminEventPlan } from '@/pages/admin/AdminEventPlan'
+import { AdminMarketing } from '@/pages/admin/AdminMarketing'
 import { Performers } from '@/pages/Performers'
 import { PerformerDetail } from '@/pages/PerformerDetail'
 import { AdminCasting } from '@/pages/admin/AdminCasting'
@@ -123,6 +124,14 @@ export const App = () => (
                   element={
                     <ProtectedRoute>
                       <AdminEventPlan />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/marketing"
+                  element={
+                    <ProtectedRoute>
+                      <AdminMarketing />
                     </ProtectedRoute>
                   }
                 />

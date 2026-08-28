@@ -120,6 +120,56 @@ export const getEventPerformers = async (eventId: string): Promise<EventPerforme
   return (data || []) as unknown as EventPerformerRow[]
 }
 
+export interface EventMarketingData {
+  title: string
+  slug: string
+  imageId: string | null
+  descriptionSv: string | null
+  descriptionEng: string | null
+  ticketUrl: string | null
+  hashtags: string | null
+  location: string | null
+  eventStart: string | null
+  revealDate: string | null
+  castingCallDeadline: string | null
+  castingCallStart: string | null
+  ticketReleaseDate: string | null
+  pinterestLink: string | null
+}
+
+// The event-level half of the Marketing tab (AdminMarketing.tsx) — the templated posts'
+// content/image, plus event_start (for computing every post's suggested date) and each
+// fixed post type's own relevant date, in one light read.
+export const getEventMarketingData = async (eventId: string): Promise<EventMarketingData | null> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select(
+      'title, slug, image_id, description_sv, description_eng, ticket_url, hashtags, location, event_start, reveal_date, casting_call_deadline, casting_call_start, ticket_release_date, pinterest_link'
+    )
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  return {
+    title: data.title,
+    slug: data.slug,
+    imageId: data.image_id,
+    descriptionSv: data.description_sv,
+    descriptionEng: data.description_eng,
+    ticketUrl: data.ticket_url,
+    hashtags: data.hashtags,
+    location: data.location,
+    eventStart: data.event_start,
+    revealDate: data.reveal_date,
+    pinterestLink: data.pinterest_link,
+    castingCallDeadline: data.casting_call_deadline,
+    castingCallStart: data.casting_call_start,
+    ticketReleaseDate: data.ticket_release_date,
+  }
+}
+
 export interface AdminEventPerformerRow extends EventPerformer {
   performer: Performer
   // The promo image submitted with THIS event's casting application, not
@@ -128,12 +178,19 @@ export interface AdminEventPerformerRow extends EventPerformer {
   // they submitted for this specific event/act. Falls back to the profile picture only if
   // no matching application row exists (e.g. a performer added by hand).
   eventPromoImageId: string | null
+  // Same reasoning as eventPromoImageId — the photo credit for THAT image, not
+  // performer.photographer (a different, possibly stale credit tied to their profile pic).
+  eventPhotographer: string | null
 }
 
-export const getEventPerformersForAdmin = async (
-  eventId: string
-): Promise<AdminEventPerformerRow[]> => {
-  const [lineup, applications] = await Promise.all([
+export interface AdminEventPlanData {
+  performers: AdminEventPerformerRow[]
+  ticketUrl: string | null
+  hashtags: string | null
+}
+
+export const getEventPerformersForAdmin = async (eventId: string): Promise<AdminEventPlanData> => {
+  const [lineup, applications, eventRow] = await Promise.all([
     supabase
       .from('event_performers')
       .select('*, performer:performers(*)')
@@ -141,23 +198,34 @@ export const getEventPerformersForAdmin = async (
       .order('display_order', { ascending: true }),
     supabase
       .from('casting_applications')
-      .select('performer_id, promo_image_id')
+      .select('performer_id, promo_image_id, photographer')
       .eq('event_id', eventId)
       .not('performer_id', 'is', null),
+    supabase.from('events').select('ticket_url, hashtags').eq('id', eventId).maybeSingle(),
   ])
 
   if (lineup.error) throw lineup.error
   if (applications.error) throw applications.error
+  if (eventRow.error) throw eventRow.error
 
-  const appImageByPerformerId = new Map(
-    (applications.data || []).map((a) => [a.performer_id as string, a.promo_image_id])
+  const appByPerformerId = new Map(
+    (applications.data || []).map((a) => [a.performer_id as string, a])
   )
 
-  return ((lineup.data || []) as unknown as AdminEventPerformerRow[]).map((row) => ({
-    ...row,
-    eventPromoImageId:
-      appImageByPerformerId.get(row.performer_id) ?? row.performer?.promo_image_id ?? null,
-  }))
+  const performers = ((lineup.data || []) as unknown as AdminEventPerformerRow[]).map((row) => {
+    const app = appByPerformerId.get(row.performer_id)
+    return {
+      ...row,
+      eventPromoImageId: app?.promo_image_id ?? row.performer?.promo_image_id ?? null,
+      eventPhotographer: app?.photographer ?? null,
+    }
+  })
+
+  return {
+    performers,
+    ticketUrl: eventRow.data?.ticket_url ?? null,
+    hashtags: eventRow.data?.hashtags ?? null,
+  }
 }
 
 // Keyed on the composite (event_id, performer_id) — event_performers has no surrogate `id`
@@ -207,6 +275,20 @@ export const getAdminEventDetails = async (slug: string) => {
   return data
 }
 
+// CurrentEventContext only fetches id/title/event_start (fetchEventsForAdmin) — this is a
+// light dedicated read for Contacts' venue-highlight feature, which needs the actual
+// venue_id and shouldn't widen that shared context's query just for one consumer.
+export const getEventVenueId = async (eventId: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('venue_id')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data?.venue_id ?? null
+}
+
 export const getAllVenues = async () => {
   const { data, error } = await supabase.from('venues').select('id, name').order('name')
 
@@ -222,6 +304,30 @@ export const getAllPhotographers = async () => {
 
   if (error) throw error
   return data
+}
+
+// Keeps event_staff_volunteers' photographer row in sync with EventEditor's
+// photographer_id dropdown (the EventEditor -> Contacts direction — the reverse direction
+// is handled by contactsService.confirmStaffForEvent). Only one photographer per event, so
+// any existing role='photographer' row is removed before (optionally) inserting the new
+// one; staffId of null just clears it.
+export const setEventPhotographer = async (
+  eventId: string,
+  staffId: string | null
+): Promise<void> => {
+  const { error: deleteError } = await supabase
+    .from('event_staff_volunteers')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('role', 'photographer')
+  if (deleteError) throw deleteError
+
+  if (staffId) {
+    const { error } = await supabase
+      .from('event_staff_volunteers')
+      .insert({ event_id: eventId, staff_id: staffId, role: 'photographer' })
+    if (error) throw error
+  }
 }
 
 //=== CREATE ===//

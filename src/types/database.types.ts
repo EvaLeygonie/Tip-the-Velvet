@@ -444,6 +444,7 @@ export type Database = {
         Row: {
           available_tickets: number | null
           casting_call_deadline: string | null
+          casting_call_start: string | null
           casting_info_eng: string | null
           casting_info_sv: string | null
           created_at: string
@@ -455,6 +456,7 @@ export type Database = {
           fb_album_url: string | null
           glow_color: string | null
           has_casting_call: boolean
+          hashtags: string | null
           id: string
           image_id: string | null
           location: string | null
@@ -478,6 +480,7 @@ export type Database = {
         Insert: {
           available_tickets?: number | null
           casting_call_deadline?: string | null
+          casting_call_start?: string | null
           casting_info_eng?: string | null
           casting_info_sv?: string | null
           created_at?: string
@@ -489,6 +492,7 @@ export type Database = {
           fb_album_url?: string | null
           glow_color?: string | null
           has_casting_call?: boolean
+          hashtags?: string | null
           id?: string
           image_id?: string | null
           location?: string | null
@@ -512,6 +516,7 @@ export type Database = {
         Update: {
           available_tickets?: number | null
           casting_call_deadline?: string | null
+          casting_call_start?: string | null
           casting_info_eng?: string | null
           casting_info_sv?: string | null
           created_at?: string
@@ -523,6 +528,7 @@ export type Database = {
           fb_album_url?: string | null
           glow_color?: string | null
           has_casting_call?: boolean
+          hashtags?: string | null
           id?: string
           image_id?: string | null
           location?: string | null
@@ -570,6 +576,44 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_posts: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          id: string
+          is_posted: boolean
+          post_type: Database["public"]["Enums"]["marketing_post_type"]
+          posted_at: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          is_posted?: boolean
+          post_type: Database["public"]["Enums"]["marketing_post_type"]
+          posted_at?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          is_posted?: boolean
+          post_type?: Database["public"]["Enums"]["marketing_post_type"]
+          posted_at?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_posts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -1099,6 +1143,29 @@ export type Database = {
         | "not_needed"
       event_status: "draft" | "published" | "cancelled" | "archived"
       language: "sv" | "eng"
+      marketing_post_type:
+        | "save_the_date"
+        | "casting_call_open"
+        | "ticket_release"
+        | "custom"
+        | "facebook_event"
+        | "casting_call_closed"
+        | "ticket_countdown"
+        | "pinterest_board"
+        | "volunteers_needed"
+        | "artists_soon"
+        | "artists_all_together"
+        | "sponsors_sales_table"
+        | "contest"
+        | "photo_corner"
+        | "venue_rules"
+        | "evening_schedule"
+        | "one_week_left"
+        | "share_like_invite"
+        | "evening_schedule_reminder"
+        | "lets_go"
+        | "thank_you"
+        | "evaluation"
       sponsor_type:
         | "prize"
         | "creation"
@@ -1261,6 +1328,30 @@ export const Constants = {
       ],
       event_status: ["draft", "published", "cancelled", "archived"],
       language: ["sv", "eng"],
+      marketing_post_type: [
+        "save_the_date",
+        "casting_call_open",
+        "ticket_release",
+        "custom",
+        "facebook_event",
+        "casting_call_closed",
+        "ticket_countdown",
+        "pinterest_board",
+        "volunteers_needed",
+        "artists_soon",
+        "artists_all_together",
+        "sponsors_sales_table",
+        "contest",
+        "photo_corner",
+        "venue_rules",
+        "evening_schedule",
+        "one_week_left",
+        "share_like_invite",
+        "evening_schedule_reminder",
+        "lets_go",
+        "thank_you",
+        "evaluation",
+      ],
       sponsor_type: ["prize", "creation", "sales", "promo", "partner", "other"],
       staff_volunteer_type: [
         "photographer",

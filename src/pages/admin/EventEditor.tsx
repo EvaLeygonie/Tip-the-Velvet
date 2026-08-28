@@ -7,8 +7,20 @@ import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { FloatingBackLink } from '@/components/FloatingBackLink'
 import type { Event, CreateEventInput } from '@/types/types'
-import { createSlug, getImageSrc, utcToLocal, localToUtc } from '@/lib/utils'
-import { getAdminEventDetails, getAllVenues, getAllPhotographers } from '@/services/eventService'
+import {
+  createSlug,
+  getImageSrc,
+  utcToLocal,
+  localToUtc,
+  generateEventHashtags,
+  DEFAULT_EVENT_HASHTAGS,
+} from '@/lib/utils'
+import {
+  getAdminEventDetails,
+  getAllVenues,
+  getAllPhotographers,
+  setEventPhotographer,
+} from '@/services/eventService'
 import { deleteRow } from '@/services/databaseService'
 import { uploadToCloudinary, deleteFromCloudinary } from '@/services/cloudinaryService'
 import { ImageCategory } from '@/types/media'
@@ -42,6 +54,7 @@ export const EventEditor = () => {
     photographer_id: null,
     location: '',
     photographer: '',
+    hashtags: DEFAULT_EVENT_HASHTAGS,
   })
 
   const glowColor = formData.glow_color || '#D4AF37'
@@ -126,6 +139,17 @@ export const EventEditor = () => {
     }))
   }
 
+  // Prepends onto whatever's already there (typically the default base tags) rather than
+  // overwriting, so title/subtitle/venue tags end up first and the base tags stay last.
+  const handleGenerateHashtags = () => {
+    const generated = generateEventHashtags(formData.title, formData.subtitle, formData.location)
+    if (!generated) return
+    setFormData((prev) => {
+      const existing = prev.hashtags?.trim()
+      return { ...prev, hashtags: existing ? `${generated} ${existing}` : generated }
+    })
+  }
+
   const handlePhotographerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value || null
     const selectedPhotographer = photographers.find((p) => p.id === selectedId)
@@ -188,6 +212,7 @@ export const EventEditor = () => {
       slug: finalSlug,
       status: formData.status || 'draft',
       has_casting_call: formData.has_casting_call || false,
+      casting_call_start: formData.casting_call_start || null,
       casting_call_deadline: formData.casting_call_deadline || null,
       staff_recruitment_open: formData.staff_recruitment_open || false,
       casting_info_sv: formData.casting_info_sv || null,
@@ -211,14 +236,27 @@ export const EventEditor = () => {
       pinterest_link: formData.pinterest_link || null,
       facebook_event: formData.facebook_event || null,
       fb_album_url: formData.fb_album_url || null,
+      hashtags: formData.hashtags || null,
     }
 
     try {
-      const { error } = slug
-        ? await supabase.from('events').update(payload).eq('slug', slug)
+      const { data, error } = slug
+        ? await supabase.from('events').update(payload).eq('slug', slug).select().single()
         : await supabase.from('events').insert([payload]).select().single()
 
       if (error) throw error
+
+      try {
+        await setEventPhotographer(data.id, formData.photographer_id || null)
+      } catch (photographerErr) {
+        console.error('Kunde inte synka fotograf mot kontaktlistan:', photographerErr)
+        toast.error(
+          t(
+            'Eventet sparades, men fotografen kunde inte synkas mot kontaktlistan.',
+            'Event saved, but the photographer could not be synced to the contact roster.'
+          )
+        )
+      }
 
       toast.success(slug ? t('Uppdaterat!', 'Updated!') : t('Skapat!', 'Created!'))
 
@@ -306,10 +344,12 @@ export const EventEditor = () => {
             </div>
 
             {/* REVEAL & CASTING CALL */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-stretch sm:items-center bg-black/50 border border-accent/10 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mt-6 sm:mt-auto">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-stretch sm:items-center bg-black/50 border border-accent/10 rounded-xl px-4 sm:px-6 py-3 mt-6 sm:mt-auto">
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <Eye className="w-5 h-5 text-accent shrink-0" />
-                <label className="form-label-gold">{t('Publiceras:', 'Reveal Date:')}</label>
+                <label className="form-label-gold whitespace-nowrap">
+                  {t('Publiceras:', 'Reveal Date:')}
+                </label>
                 <input
                   type="date"
                   name="reveal_date"
@@ -321,39 +361,25 @@ export const EventEditor = () => {
 
               <div className="hidden sm:block w-px h-8 bg-accent/20 self-center" />
 
-              <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap">
-                <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-accent shrink-0" />
-                  <label className="form-label-gold">{t('Casting Call:', 'Casting Call:')}</label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData({ ...formData, has_casting_call: !formData.has_casting_call })
-                    }
-                    className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
-                      formData.has_casting_call ? 'bg-accent' : 'bg-white/10'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${
-                        formData.has_casting_call ? 'left-5' : 'left-0.5'
-                      }`}
-                    />
-                  </button>
-                  {formData.has_casting_call && (
-                    <>
-                      <label className="form-label-gold">Deadline: </label>
-                      <input
-                        type="date"
-                        name="casting_call_deadline"
-                        placeholder="Deadline..."
-                        value={formData.casting_call_deadline || ''}
-                        onChange={handleChange}
-                        className="editor-input !border-none !py-0 text-xs flex-1"
-                      />
-                    </>
-                  )}
-                </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Users className="w-5 h-5 text-accent shrink-0" />
+                <label className="form-label-gold whitespace-nowrap">
+                  {t('Casting Call:', 'Casting Call:')}
+                </label>
+                <input
+                  type="date"
+                  name="casting_call_start"
+                  value={formData.casting_call_start || ''}
+                  onChange={handleChange}
+                  className="editor-input bg-black/20 border border-white/5 rounded px-2 py-1 text-sm text-foreground/90 flex-1 focus:border-accent/40 outline-none"
+                />
+                <input
+                  type="date"
+                  name="casting_call_deadline"
+                  value={formData.casting_call_deadline || ''}
+                  onChange={handleChange}
+                  className="editor-input bg-black/20 border border-white/5 rounded px-2 py-1 text-sm text-foreground/90 flex-1 focus:border-accent/40 outline-none"
+                />
               </div>
             </div>
           </div>
@@ -653,6 +679,29 @@ export const EventEditor = () => {
                 placeholder="https://..."
                 className="editor-input"
                 value={formData.ticket_url || ''}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="field-row md:col-span-2">
+              <div className="flex items-center justify-between">
+                <label className="form-label-gold">{t('Hashtags', 'Hashtags')}</label>
+                <button
+                  type="button"
+                  onClick={handleGenerateHashtags}
+                  className="text-[11px] text-accent hover:underline"
+                >
+                  {t(
+                    'Generera från titel/undertitel/plats',
+                    'Generate from title/subtitle/venue'
+                  )}
+                </button>
+              </div>
+              <textarea
+                name="hashtags"
+                placeholder="#Halloween #DarkCarnival"
+                className="editor-textarea min-h-[70px] resize-none"
+                value={formData.hashtags || ''}
                 onChange={handleChange}
               />
             </div>

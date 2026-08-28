@@ -10,7 +10,9 @@ import {
   createSponsor,
   createVenue,
   getStaffEventStatuses,
+  getConfirmedSponsorIds,
 } from '@/services/contactsService'
+import { getEventVenueId } from '@/services/eventService'
 import { updateRow, deleteRow } from '@/services/databaseService'
 import type {
   StaffVolunteers,
@@ -100,6 +102,8 @@ export const AdminContacts = () => {
   const [staffEventStatuses, setStaffEventStatuses] = useState<
     Record<string, EventStaffInvitationStatus>
   >({})
+  const [confirmedSponsorIds, setConfirmedSponsorIds] = useState<Set<string>>(new Set())
+  const [statusEventVenueId, setStatusEventVenueId] = useState<string | null>(null)
 
   useEffect(() => {
     const syncDefault = () => {
@@ -111,15 +115,21 @@ export const AdminContacts = () => {
 
   useEffect(() => {
     if (!statusEventId) return
-    const loadStatuses = async () => {
+    const loadStatusEventData = async () => {
       try {
-        const statuses = await getStaffEventStatuses(statusEventId)
-        setStaffEventStatuses(statuses)
+        const [staffStatuses, sponsorIds, venueId] = await Promise.all([
+          getStaffEventStatuses(statusEventId),
+          getConfirmedSponsorIds(statusEventId),
+          getEventVenueId(statusEventId),
+        ])
+        setStaffEventStatuses(staffStatuses)
+        setConfirmedSponsorIds(sponsorIds)
+        setStatusEventVenueId(venueId)
       } catch (err) {
         console.error('Kunde inte hämta eventstatus:', err)
       }
     }
-    loadStatuses()
+    loadStatusEventData()
   }, [statusEventId])
 
   const [staffRows, setStaffRows] = useState<StaffVolunteers[]>([])
@@ -214,9 +224,38 @@ export const AdminContacts = () => {
     }
   }
 
+  const refreshConfirmedSponsorIds = async () => {
+    if (!statusEventId) return
+    try {
+      const ids = await getConfirmedSponsorIds(statusEventId)
+      setConfirmedSponsorIds(ids)
+    } catch (err) {
+      console.error('Kunde inte hämta sponsorstatus:', err)
+    }
+  }
+
   const statusEvent = upcomingEvents.find((e) => e.id === statusEventId)
   const interestedCount = Object.values(staffEventStatuses).filter((s) => s === 'interested').length
   const confirmedCount = Object.values(staffEventStatuses).filter((s) => s === 'confirmed').length
+  const confirmedSponsorCount = confirmedSponsorIds.size
+
+  // Confirmed first, interested second, everything else after — within whatever grouping
+  // the caller already has (role section for staff, the whole flat list for sponsors).
+  const byEventStatusFirst = <T extends { id: string }>(
+    rows: T[],
+    statuses: Record<string, EventStaffInvitationStatus>
+  ): T[] => {
+    const rank = (id: string) => {
+      const status = statuses[id]
+      if (status === 'confirmed') return 0
+      if (status === 'interested') return 1
+      return 2
+    }
+    return [...rows].sort((a, b) => rank(a.id) - rank(b.id))
+  }
+
+  const byConfirmedFirst = <T extends { id: string }>(rows: T[], confirmedIds: Set<string>): T[] =>
+    [...rows].sort((a, b) => Number(confirmedIds.has(b.id)) - Number(confirmedIds.has(a.id)))
 
   const roleOptions = ROLE_ORDER.map((role) => ({ value: role, label: roleLabel(role) }))
   const sponsorTypeOptions = SPONSOR_TYPE_ORDER.map((type) => ({
@@ -353,7 +392,7 @@ export const AdminContacts = () => {
           </div>
         </div>
         <div className="space-y-3">
-          {rows.map((row) => (
+          {byEventStatusFirst(rows, staffEventStatuses).map((row) => (
             <StaffVolunteerRow
               key={row.id}
               row={row}
@@ -491,34 +530,6 @@ export const AdminContacts = () => {
                   )
                 )
               )}
-              {upcomingEvents.length > 0 && (
-                <div className="flex flex-wrap items-center justify-center gap-3 mt-3 mb-4 text-sm">
-                  <span className="text-foreground/60">{t('Status för:', 'Status for:')}</span>
-                  {upcomingEvents.length > 1 ? (
-                    <select
-                      value={statusEventId}
-                      onChange={(e) => setStatusEventId(e.target.value)}
-                      className="admin-select !text-xs"
-                    >
-                      {upcomingEvents.map((evt) => (
-                        <option key={evt.id} value={evt.id}>
-                          {evt.title}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="text-accent font-semibold">{statusEvent?.title}</span>
-                  )}
-                  <span className="text-foreground/40">•</span>
-                  <span className="text-sky-400">
-                    {interestedCount} {t('intresserade', 'interested')}
-                  </span>
-                  <span className="text-foreground/40">·</span>
-                  <span className="text-green-400">
-                    {confirmedCount} {t('bekräftade', 'confirmed')}
-                  </span>
-                </div>
-              )}
             </>
           )}
 
@@ -538,6 +549,30 @@ export const AdminContacts = () => {
                 onAdd={() => setSponsorDrafts((prev) => [blankSponsor(), ...prev])}
                 addLabel={t('Lägg till', 'Add')}
               />
+              {upcomingEvents.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-3 mb-3 text-sm">
+                  <span className="text-foreground/60">{t('Status för:', 'Status for:')}</span>
+                  {upcomingEvents.length > 1 ? (
+                    <select
+                      value={statusEventId}
+                      onChange={(e) => setStatusEventId(e.target.value)}
+                      className="admin-select !text-xs"
+                    >
+                      {upcomingEvents.map((evt) => (
+                        <option key={evt.id} value={evt.id}>
+                          {evt.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-accent font-semibold">{statusEvent?.title}</span>
+                  )}
+                  <span className="text-foreground/40">•</span>
+                  <span className="text-green-400">
+                    {confirmedSponsorCount} {t('bekräftade', 'confirmed')}
+                  </span>
+                </div>
+              )}
               <div className="space-y-3">
                 {sponsorDrafts.map((d) => (
                   <SponsorRow
@@ -558,7 +593,7 @@ export const AdminContacts = () => {
                     {t('Inga sponsorer hittades.', 'No sponsors found.')}
                   </div>
                 ) : (
-                  filteredSponsors.map((row) => (
+                  byConfirmedFirst(filteredSponsors, confirmedSponsorIds).map((row) => (
                     <SponsorRow
                       key={row.id}
                       row={row}
@@ -566,6 +601,8 @@ export const AdminContacts = () => {
                       onSave={handleSaveSponsor}
                       onDelete={handleDeleteSponsor}
                       onEmail={openMailModalFor}
+                      isConfirmedForEvent={confirmedSponsorIds.has(row.id)}
+                      onConfirmed={refreshConfirmedSponsorIds}
                     />
                   ))
                 )}
@@ -611,6 +648,7 @@ export const AdminContacts = () => {
                       onSave={handleSaveVenue}
                       onDelete={handleDeleteVenue}
                       onEmail={openMailModalFor}
+                      isBookedForEvent={row.id === statusEventVenueId}
                     />
                   ))
                 )}

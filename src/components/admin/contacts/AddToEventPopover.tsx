@@ -3,14 +3,14 @@ import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
-import { markStaffInterested, confirmStaffForEvent } from '@/services/contactsService'
-import type { StaffVolunteerType } from '@/types/types'
 
 interface AddToEventPopoverProps {
   onClose: () => void
-  staffId: string
-  role: StaffVolunteerType
-  roleDetails: string | null
+  // Caller-supplied writes, generalized so this one popover serves both staff (two
+  // actions) and sponsors (confirm only) instead of duplicating the dialog per entity
+  // type. onMarkInterested omitted -> that button doesn't render.
+  onMarkInterested?: (eventId: string) => Promise<void>
+  onConfirm: (eventId: string) => Promise<void>
   // Lets the Contacts page refresh its status badges/tally after a write here, without
   // this component needing to know how that state is stored.
   onChanged?: () => void
@@ -22,9 +22,8 @@ interface AddToEventPopoverProps {
 // pattern already proven by ContactMailModal.tsx.
 export const AddToEventPopover = ({
   onClose,
-  staffId,
-  role,
-  roleDetails,
+  onMarkInterested,
+  onConfirm,
   onChanged,
 }: AddToEventPopoverProps) => {
   const { t } = useLanguage()
@@ -33,10 +32,10 @@ export const AddToEventPopover = ({
   const [isSaving, setIsSaving] = useState(false)
 
   const handleMarkInterested = async () => {
-    if (!targetEventId) return
+    if (!targetEventId || !onMarkInterested) return
     setIsSaving(true)
     try {
-      await markStaffInterested(targetEventId, staffId)
+      await onMarkInterested(targetEventId)
       toast.success(t('Markerad som intresserad!', 'Marked as interested!'))
       onChanged?.()
       onClose()
@@ -52,7 +51,7 @@ export const AddToEventPopover = ({
     if (!targetEventId) return
     setIsSaving(true)
     try {
-      await confirmStaffForEvent(targetEventId, staffId, role, roleDetails)
+      await onConfirm(targetEventId)
       toast.success(t('Bekräftad för eventet!', 'Confirmed for the event!'))
       onChanged?.()
       onClose()
@@ -102,14 +101,16 @@ export const AddToEventPopover = ({
         </div>
 
         <div className="flex flex-col gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleMarkInterested}
-            disabled={isSaving || !targetEventId}
-            className="btn-gold-outline text-xs py-2 px-3 justify-center"
-          >
-            {t('Markera intresserad', 'Mark interested')}
-          </button>
+          {onMarkInterested && (
+            <button
+              type="button"
+              onClick={handleMarkInterested}
+              disabled={isSaving || !targetEventId}
+              className="btn-gold-outline text-xs py-2 px-3 justify-center"
+            >
+              {t('Markera intresserad', 'Mark interested')}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleConfirm}

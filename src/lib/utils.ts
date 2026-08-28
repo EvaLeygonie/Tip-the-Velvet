@@ -104,6 +104,145 @@ export const getImageSrc = (imageId: string) => {
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${imageId}`
 }
 
+const BOLD_SERIF_UPPER_START = 0x1d400 // Mathematical Bold 𝐀
+const BOLD_SERIF_LOWER_START = 0x1d41a // Mathematical Bold 𝐚
+
+// For social-post headers ("Headliner Reveal!" -> "𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞𝐫 𝐑𝐞𝐯𝐞𝐚𝐥!") — only A-Z/a-z have a
+// bold variant in this Unicode block, everything else (spaces, punctuation, digits) passes
+// through unchanged. NFD-normalizing first matters for Swedish å/ä/ö — verified against a
+// real post ("Volontärer sökes!" -> "𝐕𝐨𝐥𝐨𝐧𝐭𝐚̈𝐫𝐞𝐫 𝐬𝐨̈𝐤𝐞𝐬!"): NFD decomposes ä/ö into a
+// plain base letter (which gets bolded normally) plus a combining diaeresis (which, like
+// any other non-letter character, just passes through unchanged) — so the accent still
+// renders correctly over the bold letter without needing a separate accented-letter table.
+export const toBoldSerif = (text: string): string =>
+  Array.from(text.normalize('NFD'))
+    .map((ch) => {
+      if (ch >= 'A' && ch <= 'Z') {
+        return String.fromCodePoint(BOLD_SERIF_UPPER_START + (ch.codePointAt(0)! - 65))
+      }
+      if (ch >= 'a' && ch <= 'z') {
+        return String.fromCodePoint(BOLD_SERIF_LOWER_START + (ch.codePointAt(0)! - 97))
+      }
+      return ch
+    })
+    .join('')
+
+const DOUBLE_STRUCK_UPPER_START = 0x1d538 // Mathematical Double-Struck 𝔸
+const DOUBLE_STRUCK_LOWER_START = 0x1d552 // Mathematical Double-Struck 𝕒
+// C, H, N, P, Q, R, Z have no assigned codepoint in that block (Unicode left them reserved
+// since the "blackboard bold" glyphs already existed for number sets — ℂℍℕℙℚℝℤ) — pulled
+// from the pre-existing Letterlike Symbols block instead.
+const DOUBLE_STRUCK_UPPER_EXCEPTIONS: Record<string, string> = {
+  C: 'ℂ',
+  H: 'ℍ',
+  N: 'ℕ',
+  P: 'ℙ',
+  Q: 'ℚ',
+  R: 'ℝ',
+  Z: 'ℤ',
+}
+
+export const toDoubleStruck = (text: string): string =>
+  Array.from(text.normalize('NFD'))
+    .map((ch) => {
+      if (ch >= 'A' && ch <= 'Z') {
+        return (
+          DOUBLE_STRUCK_UPPER_EXCEPTIONS[ch] ??
+          String.fromCodePoint(DOUBLE_STRUCK_UPPER_START + (ch.codePointAt(0)! - 65))
+        )
+      }
+      if (ch >= 'a' && ch <= 'z') {
+        return String.fromCodePoint(DOUBLE_STRUCK_LOWER_START + (ch.codePointAt(0)! - 97))
+      }
+      return ch
+    })
+    .join('')
+
+// Verified character-by-character against the org's actual posted text ("Deadly Sins of
+// Pandaemonium" -> "ᴅᴇᴀᴅʟʏ sɪɴs ᴏғ ᴘᴀɴᴅᴀᴇᴍᴏɴɪᴜᴍ", "Ticket Release" -> "ᴛɪᴄᴋᴇᴛ ʀᴇʟᴇᴀsᴇ", etc.) —
+// only letters confirmed that way are mapped; F notably uses a Cyrillic lookalike (ғ) not a
+// true small-cap glyph. Everything unconfirmed (S included — verified to fall back this way
+// in the org's own posts) just lowercases rather than risk an invented glyph.
+const SMALL_CAPS_MAP: Record<string, string> = {
+  A: 'ᴀ',
+  B: 'ʙ',
+  C: 'ᴄ',
+  D: 'ᴅ',
+  E: 'ᴇ',
+  F: 'ғ',
+  I: 'ɪ',
+  J: 'ᴊ',
+  K: 'ᴋ',
+  L: 'ʟ',
+  M: 'ᴍ',
+  N: 'ɴ',
+  O: 'ᴏ',
+  P: 'ᴘ',
+  R: 'ʀ',
+  T: 'ᴛ',
+  U: 'ᴜ',
+  Y: 'ʏ',
+}
+
+export const toSmallCaps = (text: string): string =>
+  Array.from(text.normalize('NFD'))
+    .map((ch) => SMALL_CAPS_MAP[ch.toUpperCase()] ?? ch.toLowerCase())
+    .join('')
+
+// Offsets (codepoint minus raw char code, not "minus 65/97" like toBoldSerif/toDoubleStruck)
+// — verified against real text: D/S/P (0x1D507/0x1D516/0x1D513) and a/e/d/l/y/... all solve
+// to these same two constants.
+const FRAKTUR_UPPER_START = 0x1d4c3
+const FRAKTUR_LOWER_START = 0x1d4bd
+// C, H, I, R, Z reuse pre-existing Letterlike Symbols glyphs (ℭℌℑℜℨ), same reserved-gap
+// pattern as toDoubleStruck's exceptions — confirmed against Unicode's Mathematical
+// Alphanumeric Symbols reference, not just the (smaller) directly-verified letter set.
+const FRAKTUR_UPPER_EXCEPTIONS: Record<string, string> = {
+  C: 'ℭ',
+  H: 'ℌ',
+  I: 'ℑ',
+  R: 'ℜ',
+  Z: 'ℨ',
+}
+
+export const toFraktur = (text: string): string =>
+  Array.from(text.normalize('NFD'))
+    .map((ch) => {
+      if (ch >= 'A' && ch <= 'Z') {
+        return (
+          FRAKTUR_UPPER_EXCEPTIONS[ch] ?? String.fromCodePoint(FRAKTUR_UPPER_START + ch.codePointAt(0)!)
+        )
+      }
+      if (ch >= 'a' && ch <= 'z') {
+        return String.fromCodePoint(FRAKTUR_LOWER_START + ch.codePointAt(0)!)
+      }
+      return ch
+    })
+    .join('')
+
+// "Dark Carnival" -> "#DarkCarnival" — strips everything but letters/digits, no word-casing
+// logic beyond what's already in the source text.
+export const toHashtag = (text: string): string => `#${text.replace(/[^\p{L}\p{N}]/gu, '')}`
+
+// Always-the-same org/city tags, kept last in every hashtag block. This is also the
+// events.hashtags column's DB-level DEFAULT, so a brand new event row starts with these
+// already in place — EventEditor.tsx mirrors the same string for its own new-event form
+// state so what's shown on first load matches what actually gets saved.
+export const DEFAULT_EVENT_HASHTAGS =
+  '#TipTheVelvet #TipTheVelvetBurlesque #TipTheVelvetBurlesqueClub #Burlesque #BurlesqueSwe #BurlesqueSweden #SwedishBurlesque #Gothenburg #GothenburgEvent #GothenburgBurlesque'
+
+// One tag each for title/subtitle/venue, skipping any that are empty — a starting point the
+// board hand-adjusts afterward (e.g. adding a seasonal #Halloween tag), not a final answer.
+export const generateEventHashtags = (
+  title: string | null | undefined,
+  subtitle: string | null | undefined,
+  venueName: string | null | undefined
+): string =>
+  [title, subtitle, venueName]
+    .filter((v): v is string => !!v && v.trim() !== '')
+    .map(toHashtag)
+    .join(' ')
+
 export const compressImage = (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -206,6 +345,39 @@ export const formatDate = (language: string, dateString: string | null) => {
     month: 'long',
     year: 'numeric',
   })
+}
+
+// "24e Oktober 2026" / "October 24th 2026" — matches the exact ordinal-day style used in
+// the org's actual social posts (formatDate above doesn't add an ordinal). Swedish ordinal
+// rule: numbers ending in 1 or 2 take "a", except the teens (11/12), which take "e" like
+// everything else.
+export const formatSocialDateLine = (dateString: string, lang: 'sv' | 'eng'): string => {
+  const date = new Date(dateString)
+  const day = date.getDate()
+  const year = date.getFullYear()
+
+  if (lang === 'sv') {
+    const lastTwo = day % 100
+    const lastOne = day % 10
+    const suffix = (lastOne === 1 || lastOne === 2) && !(lastTwo === 11 || lastTwo === 12) ? 'a' : 'e'
+    const month = date.toLocaleDateString('sv-SE', { month: 'long' })
+    return `${day}${suffix} ${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`
+  }
+
+  const lastTwo = day % 100
+  const lastOne = day % 10
+  const suffix =
+    lastTwo >= 11 && lastTwo <= 13
+      ? 'th'
+      : lastOne === 1
+        ? 'st'
+        : lastOne === 2
+          ? 'nd'
+          : lastOne === 3
+            ? 'rd'
+            : 'th'
+  const month = date.toLocaleDateString('en-US', { month: 'long' })
+  return `${month} ${day}${suffix} ${year}`
 }
 
 export const formatDateTime = (language: string, dateStr: string | null) => {
