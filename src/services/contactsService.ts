@@ -158,6 +158,45 @@ export const confirmStaffForEvent = async (
   }
 }
 
+// Undoes markStaffInterested — deletes the invitation row entirely rather than setting some
+// "removed" status, since nothing else needs to remember it was ever there.
+export const removeStaffInterest = async (eventId: string, staffId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_invitations')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('staff_id', staffId)
+
+  if (error) throw error
+}
+
+// Undoes confirmStaffForEvent — removes them from the confirmed roster entirely. Mirrors
+// that function's photographer special-case: if they were the event's photographer,
+// clears events.photographer_id/photographer too (guarded by matching photographer_id so
+// this can't clobber a different photographer who's since been confirmed instead).
+export const removeStaffFromEvent = async (
+  eventId: string,
+  staffId: string,
+  role: StaffVolunteerType
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_volunteers')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('staff_id', staffId)
+
+  if (error) throw error
+
+  if (role === 'photographer') {
+    const { error: eventError } = await supabase
+      .from('events')
+      .update({ photographer_id: null, photographer: null })
+      .eq('id', eventId)
+      .eq('photographer_id', staffId)
+    if (eventError) throw eventError
+  }
+}
+
 //=== SPONSOR EVENT ASSIGNMENT ===///
 
 // Sponsor "interest" is a real conversation, not a status worth tracking — this is the
@@ -187,4 +226,15 @@ export const getConfirmedSponsorIds = async (eventId: string): Promise<Set<strin
 
   if (error) throw error
   return new Set((data || []).map((r) => r.sponsor_id))
+}
+
+// Undoes confirmSponsorForEvent.
+export const removeSponsorFromEvent = async (eventId: string, sponsorId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('event_sponsors')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('sponsor_id', sponsorId)
+
+  if (error) throw error
 }

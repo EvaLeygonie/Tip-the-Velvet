@@ -4,13 +4,21 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 
+export interface PopoverAction {
+  label: string
+  // 'positive' (gold, filled) for interested/confirm-type moves, 'negative' (red-tinted,
+  // matches the Radera/delete idiom used elsewhere) for remove-interest/remove-from-event.
+  variant: 'positive' | 'negative'
+  successMessage: string
+  onClick: (eventId: string) => Promise<void>
+}
+
 interface AddToEventPopoverProps {
   onClose: () => void
-  // Caller-supplied writes, generalized so this one popover serves both staff (two
-  // actions) and sponsors (confirm only) instead of duplicating the dialog per entity
-  // type. onMarkInterested omitted -> that button doesn't render.
-  onMarkInterested?: (eventId: string) => Promise<void>
-  onConfirm: (eventId: string) => Promise<void>
+  // Caller computes exactly which 1-2 actions make sense for this row's current status
+  // (none/interested/confirmed) — the popover just renders whatever it's given, so it stays
+  // agnostic of staff-vs-sponsor status semantics.
+  actions: PopoverAction[]
   // Lets the Contacts page refresh its status badges/tally after a write here, without
   // this component needing to know how that state is stored.
   onChanged?: () => void
@@ -20,39 +28,18 @@ interface AddToEventPopoverProps {
 // overflow-hidden (keeps its content within the rounded card border), which would clip an
 // absolutely-positioned popover nested inside it. Portaled to document.body instead, same
 // pattern already proven by ContactMailModal.tsx.
-export const AddToEventPopover = ({
-  onClose,
-  onMarkInterested,
-  onConfirm,
-  onChanged,
-}: AddToEventPopoverProps) => {
+export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPopoverProps) => {
   const { t } = useLanguage()
   const { upcomingEvents, selectedEventId } = useCurrentEvent()
   const [targetEventId, setTargetEventId] = useState(selectedEventId)
   const [isSaving, setIsSaving] = useState(false)
 
-  const handleMarkInterested = async () => {
-    if (!targetEventId || !onMarkInterested) return
-    setIsSaving(true)
-    try {
-      await onMarkInterested(targetEventId)
-      toast.success(t('Markerad som intresserad!', 'Marked as interested!'))
-      onChanged?.()
-      onClose()
-    } catch (err) {
-      toast.error(t('Kunde inte spara.', 'Could not save.'))
-      console.error(err)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleConfirm = async () => {
+  const handleAction = async (action: PopoverAction) => {
     if (!targetEventId) return
     setIsSaving(true)
     try {
-      await onConfirm(targetEventId)
-      toast.success(t('Bekräftad för eventet!', 'Confirmed for the event!'))
+      await action.onClick(targetEventId)
+      toast.success(action.successMessage)
       onChanged?.()
       onClose()
     } catch (err) {
@@ -101,24 +88,21 @@ export const AddToEventPopover = ({
         </div>
 
         <div className="flex flex-col gap-2 pt-1">
-          {onMarkInterested && (
+          {actions.map((action) => (
             <button
+              key={action.label}
               type="button"
-              onClick={handleMarkInterested}
+              onClick={() => handleAction(action)}
               disabled={isSaving || !targetEventId}
-              className="btn-gold-outline text-xs py-2 px-3 justify-center"
+              className={
+                action.variant === 'positive'
+                  ? 'btn-gold text-xs py-2 px-3 min-h-0 justify-center'
+                  : 'btn-red text-xs py-2 px-3 min-h-0 justify-center'
+              }
             >
-              {t('Markera intresserad', 'Mark interested')}
+              {action.label}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={isSaving || !targetEventId}
-            className="btn-gold text-xs py-2 px-3 min-h-0 justify-center"
-          >
-            {t('Bekräfta', 'Confirm')}
-          </button>
+          ))}
           <button
             type="button"
             onClick={onClose}

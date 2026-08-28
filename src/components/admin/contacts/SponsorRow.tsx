@@ -13,10 +13,10 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload'
 import { deleteFromCloudinary } from '@/services/cloudinaryService'
-import { confirmSponsorForEvent } from '@/services/contactsService'
+import { confirmSponsorForEvent, removeSponsorFromEvent } from '@/services/contactsService'
 import { createSlug, processUploadedImage } from '@/lib/utils'
 import { ImageCategory } from '@/types/media'
-import { AddToEventPopover } from './AddToEventPopover'
+import { AddToEventPopover, type PopoverAction } from './AddToEventPopover'
 import type { Sponsors, SponsorType } from '@/types/types'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -154,6 +154,27 @@ export const SponsorRow = ({
   const logoInputId = `logo-upload-${row.id}`
   const rowStatusClass = isConfirmedForEvent ? 'border-emerald-500/70 bg-emerald-950/20' : ''
 
+  // Sponsors have no "interested" stage — just confirmed or not, so only ever one action.
+  const buildPopoverActions = (): PopoverAction[] =>
+    isConfirmedForEvent
+      ? [
+          {
+            label: t('Ta bort från event', 'Remove from event'),
+            variant: 'negative',
+            successMessage: t('Borttagen från eventet.', 'Removed from the event.'),
+            onClick: (eventId) => removeSponsorFromEvent(eventId, row.id),
+          },
+        ]
+      : [
+          {
+            label: t('Bekräfta', 'Confirm'),
+            variant: 'positive',
+            successMessage: t('Bekräftad för eventet!', 'Confirmed for the event!'),
+            onClick: (eventId) =>
+              confirmSponsorForEvent(eventId, row.id, row.sponsor_type, row.sponsor_details),
+          },
+        ]
+
   return (
     <div
       className={`admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer ${rowStatusClass}`}
@@ -240,9 +261,7 @@ export const SponsorRow = ({
               {showEventPopover && (
                 <AddToEventPopover
                   onClose={() => setShowEventPopover(false)}
-                  onConfirm={(eventId) =>
-                    confirmSponsorForEvent(eventId, row.id, row.sponsor_type, row.sponsor_details)
-                  }
+                  actions={buildPopoverActions()}
                   onChanged={onConfirmed}
                 />
               )}

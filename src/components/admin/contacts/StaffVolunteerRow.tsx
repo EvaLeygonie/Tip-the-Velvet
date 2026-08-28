@@ -2,8 +2,13 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Mail, CalendarPlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { AddToEventPopover } from './AddToEventPopover'
-import { markStaffInterested, confirmStaffForEvent } from '@/services/contactsService'
+import { AddToEventPopover, type PopoverAction } from './AddToEventPopover'
+import {
+  markStaffInterested,
+  confirmStaffForEvent,
+  removeStaffInterest,
+  removeStaffFromEvent,
+} from '@/services/contactsService'
 import type { StaffVolunteers, StaffVolunteerType, EventStaffInvitationStatus } from '@/types/types'
 
 // Mirrors CastingApplicationRow.tsx's statusRowClass convention rather than inventing a
@@ -117,6 +122,51 @@ export const StaffVolunteerRow = ({
 
   const rowStatusClass = eventStatus ? (EVENT_STATUS_ROW_CLASS[eventStatus] ?? '') : ''
 
+  // Which 2 actions make sense depends on where this person already stands for the event —
+  // e.g. once confirmed, "Mark interested" again would be a no-op; what's actually useful
+  // is a way back down to interested, or off the event entirely.
+  const buildPopoverActions = (): PopoverAction[] => {
+    const markInterested: PopoverAction = {
+      label: t('Markera intresserad', 'Mark interested'),
+      variant: 'positive',
+      successMessage: t('Markerad som intresserad!', 'Marked as interested!'),
+      onClick: (eventId) => markStaffInterested(eventId, row.id),
+    }
+    const confirm: PopoverAction = {
+      label: t('Bekräfta', 'Confirm'),
+      variant: 'positive',
+      successMessage: t('Bekräftad för eventet!', 'Confirmed for the event!'),
+      onClick: (eventId) =>
+        confirmStaffForEvent(eventId, row.id, row.name, row.role, row.role_details),
+    }
+    const removeInterest: PopoverAction = {
+      label: t('Ta bort intresse', 'Remove interest'),
+      variant: 'negative',
+      successMessage: t('Intresse borttaget.', 'Interest removed.'),
+      onClick: (eventId) => removeStaffInterest(eventId, row.id),
+    }
+    const removeFromEvent: PopoverAction = {
+      label: t('Ta bort från event', 'Remove from event'),
+      variant: 'negative',
+      successMessage: t('Borttagen från eventet.', 'Removed from the event.'),
+      onClick: (eventId) => removeStaffFromEvent(eventId, row.id, row.role),
+    }
+    // Downgrading from confirmed has to both leave the confirmed roster and record the
+    // interest — confirmed always wins over interested in the status map (see
+    // getStaffEventStatuses), so marking interested alone wouldn't visibly change anything.
+    const downgradeToInterested: PopoverAction = {
+      ...markInterested,
+      onClick: async (eventId) => {
+        await removeStaffFromEvent(eventId, row.id, row.role)
+        await markStaffInterested(eventId, row.id)
+      },
+    }
+
+    if (eventStatus === 'confirmed') return [downgradeToInterested, removeFromEvent]
+    if (eventStatus === 'interested') return [removeInterest, confirm]
+    return [markInterested, confirm]
+  }
+
   return (
     <div
       className={`admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer ${rowStatusClass}`}
@@ -212,10 +262,7 @@ export const StaffVolunteerRow = ({
               {showEventPopover && (
                 <AddToEventPopover
                   onClose={() => setShowEventPopover(false)}
-                  onMarkInterested={(eventId) => markStaffInterested(eventId, row.id)}
-                  onConfirm={(eventId) =>
-                    confirmStaffForEvent(eventId, row.id, row.name, row.role, row.role_details)
-                  }
+                  actions={buildPopoverActions()}
                   onChanged={onEventStatusChanged}
                 />
               )}
