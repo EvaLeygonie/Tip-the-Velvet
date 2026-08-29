@@ -237,6 +237,7 @@ export type Database = {
           plus_one_email: string | null
           plus_one_name: string | null
           reveal_date: string | null
+          social_posted: boolean
           travel_covered: number | null
           travel_receipts: Json | null
         }
@@ -255,6 +256,7 @@ export type Database = {
           plus_one_email?: string | null
           plus_one_name?: string | null
           reveal_date?: string | null
+          social_posted?: boolean
           travel_covered?: number | null
           travel_receipts?: Json | null
         }
@@ -273,6 +275,7 @@ export type Database = {
           plus_one_email?: string | null
           plus_one_name?: string | null
           reveal_date?: string | null
+          social_posted?: boolean
           travel_covered?: number | null
           travel_receipts?: Json | null
         }

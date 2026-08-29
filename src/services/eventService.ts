@@ -251,11 +251,36 @@ export const schedulePerformerReveal = async (
 // Only flips event_performers.is_revealed — a first-time performer also needs
 // performers.is_approved set true (that's what actually gates the public_performers view),
 // which the caller handles alongside this via performerService.togglePerformerVisibility
-// when performer.is_approved is still false.
-export const revealPerformerNow = async (eventId: string, performerId: string): Promise<void> => {
+// when performer.is_approved is still false. Also used to walk a too-early reveal back
+// (isRevealed: false) — deliberately doesn't touch is_approved either way when hiding again:
+// a first-timer's profile was already approved by the initial reveal and staying approved
+// is harmless, and a returning performer's profile was already approved regardless.
+export const setPerformerRevealed = async (
+  eventId: string,
+  performerId: string,
+  isRevealed: boolean
+): Promise<void> => {
   const { error } = await supabase
     .from('event_performers')
-    .update({ is_revealed: true })
+    .update({ is_revealed: isRevealed })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
+// A separate flag from is_revealed on purpose — is_revealed gates the public site, this
+// just tracks the board's own checklist of who's had their reveal actually posted to
+// social media, which can lag behind (or, via the failsafe above, get un-done) independent
+// of site visibility.
+export const setPerformerSocialPosted = async (
+  eventId: string,
+  performerId: string,
+  socialPosted: boolean
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ social_posted: socialPosted })
     .eq('event_id', eventId)
     .eq('performer_id', performerId)
 

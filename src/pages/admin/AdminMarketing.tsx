@@ -154,7 +154,14 @@ export const AdminMarketing = () => {
 
   const renderArtistsSection = () => (
     <div key="artists-section" className="space-y-2 pt-2">
-      <h3 className="font-decorative text-lg text-foreground/90">{t('Artister', 'Artists')}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="font-decorative text-lg text-foreground/90">{t('Artister', 'Artists')}</h3>
+        {performers.length > 0 && (
+          <span className="text-[11px] text-foreground/50">
+            {t('Postat på sociala medier', 'Posted on social media')}
+          </span>
+        )}
+      </div>
       {performers.length === 0 ? (
         <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
           {t(

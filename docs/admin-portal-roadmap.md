@@ -656,6 +656,23 @@ regularly. Changes:
   `#Halloween`, since that particular show was Halloween-themed) is left for the board to
   add by hand after generating, via the row's edit/save.
 
+**v4, 2026-09-01** — three small additions to the Artists section (`ArtistOverviewCard.tsx`):
+- **Copy Instagram handle** — a new `@`-icon button next to download/copy, greyed out for
+  anyone without an Instagram link. New `extractInstagramHandle()` in `utils.ts` (reverse of
+  the existing `formatInstagramLink`) pulls the handle back out of the stored profile URL
+  and formats it `@handle`, for pasting straight into an Instagram tag.
+- **Reveal failsafe** — the green "Avslöjad" badge is now itself a button: clicking it
+  again flips `event_performers.is_revealed` back to false (walking back a too-early
+  reveal), turning red on hover as a visual cue. Deliberately simple per the request —
+  doesn't touch `performers.is_approved` either way, since staying approved is harmless
+  whichever direction the toggle goes. `eventService.ts`'s `revealPerformerNow` was renamed
+  `setPerformerRevealed(eventId, performerId, isRevealed)` to serve both directions.
+- **"Posted on social media" checkbox** — a second, independent flag from `is_revealed`
+  (which only gates the public site) for the board's own checklist of who's actually been
+  posted about. New `event_performers.social_posted` column (boolean, default false) +
+  `setPerformerSocialPosted`; a small label ("Postat på sociala medier") sits top-right of
+  the Artists section header, over the checkbox column.
+
 **Known small gaps, not yet acted on**: unrelated (non-event) posts (`event_id` nullable
 already supports it, no UI); richer templates for the 11 checklist-only post types if real
 source text ever gets supplied for them.

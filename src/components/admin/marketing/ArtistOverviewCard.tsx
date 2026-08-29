@@ -4,7 +4,11 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { getImageSrc, toBoldSerif, toDoubleStruck, toHashtag, extractInstagramHandle } from '@/lib/utils'
 import { togglePerformerVisibility } from '@/services/performerService'
-import { revealPerformerNow, schedulePerformerReveal } from '@/services/eventService'
+import {
+  setPerformerRevealed,
+  setPerformerSocialPosted,
+  schedulePerformerReveal,
+} from '@/services/eventService'
 import type { AdminEventPerformerRow } from '@/services/eventService'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -38,6 +42,17 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte kopiera.', 'Could not copy.'))
+    }
+  }
+
+  const handleToggleSocialPosted = async (checked: boolean) => {
+    onChanged(performer.id, { social_posted: checked })
+    try {
+      await setPerformerSocialPosted(event.id, performer.id, checked)
+    } catch (err) {
+      console.error(err)
+      onChanged(performer.id, { social_posted: !checked })
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
     }
   }
 
@@ -89,7 +104,7 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
   const handleRevealNow = async () => {
     setIsRevealing(true)
     try {
-      const writes: Promise<unknown>[] = [revealPerformerNow(event.id, performer.id)]
+      const writes: Promise<unknown>[] = [setPerformerRevealed(event.id, performer.id, true)]
       if (!performer.is_approved) {
         writes.push(togglePerformerVisibility(performer.id, true))
       }
@@ -99,6 +114,23 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte avslöja artisten.', 'Could not reveal the artist.'))
+    } finally {
+      setIsRevealing(false)
+    }
+  }
+
+  // Failsafe for an early reveal — just walks event_performers.is_revealed back, on the
+  // reasoning that leaving performers.is_approved alone is harmless either way (see
+  // setPerformerRevealed's own comment).
+  const handleHideAgain = async () => {
+    setIsRevealing(true)
+    try {
+      await setPerformerRevealed(event.id, performer.id, false)
+      toast.success(t('Artisten är dold igen.', 'Artist hidden again.'))
+      onChanged(performer.id, { is_revealed: false })
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte dölja artisten.', 'Could not hide the artist.'))
     } finally {
       setIsRevealing(false)
     }
@@ -185,9 +217,19 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
         </button>
 
         {row.is_revealed ? (
-          <span className="text-[11px] font-semibold text-green-400 whitespace-nowrap">
+          <button
+            type="button"
+            onClick={handleHideAgain}
+            disabled={isRevealing}
+            title={t(
+              'Avslöjad för tidigt? Klicka för att dölja artisten igen.',
+              'Revealed too early? Click to hide the artist again.'
+            )}
+            className="text-[11px] font-semibold text-green-400 hover:text-red-400 whitespace-nowrap flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {isRevealing && <Loader2 className="h-3 w-3 animate-spin" />}
             {t('Avslöjad', 'Revealed')}
-          </span>
+          </button>
         ) : (
           <>
             <input
@@ -207,6 +249,14 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
             </button>
           </>
         )}
+
+        <input
+          type="checkbox"
+          checked={row.social_posted}
+          title={t('Postat på sociala medier', 'Posted on social media')}
+          onChange={(e) => handleToggleSocialPosted(e.target.checked)}
+          className="h-4 w-4 accent-accent shrink-0"
+        />
       </div>
     </div>
   )
