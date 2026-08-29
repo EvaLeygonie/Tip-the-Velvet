@@ -532,7 +532,7 @@ forcing a table shape from this description alone. Likely candidate shape to con
 later: a single ordered `event_schedule_items` table mixing act references and freeform
 entries, but that's a placeholder thought, not a decision.
 
-## Marketing tab — built 2026-08-27/28, v2 (asset panel + custom posts) 2026-08-30
+## Marketing tab — built 2026-08-27/28, v2 2026-08-30, v3 2026-08-31
 
 A real, separate admin page (`/admin/marketing`, `AdminMarketing.tsx`), split off from
 Event Planning — the artist promo section that originally lived on Event Planning moved
@@ -552,15 +552,17 @@ here, since it's social-media-posting work, not event-logistics work.
   `is_posted`, `posted_at`. That's the entire persisted state; everything else (labels,
   dates, templates) is code. `custom` is a reserved-but-unbuilt post type for one-off posts
   later (schema already supports it, no creation UI yet).
-- **6 of the 21 post types have real content templates** (`src/components/admin/marketing/`
+- **10 of the 21 post types have real content templates** (`src/components/admin/marketing/`
   — `SaveTheDateCard`, `FacebookEventCard`, `CastingCallOpenCard`, `CastingCallClosedCard`,
-  `TicketCountdownCard`, `TicketReleaseCard`, plus `ArtistsAllTogetherCard`), each a
-  download-image + copy-text button pair built from the org's *actual* previously-published
-  posts (not invented wording) — `events.description_sv/eng` doubles as the Facebook-event
-  post's body (confirmed an exact wording match against a real post), `events.image_id` /
-  `events.pinterest_link` / `events.hashtags` / `events.ticket_url` feed the rest. The
-  remaining 14 types are plain checklist rows (checkbox + computed date, no template) —
-  intentionally not guessed at without real source text to match.
+  `TicketCountdownCard`, `TicketReleaseCard`, `VolunteersNeededCard`, `PinterestBoardCard`,
+  `ArtistsAllTogetherCard`, `ArtistsSoonCard` — each now just exports a plain
+  `buildXText(event)` function, not a component; see "v3" below for why), built from the
+  org's *actual* previously-published posts (not invented wording) — `events.
+  description_sv/eng` doubles as the Facebook-event post's body (confirmed an exact wording
+  match against a real post), `events.image_id` / `events.pinterest_link` / `events.
+  hashtags` / `events.ticket_url` feed the rest. The remaining 11 types are plain rows with
+  no generated starting text (still fully editable — see "v3") — intentionally not guessed
+  at without real source text to match.
 - **Four Unicode "font" converters** in `src/lib/utils.ts` (`toBoldSerif`, `toDoubleStruck`,
   `toSmallCaps`, `toFraktur`) reproduce the org's actual social-post styling conventions —
   each was verified character-by-character against real pasted post text before being
@@ -572,7 +574,7 @@ here, since it's social-media-posting work, not event-logistics work.
   source of truth for "has this artist's reveal post happened," on the reasoning that the
   site reveal *is* the social post, per how the user framed it originally.
 - Artist cards on this tab sort by `reveal_date` when set (lets the board directly control
-  reveal order by choosing dates), falling back to Headliner → Host → everyone else as the
+  reveal order by choosing dates), falling back to Host → Headliner → everyone else as the
   default for anyone without a date yet.
 
 **v2, 2026-08-30** — grounded in the org's real `docs/old-work-documents/Social Media &
@@ -582,11 +584,10 @@ implies — one-off posts (a ticket-delay explanation, a post-event recap) show 
 regularly. Changes:
 - **Page width matches the rest of the admin portal** (`max-w-5xl`, was `max-w-3xl`).
 - **`EventAssetPanel.tsx`** — one shared block per event instead of repeating the event
-  image on every templated row: event image download, "download all performer images"
-  (sequential staggered `window.open` calls, not a real zip — no new dependency needed for
-  this), hashtags (now edited here instead — **removed from `EventEditor.tsx` entirely**,
-  redundant once Marketing had its own generate/copy/save), and a "copy artist profile
-  links" action.
+  image on every templated row: event image download, "download all performer images" (see
+  "v3" below for how this actually ended up working), hashtags (now edited here instead —
+  **removed from `EventEditor.tsx` entirely**, redundant once Marketing had its own
+  generate/copy/save), and a "copy artist profile links" action.
 - **Custom posts** — `marketing_posts` gained `content` (text) and `post_date` (date),
   used only by `post_type = 'custom'` rows (the 21 scheduled types are unchanged, still
   computed/coded, no stored content). A "+" button opens a form pre-filled with the
@@ -599,8 +600,64 @@ regularly. Changes:
   would need, and a smaller "import a past event's custom post into this one" idea as a
   lighter alternative to "recurring."
 
+**v3, 2026-08-31** — two fixes from live use:
+- **Standard-post rows are now expand-to-edit-and-save**, the same shape custom posts
+  already had. `marketing_posts.content` (previously custom-only) now also holds the
+  saved/edited text for the 21 fixed types — clicking a row shows the live template output
+  (or the last saved edit, if one exists), fully editable, with Save (writes `content` via
+  the new `saveMarketingPostContent`) and, for the 9 templated types, "Reset to template"
+  (regenerates from current event data, discarding the saved edit). This is what forced the
+  8 template components to become plain `buildXText(event)` functions instead of
+  components — the row itself needed to call the generator directly to seed/reset the
+  textarea, not just render a fixed cluster of buttons. The old shared
+  `PostTemplateCard.tsx`/`PostActionCluster` (image thumbnail + download/copy buttons) is
+  gone — no longer used once every row's UI moved into `StandardPostRow.tsx`.
+- **"Download all performer images" actually downloads all of them now.** The v2
+  implementation (staggered `window.open` calls) turned out to only ever deliver one image
+  in practice. Two follow-up attempts before landing on the real fix, kept here since the
+  failure mode isn't obvious from the code alone: a bare anchor click straight to the
+  Cloudinary URL (no `window.open`) still only produced one file, because firing several
+  same-frame navigations back-to-back cancels all but the last one to start; saving each
+  image separately via a `blob:` URL improved things but was still non-deterministic (9
+  images in, sometimes only 4 or 6 came through) — Chrome throttles multiple *automatic*
+  downloads fired without a fresh user gesture per file, blob URLs included. The actual fix:
+  fetch every image as a blob, bundle them with `jszip` (new dependency) into one zip, and
+  trigger a single download — one download is never subject to that throttle. Verified with
+  a real 9-artist event: all 9 files landed in the zip, byte-for-byte.
+- Also fixed: the artist list's default reveal-order fallback was Headliner → Host →
+  everyone else; swapped to Host → Headliner → everyone else per the board's actual
+  preference (only matters for artists without a `reveal_date` set).
+- **Standard-post dates are now manually adjustable**, not just computed. Reuses
+  `marketing_posts.post_date` (previously custom-only, same column custom posts already
+  had) — each row shows an actual `<input type="date">` instead of static text, seeded from
+  the saved override if one exists, else the `POST_SCHEDULE`-computed date
+  (`toLocalIsoDate`, new helper in `marketingSchedule.ts` — deliberately local-time, not
+  `toISOString().slice(0, 10)`, which can land on the wrong day near midnight depending on
+  the browser's timezone). Saves immediately on change via `setMarketingPostDate`, and
+  clearing the input (the browser's native date-input "×") drops the override and falls
+  back to the computed date again — mirrors how the artist reveal-date field already works,
+  rather than requiring the row to be expanded first like content edits do.
+
+- **The row date picker was rendering at ~998px instead of its intended ~124px width**,
+  crowding the copy button and checkbox off the visible row entirely (both were still
+  there, just clipped by the card's `overflow-hidden`), and squeezing the label into a
+  cramped multi-line wrap. Root cause: `index.css`'s global `input[type='date'] { width:
+  100% }` rule (needed for full-width fields elsewhere) beat the row's `w-[124px]` utility
+  class — same specificity tie the identical pattern in `ArtistOverviewCard.tsx` happens to
+  avoid only because of a nested-flex-container quirk there, so it wasn't an obvious
+  regression to spot from the code alone. Fixed with an inline `style={{ width }}` (inline
+  styles always win over an external stylesheet, specificity aside), plus `min-w-0
+  truncate` on the label so a long title stays on one line instead of wrapping. Widened
+  again shortly after (124px → 150px) once the day was still getting clipped at 124.
+- **`ArtistsSoonCard.tsx`** — the "reveals starting soon" teaser now has a real template
+  too (matches a real published post exactly), the last of the schedule's templatable posts
+  to get one. Adds `#PerformerReveal` as this post type's own reusable hashtag on top of
+  `events.hashtags`; anything event-specific and non-reusable (the real post also had
+  `#Halloween`, since that particular show was Halloween-themed) is left for the board to
+  add by hand after generating, via the row's edit/save.
+
 **Known small gaps, not yet acted on**: unrelated (non-event) posts (`event_id` nullable
-already supports it, no UI); richer templates for the 14 checklist-only post types if real
+already supports it, no UI); richer templates for the 11 checklist-only post types if real
 source text ever gets supplied for them.
 
 ## Budget / Economy tab

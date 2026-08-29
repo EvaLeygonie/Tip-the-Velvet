@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Download, Copy, ExternalLink, Mic2, Crown, Loader2 } from 'lucide-react'
+import { Download, Copy, ExternalLink, Mic2, Crown, Loader2, AtSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { getImageSrc, toBoldSerif, toDoubleStruck, toHashtag } from '@/lib/utils'
+import { getImageSrc, toBoldSerif, toDoubleStruck, toHashtag, extractInstagramHandle } from '@/lib/utils'
 import { togglePerformerVisibility } from '@/services/performerService'
 import { revealPerformerNow, schedulePerformerReveal } from '@/services/eventService'
 import type { AdminEventPerformerRow } from '@/services/eventService'
@@ -28,6 +28,18 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
   const { t } = useLanguage()
   const [isRevealing, setIsRevealing] = useState(false)
   const performer = row.performer
+  const instagramHandle = extractInstagramHandle(performer.instagram_link)
+
+  const handleCopyInstagramHandle = async () => {
+    if (!instagramHandle) return
+    try {
+      await navigator.clipboard.writeText(instagramHandle)
+      toast.success(t('Instagram-tagg kopierad!', 'Instagram tag copied!'))
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte kopiera.', 'Could not copy.'))
+    }
+  }
 
   const handleDownloadImage = () => {
     if (!row.eventPromoImageId) return
@@ -161,6 +173,15 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
           className="p-1.5 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
         >
           <Copy className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleCopyInstagramHandle}
+          disabled={!instagramHandle}
+          title={instagramHandle ? t('Kopiera Instagram-tagg', 'Copy Instagram tag') : t('Ingen Instagram-länk', 'No Instagram link')}
+          className="p-1.5 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <AtSign className="h-3.5 w-3.5" />
         </button>
 
         {row.is_revealed ? (

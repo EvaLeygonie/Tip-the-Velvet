@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Download, Copy, Save, Sparkles, Users, Link2 } from 'lucide-react'
+import JSZip from 'jszip'
+import { Download, Copy, Save, Sparkles, Users, Link2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { getImageSrc, generateEventHashtags } from '@/lib/utils'
@@ -22,6 +23,7 @@ export const EventAssetPanel = ({ event, performers, onHashtagsSaved }: EventAss
   const { t } = useLanguage()
   const [hashtagsDraft, setHashtagsDraft] = useState(event.hashtags ?? '')
   const [isSavingHashtags, setIsSavingHashtags] = useState(false)
+  const [isZipping, setIsZipping] = useState(false)
 
   const handleDownloadEventImage = () => {
     if (!event.imageId) return
@@ -31,22 +33,48 @@ export const EventAssetPanel = ({ event, performers, onHashtagsSaved }: EventAss
     )
   }
 
-  // Sequential, staggered window.open calls rather than a real zip bundle — no new
-  // dependency needed for this, and it's easy to upgrade later if popups prove annoying.
-  const handleDownloadAllPerformerImages = () => {
+  // Bundles every performer image into one zip and triggers a single download. Two lighter
+  // approaches were tried and both proved unreliable: window.open per image gets blocked as
+  // a popup after the first (only the click that's synchronously part of the user gesture
+  // is exempt), and a plain anchor click straight to the Cloudinary URL cancels each
+  // navigation as soon as the next one starts, so only the last image ever landed. Even
+  // saving each image separately via a blob: URL still hit Chrome's "multiple automatic
+  // downloads" throttle — several files in a row without a fresh gesture get silently
+  // dropped, non-deterministically (confirmed while testing: 9 images in, sometimes only 4
+  // or 6 came through). A single zip is one download, so none of that applies.
+  const handleDownloadAllPerformerImages = async () => {
     const imageIds = performers.map((row) => row.eventPromoImageId).filter((id): id is string => !!id)
     if (imageIds.length === 0) {
       toast.error(t('Inga bilder att ladda ner.', 'No images to download.'))
       return
     }
-    imageIds.forEach((imageId, index) => {
-      setTimeout(() => {
-        window.open(
-          `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/fl_attachment/${imageId}`,
-          '_blank'
-        )
-      }, index * 400)
-    })
+    setIsZipping(true)
+    try {
+      const zip = new JSZip()
+      await Promise.all(
+        imageIds.map(async (imageId) => {
+          const response = await fetch(
+            `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/fl_attachment/${imageId}`
+          )
+          const blob = await response.blob()
+          zip.file(`${imageId.split('/').pop()}.jpg`, blob)
+        })
+      )
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const blobUrl = URL.createObjectURL(zipBlob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = `${event.title || 'artister'}-bilder.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte ladda ner bilderna.', 'Could not download the images.'))
+    } finally {
+      setIsZipping(false)
+    }
   }
 
   const handleGenerateHashtags = () => {
@@ -128,9 +156,10 @@ export const EventAssetPanel = ({ event, performers, onHashtagsSaved }: EventAss
             <button
               type="button"
               onClick={handleDownloadAllPerformerImages}
-              className="flex items-center gap-1.5 text-[11px] py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+              disabled={isZipping}
+              className="flex items-center gap-1.5 text-[11px] py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-50 disabled:pointer-events-none"
             >
-              <Users className="h-3.5 w-3.5" />
+              {isZipping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Users className="h-3.5 w-3.5" />}
               {t('Ladda ner alla artistbilder', 'Download all performer images')}
             </button>
             <button

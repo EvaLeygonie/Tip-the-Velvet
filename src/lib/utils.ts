@@ -49,6 +49,16 @@ export const formatInstagramLink = (value: string): string => {
   return `https://www.instagram.com/${clean}`
 }
 
+// Reverse of formatInstagramLink — pulls the handle back out of a stored profile URL
+// (any instagram.com/<handle> form: with/without www, trailing slash, query string) and
+// formats it the way Instagram tags actually get typed: "@handle".
+export const extractInstagramHandle = (url: string | null | undefined): string | null => {
+  if (!url) return null
+  const match = url.match(/instagram\.com\/([^/?#]+)/i)
+  const handle = match?.[1]?.trim()
+  return handle ? `@${handle}` : null
+}
+
 export const formatOtherLink = (value: string): string => {
   const clean = value.trim()
   if (!clean) return ''

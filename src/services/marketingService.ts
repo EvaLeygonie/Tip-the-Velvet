@@ -25,46 +25,64 @@ export type FixedMarketingPostType =
   | 'thank_you'
   | 'evaluation'
 
+export interface FixedMarketingPost {
+  isPosted: boolean
+  // The edited/generated text last saved for this post, for this event — null until the
+  // board opens the row and saves it. Falls back to the live template output (computed
+  // from current event data) whenever this is null, so there's nothing to seed on event
+  // creation.
+  content: string | null
+  // A manual override for the row's date — null until the board picks one, at which point
+  // it wins over the computed suggested date (POST_SCHEDULE's offset from event_start).
+  postDate: string | null
+}
+
+const EMPTY_FIXED_POST: FixedMarketingPost = { isPosted: false, content: null, postDate: null }
+
 // Artist-level "has this been posted" deliberately isn't tracked here — it's already
 // event_performers.is_revealed/reveal_date (the reveal *is* the social post, per how that
 // flow was designed). This only covers the handful of fixed, event-level posts every show
 // needs, plus (later) custom/unrelated ones — see marketing_post_type's 'custom' value.
-export const getMarketingPostStatuses = async (
+export const getMarketingPosts = async (
   eventId: string
-): Promise<Record<FixedMarketingPostType, boolean>> => {
+): Promise<Record<FixedMarketingPostType, FixedMarketingPost>> => {
   const { data, error } = await supabase
     .from('marketing_posts')
-    .select('post_type, is_posted')
+    .select('post_type, is_posted, content, post_date')
     .eq('event_id', eventId)
     .neq('post_type', 'custom')
 
   if (error) throw error
 
-  const map: Record<FixedMarketingPostType, boolean> = {
-    save_the_date: false,
-    facebook_event: false,
-    casting_call_open: false,
-    casting_call_closed: false,
-    ticket_countdown: false,
-    ticket_release: false,
-    pinterest_board: false,
-    volunteers_needed: false,
-    artists_soon: false,
-    artists_all_together: false,
-    sponsors_sales_table: false,
-    contest: false,
-    photo_corner: false,
-    venue_rules: false,
-    evening_schedule: false,
-    one_week_left: false,
-    share_like_invite: false,
-    evening_schedule_reminder: false,
-    lets_go: false,
-    thank_you: false,
-    evaluation: false,
+  const map: Record<FixedMarketingPostType, FixedMarketingPost> = {
+    save_the_date: { ...EMPTY_FIXED_POST },
+    facebook_event: { ...EMPTY_FIXED_POST },
+    casting_call_open: { ...EMPTY_FIXED_POST },
+    casting_call_closed: { ...EMPTY_FIXED_POST },
+    ticket_countdown: { ...EMPTY_FIXED_POST },
+    ticket_release: { ...EMPTY_FIXED_POST },
+    pinterest_board: { ...EMPTY_FIXED_POST },
+    volunteers_needed: { ...EMPTY_FIXED_POST },
+    artists_soon: { ...EMPTY_FIXED_POST },
+    artists_all_together: { ...EMPTY_FIXED_POST },
+    sponsors_sales_table: { ...EMPTY_FIXED_POST },
+    contest: { ...EMPTY_FIXED_POST },
+    photo_corner: { ...EMPTY_FIXED_POST },
+    venue_rules: { ...EMPTY_FIXED_POST },
+    evening_schedule: { ...EMPTY_FIXED_POST },
+    one_week_left: { ...EMPTY_FIXED_POST },
+    share_like_invite: { ...EMPTY_FIXED_POST },
+    evening_schedule_reminder: { ...EMPTY_FIXED_POST },
+    lets_go: { ...EMPTY_FIXED_POST },
+    thank_you: { ...EMPTY_FIXED_POST },
+    evaluation: { ...EMPTY_FIXED_POST },
   }
   for (const row of data || []) {
-    map[row.post_type as FixedMarketingPostType] = row.is_posted
+    map[row.post_type as FixedMarketingPostType] = {
+      isPosted: row.is_posted,
+      content: row.content,
+      postDate: row.post_date,
+    }
   }
   return map
 }
@@ -74,21 +92,28 @@ export const getMarketingPostStatuses = async (
 // can repeat), and PostgREST's generated ON CONFLICT clause can only target a full
 // constraint, not a partial one (fails with 42P10 "no unique or exclusion constraint
 // matching the ON CONFLICT specification"). One row per fixed post type per event, created
-// on first toggle rather than pre-seeded at event creation.
+// on first toggle/save rather than pre-seeded at event creation.
+const findFixedPostRow = async (
+  eventId: string,
+  postType: FixedMarketingPostType
+): Promise<{ id: string } | null> => {
+  const { data, error } = await supabase
+    .from('marketing_posts')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('post_type', postType)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 export const setMarketingPostStatus = async (
   eventId: string,
   postType: FixedMarketingPostType,
   isPosted: boolean
 ): Promise<void> => {
   const posted_at = isPosted ? new Date().toISOString() : null
-
-  const { data: existing, error: selectError } = await supabase
-    .from('marketing_posts')
-    .select('id')
-    .eq('event_id', eventId)
-    .eq('post_type', postType)
-    .maybeSingle()
-  if (selectError) throw selectError
+  const existing = await findFixedPostRow(eventId, postType)
 
   if (existing) {
     const { error } = await supabase
@@ -100,6 +125,49 @@ export const setMarketingPostStatus = async (
     const { error } = await supabase
       .from('marketing_posts')
       .insert({ event_id: eventId, post_type: postType, is_posted: isPosted, posted_at })
+    if (error) throw error
+  }
+}
+
+// Saves the exact text the board edited/used for this post, for the record — independent
+// of is_posted so drafting the text and checking it off can happen in either order.
+export const saveMarketingPostContent = async (
+  eventId: string,
+  postType: FixedMarketingPostType,
+  content: string
+): Promise<void> => {
+  const existing = await findFixedPostRow(eventId, postType)
+
+  if (existing) {
+    const { error } = await supabase.from('marketing_posts').update({ content }).eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('marketing_posts')
+      .insert({ event_id: eventId, post_type: postType, content, is_posted: false })
+    if (error) throw error
+  }
+}
+
+// Overrides the row's computed suggested date. `postDate: null` clears the override —
+// the row falls back to POST_SCHEDULE's computed date again.
+export const setMarketingPostDate = async (
+  eventId: string,
+  postType: FixedMarketingPostType,
+  postDate: string | null
+): Promise<void> => {
+  const existing = await findFixedPostRow(eventId, postType)
+
+  if (existing) {
+    const { error } = await supabase
+      .from('marketing_posts')
+      .update({ post_date: postDate })
+      .eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('marketing_posts')
+      .insert({ event_id: eventId, post_type: postType, post_date: postDate, is_posted: false })
     if (error) throw error
   }
 }

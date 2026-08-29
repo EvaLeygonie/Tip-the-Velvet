@@ -76,7 +76,7 @@ export const POST_SCHEDULE: PostScheduleItem[] = [
     offset: { unit: 'weeks', amount: -7 },
     labelSv: 'Artister släpps snart!',
     labelEng: 'Artists releasing soon!',
-    hasTemplate: false,
+    hasTemplate: true,
   },
   {
     type: 'artists_all_together',
@@ -181,4 +181,14 @@ export const computeSuggestedDate = (eventStart: string, offset: PostOffset): Da
   const days = offset.unit === 'weeks' ? offset.amount * 7 : offset.amount
   date.setDate(date.getDate() + days)
   return date
+}
+
+// YYYY-MM-DD in local time, for feeding a Date into a date input's `value` — deliberately
+// not `toISOString().slice(0, 10)`, which converts to UTC first and can land on the wrong
+// day depending on the browser's timezone offset.
+export const toLocalIsoDate = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }

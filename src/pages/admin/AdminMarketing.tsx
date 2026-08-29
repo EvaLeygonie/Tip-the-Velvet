@@ -11,45 +11,48 @@ import {
   type EventMarketingData,
 } from '@/services/eventService'
 import {
-  getMarketingPostStatuses,
+  getMarketingPosts,
   setMarketingPostStatus,
+  setMarketingPostDate,
   getCustomPosts,
   type FixedMarketingPostType,
+  type FixedMarketingPost,
   type CustomMarketingPost,
 } from '@/services/marketingService'
-import { POST_SCHEDULE, computeSuggestedDate } from '@/lib/marketingSchedule'
+import { POST_SCHEDULE, computeSuggestedDate, toLocalIsoDate } from '@/lib/marketingSchedule'
 import { EventAssetPanel } from '@/components/admin/marketing/EventAssetPanel'
 import { ArtistOverviewCard } from '@/components/admin/marketing/ArtistOverviewCard'
-import { SaveTheDateCard } from '@/components/admin/marketing/SaveTheDateCard'
-import { FacebookEventCard } from '@/components/admin/marketing/FacebookEventCard'
-import { CastingCallOpenCard } from '@/components/admin/marketing/CastingCallOpenCard'
-import { CastingCallClosedCard } from '@/components/admin/marketing/CastingCallClosedCard'
-import { TicketCountdownCard } from '@/components/admin/marketing/TicketCountdownCard'
-import { TicketReleaseCard } from '@/components/admin/marketing/TicketReleaseCard'
-import { ArtistsAllTogetherCard } from '@/components/admin/marketing/ArtistsAllTogetherCard'
-import { VolunteersNeededCard } from '@/components/admin/marketing/VolunteersNeededCard'
-import { PinterestBoardCard } from '@/components/admin/marketing/PinterestBoardCard'
+import { StandardPostRow } from '@/components/admin/marketing/StandardPostRow'
+import { buildSaveTheDateText } from '@/components/admin/marketing/SaveTheDateCard'
+import { buildArtistsSoonText } from '@/components/admin/marketing/ArtistsSoonCard'
+import { buildFacebookEventText } from '@/components/admin/marketing/FacebookEventCard'
+import { buildCastingCallOpenText } from '@/components/admin/marketing/CastingCallOpenCard'
+import { buildCastingCallClosedText } from '@/components/admin/marketing/CastingCallClosedCard'
+import { buildTicketCountdownText } from '@/components/admin/marketing/TicketCountdownCard'
+import { buildTicketReleaseText } from '@/components/admin/marketing/TicketReleaseCard'
+import { buildArtistsAllTogetherText } from '@/components/admin/marketing/ArtistsAllTogetherCard'
+import { buildVolunteersNeededText } from '@/components/admin/marketing/VolunteersNeededCard'
+import { buildPinterestBoardText } from '@/components/admin/marketing/PinterestBoardCard'
 import { CustomPostForm } from '@/components/admin/marketing/CustomPostForm'
 import { CustomPostRow } from '@/components/admin/marketing/CustomPostRow'
 
 // artists_all_together is handled separately below (it needs the performers list, not just
 // EventMarketingData like the rest of these) — not included in this generic lookup.
-const TEMPLATE_CARDS: Partial<
-  Record<FixedMarketingPostType, (props: { event: EventMarketingData }) => React.JSX.Element>
-> = {
-  save_the_date: SaveTheDateCard,
-  facebook_event: FacebookEventCard,
-  casting_call_open: CastingCallOpenCard,
-  casting_call_closed: CastingCallClosedCard,
-  ticket_countdown: TicketCountdownCard,
-  ticket_release: TicketReleaseCard,
-  volunteers_needed: VolunteersNeededCard,
-  pinterest_board: PinterestBoardCard,
+const TEMPLATE_BUILDERS: Partial<Record<FixedMarketingPostType, (event: EventMarketingData) => string>> = {
+  save_the_date: buildSaveTheDateText,
+  artists_soon: buildArtistsSoonText,
+  facebook_event: buildFacebookEventText,
+  casting_call_open: buildCastingCallOpenText,
+  casting_call_closed: buildCastingCallClosedText,
+  ticket_countdown: buildTicketCountdownText,
+  ticket_release: buildTicketReleaseText,
+  volunteers_needed: buildVolunteersNeededText,
+  pinterest_board: buildPinterestBoardText,
 }
 
 const ROLE_REVEAL_PRIORITY: Record<AdminEventPerformerRow['lineup_role'], number> = {
-  headliner: 0,
-  host: 1,
+  host: 0,
+  headliner: 1,
   performer: 2,
 }
 
@@ -65,9 +68,11 @@ const sortArtistsForReveal = (rows: AdminEventPerformerRow[]): AdminEventPerform
     return ROLE_REVEAL_PRIORITY[a.lineup_role] - ROLE_REVEAL_PRIORITY[b.lineup_role]
   })
 
-const DEFAULT_POST_STATUSES = Object.fromEntries(
-  POST_SCHEDULE.map((item) => [item.type, false])
-) as Record<FixedMarketingPostType, boolean>
+const EMPTY_FIXED_POST: FixedMarketingPost = { isPosted: false, content: null, postDate: null }
+
+const DEFAULT_POST_RECORDS = Object.fromEntries(
+  POST_SCHEDULE.map((item) => [item.type, EMPTY_FIXED_POST])
+) as Record<FixedMarketingPostType, FixedMarketingPost>
 
 export const AdminMarketing = () => {
   const { t, language } = useLanguage()
@@ -76,8 +81,8 @@ export const AdminMarketing = () => {
   const [ticketUrl, setTicketUrl] = useState<string | null>(null)
   const [hashtags, setHashtags] = useState<string | null>(null)
   const [eventData, setEventData] = useState<EventMarketingData | null>(null)
-  const [postStatuses, setPostStatuses] =
-    useState<Record<FixedMarketingPostType, boolean>>(DEFAULT_POST_STATUSES)
+  const [postRecords, setPostRecords] =
+    useState<Record<FixedMarketingPostType, FixedMarketingPost>>(DEFAULT_POST_RECORDS)
   const [customPosts, setCustomPosts] = useState<CustomMarketingPost[]>([])
   const [showCustomPostForm, setShowCustomPostForm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -88,17 +93,17 @@ export const AdminMarketing = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const [performersData, marketingData, statuses, customs] = await Promise.all([
+        const [performersData, marketingData, records, customs] = await Promise.all([
           getEventPerformersForAdmin(selectedEventId),
           getEventMarketingData(selectedEventId),
-          getMarketingPostStatuses(selectedEventId),
+          getMarketingPosts(selectedEventId),
           getCustomPosts(selectedEventId),
         ])
         setPerformers(performersData.performers)
         setTicketUrl(performersData.ticketUrl)
         setHashtags(performersData.hashtags)
         setEventData(marketingData)
-        setPostStatuses(statuses)
+        setPostRecords(records)
         setCustomPosts(customs)
       } catch (err) {
         console.error('Kunde inte hämta marknadsföringsdata:', err)
@@ -116,13 +121,29 @@ export const AdminMarketing = () => {
   }
 
   const handleTogglePost = async (postType: FixedMarketingPostType, isPosted: boolean) => {
-    setPostStatuses((prev) => ({ ...prev, [postType]: isPosted }))
+    setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], isPosted } }))
     try {
       await setMarketingPostStatus(selectedEventId, postType, isPosted)
     } catch (err) {
       console.error('Kunde inte spara status:', err)
-      setPostStatuses((prev) => ({ ...prev, [postType]: !isPosted }))
+      setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], isPosted: !isPosted } }))
       toast.error(t('Kunde inte spara.', 'Could not save.'))
+    }
+  }
+
+  const handlePostContentSaved = (postType: FixedMarketingPostType, content: string) => {
+    setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], content } }))
+  }
+
+  const handlePostDateChanged = async (postType: FixedMarketingPostType, postDate: string | null) => {
+    const previous = postRecords[postType].postDate
+    setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], postDate } }))
+    try {
+      await setMarketingPostDate(selectedEventId, postType, postDate)
+    } catch (err) {
+      console.error('Kunde inte spara datum:', err)
+      setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], postDate: previous } }))
+      toast.error(t('Kunde inte spara datum.', 'Could not save date.'))
     }
   }
 
@@ -188,32 +209,32 @@ export const AdminMarketing = () => {
                 const suggestedDate = eventData?.eventStart
                   ? computeSuggestedDate(eventData.eventStart, item.offset)
                   : null
-                const TemplateCard = TEMPLATE_CARDS[item.type]
+                const builder = TEMPLATE_BUILDERS[item.type]
+                const generateText = eventData
+                  ? item.type === 'artists_all_together'
+                    ? () => buildArtistsAllTogetherText(eventData, performers)
+                    : builder
+                      ? () => builder(eventData)
+                      : null
+                  : null
+                const record = postRecords[item.type]
 
                 return (
                   <Fragment key={item.type}>
-                    <div className="admin-panel velvet-surface p-3 flex items-center gap-3">
-                      {item.type === 'artists_all_together' && eventData ? (
-                        <ArtistsAllTogetherCard event={eventData} performers={performers} />
-                      ) : (
-                        TemplateCard &&
-                        eventData && <TemplateCard event={eventData} />
-                      )}
-                      <span className="font-decorative text-sm text-foreground flex-1">
-                        {language === 'sv' ? item.labelSv : item.labelEng}
-                      </span>
-                      <span className="text-xs text-foreground/50 font-mono">
-                        {suggestedDate
-                          ? suggestedDate.toLocaleDateString('sv-SE')
-                          : t('Inget datum', 'No date')}
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={postStatuses[item.type]}
-                        onChange={(e) => handleTogglePost(item.type, e.target.checked)}
-                        className="h-4 w-4 accent-accent shrink-0"
-                      />
-                    </div>
+                    <StandardPostRow
+                      key={`${selectedEventId}-${item.type}`}
+                      eventId={selectedEventId}
+                      postType={item.type}
+                      label={language === 'sv' ? item.labelSv : item.labelEng}
+                      suggestedDateIso={suggestedDate ? toLocalIsoDate(suggestedDate) : null}
+                      savedPostDate={record.postDate}
+                      isPosted={record.isPosted}
+                      savedContent={record.content}
+                      generateText={generateText}
+                      onToggle={(checked) => handleTogglePost(item.type, checked)}
+                      onSaved={(content) => handlePostContentSaved(item.type, content)}
+                      onDateChanged={(postDate) => handlePostDateChanged(item.type, postDate)}
+                    />
                     {item.type === 'artists_soon' && renderArtistsSection()}
                   </Fragment>
                 )
