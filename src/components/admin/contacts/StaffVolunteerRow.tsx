@@ -16,7 +16,7 @@ import type { StaffVolunteers, StaffVolunteerType, EventStaffInvitationStatus } 
 // the name badge.
 const EVENT_STATUS_ROW_CLASS: Record<string, string> = {
   confirmed: 'border-emerald-500/70 bg-emerald-950/20',
-  interested: 'border-orange-500/60 bg-orange-950/10',
+  interested: 'border-sky-500/60 bg-sky-950/10',
 }
 
 interface StaffVolunteerRowProps {

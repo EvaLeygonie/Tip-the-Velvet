@@ -66,13 +66,13 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
           {t('Lägg till i event', 'Add to event')}
         </h4>
 
-        <div className="space-y-1">
-          <label className="form-label-gold block">{t('Event', 'Event')}</label>
+        <div className="space-y-1.5 text-center">
+          <label className="form-label-gold block text-center">{t('Event', 'Event')}</label>
           {upcomingEvents.length > 1 ? (
             <select
               value={targetEventId}
               onChange={(e) => setTargetEventId(e.target.value)}
-              className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+              className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white text-center"
             >
               {upcomingEvents.map((evt) => (
                 <option key={evt.id} value={evt.id}>

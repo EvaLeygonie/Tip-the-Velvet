@@ -225,7 +225,115 @@ lineup, not just one application at a time.
   overview (see "Artist list + promo downloads" above), these fields are natural additions
   to that same per-artist row/detail view.
 
-### Staffing & sponsor positions overview
+### Staffing, VIP list & sponsor roles — redesigned 2026-08-29 from real historical data
+
+Superseding the 2026-08-19 draft below (kept as changelog, not current design). This time
+grounded in the org's actual old-work-documents (two real VIP lists — Dark Carnival,
+Desserted Island — plus a general org task/timeline sheet), not assumption. Read those
+sheets directly rather than going on description alone; the real category usage differs
+from what a first pass would've guessed.
+
+**`staff_volunteer_type` simplifies from the current 8 values**
+(`photographer | technician | doorman | artistic | volunteer | musician | entertainment |
+other`) **to:**
+`photographer | technician | dj | stage_kitten | entertainment | volunteer | doorman | other`
+
+**Decided 2026-08-29:**
+- `entertainment` absorbs `musician` — confirmed both events used "entertainment between/
+  before acts" as one broad bucket in practice (live music, a tarot reader, three people
+  dressed as mermaids flirting at the bar for a pirate-themed show, a fire artist outside —
+  genuinely anything outside the main show), not two separate categories.
+- `dj` and `stage_kitten` get promoted to real top-level values — both appeared as
+  distinct, always-filled roles in every real event, same standing as photographer/
+  technician, not generic volunteers.
+- `doorman` — **kept exactly as-is, DB value unchanged, no migration**. Display label
+  becomes "Entrévärd" / "Entrance host" — an unpaid, optional role for now (venue-dependent
+  whether TTV even needs one; the current venue requires paying *their* own guard
+  directly instead). Deliberately *not* renamed at the DB level: the org may need a real
+  paid security-guard role again in the future, and keeping the `doorman` value free for
+  that keeps the door open (so to speak) rather than needing a second migration later to
+  walk back an `entrance_host` rename.
+- `artistic` — **removed entirely**, confirmed no live contact uses it.
+- **Not a staff category at all**: "Försäljare" (seller) — appeared in both VIP lists,
+  turns out to be **sponsors** running their own merch table at the event, not a
+  volunteer/staff role. Belongs under the sponsor event-role redesign below instead.
+
+**New: a shift/task classification, meaningful only for `role = 'volunteer'`**, letting one
+person hold several at once (see the PK fix below):
+`setup | door_guestlist | takedown | driving`
+
+("Entrance host" is its own top-level role above, not a volunteer shift, since it's a
+different kind of commitment.) Real numbers from the sheets: door/guestlist is the biggest
+draw — 2 people staffed at all times, working ~2-hour rotating shifts across the room's
+19:00–02:00 run (no door coverage needed the final hour), which is why 5–6 people show up
+under this category per event. `setup` and `takedown` are the next most common; `driving`
+(hauling decorations in a volunteer's own car, no org vehicle) showed up once but was
+explicitly called out as genuinely useful to have a name for.
+
+**Notes per assignment**: no new field needed — `role_details` (free text, already on both
+`staff_volunteers` and `event_staff_volunteers`) already covers "which door shift" or any
+other admin note per assignment. This was already identified in the 2026-08-19 pass below
+and still holds.
+
+**The schema blocker is unchanged from the 2026-08-19 finding** (see below) — still needs
+fixing before multi-role assignment is possible: `event_staff_volunteers`'s composite PK
+`(event_id, staff_id)` → surrogate `id` + `UNIQUE(event_id, staff_id, role, role_details)`.
+
+**Sponsors — split into two dimensions**, mirroring the same "who they are" vs. "what
+they're doing at this specific event" split now applied to volunteers:
+- *What they are* (fewer, simpler options than today's `sponsor_type`, set once at
+  application/contact time): business / club-or-organisation / individual.
+- *Their role(s) at a specific event* (multi-select per event, same mechanism as staff
+  roles once the PK fix lands): prize donor, merch/sales table (this is where "Försäljare"
+  actually belongs), promo, partner, other.
+
+**Contacts page**: the "Confirm" action in `AddToEventPopover.tsx` (staff and sponsor
+versions) gains a role dropdown — for staff, plus a shift sub-picker when `volunteer` is
+chosen — with an "add another role" affordance, rather than confirming with just whatever
+`role` the contact happened to be filed under.
+
+**VIP list (Event Planning)**: auto-derived from confirmed staff/volunteers + their plus-
+ones + confirmed artists + artists' plus-ones + the 4 standing organizers, grouped into
+the same sections the real sheets already use (Arrangörer → Artister → Arbetare/Volontärer
+→ Artists' +1 / Staff's +1 — both get their own plus-one section, confirmed from the real
+sheets), plus manual entries (ticket winners, contest winners) that don't come from any
+other table. Needs a download button. Detailed design (schema, manual-entry table, event
+scoping) still to be worked out — noted here as the next concrete build after roles.
+
+**Event Planning restructure**: the current bare "Artistlogistik" list
+(`AdminEventPlan.tsx`) gets folded into a proper tabbed page mirroring `AdminContacts.tsx`'s
+shape (Staff/Volunteers, Sponsors, VIP list as tabs, all event-scoped instead of the global
+roster Contacts shows) — more Event Planning content will land here over time, but staffing
++ VIP list is the starting scope.
+
+### Food/dietary redesign — brainstormed 2026-08-29, not built
+
+Prompted by realizing catering is always ordered in bulk (2–3 alternatives, e.g. pizza
+varieties) — a free-text `dietary_requirements` field per artist doesn't actually match how
+food gets ordered; what's needed is a headcount by category plus a short list of anything
+that needs individual attention.
+
+- **`event_performers.dietary_requirements` (free text) splits into two fields**: a
+  `dietary_category` enum (`all_eater | vegetarian | vegan`, one choice) for the bulk-order
+  headcount, plus a kept free-text field (same column, repurposed) for anything more
+  specific — allergies, etc. — that the board needs to actually read, not just count.
+  `BookedArtistForm.tsx`'s current free-text dietary input becomes a 3-way select/checkbox
+  plus a "anything else? (allergies etc.)" text field underneath.
+- **Same two fields extended to `event_staff_volunteers`** (doesn't have any dietary field
+  today) — the VIP list / staffing tabs get a "needs food" toggle + the same category
+  picker per worker, for whoever's actually going to be there at a mealtime (setup
+  volunteers arriving before doors, for instance) rather than assuming only artists eat.
+- **A computed summary, not a stored one**: Event Planning's practical-info area gets a
+  plain generated line — "Mat: 5 allätare, 3 vegetarianer, 2 veganer + en jordnötsallergi"
+  — built by counting `dietary_category` across confirmed artists + whichever staff/
+  volunteers were flagged as needing food, with any non-empty free-text notes appended.
+  Nothing new to store here; it's a read-time aggregation over the fields above.
+- Rows on the new staffing/VIP tabs shouldn't show dietary info inline per the artist-card
+  precedent already set on the Marketing tab (logistics info lives on Event Planning, not
+  cluttering the row) — the aggregate summary is the point, not a per-row column.
+
+<details>
+<summary>2026-08-19 draft (superseded above, kept for the schema-blocker research trail)</summary>
 
 Talked this through in more detail (2026-08-19) — resolves the open question from the
 first draft of this doc, which assumed a formal "N required per role" system. That's not
@@ -256,6 +364,8 @@ actually what's needed:
     Worth pairing with a softer `UNIQUE(event_id, staff_id, role, role_details)` constraint
     so accidental duplicate-add-the-same-task-twice is still caught, while genuinely
     different tasks for the same person aren't.
+
+</details>
 
 ### Volunteer outreach & response deadline — brainstormed 2026-08-25, not built
 
@@ -421,6 +531,77 @@ non-act items). Needs its own dedicated design pass once we're actually there �
 forcing a table shape from this description alone. Likely candidate shape to consider
 later: a single ordered `event_schedule_items` table mixing act references and freeform
 entries, but that's a placeholder thought, not a decision.
+
+## Marketing tab — built 2026-08-27/28, v2 (asset panel + custom posts) 2026-08-30
+
+A real, separate admin page (`/admin/marketing`, `AdminMarketing.tsx`), split off from
+Event Planning — the artist promo section that originally lived on Event Planning moved
+here, since it's social-media-posting work, not event-logistics work.
+
+**What exists today**:
+- **A 21-item posting schedule** (`src/lib/marketingSchedule.ts`, `POST_SCHEDULE`), covering
+  the org's actual posting calendar end to end: Save the Date, Facebook event, casting call
+  open/close, ticket countdown/release, Pinterest board, volunteers-needed, artist-reveal
+  teasers, "all together," sponsors/contest/photo-corner, venue rules, evening schedule,
+  one-week-left, share/invite, day-of, thank-you, evaluation. Each row's suggested date is
+  *computed* from `events.event_start` (calendar-aware month/week/day offsets,
+  `computeSuggestedDate`) — not stored — because the schedule itself is the org's evolving
+  convention, edited in code, while only *is_posted* per event needs a database row.
+- **`marketing_posts` table** — deliberately minimal: `event_id`, `post_type` (a plain
+  Postgres enum extended to all 21 values, `event_id` nullable for future non-event posts),
+  `is_posted`, `posted_at`. That's the entire persisted state; everything else (labels,
+  dates, templates) is code. `custom` is a reserved-but-unbuilt post type for one-off posts
+  later (schema already supports it, no creation UI yet).
+- **6 of the 21 post types have real content templates** (`src/components/admin/marketing/`
+  — `SaveTheDateCard`, `FacebookEventCard`, `CastingCallOpenCard`, `CastingCallClosedCard`,
+  `TicketCountdownCard`, `TicketReleaseCard`, plus `ArtistsAllTogetherCard`), each a
+  download-image + copy-text button pair built from the org's *actual* previously-published
+  posts (not invented wording) — `events.description_sv/eng` doubles as the Facebook-event
+  post's body (confirmed an exact wording match against a real post), `events.image_id` /
+  `events.pinterest_link` / `events.hashtags` / `events.ticket_url` feed the rest. The
+  remaining 14 types are plain checklist rows (checkbox + computed date, no template) —
+  intentionally not guessed at without real source text to match.
+- **Four Unicode "font" converters** in `src/lib/utils.ts` (`toBoldSerif`, `toDoubleStruck`,
+  `toSmallCaps`, `toFraktur`) reproduce the org's actual social-post styling conventions —
+  each was verified character-by-character against real pasted post text before being
+  trusted (this caught two real bugs: `toFraktur`'s offset math, and that plain NFD
+  normalization is needed so Swedish å/ä/ö bold correctly — decompose to base letter +
+  combining diaeresis, bold the base, leave the diaeresis untouched).
+- **Artist reveal tracking is deliberately not duplicated here** — `event_performers.
+  is_revealed`/`reveal_date` (built on the Marketing/Artists section itself) is the one
+  source of truth for "has this artist's reveal post happened," on the reasoning that the
+  site reveal *is* the social post, per how the user framed it originally.
+- Artist cards on this tab sort by `reveal_date` when set (lets the board directly control
+  reveal order by choosing dates), falling back to Headliner → Host → everyone else as the
+  default for anyone without a date yet.
+
+**v2, 2026-08-30** — grounded in the org's real `docs/old-work-documents/Social Media &
+Emails/` history across 4 past events (not just the single Pandaemonium example used for
+v1), which showed real posting practice is looser than a fixed 21-item schedule alone
+implies — one-off posts (a ticket-delay explanation, a post-event recap) show up
+regularly. Changes:
+- **Page width matches the rest of the admin portal** (`max-w-5xl`, was `max-w-3xl`).
+- **`EventAssetPanel.tsx`** — one shared block per event instead of repeating the event
+  image on every templated row: event image download, "download all performer images"
+  (sequential staggered `window.open` calls, not a real zip — no new dependency needed for
+  this), hashtags (now edited here instead — **removed from `EventEditor.tsx` entirely**,
+  redundant once Marketing had its own generate/copy/save), and a "copy artist profile
+  links" action.
+- **Custom posts** — `marketing_posts` gained `content` (text) and `post_date` (date),
+  used only by `post_type = 'custom'` rows (the 21 scheduled types are unchanged, still
+  computed/coded, no stored content). A "+" button opens a form pre-filled with the
+  sv/eng-flag + hashtags/ticket-link shell every other post uses, fully editable from
+  there — one-off, per-event, with normal edit/delete, not a reusable template.
+- **Frontend-editable templates and a "recurring" flag were explicitly cut, not
+  deferred-in-place** — real design work happened first (see the conversation this
+  decision came from), landed as two entries in `docs/extra-features.md` instead of left
+  half-referenced here: the full token-based template rewrite that real template-editing
+  would need, and a smaller "import a past event's custom post into this one" idea as a
+  lighter alternative to "recurring."
+
+**Known small gaps, not yet acted on**: unrelated (non-event) posts (`event_id` nullable
+already supports it, no UI); richer templates for the 14 checklist-only post types if real
+source text ever gets supplied for them.
 
 ## Budget / Economy tab
 

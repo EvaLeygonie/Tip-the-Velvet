@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -442,6 +442,7 @@ export type Database = {
       }
       events: {
         Row: {
+          afterparty_playlist: string | null
           available_tickets: number | null
           casting_call_deadline: string | null
           casting_call_start: string | null
@@ -478,6 +479,7 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          afterparty_playlist?: string | null
           available_tickets?: number | null
           casting_call_deadline?: string | null
           casting_call_start?: string | null
@@ -514,6 +516,7 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          afterparty_playlist?: string | null
           available_tickets?: number | null
           casting_call_deadline?: string | null
           casting_call_start?: string | null
@@ -582,28 +585,34 @@ export type Database = {
       }
       marketing_posts: {
         Row: {
+          content: string | null
           created_at: string
           event_id: string | null
           id: string
           is_posted: boolean
+          post_date: string | null
           post_type: Database["public"]["Enums"]["marketing_post_type"]
           posted_at: string | null
           title: string | null
         }
         Insert: {
+          content?: string | null
           created_at?: string
           event_id?: string | null
           id?: string
           is_posted?: boolean
+          post_date?: string | null
           post_type: Database["public"]["Enums"]["marketing_post_type"]
           posted_at?: string | null
           title?: string | null
         }
         Update: {
+          content?: string | null
           created_at?: string
           event_id?: string | null
           id?: string
           is_posted?: boolean
+          post_date?: string | null
           post_type?: Database["public"]["Enums"]["marketing_post_type"]
           posted_at?: string | null
           title?: string | null

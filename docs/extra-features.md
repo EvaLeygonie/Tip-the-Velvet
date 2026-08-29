@@ -261,15 +261,41 @@ performer can decide whether to apply without needing to click through first.
   entirely in Mailchimp's own audience/tag data with no new column needed — depends on
   the audience-vs-tag decision above).
 
-## Event hashtags — column or generator
+## Event hashtags — done, no longer parked here
 
-Added 2026-08-27, deferred by the user while building the Event Planning "Artists"
-section (per-artist promo image download + copy-to-clipboard sv/eng promo text). For now
-the board pastes/rewrites hashtags by hand for each social post; revisit once a
-"Communication tab" (bulk social/email planning) actually gets built.
+Was deferred 2026-08-27, built shortly after: `events.hashtags` (free text, DB default of
+the org's base tag set), a "Generate from title/subtitle/venue" action
+(`generateEventHashtags` in `utils.ts`), and per-artist/per-post hashtag assembly are all
+live. Editing now lives on the Marketing tab's asset panel (`EventAssetPanel.tsx`) —
+moved off `EventEditor.tsx` on 2026-08-30 as redundant once Marketing had its own copy/
+save/generate controls. See `docs/admin-portal-roadmap.md`'s "Marketing tab" section for
+the full current shape.
 
-**The idea, not designed in detail yet**: either a free-text `events.hashtags` column the
-board fills in once per event and copies from, or generating a hashtag set on the fly from
-already-known data — event name, venue, performer name(s), post type (reveal vs. general
-promo). A generator is more work and needs a real design pass (which fields feed it, how
-much to auto-vs-hand-tune); a plain column is closer to free.
+## Marketing: frontend-editable post templates
+
+Parked 2026-08-30, cut from the Marketing tab v2 pass deliberately (not a half-built
+option) — real work, not needed to get a working tab out now. The 6 real templates
+(Save the Date, Facebook event, casting call open/close, ticket countdown/release) stay
+hardcoded generator functions in `src/components/admin/marketing/`, tuned directly in code
+until they feel right; the board adjusts the copied text by hand afterward, same as
+today.
+
+**Why this is a real rewrite, not a small feature**: a template that's actually editable
+and reusable across events can't store *rendered* text (title/date/etc. already
+substituted in) — saving that back as a "template" would freeze one event's specific data
+into it, breaking the moment it's reused. It needs the variables to survive as literal
+placeholders (`{{title}}`, `{{ticket_url}}`, etc.) stored in a `marketing_post_templates`
+table, with a small rendering step (substitute tokens, apply styling like small-caps/
+fraktur as named filters, e.g. `{{title|smallcaps}}`) replacing today's hardcoded
+generator functions. That's the actual scope if this gets picked up later.
+
+## Marketing: import a past event's custom post into the current event
+
+Parked 2026-08-30, surfaced as a lighter alternative to a "recurring" flag on custom posts
+(see `marketing_posts`, `post_type = 'custom'`, added same round). Rather than a post
+auto-carrying forward to every future event (which needs the same template rewrite as
+above), just let the board browse a past event's custom posts and copy one into the
+current event for a one-off reuse when something happens to come up again. Much smaller:
+a read across `marketing_posts` filtered to other events' `custom` rows, plus an "import"
+action that inserts a copy scoped to the current event — no token/rendering system needed
+since it's a straight text copy, not a reusable template.

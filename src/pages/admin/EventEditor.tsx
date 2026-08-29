@@ -7,14 +7,7 @@ import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { FloatingBackLink } from '@/components/FloatingBackLink'
 import type { Event, CreateEventInput } from '@/types/types'
-import {
-  createSlug,
-  getImageSrc,
-  utcToLocal,
-  localToUtc,
-  generateEventHashtags,
-  DEFAULT_EVENT_HASHTAGS,
-} from '@/lib/utils'
+import { createSlug, getImageSrc, utcToLocal, localToUtc, DEFAULT_EVENT_HASHTAGS } from '@/lib/utils'
 import {
   getAdminEventDetails,
   getAllVenues,
@@ -139,17 +132,6 @@ export const EventEditor = () => {
     }))
   }
 
-  // Prepends onto whatever's already there (typically the default base tags) rather than
-  // overwriting, so title/subtitle/venue tags end up first and the base tags stay last.
-  const handleGenerateHashtags = () => {
-    const generated = generateEventHashtags(formData.title, formData.subtitle, formData.location)
-    if (!generated) return
-    setFormData((prev) => {
-      const existing = prev.hashtags?.trim()
-      return { ...prev, hashtags: existing ? `${generated} ${existing}` : generated }
-    })
-  }
-
   const handlePhotographerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value || null
     const selectedPhotographer = photographers.find((p) => p.id === selectedId)
@@ -229,6 +211,7 @@ export const EventEditor = () => {
       location: formData.location || null,
       photographer: formData.photographer || null,
       ticket_url: formData.ticket_url || null,
+      afterparty_playlist: formData.afterparty_playlist || null,
       ticket_release_date: formData.ticket_release_date || null,
       tickets_price: formData.tickets_price || null,
       tickets_sold: formData.tickets_sold || null,
@@ -671,7 +654,7 @@ export const EventEditor = () => {
               />
             </div>
 
-            <div className="field-row md:col-span-2">
+            <div className="field-row">
               <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
               <input
                 type="url"
@@ -683,25 +666,16 @@ export const EventEditor = () => {
               />
             </div>
 
-            <div className="field-row md:col-span-2">
-              <div className="flex items-center justify-between">
-                <label className="form-label-gold">{t('Hashtags', 'Hashtags')}</label>
-                <button
-                  type="button"
-                  onClick={handleGenerateHashtags}
-                  className="text-[11px] text-accent hover:underline"
-                >
-                  {t(
-                    'Generera från titel/undertitel/plats',
-                    'Generate from title/subtitle/venue'
-                  )}
-                </button>
-              </div>
-              <textarea
-                name="hashtags"
-                placeholder="#Halloween #DarkCarnival"
-                className="editor-textarea min-h-[70px] resize-none"
-                value={formData.hashtags || ''}
+            <div className="field-row">
+              <label className="form-label-gold">
+                {t('Efterfest-spellista', 'Afterparty playlist')}
+              </label>
+              <input
+                type="text"
+                name="afterparty_playlist"
+                placeholder={t('Länk eller "DJ"', 'Link or "DJ"')}
+                className="editor-input"
+                value={formData.afterparty_playlist || ''}
                 onChange={handleChange}
               />
             </div>

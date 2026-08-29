@@ -24,5 +24,5 @@ export const TicketReleaseCard = ({ event }: TicketReleaseCardProps) => {
     ].join('\n\n')
   }
 
-  return <PostActionCluster imageId={event.imageId} imageAlt={event.title} buildText={buildText} />
+  return <PostActionCluster buildText={buildText} />
 }

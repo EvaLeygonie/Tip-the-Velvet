@@ -121,7 +121,9 @@ export const getEventPerformers = async (eventId: string): Promise<EventPerforme
 }
 
 export interface EventMarketingData {
+  id: string
   title: string
+  subtitle: string | null
   slug: string
   imageId: string | null
   descriptionSv: string | null
@@ -144,7 +146,7 @@ export const getEventMarketingData = async (eventId: string): Promise<EventMarke
   const { data, error } = await supabase
     .from('events')
     .select(
-      'title, slug, image_id, description_sv, description_eng, ticket_url, hashtags, location, event_start, reveal_date, casting_call_deadline, casting_call_start, ticket_release_date, pinterest_link'
+      'id, title, subtitle, slug, image_id, description_sv, description_eng, ticket_url, hashtags, location, event_start, reveal_date, casting_call_deadline, casting_call_start, ticket_release_date, pinterest_link'
     )
     .eq('id', eventId)
     .maybeSingle()
@@ -153,7 +155,9 @@ export const getEventMarketingData = async (eventId: string): Promise<EventMarke
   if (!data) return null
 
   return {
+    id: data.id,
     title: data.title,
+    subtitle: data.subtitle,
     slug: data.slug,
     imageId: data.image_id,
     descriptionSv: data.description_sv,
@@ -287,6 +291,13 @@ export const getEventVenueId = async (eventId: string): Promise<string | null> =
 
   if (error) throw error
   return data?.venue_id ?? null
+}
+
+// Marketing's asset panel is the only place hashtags get edited now (removed from
+// EventEditor.tsx as redundant — it's only ever needed here).
+export const saveEventHashtags = async (eventId: string, hashtags: string): Promise<void> => {
+  const { error } = await supabase.from('events').update({ hashtags }).eq('id', eventId)
+  if (error) throw error
 }
 
 export const getAllVenues = async () => {

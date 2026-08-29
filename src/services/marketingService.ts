@@ -103,3 +103,83 @@ export const setMarketingPostStatus = async (
     if (error) throw error
   }
 }
+
+//=== CUSTOM POSTS ===///
+// One-off, per-event posts outside the fixed 21-item schedule — post_type is always
+// 'custom' here, so unlike the fixed types above these are keyed on their own `id`, not
+// `(event_id, post_type)` (the partial unique index deliberately excludes 'custom' so many
+// can coexist per event).
+
+export interface CustomMarketingPost {
+  id: string
+  title: string
+  postDate: string | null
+  content: string
+  isPosted: boolean
+}
+
+export const getCustomPosts = async (eventId: string): Promise<CustomMarketingPost[]> => {
+  const { data, error } = await supabase
+    .from('marketing_posts')
+    .select('id, title, post_date, content, is_posted')
+    .eq('event_id', eventId)
+    .eq('post_type', 'custom')
+    .order('post_date', { ascending: true, nullsFirst: false })
+
+  if (error) throw error
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    title: row.title ?? '',
+    postDate: row.post_date,
+    content: row.content ?? '',
+    isPosted: row.is_posted,
+  }))
+}
+
+export const createCustomPost = async (
+  eventId: string,
+  title: string,
+  postDate: string | null,
+  content: string
+): Promise<CustomMarketingPost> => {
+  const { data, error } = await supabase
+    .from('marketing_posts')
+    .insert({ event_id: eventId, post_type: 'custom', title, post_date: postDate, content })
+    .select('id, title, post_date, content, is_posted')
+    .single()
+
+  if (error) throw error
+
+  return {
+    id: data.id,
+    title: data.title ?? '',
+    postDate: data.post_date,
+    content: data.content ?? '',
+    isPosted: data.is_posted,
+  }
+}
+
+export const updateCustomPost = async (
+  id: string,
+  patch: Partial<{ title: string; postDate: string | null; content: string; isPosted: boolean }>
+): Promise<void> => {
+  const { error } = await supabase
+    .from('marketing_posts')
+    .update({
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.postDate !== undefined ? { post_date: patch.postDate } : {}),
+      ...(patch.content !== undefined ? { content: patch.content } : {}),
+      ...(patch.isPosted !== undefined
+        ? { is_posted: patch.isPosted, posted_at: patch.isPosted ? new Date().toISOString() : null }
+        : {}),
+    })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export const deleteCustomPost = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('marketing_posts').delete().eq('id', id)
+  if (error) throw error
+}
