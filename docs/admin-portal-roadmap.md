@@ -677,6 +677,36 @@ regularly. Changes:
 already supports it, no UI); richer templates for the 11 checklist-only post types if real
 source text ever gets supplied for them.
 
+## Email / Newsletter tab — future, not yet started
+
+Noted 2026-09-01, same source document as the Marketing tab's posting schedule
+(`docs/old-work-documents/Social Media & Emails/Marknadsföringsmodell mail & posts.docx`) —
+that doc's "Mail att skicka" (emails to send) section, never acted on when the Marketing
+tab was built, since that round focused on social posts only.
+
+**What it would be**: the same principle as the Marketing tab, applied to the newsletter
+instead of social posts — a schedule of which emails go out per event, a checkbox for
+"sent or not," and templates to work from. Emails themselves would still be composed and
+sent through Mailchimp as they are today (this doesn't send anything, same non-automation
+boundary the Marketing tab already has) — the admin side is purely tracking + template
+prep, not a Mailchimp integration.
+
+**The org's real email list**, per that doc — one email per event, roughly in this order:
+event announcement + casting call open, ticket release (1 week out), ticket release (day
+of), venue/logistics info (elevator, bar, food, etc.), artist promo (host & headliner),
+artist promo (everyone together), sponsors/sales-table + contest/photobooth, evening
+schedule + event page link, and a reminder the day before. Plus one that isn't
+per-event/scheduled: "Viktig & samlad information" (important/collected info — e.g. a new
+website, a new venue), sent ad hoc rather than on the show calendar.
+
+**The doc's own wishlist for this** (worth keeping verbatim as a starting brief, not
+reinterpreting): its own admin tab; a schedule of every email due per event; a sent/not-sent
+checkbox per email; a ready template per email type with customizable variables and
+uploadable images; a notification to the board when it's time to send one and something's
+missing (e.g. an image); pulling in images from the artists automatically; and a reminder
+system for when each step should go out, possibly emailing the board itself as the
+reminder.
+
 ## Budget / Economy tab
 
 Added 2026-08-25, per direct request — flagged as an important feature to work on soon,
