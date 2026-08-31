@@ -1015,6 +1015,44 @@ export type Database = {
         }
         Relationships: []
       }
+      vip_manual_entries: {
+        Row: {
+          category: Database["public"]["Enums"]["vip_entry_category"]
+          created_at: string
+          email: string | null
+          event_id: string
+          id: string
+          name: string
+          note: string | null
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["vip_entry_category"]
+          created_at?: string
+          email?: string | null
+          event_id: string
+          id?: string
+          name: string
+          note?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["vip_entry_category"]
+          created_at?: string
+          email?: string | null
+          event_id?: string
+          id?: string
+          name?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vip_manual_entries_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       public_performers: {
@@ -1250,6 +1288,7 @@ export type Database = {
         | "volunteer"
         | "doorman"
         | "other"
+      vip_entry_category: "ticket_winner" | "contest_winner" | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1431,6 +1470,7 @@ export const Constants = {
         "doorman",
         "other",
       ],
+      vip_entry_category: ["ticket_winner", "contest_winner", "other"],
     },
   },
 } as const

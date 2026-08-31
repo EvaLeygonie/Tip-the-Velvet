@@ -28,6 +28,7 @@ import type {
   CreateClubInput,
   EventStaffInvitationStatus,
 } from '@/types/types'
+import { staffRoleLabel, sponsorTypeLabel as contactSponsorTypeLabel } from '@/lib/contactLabels'
 import { ContactsToolbar } from '@/components/admin/contacts/ContactsToolbar'
 import { ContactMailModal } from '@/components/admin/contacts/ContactMailModal'
 import { StaffVolunteerRow } from '@/components/admin/contacts/StaffVolunteerRow'
@@ -202,46 +203,8 @@ export const AdminContacts = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const roleLabel = (role: StaffVolunteerType): string => {
-    switch (role) {
-      case 'photographer':
-        return t('Fotograf', 'Photographer')
-      case 'technician':
-        return t('Tekniker', 'Technician')
-      case 'dj':
-        return t('DJ', 'DJ')
-      case 'stage_kitten':
-        return t('Stage kitten', 'Stage kitten')
-      case 'entertainment':
-        return t('Underhållning', 'Entertainment')
-      case 'volunteer':
-        return t('Volontär', 'Volunteer')
-      case 'doorman':
-        // Kept as 'doorman' at the DB level deliberately — see admin-portal-roadmap.md's
-        // staffing redesign — the value is left free in case a paid security-guard role is
-        // needed again later, but the current role is unpaid/optional door duty.
-        return t('Entrévärd', 'Entrance host')
-      case 'other':
-        return t('Övrigt', 'Other')
-    }
-  }
-
-  const sponsorTypeLabel = (type: SponsorType): string => {
-    switch (type) {
-      case 'prize':
-        return t('Pris', 'Prize')
-      case 'creation':
-        return t('Skapande', 'Creation')
-      case 'sales':
-        return t('Försäljning', 'Sales')
-      case 'promo':
-        return t('Marknadsföring', 'Promo')
-      case 'partner':
-        return t('Partner', 'Partner')
-      case 'other':
-        return t('Övrigt', 'Other')
-    }
-  }
+  const roleLabel = (role: StaffVolunteerType): string => staffRoleLabel(t, role)
+  const sponsorTypeLabel = (type: SponsorType): string => contactSponsorTypeLabel(t, type)
 
   const refreshStaffEventStatuses = async () => {
     if (!statusEventId) return

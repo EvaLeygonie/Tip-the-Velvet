@@ -366,19 +366,99 @@ Lesson applied immediately: every verification pass against real data now checks
 contact's current state first and confirms cleanup via a fresh query after, not just by
 trusting what the UI shows.
 
-**VIP list (Event Planning)**: auto-derived from confirmed staff/volunteers + their plus-
-ones + confirmed artists + artists' plus-ones + the 4 standing organizers, grouped into
-the same sections the real sheets already use (Arrangörer → Artister → Arbetare/Volontärer
-→ Artists' +1 / Staff's +1 — both get their own plus-one section, confirmed from the real
-sheets), plus manual entries (ticket winners, contest winners) that don't come from any
-other table. Needs a download button. Detailed design (schema, manual-entry table, event
-scoping) still to be worked out — noted here as the next concrete build after roles.
+**Event Planning restructure — fully built 2026-09-01.** `AdminEventPlan.tsx` now mirrors
+`AdminContacts.tsx`'s tabbed shape, but event-scoped instead of the global roster: the
+original bare artist list moved into its own "Artister" tab unchanged, plus three new
+tabs.
 
-**Event Planning restructure**: the current bare "Artistlogistik" list
-(`AdminEventPlan.tsx`) gets folded into a proper tabbed page mirroring `AdminContacts.tsx`'s
-shape (Staff/Volunteers, Sponsors, VIP list as tabs, all event-scoped instead of the global
-roster Contacts shows) — more Event Planning content will land here over time, but staffing
-+ VIP list is the starting scope.
+**Staff/Volunteers & Sponsors tabs**: read confirmed assignments via two new joined
+queries (`getEventStaffForAdmin`/`getEventSponsorsForAdmin` in `eventService.ts`) —
+`EventStaffRow.tsx`/`EventSponsorRow.tsx` (new, `src/components/admin/event-plan/`) let
+the board edit the logistics note and remove someone from *this* event; everything else
+about the contact (name/role itself) is still only editable via Contacts, which stays the
+one place assignments actually get created. Role/sponsor-type label switch statements
+were duplicated in `AdminContacts.tsx` — extracted to `src/lib/contactLabels.ts` once a
+second file needed them, rather than copy-pasting an 8-case switch again.
+
+**VIP list tab**: real open questions got real answers before building, not guessed at:
+- *Arrangörer* — the 4 standing organizers are a hardcoded constant (name + email pairs),
+  confirmed against the org's own real VIP list sheets (`docs/old-work-documents/VIP lista
+  *.xlsx`, re-parsed directly rather than trusting memory) — the same 4 people/emails on
+  every historical sheet: Andrea Jensen, Krister Johansson, Eva Leygonie, Pontus Lindhé.
+  ("Drea" in the raw sheet data is a nickname for Andrea, corrected per the user.)
+- *Staff's own +1* — deliberately **not** built: the board's call was that staff/
+  volunteers don't usually get a +1, and the rare exception goes through the manual-entry
+  mechanism below instead of a schema addition.
+- *Manual entries* — new `vip_manual_entries` table (`event_id, name, email, category
+  (ticket_winner | contest_winner | other), note`) — email was added to the design
+  specifically because a real guest list always needs one. `VipManualEntryRow.tsx` (new)
+  is the CRUD UI, mirroring `ClubRow.tsx`'s pattern.
+- *Download* — an actual downloadable `.txt` file (not clipboard copy), built client-side
+  with a `Blob` + object URL, no new dependency. Sectioned to match the real historical
+  sheets' structure exactly (Arrangörer → Artister → Arbetare & volontärer → Artisternas
+  +1 → manual entries grouped by category).
+
+Auto-derived sections (Artister, Arbetare & volontärer, Artisternas +1) reuse data already
+loaded for the other three tabs — no extra queries needed. Verified end-to-end against
+real event data via Supabase MCP (now connected — queried table/RLS state directly rather
+than assuming a migration applied cleanly) and Playwright: all four sections render
+correctly, a manual entry can be added/downloaded/deleted with the DB confirmed clean
+after, and the downloaded file's content was read back and checked line-by-line against
+what the real sections should contain. One real bug caught by that verification, not
+shipped: the manual-entry create path initially left `event_id` out of the insert payload
+entirely (correctly rejected by the table's `NOT NULL` constraint rather than writing bad
+data) — fixed by explicitly setting it in `handleSaveVipEntry` rather than relying on the
+draft object's fields alone.
+
+**Follow-up same day — A4 printable door-checklist format, then consolidated to one
+button.** First pass added a second button (print, opened a new tab) alongside the
+original plain-text download. Per feedback, collapsed back to a single download
+(`handleDownloadVipList`): the checkbox/A4 format is strictly better than plain text (both
+printable *and* shareable as a file), so there's no reason to keep two. Downloads a real
+`.html` file (not just opened in a tab) so it can be emailed/sent to someone, printed via
+`@page { size: A4 }` CSS from whoever opens it (no PDF library needed), or reopened later.
+The checkboxes are real `<input type="checkbox">` elements (custom-styled, not a plain
+`<span>`) — genuinely clickable per-device, just not synced between devices (see below).
+Prompted a related fix: `performers.email`/`staff_volunteers.email` were already being
+fetched via the existing joins but never displayed anywhere on the VIP list (screen,
+download, or print) — added everywhere, since a door checklist needs an email for every
+person on it, not just the sections that already had one (artist +1s, manual entries).
+Verified live: 24/24 entries render with both a checkbox and an email, and the downloaded
+file's checkbox genuinely toggles when clicked (confirmed by actually opening the saved
+file and clicking one, not just inspecting the markup).
+
+**Explicitly asked about and deliberately not built in this round: a live, multi-device
+shared checklist** (one link, several volunteers' phones, checking someone off updates
+everywhere in real time). Real, meaningfully bigger feature than a file format — needs a
+public token-gated route (same shape as the existing artist booking portal's
+`?token=` pattern), a genuine "checked in at the door" state model separate from VIP-list
+membership itself, and live sync across viewers (Supabase Realtime, or an Artifact with
+shared-state capability). Recommendation given back to the user: worth doing as its own
+deliberate feature later, not a quick add-on to this one — revisit if/when there's
+appetite for it.
+
+**Follow-up 2026-08-31 — on-screen breathing room + a real PDF download.** User confirmed
+the single-download-file approach (above) is sufficient for their actual use (≤50 people,
+printed or opened on one iPad at the door) — the live-sync idea stays parked. Two fixes:
+
+- The downloaded `.html`'s `@page { size: A4; margin: 15mm }` rule only ever applied when
+  *printing* — opened directly in a browser (the iPad-at-the-door case), the content ran
+  edge-to-edge with no breathing room. Fixed by wrapping the body content in a `.page` div
+  (`max-width: 640px; margin: 0 auto;` plus body padding) with a `@media print` override
+  that resets both back to `none`/`0`, so print keeps relying solely on `@page`'s own
+  margin rather than stacking both.
+- Added a second button, "Ladda ner som PDF" — a genuine vector `.pdf` (not a
+  screenshot/raster of the HTML version), built directly with `jsPDF`'s own `text()`/
+  `rect()`/`line()`/`addPage()` calls rather than pulling in `html2canvas` as a second
+  dependency, since the layout (section headers + rows of name/email/role) is simple
+  enough to lay out by hand with manual y-position tracking and page-break checks. Both
+  formats now share one `buildVipSections()` helper so the two exports can't drift apart
+  from each other or from the on-screen tab.
+
+Verified live: the on-screen HTML render is centered with real margins (confirmed via a
+bounding-box check — 640px content column inside a 1280px viewport, not full-width), and
+the PDF download produces a valid, non-trivial file (correct `%PDF-` header, ~12.8KB for
+Pandaemonium's 24 real entries).
 
 ### Food/dietary redesign — brainstormed 2026-08-29, not built
 

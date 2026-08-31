@@ -290,3 +290,32 @@ export const removeSponsorFromEvent = async (eventId: string, sponsorId: string)
 
   if (error) throw error
 }
+
+// Event Planning's Staff/Volunteers and Sponsors tabs let the board edit an already-
+// confirmed assignment's logistics note in place — everything else about the contact
+// (name/email/role itself) is still only editable via Contacts.
+export const updateEventStaffRoleDetails = async (
+  id: string,
+  roleDetails: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_volunteers')
+    .update({ role_details: roleDetails })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export const updateEventSponsorDetails = async (
+  eventId: string,
+  sponsorId: string,
+  details: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_sponsors')
+    .update({ details })
+    .eq('event_id', eventId)
+    .eq('sponsor_id', sponsorId)
+
+  if (error) throw error
+}

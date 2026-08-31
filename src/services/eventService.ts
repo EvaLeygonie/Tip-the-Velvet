@@ -6,6 +6,8 @@ import type {
   CreateEventImageInput,
   Performer,
   EventPerformer,
+  StaffVolunteers,
+  Sponsors,
 } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
@@ -230,6 +232,46 @@ export const getEventPerformersForAdmin = async (eventId: string): Promise<Admin
     ticketUrl: eventRow.data?.ticket_url ?? null,
     hashtags: eventRow.data?.hashtags ?? null,
   }
+}
+
+export interface AdminEventStaffRow {
+  id: string
+  role: StaffVolunteers['role']
+  role_details: string | null
+  staff: StaffVolunteers
+}
+
+// Confirmed staff/volunteers for one event, joined with their roster contact info — the
+// Event Planning tab's operational view (who's actually confirmed for *this* show), as
+// opposed to Contacts' global roster. Assigning someone new still happens on Contacts;
+// this is read/edit-details/remove only.
+export const getEventStaffForAdmin = async (eventId: string): Promise<AdminEventStaffRow[]> => {
+  const { data, error } = await supabase
+    .from('event_staff_volunteers')
+    .select('id, role, role_details, staff:staff_volunteers(*)')
+    .eq('event_id', eventId)
+
+  if (error) throw error
+  return (data || []) as unknown as AdminEventStaffRow[]
+}
+
+export interface AdminEventSponsorRow {
+  sponsor_id: string
+  role: Sponsors['sponsor_type']
+  details: string | null
+  sponsor: Sponsors
+}
+
+// Confirmed sponsors for one event, joined with their roster contact info — same shape/
+// reasoning as getEventStaffForAdmin above.
+export const getEventSponsorsForAdmin = async (eventId: string): Promise<AdminEventSponsorRow[]> => {
+  const { data, error } = await supabase
+    .from('event_sponsors')
+    .select('sponsor_id, role, details, sponsor:sponsors(*)')
+    .eq('event_id', eventId)
+
+  if (error) throw error
+  return (data || []) as unknown as AdminEventSponsorRow[]
 }
 
 // Keyed on the composite (event_id, performer_id) — event_performers has no surrogate `id`
