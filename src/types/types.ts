@@ -57,6 +57,7 @@ export type CastingApplicationPortalData = CastingApplication & {
 export type StaffVolunteers = Tables<'staff_volunteers'>
 export type Sponsors = Tables<'sponsors'>
 export type Venue = Tables<'venues'>
+export type Club = Tables<'clubs'>
 export type EventStaffInvitation = Tables<'event_staff_invitations'>
 
 //=== INSERTS ===//
@@ -66,6 +67,7 @@ export type CreatePerformerInput = TablesInsert<'performers'>
 export type CreateStaffVolunteerInput = TablesInsert<'staff_volunteers'>
 export type CreateSponsorInput = TablesInsert<'sponsors'>
 export type CreateVenueInput = TablesInsert<'venues'>
+export type CreateClubInput = TablesInsert<'clubs'>
 export type CreateEventStaffInvitationInput = TablesInsert<'event_staff_invitations'>
 
 // One act within a casting application submission — matches submit_casting_application's

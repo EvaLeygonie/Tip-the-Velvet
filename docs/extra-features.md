@@ -299,3 +299,33 @@ current event for a one-off reuse when something happens to come up again. Much 
 a read across `marketing_posts` filtered to other events' `custom` rows, plus an "import"
 action that inserts a copy scoped to the current event — no token/rendering system needed
 since it's a straight text copy, not a reusable template.
+
+## Date-clash tracking for picking new show dates
+
+Parked 2026-09-01. Different shape from everything else in `clubs`/`sponsors` — those are
+*contacts*, this is a *calendar/planning* tool, so it doesn't belong bolted onto either
+table.
+
+**The real, existing practice this would replace**: every year, before locking in show
+dates, the board manually keeps a document listing big festivals and other events' dates
+to avoid clashing with. Purely manual today, no tooling.
+
+**New resource to fold in**: [glittermap.io](https://glittermap.io) — a new site tracking
+burlesque events across Europe. Directly useful for the same date-avoidance purpose, and
+worth having quick access to from inside the admin rather than just a bookmark.
+
+**Rough shape, not designed**:
+- Some kind of "dates to avoid" list — could be as simple as a table of
+  `date/date-range + label + source`, manually entered (glittermap.io + whatever other
+  festival calendars the board already tracks), shown somewhere useful during the "pick
+  next show's date" step.
+- A link to glittermap.io itself, so it's one click away instead of a separate bookmark —
+  natural home is wherever the dates-to-avoid list above ends up living.
+- **Possible later connection to `clubs`**: once a club has upcoming-event info worth
+  tracking (manually entered, not scraped), that could live alongside this same
+  date-avoidance view — "here's what other clubs have coming up" is the same underlying
+  need as "here's what festivals are coming up," just a different source. Not designed
+  beyond this observation; revisit once the base date-tracking piece exists.
+
+No further design done — surfaced in conversation, not worked through. Revisit once
+there's time and appetite, same as everything else in this doc.

@@ -14,7 +14,7 @@ import CloudinaryImage from '@/components/CloudinaryImage'
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload'
 import { deleteFromCloudinary } from '@/services/cloudinaryService'
 import { confirmSponsorForEvent, removeSponsorFromEvent } from '@/services/contactsService'
-import { createSlug, processUploadedImage } from '@/lib/utils'
+import { createSlug, processUploadedImage, formatInstagramLink, formatOtherLink } from '@/lib/utils'
 import { ImageCategory } from '@/types/media'
 import { AddToEventPopover, type PopoverAction } from './AddToEventPopover'
 import type { Sponsors, SponsorType } from '@/types/types'
@@ -25,6 +25,9 @@ interface SponsorRowProps {
   row: Sponsors
   isNew?: boolean
   sponsorTypeOptions: { value: SponsorType; label: string }[]
+  // Every club, for the optional "this sponsor is also a club" link (sponsors.club_id) —
+  // see admin-portal-roadmap.md's clubs design.
+  clubOptions: { value: string; label: string }[]
   onSave: (id: string, patch: Partial<Sponsors>, isNew: boolean) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onEmail: (row: Sponsors) => void
@@ -39,6 +42,7 @@ export const SponsorRow = ({
   row,
   isNew = false,
   sponsorTypeOptions,
+  clubOptions,
   onSave,
   onDelete,
   onEmail,
@@ -56,6 +60,9 @@ export const SponsorRow = ({
     phone: row.phone ?? '',
     sponsor_type: row.sponsor_type ?? '',
     sponsor_details: row.sponsor_details ?? '',
+    instagram_link: row.instagram_link ?? '',
+    other_link: row.other_link ?? '',
+    club_id: row.club_id ?? '',
   })
   const [tempLogoFile, setTempLogoFile] = useState<File | null>(null)
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
@@ -71,7 +78,10 @@ export const SponsorRow = ({
 
   const handleDownloadLogo = () => {
     if (!row.logo_id) return
-    window.open(`https://res.cloudinary.com/${CLOUD_NAME}/image/upload/fl_attachment/${row.logo_id}`, '_blank')
+    window.open(
+      `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/fl_attachment/${row.logo_id}`,
+      '_blank'
+    )
   }
 
   const handleSave = async () => {
@@ -114,6 +124,11 @@ export const SponsorRow = ({
           phone: draft.phone.trim() || null,
           sponsor_type: (draft.sponsor_type || null) as Sponsors['sponsor_type'],
           sponsor_details: draft.sponsor_details.trim() || null,
+          instagram_link: draft.instagram_link.trim()
+            ? formatInstagramLink(draft.instagram_link.trim())
+            : null,
+          other_link: draft.other_link.trim() ? formatOtherLink(draft.other_link.trim()) : null,
+          club_id: draft.club_id || null,
           logo_id: logoId,
         },
         isNew
@@ -131,7 +146,10 @@ export const SponsorRow = ({
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
-      t(`Är du säker på att du vill radera ${row.name}?`, `Are you sure you want to delete ${row.name}?`)
+      t(
+        `Är du säker på att du vill radera ${row.name}?`,
+        `Are you sure you want to delete ${row.name}?`
+      )
     )
     if (!confirmed) return
     try {
@@ -292,7 +310,11 @@ export const SponsorRow = ({
               </div>
               <div className="relative w-full h-[108px] rounded border border-accent/20 bg-background/20 flex items-center justify-center overflow-hidden group">
                 {logoPreviewUrl ? (
-                  <img src={logoPreviewUrl} className="w-full h-full object-contain" alt="Preview" />
+                  <img
+                    src={logoPreviewUrl}
+                    className="w-full h-full object-contain"
+                    alt="Preview"
+                  />
                 ) : row.logo_id ? (
                   <CloudinaryImage publicId={row.logo_id} width={108} height={108} fit />
                 ) : (
@@ -362,6 +384,26 @@ export const SponsorRow = ({
                   className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
                 />
               </div>
+              <div className="space-y-1">
+                <label className="form-label-gold block">Instagram</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={draft.instagram_link}
+                  onChange={(e) => setDraft({ ...draft, instagram_link: e.target.value })}
+                  className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="form-label-gold block">{t('Annan länk', 'Other link')}</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={draft.other_link}
+                  onChange={(e) => setDraft({ ...draft, other_link: e.target.value })}
+                  className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                />
+              </div>
             </div>
           </div>
 
@@ -373,6 +415,24 @@ export const SponsorRow = ({
               className="w-full h-20 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
             />
           </div>
+
+          {clubOptions.length > 0 && (
+            <div className="space-y-1">
+              <label className="form-label-gold block">{t('Kopplad klubb?', 'Linked club?')}</label>
+              <select
+                value={draft.club_id}
+                onChange={(e) => setDraft({ ...draft, club_id: e.target.value })}
+                className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+              >
+                <option value="">{t('Ingen', 'None')}</option>
+                {clubOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <span className="text-xs text-foreground/40 flex items-center gap-1.5">
             {row.agreed_to_terms

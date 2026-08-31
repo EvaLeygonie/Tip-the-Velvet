@@ -5,7 +5,13 @@ import {
   submitSponsorApplication,
   sendApplicationConfirmationEmail,
 } from '@/services/applicationService'
-import { processUploadedImage, createSlug, isUnresolvedBlobUrl } from '@/lib/utils'
+import {
+  processUploadedImage,
+  createSlug,
+  isUnresolvedBlobUrl,
+  formatInstagramLink,
+  formatOtherLink,
+} from '@/lib/utils'
 import { Send, Loader2, Image as ImageIcon } from 'lucide-react'
 import { ImageCategory } from '@/types/media'
 import { toast } from 'sonner'
@@ -42,6 +48,8 @@ export const SponsorCard = () => {
     phone: '',
     sponsor_type: '' as SponsorType,
     sponsor_details: '',
+    instagram_link: '',
+    other_link: '',
     agreed_to_terms: false,
   })
 
@@ -123,6 +131,10 @@ export const SponsorCard = () => {
       phone: formData.phone || '',
       sponsor_type: formData.sponsor_type,
       sponsor_details: formData.sponsor_details || '',
+      instagram_link: formData.instagram_link?.trim()
+        ? formatInstagramLink(formData.instagram_link.trim())
+        : null,
+      other_link: formData.other_link?.trim() ? formatOtherLink(formData.other_link.trim()) : null,
       logo_id: finalLogoId,
       agreed_to_terms: true,
     }
@@ -151,6 +163,8 @@ export const SponsorCard = () => {
         phone: '',
         sponsor_type: '' as SponsorType,
         sponsor_details: '',
+        instagram_link: '',
+        other_link: '',
         agreed_to_terms: false,
       })
       setPreviewUrl('')
@@ -273,30 +287,55 @@ export const SponsorCard = () => {
               />
             </div>
 
-            <div className="form-field sm:col-span-2">
-              <label className="form-label-block">
-                {t('Typ av samarbete *', 'Type of Collaboration *')}
-              </label>
-              <select
-                name="sponsor_type"
-                value={formData.sponsor_type || ''}
+            <div className="form-field">
+              <label className="form-label-block">Instagram</label>
+              <input
+                type="text"
+                name="instagram_link"
+                placeholder="@handle"
+                value={formData.instagram_link || ''}
                 onChange={handleChange}
                 className="w-full"
-              >
-                <option value="" disabled hidden>
-                  {language === 'sv' ? '-- Välj typ --' : '-- Select type --'}
-                </option>
-                {SPONSOR_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {language === 'sv' ? opt.sv : opt.en}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
+
+            <div className="form-field">
+              <label className="form-label-block">{t('Annan länk', 'Other link')}</label>
+              <input
+                type="text"
+                name="other_link"
+                placeholder="https://..."
+                value={formData.other_link || ''}
+                onChange={handleChange}
+                className="w-full"
+              />
+            </div>
+
           </div>
         </div>
 
         <div className="gold-divider my-2" />
+
+        <div className="form-field">
+          <label className="form-label-block">
+            {t('Typ av samarbete *', 'Type of Collaboration *')}
+          </label>
+          <select
+            name="sponsor_type"
+            value={formData.sponsor_type || ''}
+            onChange={handleChange}
+            className="w-full"
+          >
+            <option value="" disabled hidden>
+              {language === 'sv' ? '-- Välj typ --' : '-- Select type --'}
+            </option>
+            {SPONSOR_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {language === 'sv' ? opt.sv : opt.en}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* BESKRIVNING */}
         <div className="form-field">
@@ -323,7 +362,7 @@ export const SponsorCard = () => {
             id="sponsor-agreed"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5"
+            className="mt-0.5 shrink-0"
           />
           <label
             htmlFor="sponsor-agreed"

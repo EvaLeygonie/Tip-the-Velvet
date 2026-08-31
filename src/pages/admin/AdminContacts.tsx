@@ -6,9 +6,11 @@ import {
   getStaffVolunteers,
   getSponsors,
   getVenues,
+  getClubs,
   createStaffVolunteer,
   createSponsor,
   createVenue,
+  createClub,
   getStaffEventStatuses,
   getConfirmedSponsorIds,
 } from '@/services/contactsService'
@@ -18,10 +20,12 @@ import type {
   StaffVolunteers,
   Sponsors,
   Venue,
+  Club,
   StaffVolunteerType,
   SponsorType,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
+  CreateClubInput,
   EventStaffInvitationStatus,
 } from '@/types/types'
 import { ContactsToolbar } from '@/components/admin/contacts/ContactsToolbar'
@@ -29,15 +33,16 @@ import { ContactMailModal } from '@/components/admin/contacts/ContactMailModal'
 import { StaffVolunteerRow } from '@/components/admin/contacts/StaffVolunteerRow'
 import { SponsorRow } from '@/components/admin/contacts/SponsorRow'
 import { VenueRow } from '@/components/admin/contacts/VenueRow'
+import { ClubRow } from '@/components/admin/contacts/ClubRow'
 
 const ROLE_ORDER: StaffVolunteerType[] = [
   'photographer',
   'technician',
-  'doorman',
-  'artistic',
-  'volunteer',
-  'musician',
+  'dj',
+  'stage_kitten',
   'entertainment',
+  'volunteer',
+  'doorman',
   'other',
 ]
 
@@ -73,6 +78,9 @@ const blankSponsor = (): Sponsors => ({
   sponsor_details: null,
   logo_id: null,
   agreed_to_terms: null,
+  club_id: null,
+  instagram_link: null,
+  other_link: null,
   created_at: new Date().toISOString(),
 })
 
@@ -88,10 +96,22 @@ const blankVenue = (): Venue => ({
   created_at: new Date().toISOString(),
 })
 
+const blankClub = (): Club => ({
+  id: crypto.randomUUID(),
+  name: '',
+  organizers: null,
+  instagram_link: null,
+  website: null,
+  location: null,
+  region: null,
+  notes: null,
+  created_at: new Date().toISOString(),
+})
+
 export const AdminContacts = () => {
   const { t } = useLanguage()
   const { upcomingEvents, selectedEventId } = useCurrentEvent()
-  const [activeTab, setActiveTab] = useState<'staff' | 'sponsors' | 'venues'>('staff')
+  const [activeTab, setActiveTab] = useState<'staff' | 'sponsors' | 'venues' | 'clubs'>('staff')
   const [loading, setLoading] = useState(true)
 
   // Local, not written back to CurrentEventContext — switching which event's status is
@@ -135,16 +155,20 @@ export const AdminContacts = () => {
   const [staffRows, setStaffRows] = useState<StaffVolunteers[]>([])
   const [sponsorRows, setSponsorRows] = useState<Sponsors[]>([])
   const [venueRows, setVenueRows] = useState<Venue[]>([])
+  const [clubRows, setClubRows] = useState<Club[]>([])
 
   const [staffDrafts, setStaffDrafts] = useState<StaffVolunteers[]>([])
   const [sponsorDrafts, setSponsorDrafts] = useState<Sponsors[]>([])
   const [venueDrafts, setVenueDrafts] = useState<Venue[]>([])
+  const [clubDrafts, setClubDrafts] = useState<Club[]>([])
 
   const [staffSearch, setStaffSearch] = useState('')
   const [staffRoleFilter, setStaffRoleFilter] = useState('')
   const [sponsorSearch, setSponsorSearch] = useState('')
   const [sponsorTypeFilter, setSponsorTypeFilter] = useState('')
   const [venueSearch, setVenueSearch] = useState('')
+  const [clubSearch, setClubSearch] = useState('')
+  const [clubRegionFilter, setClubRegionFilter] = useState('')
 
   const [mailTarget, setMailTarget] = useState<{
     name: string
@@ -157,14 +181,16 @@ export const AdminContacts = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const [staff, sponsors, venues] = await Promise.all([
+        const [staff, sponsors, venues, clubs] = await Promise.all([
           getStaffVolunteers(),
           getSponsors(),
           getVenues(),
+          getClubs(),
         ])
         setStaffRows(staff)
         setSponsorRows(sponsors)
         setVenueRows(venues)
+        setClubRows(clubs)
       } catch (err) {
         console.error('Kunde inte hämta kontakter:', err)
         toast.error(t('Kunde inte läsa in kontakter.', 'Could not load contacts.'))
@@ -182,16 +208,19 @@ export const AdminContacts = () => {
         return t('Fotograf', 'Photographer')
       case 'technician':
         return t('Tekniker', 'Technician')
-      case 'doorman':
-        return t('Vakt', 'Doorman')
-      case 'artistic':
-        return t('Konstnärlig', 'Artistic')
-      case 'volunteer':
-        return t('Volontär', 'Volunteer')
-      case 'musician':
-        return t('Musiker', 'Musician')
+      case 'dj':
+        return t('DJ', 'DJ')
+      case 'stage_kitten':
+        return t('Stage kitten', 'Stage kitten')
       case 'entertainment':
         return t('Underhållning', 'Entertainment')
+      case 'volunteer':
+        return t('Volontär', 'Volunteer')
+      case 'doorman':
+        // Kept as 'doorman' at the DB level deliberately — see admin-portal-roadmap.md's
+        // staffing redesign — the value is left free in case a paid security-guard role is
+        // needed again later, but the current role is unpaid/optional door duty.
+        return t('Entrévärd', 'Entrance host')
       case 'other':
         return t('Övrigt', 'Other')
     }
@@ -262,6 +291,9 @@ export const AdminContacts = () => {
     value: type,
     label: sponsorTypeLabel(type),
   }))
+  const clubOptions = [...clubRows]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((club) => ({ value: club.id, label: club.name }))
 
   const filteredStaff = staffRows.filter((r) => {
     if (staffRoleFilter && r.role !== staffRoleFilter) return false
@@ -282,6 +314,23 @@ export const AdminContacts = () => {
     const q = venueSearch.toLowerCase()
     return [r.name, r.location, r.contact_person, r.email].some((f) => f?.toLowerCase().includes(q))
   })
+
+  const clubRegionOptions = [...new Set(clubRows.map((r) => r.region).filter((r): r is string => !!r))]
+    .sort()
+    .map((region) => ({ value: region, label: region }))
+
+  const filteredClubs = clubRows.filter((r) => {
+    if (clubRegionFilter && r.region !== clubRegionFilter) return false
+    if (!clubSearch) return true
+    const q = clubSearch.toLowerCase()
+    return [r.name, r.organizers, r.location, r.notes].some((f) => f?.toLowerCase().includes(q))
+  })
+
+  // Which clubs already have a linked sponsor row (sponsors.club_id) — see ClubRow's
+  // "Sponsrar oss" badge.
+  const linkedClubIds = new Set(
+    sponsorRows.map((r) => r.club_id).filter((id): id is string => !!id)
+  )
 
   //=== STAFF & VOLUNTEERS handlers ===///
 
@@ -345,6 +394,27 @@ export const AdminContacts = () => {
   const handleDeleteVenue = async (id: string) => {
     await deleteRow('venues', id)
     setVenueRows((prev) => prev.filter((r) => r.id !== id))
+    toast.success(t('Raderad.', 'Deleted.'))
+  }
+
+  //=== CLUBS handlers ===///
+
+  const handleSaveClub = async (id: string, patch: Partial<Club>, isNew: boolean) => {
+    if (isNew) {
+      const created = await createClub(patch as CreateClubInput)
+      setClubDrafts((prev) => prev.filter((d) => d.id !== id))
+      setClubRows((prev) => [...prev, created])
+      toast.success(t('Klubb tillagd!', 'Club added!'))
+    } else {
+      const updated = await updateRow('clubs', id, patch)
+      setClubRows((prev) => prev.map((r) => (r.id === id ? updated : r)))
+      toast.success(t('Sparat!', 'Saved!'))
+    }
+  }
+
+  const handleDeleteClub = async (id: string) => {
+    await deleteRow('clubs', id)
+    setClubRows((prev) => prev.filter((r) => r.id !== id))
     toast.success(t('Raderad.', 'Deleted.'))
   }
 
@@ -448,6 +518,17 @@ export const AdminContacts = () => {
           }
         >
           {t('Platser', 'Venues')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('clubs')}
+          className={
+            activeTab === 'clubs'
+              ? 'btn-gold text-xs py-2 px-4'
+              : 'btn-gold-outline text-xs py-2 px-4'
+          }
+        >
+          {t('Klubbar', 'Clubs')}
         </button>
       </div>
 
@@ -580,6 +661,7 @@ export const AdminContacts = () => {
                     row={d}
                     isNew
                     sponsorTypeOptions={sponsorTypeOptions}
+                    clubOptions={clubOptions}
                     onSave={handleSaveSponsor}
                     onDelete={handleDeleteSponsor}
                     onEmail={openMailModalFor}
@@ -598,6 +680,7 @@ export const AdminContacts = () => {
                       key={row.id}
                       row={row}
                       sponsorTypeOptions={sponsorTypeOptions}
+                      clubOptions={clubOptions}
                       onSave={handleSaveSponsor}
                       onDelete={handleDeleteSponsor}
                       onEmail={openMailModalFor}
@@ -649,6 +732,54 @@ export const AdminContacts = () => {
                       onDelete={handleDeleteVenue}
                       onEmail={openMailModalFor}
                       isBookedForEvent={row.id === statusEventVenueId}
+                    />
+                  ))
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'clubs' && (
+            <>
+              <ContactsToolbar
+                searchValue={clubSearch}
+                onSearchChange={setClubSearch}
+                searchPlaceholder={t(
+                  'Sök namn, arrangörer, plats...',
+                  'Search name, organizers, location...'
+                )}
+                filterValue={clubRegionFilter}
+                onFilterChange={setClubRegionFilter}
+                filterOptions={clubRegionOptions}
+                filterAllLabel={t('Alla regioner', 'All regions')}
+                onAdd={() => setClubDrafts((prev) => [blankClub(), ...prev])}
+                addLabel={t('Lägg till', 'Add')}
+              />
+              <div className="space-y-3">
+                {clubDrafts.map((d) => (
+                  <ClubRow
+                    key={d.id}
+                    row={d}
+                    isNew
+                    onSave={handleSaveClub}
+                    onDelete={handleDeleteClub}
+                    onCancelNew={(id) =>
+                      setClubDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                    }
+                  />
+                ))}
+                {filteredClubs.length === 0 && clubDrafts.length === 0 ? (
+                  <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
+                    {t('Inga klubbar hittades.', 'No clubs found.')}
+                  </div>
+                ) : (
+                  filteredClubs.map((row) => (
+                    <ClubRow
+                      key={row.id}
+                      row={row}
+                      onSave={handleSaveClub}
+                      onDelete={handleDeleteClub}
+                      isLinkedSponsor={linkedClubIds.has(row.id)}
                     />
                   ))
                 )}

@@ -8,6 +8,7 @@ import {
   confirmStaffForEvent,
   removeStaffInterest,
   removeStaffFromEvent,
+  getStaffRolesForEvent,
 } from '@/services/contactsService'
 import type { StaffVolunteers, StaffVolunteerType, EventStaffInvitationStatus } from '@/types/types'
 
@@ -122,9 +123,11 @@ export const StaffVolunteerRow = ({
 
   const rowStatusClass = eventStatus ? (EVENT_STATUS_ROW_CLASS[eventStatus] ?? '') : ''
 
-  // Which 2 actions make sense depends on where this person already stands for the event —
-  // e.g. once confirmed, "Mark interested" again would be a no-op; what's actually useful
-  // is a way back down to interested, or off the event entirely.
+  // Which actions make sense depends on where this person already stands for the event —
+  // e.g. once confirmed, "Mark interested" again would be a no-op. "Confirm" itself is
+  // always offered though, confirmed or not: it now supports adding a second (or third)
+  // role to the same event, not just the first one (see AddToEventPopover's
+  // needsRoleSelection), so it stays useful past the initial confirmation.
   const buildPopoverActions = (): PopoverAction[] => {
     const markInterested: PopoverAction = {
       label: t('Markera intresserad', 'Mark interested'),
@@ -136,8 +139,25 @@ export const StaffVolunteerRow = ({
       label: t('Bekräfta', 'Confirm'),
       variant: 'positive',
       successMessage: t('Bekräftad för eventet!', 'Confirmed for the event!'),
-      onClick: (eventId) =>
-        confirmStaffForEvent(eventId, row.id, row.name, row.role, row.role_details),
+      onClick: (eventId, selection) => {
+        const role = selection?.role ?? row.role
+        const roleDetails = selection?.roleDetails ?? row.role_details
+        return confirmStaffForEvent(eventId, row.id, row.name, role, roleDetails)
+      },
+      needsRoleSelection: {
+        roleOptions,
+        defaultRole: row.role,
+        defaultRoleDetails: row.role_details,
+        fetchExisting: async (eventId) => {
+          const roles = await getStaffRolesForEvent(eventId, row.id)
+          return roles.map((r) => ({
+            role: r.role,
+            roleLabel: roleOptions.find((o) => o.value === r.role)?.label ?? r.role,
+            roleDetails: r.roleDetails,
+          }))
+        },
+        onRemoveExisting: (eventId, role) => removeStaffFromEvent(eventId, row.id, role),
+      },
     }
     const removeInterest: PopoverAction = {
       label: t('Ta bort intresse', 'Remove interest'),
@@ -162,7 +182,7 @@ export const StaffVolunteerRow = ({
       },
     }
 
-    if (eventStatus === 'confirmed') return [downgradeToInterested, removeFromEvent]
+    if (eventStatus === 'confirmed') return [confirm, downgradeToInterested, removeFromEvent]
     if (eventStatus === 'interested') return [removeInterest, confirm]
     return [markInterested, confirm]
   }

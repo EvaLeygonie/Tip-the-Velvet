@@ -119,6 +119,52 @@ database directly.
   `extra-features.md`. Only worth revisiting if a specific event ever needs to pay someone
   a different amount than their usual rate and that needs to be tracked.
 
+### Clubs — built 2026-09-01
+
+Sourced from `docs/old-work-documents/Kontakter.xlsx` — a real directory of other
+Scandinavian burlesque clubs/organizers (potential collaboration partners) the org has
+been informally tracking, plus a "Hantverkare" (craftspeople) list of individuals who
+could sponsor with prizes. The two needed different homes: Hantverkare are just sponsors
+(`sponsor_type: 'prize'`, no new schema — the existing "what they are" gap on `sponsors`
+doesn't block this), but most clubs have never sponsored anything — forcing them into
+`sponsors` would either lose the "just a directory" case or require fake/empty sponsor
+rows for the common case.
+
+**New `clubs` table** (`id, name, organizers, instagram_link, location, region, notes,
+created_at`) — its own directory, RLS-restricted to `authenticated` (no public form ever
+touches it, unlike `sponsors`). `sponsors` gained a nullable `club_id` FK: a club that
+*does* sponsor an event (e.g. free tickets to their own show) gets a real sponsor row
+linked back to it, so it shows up in both the collaborator directory and the sponsor list
+without duplicating its info. Deliberately kept out of the public sponsor form (`SponsorForm.tsx`)
+— exposing a club picker publicly would leak the org's own research; linking only happens
+admin-side.
+
+**Contacts tab**: new "Klubbar" tab (`ClubRow.tsx`, mirrors `VenueRow.tsx` — no email
+field, since clubs has none), filterable by `region` (plain text, not an enum — only
+"Sverige"/"Norden" exist today but the field doesn't need a migration to grow). A club
+row shows a "Sponsrar oss" badge when a sponsor is linked to it. `SponsorRow.tsx` gained
+a "Linked club" dropdown (only rendered when clubs exist) to create that link.
+
+Real data loaded: 12 clubs (10 Swedish, 2 Nordic) and 10 Hantverkare-as-sponsors. A
+second, separate section further down the same spreadsheet ("i Norden"/"Internationellt"/
+"Fotografer") turned out to be potential artists/photographers to book, not clubs —
+explicitly left alone, since that's a different concern (casting outreach, not
+collaboration/sponsorship).
+
+Also added while touching sponsors: `instagram_link`/`other_link` columns (same
+formatting helpers as performers), on both the public sponsor form and the admin sponsor
+card — the public form had no way to leave a social link at all before this.
+
+**Follow-up same day**: `clubs` also gained its own `website` column (Instagram alone
+wasn't enough) — and once the `club_id` link existed, it turned out the board had already
+been using it: two sponsor rows ("Bouvardia Burlesque", "Fraulein Frauke Presents") were
+already manually linked to their matching clubs via the new dropdown, with real
+Instagram/website data on the sponsor side that the club rows didn't have yet. Backfilled
+Frauke's club row from its linked sponsor (Bouvardia's was already copied over by hand).
+Confirmed via direct Supabase MCP query rather than assumption — this is the kind of thing
+that's easy to get wrong by guessing at what "connected" means without checking the actual
+data first.
+
 ## Event Planning tab (the big one)
 
 ### Artist list + promo downloads
@@ -287,10 +333,38 @@ they're doing at this specific event" split now applied to volunteers:
   roles once the PK fix lands): prize donor, merch/sales table (this is where "Försäljare"
   actually belongs), promo, partner, other.
 
-**Contacts page**: the "Confirm" action in `AddToEventPopover.tsx` (staff and sponsor
-versions) gains a role dropdown — for staff, plus a shift sub-picker when `volunteer` is
-chosen — with an "add another role" affordance, rather than confirming with just whatever
-`role` the contact happened to be filed under.
+**Contacts page — built 2026-09-01.** `AddToEventPopover.tsx`'s "Confirm" action now
+carries an optional `needsRoleSelection` config (only staff's `confirm` action sets it —
+sponsors have no role concept, so `SponsorRow.tsx` is untouched): a role dropdown
+defaulting to the contact's roster role, a shift-preset dropdown (setup/door_guestlist/
+takedown/driving, per the design above — still free text into `role_details`, just
+prefilled from a suggested list, not a new column) shown only when `volunteer` is picked,
+and a "already confirmed as: X, Y" chip list with per-role remove buttons. Confirming
+never auto-closes the popover — "Klar" does — so adding a second or third role for the
+same event is just picking another role and confirming again, fulfilling the "add another
+role" affordance.
+
+This forced a real fix, not just new UI: `confirmStaffForEvent`/`removeStaffFromEvent`
+(`contactsService.ts`) still assumed the *old* composite `(event_id, staff_id)` PK
+(`.upsert(..., { onConflict: 'event_id,staff_id' })`), which the earlier staffing PK fix
+had already removed — confirming would have hard-failed the moment someone tried it. Now
+keyed on `(event_id, staff_id, role)`: confirming the same role again updates its details,
+confirming a different role adds a second row instead of overwriting the first, and
+removal is scoped to one specific role rather than deleting every role a person holds at
+that event. New `getStaffRolesForEvent` powers the chip list. Verified live against a
+real, pre-confirmed-clean contact (checked first via direct DB query, not assumed) —
+two roles added independently, one removed without touching the other, full cleanup
+confirmed via a fresh query afterward.
+
+**One real incident during this build, worth recording**: an earlier verification pass
+picked a contact row without checking its existing status first, and its cleanup step
+deleted a genuine pre-existing confirmation (a photographer assignment, including
+`events.photographer_id`/`photographer`) that had nothing to do with the test. Caught via
+direct DB query, restored via SQL handed to the user (role_details couldn't be recovered
+with certainty — the roster default was empty, used as the best available restore value).
+Lesson applied immediately: every verification pass against real data now checks a
+contact's current state first and confirms cleanup via a fresh query after, not just by
+trusting what the UI shows.
 
 **VIP list (Event Planning)**: auto-derived from confirmed staff/volunteers + their plus-
 ones + confirmed artists + artists' plus-ones + the 4 standing organizers, grouped into

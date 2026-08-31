@@ -28,12 +28,12 @@ export const JoinUsCard = () => {
 
   const ROLE_OPTIONS: RoleOption[] = [
     { value: 'volunteer', sv: 'Volontär (allmänt)', en: 'Volunteer (General)' },
-    { value: 'entertainment', sv: 'Underhållning / Scen', en: 'Entertainment / Stage' },
-    { value: 'musician', sv: 'Musiker', en: 'Musician' },
+    { value: 'entertainment', sv: 'Underhållning/musik', en: 'Entertainment/music' },
+    { value: 'dj', sv: 'DJ', en: 'DJ' },
+    { value: 'stage_kitten', sv: 'Stage kitten/hand', en: 'Stage kitten/hand' },
     { value: 'doorman', sv: 'Dörrvärd / vakt', en: 'Doorman / Guard' },
     { value: 'technician', sv: 'Tekniker (Ljud/Ljus)', en: 'Technician (Sound/Light)' },
     { value: 'photographer', sv: 'Fotograf', en: 'Photographer' },
-    // { value: 'artistic', sv: 'Konst / Design / Marknadsföring', en: 'Art / Design / Marketing' },
     { value: 'other', sv: 'Annat', en: 'Other' },
   ]
 
@@ -173,22 +173,6 @@ export const JoinUsCard = () => {
         )}
       </p>
 
-      {nearestEvent && nearestEvent.staff_recruitment_open && (
-        <div className="form-checkbox-row">
-          <input
-            type="checkbox"
-            checked={interestedInEvent}
-            onChange={(e) => setInterestedInEvent(e.target.checked)}
-            className="mt-0.5"
-          />
-          <label className="text-sm text-foreground/90 leading-relaxed cursor-pointer font-medium">
-            {t(
-              `Jag är intresserad av att hjälpa till på ${nearestEvent.title} den ${formatDate(language, nearestEvent.event_start)}`,
-              `I'm interested in helping at ${nearestEvent.title} on ${formatDate(language, nearestEvent.event_start)}`
-            )}
-          </label>
-        </div>
-      )}
       {nearestEvent && !nearestEvent.staff_recruitment_open && (
         <p className="text-sm text-foreground/70 italic leading-relaxed">
           {t(
@@ -283,13 +267,30 @@ export const JoinUsCard = () => {
           />
         </div>
 
+        {nearestEvent && nearestEvent.staff_recruitment_open && (
+          <div className="form-checkbox-row">
+            <input
+              type="checkbox"
+              checked={interestedInEvent}
+              onChange={(e) => setInterestedInEvent(e.target.checked)}
+              className="mt-0.5 shrink-0"
+            />
+            <label className="text-sm text-foreground/90 leading-relaxed cursor-pointer font-medium">
+              {t(
+                `Jag är intresserad av att hjälpa till på ${nearestEvent.title} den ${formatDate(language, nearestEvent.event_start)}`,
+                `I'm interested in helping at ${nearestEvent.title} on ${formatDate(language, nearestEvent.event_start)}`
+              )}
+            </label>
+          </div>
+        )}
+
         {/* GDPR */}
         <div className="form-checkbox-row">
           <input
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5"
+            className="mt-0.5 shrink-0"
           />
           <label className="text-sm text-foreground/90 leading-relaxed cursor-pointer font-medium">
             {t(

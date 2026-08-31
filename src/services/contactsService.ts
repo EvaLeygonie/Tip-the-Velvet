@@ -3,9 +3,11 @@ import type {
   StaffVolunteers,
   Sponsors,
   Venue,
+  Club,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
   CreateVenueInput,
+  CreateClubInput,
   StaffVolunteerType,
   SponsorType,
   EventStaffInvitationStatus,
@@ -26,6 +28,13 @@ export const getStaffVolunteers = async (): Promise<StaffVolunteers[]> => {
 
 export const getSponsors = async (): Promise<Sponsors[]> => {
   const { data, error } = await supabase.from('sponsors').select('*').order('name')
+
+  if (error) throw error
+  return data || []
+}
+
+export const getClubs = async (): Promise<Club[]> => {
+  const { data, error } = await supabase.from('clubs').select('*').order('name')
 
   if (error) throw error
   return data || []
@@ -61,6 +70,23 @@ export const getStaffEventStatuses = async (
     map[row.staff_id] = 'confirmed'
   }
   return map
+}
+
+// Every role one specific person is confirmed under for one specific event — powers the
+// "already confirmed as: X, Y" list in the Confirm popover's role picker, now that a
+// person can hold more than one role per event.
+export const getStaffRolesForEvent = async (
+  eventId: string,
+  staffId: string
+): Promise<{ role: StaffVolunteerType; roleDetails: string | null }[]> => {
+  const { data, error } = await supabase
+    .from('event_staff_volunteers')
+    .select('role, role_details')
+    .eq('event_id', eventId)
+    .eq('staff_id', staffId)
+
+  if (error) throw error
+  return (data || []).map((row) => ({ role: row.role, roleDetails: row.role_details }))
 }
 
 //=== CREATE ===///
@@ -101,6 +127,13 @@ export const createVenue = async (input: CreateVenueInput): Promise<Venue> => {
   return data
 }
 
+export const createClub = async (input: CreateClubInput): Promise<Club> => {
+  const { data, error } = await supabase.from('clubs').insert(input).select().single()
+
+  if (error) throw error
+  return data
+}
+
 //=== EVENT ASSIGNMENT ===///
 
 // Quick manual annotation — "this person told me by email/in person they want to help" —
@@ -118,8 +151,12 @@ export const markStaffInterested = async (eventId: string, staffId: string): Pro
 }
 
 // Skips the invitation record entirely and writes straight onto the confirmed roster, for
-// when the admin already knows for certain. Upserts against event_staff_volunteers's
-// composite PK so re-clicking updates in place rather than erroring.
+// when the admin already knows for certain. `event_staff_volunteers` moved from a
+// composite (event_id, staff_id) PK to a surrogate `id` specifically so one person can hold
+// several roles at the same event — so this can no longer be a blind upsert-by-person. It's
+// keyed on (event_id, staff_id, role) instead: confirming the same role again just updates
+// its details, confirming a *different* role adds a second row rather than overwriting the
+// first.
 //
 // Photographer is special-cased: events.photographer_id/photographer (set from
 // EventEditor.tsx) and this roster are two views onto the same fact — confirming a
@@ -132,14 +169,27 @@ export const confirmStaffForEvent = async (
   role: StaffVolunteerType,
   roleDetails: string | null
 ): Promise<void> => {
-  const { error } = await supabase
+  const { data: existing, error: selectError } = await supabase
     .from('event_staff_volunteers')
-    .upsert(
-      { event_id: eventId, staff_id: staffId, role, role_details: roleDetails },
-      { onConflict: 'event_id,staff_id' }
-    )
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('staff_id', staffId)
+    .eq('role', role)
+    .maybeSingle()
+  if (selectError) throw selectError
 
-  if (error) throw error
+  if (existing) {
+    const { error } = await supabase
+      .from('event_staff_volunteers')
+      .update({ role_details: roleDetails })
+      .eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('event_staff_volunteers')
+      .insert({ event_id: eventId, staff_id: staffId, role, role_details: roleDetails })
+    if (error) throw error
+  }
 
   if (role === 'photographer') {
     const { error: cleanupError } = await supabase
@@ -170,8 +220,9 @@ export const removeStaffInterest = async (eventId: string, staffId: string): Pro
   if (error) throw error
 }
 
-// Undoes confirmStaffForEvent — removes them from the confirmed roster entirely. Mirrors
-// that function's photographer special-case: if they were the event's photographer,
+// Undoes confirmStaffForEvent — removes one specific role assignment, not every role this
+// person might hold at the event (see confirmStaffForEvent's note on multi-role support).
+// Mirrors that function's photographer special-case: if they were the event's photographer,
 // clears events.photographer_id/photographer too (guarded by matching photographer_id so
 // this can't clobber a different photographer who's since been confirmed instead).
 export const removeStaffFromEvent = async (
@@ -184,6 +235,7 @@ export const removeStaffFromEvent = async (
     .delete()
     .eq('event_id', eventId)
     .eq('staff_id', staffId)
+    .eq('role', role)
 
   if (error) throw error
 

@@ -183,6 +183,42 @@ export type Database = {
           },
         ]
       }
+      clubs: {
+        Row: {
+          created_at: string
+          id: string
+          instagram_link: string | null
+          location: string | null
+          name: string
+          notes: string | null
+          organizers: string | null
+          region: string | null
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instagram_link?: string | null
+          location?: string | null
+          name: string
+          notes?: string | null
+          organizers?: string | null
+          region?: string | null
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instagram_link?: string | null
+          location?: string | null
+          name?: string
+          notes?: string | null
+          organizers?: string | null
+          region?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       event_images: {
         Row: {
           created_at: string
@@ -401,6 +437,7 @@ export type Database = {
         Row: {
           created_at: string
           event_id: string
+          id: string
           role: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details: string | null
           staff_id: string
@@ -408,6 +445,7 @@ export type Database = {
         Insert: {
           created_at?: string
           event_id: string
+          id?: string
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           staff_id: string
@@ -415,6 +453,7 @@ export type Database = {
         Update: {
           created_at?: string
           event_id?: string
+          id?: string
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           staff_id?: string
@@ -848,38 +887,55 @@ export type Database = {
       sponsors: {
         Row: {
           agreed_to_terms: boolean | null
+          club_id: string | null
           created_at: string
           email: string | null
           id: string
+          instagram_link: string | null
           logo_id: string | null
           name: string
+          other_link: string | null
           phone: string | null
           sponsor_details: string | null
           sponsor_type: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Insert: {
           agreed_to_terms?: boolean | null
+          club_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          instagram_link?: string | null
           logo_id?: string | null
           name: string
+          other_link?: string | null
           phone?: string | null
           sponsor_details?: string | null
           sponsor_type?: Database["public"]["Enums"]["sponsor_type"] | null
         }
         Update: {
           agreed_to_terms?: boolean | null
+          club_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          instagram_link?: string | null
           logo_id?: string | null
           name?: string
+          other_link?: string | null
           phone?: string | null
           sponsor_details?: string | null
           sponsor_type?: Database["public"]["Enums"]["sponsor_type"] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sponsors_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_volunteers: {
         Row: {
@@ -1188,11 +1244,11 @@ export type Database = {
       staff_volunteer_type:
         | "photographer"
         | "technician"
-        | "doorman"
-        | "artistic"
-        | "volunteer"
-        | "musician"
+        | "dj"
+        | "stage_kitten"
         | "entertainment"
+        | "volunteer"
+        | "doorman"
         | "other"
     }
     CompositeTypes: {
@@ -1368,11 +1424,11 @@ export const Constants = {
       staff_volunteer_type: [
         "photographer",
         "technician",
-        "doorman",
-        "artistic",
-        "volunteer",
-        "musician",
+        "dj",
+        "stage_kitten",
         "entertainment",
+        "volunteer",
+        "doorman",
         "other",
       ],
     },
