@@ -39,11 +39,11 @@ import { ClubRow } from '@/components/admin/contacts/ClubRow'
 const ROLE_ORDER: StaffVolunteerType[] = [
   'photographer',
   'technician',
+  'doorman',
   'dj',
   'stage_kitten',
   'entertainment',
   'volunteer',
-  'doorman',
   'other',
 ]
 
@@ -229,10 +229,13 @@ export const AdminContacts = () => {
   const statusEvent = upcomingEvents.find((e) => e.id === statusEventId)
   const interestedCount = Object.values(staffEventStatuses).filter((s) => s === 'interested').length
   const confirmedCount = Object.values(staffEventStatuses).filter((s) => s === 'confirmed').length
+  const declinedCount = Object.values(staffEventStatuses).filter((s) => s === 'declined').length
+  const notNeededCount = Object.values(staffEventStatuses).filter((s) => s === 'not_needed').length
   const confirmedSponsorCount = confirmedSponsorIds.size
 
-  // Confirmed first, interested second, everything else after — within whatever grouping
-  // the caller already has (role section for staff, the whole flat list for sponsors).
+  // Confirmed first, interested second, no-status third, declined/not-needed last — keeps
+  // people who are settled either way (can't work, or we don't need them) out of the way at
+  // the bottom, below anyone still worth asking.
   const byEventStatusFirst = <T extends { id: string }>(
     rows: T[],
     statuses: Record<string, EventStaffInvitationStatus>
@@ -241,6 +244,7 @@ export const AdminContacts = () => {
       const status = statuses[id]
       if (status === 'confirmed') return 0
       if (status === 'interested') return 1
+      if (status === 'declined' || status === 'not_needed') return 3
       return 2
     }
     return [...rows].sort((a, b) => rank(a.id) - rank(b.id))
@@ -393,6 +397,20 @@ export const AdminContacts = () => {
     })
   }
 
+  // Volunteers only, per feedback — a full "Hej Förnamn Efternamn," reads too formal for
+  // this group specifically. Sponsors/venues keep the full-name greeting via
+  // openMailModalFor above.
+  const openMailModalForVolunteer = (row: { name: string; email: string | null }) => {
+    if (!row.email) return
+    const firstName = row.name.trim().split(/\s+/)[0]
+    setMailTarget({
+      name: row.name,
+      email: row.email,
+      defaultSubject: '',
+      defaultBody: `Hej ${firstName}!\n\n\n\nVarma hälsningar,\nTip the Velvet`,
+    })
+  }
+
   const renderRoleSection = (role: StaffVolunteerType, rows: StaffVolunteers[]) => {
     if (rows.length === 0) return null
     const sectionInterested = rows.filter((r) => staffEventStatuses[r.id] === 'interested').length
@@ -432,7 +450,7 @@ export const AdminContacts = () => {
               roleOptions={roleOptions}
               onSave={handleSaveStaff}
               onDelete={handleDeleteStaff}
-              onEmail={openMailModalFor}
+              onEmail={openMailModalForVolunteer}
               eventStatus={staffEventStatuses[row.id]}
               onEventStatusChanged={refreshStaffEventStatuses}
             />
@@ -543,6 +561,14 @@ export const AdminContacts = () => {
                   <span className="text-green-400">
                     {confirmedCount} {t('bekräftade', 'confirmed')}
                   </span>
+                  <span className="text-foreground/40">·</span>
+                  <span className="text-amber-400">
+                    {notNeededCount} {t('ej aktuella', 'not needed')}
+                  </span>
+                  <span className="text-foreground/40">·</span>
+                  <span className="text-red-400">
+                    {declinedCount} {t('kan inte', "can't work")}
+                  </span>
                 </div>
               )}
 
@@ -555,7 +581,7 @@ export const AdminContacts = () => {
                     roleOptions={roleOptions}
                     onSave={handleSaveStaff}
                     onDelete={handleDeleteStaff}
-                    onEmail={openMailModalFor}
+                    onEmail={openMailModalForVolunteer}
                     onCancelNew={(id) =>
                       setStaffDrafts((prev) => prev.filter((d2) => d2.id !== id))
                     }

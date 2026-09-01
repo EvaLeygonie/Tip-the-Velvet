@@ -732,6 +732,45 @@ today, which is exactly the gap:
   people are the ones currently confused — but worth deciding with the actual backlog size
   in view, not guessing now.
 
+**Built 2026-09-01 — `declined`/`not_needed` statuses, on Contacts (not Event Planning).**
+Smaller and sooner than the full system above: the `event_staff_invitations.status` enum
+already had `declined`/`not_needed` values sitting unused (only `interested` was ever
+written) — prompted by the user wanting to mark someone who specifically can't work an
+event, so the board stops re-asking them, plus a distinct "not needed this time" for
+admin-side bookkeeping (who's been considered/talked to, without implying they said no —
+exactly who to ask first next time).
+- `contactsService.ts`: added `markStaffDeclined`/`markStaffNotNeeded` (same upsert shape as
+  the existing `markStaffInterested`), reused `removeStaffInterest` as the generic "clear
+  whichever status is set" action (it already deletes by `event_id`+`staff_id` regardless
+  of status, so no change needed there beyond the comment).
+- `StaffVolunteerRow.tsx`: row tint + badge for both new statuses (red for declined, amber
+  for not_needed, alongside the existing emerald/sky for confirmed/interested);
+  `buildPopoverActions()` now branches on all 4 non-empty statuses plus the no-status case,
+  always including "Confirm" — **decided with the user: a can't-work/not-needed mark is
+  informational, never a lock**, so plans changing later doesn't require clearing the mark
+  first.
+- `AddToEventPopover.tsx` gained a third button variant, `'neutral'` (amber, new `.btn-amber`
+  class in `index.css` mirroring `.btn-red`'s shape) — the first action that isn't a clean
+  positive/negative distinction.
+- `AdminContacts.tsx`: `byEventStatusFirst` sort now ranks declined/not_needed *below*
+  no-status rows (previously tied with "no status" in the same catch-all bucket) — keeps
+  people who are settled either way out of the way, below anyone still worth asking. Status
+  bar gained matching count pills (amber "ej aktuella" / red "kan inte").
+
+Verified live: no-status popover shows all 4 actions per the user's preferred layout;
+marking declined red-tints the row, shows the badge, and updates the live count; re-opening
+the popover on a declined row correctly offers switching to interested/not-needed, clearing,
+or confirming; cleared via "Ta bort markering" and confirmed gone after a full page reload
+(not just optimistic local state).
+
+**Fix 2026-09-01 — volunteer email greeting uses first name only.** `openMailModalFor` in
+`AdminContacts.tsx` (shared by staff/sponsor/venue email buttons) always used the full
+`row.name`. Per feedback, full name reads too formal specifically for volunteers — split
+into a second handler, `openMailModalForVolunteer`, used only by `StaffVolunteerRow`'s two
+call sites; sponsors/venues keep the full-name greeting unchanged. No schema for first
+name — `staff_volunteers.name` is one string column, so it's a plain
+`row.name.trim().split(/\s+/)[0]`.
+
 ### Show ordering, prep/cleanup/music/notes per act — built 2026-08-31 (Showplanering tab)
 Good news here too: `performer_acts` already collects `stage_preparations`,
 `pick_up_cleaning`, `act_notes`, and `audio_files` — all via the artist's own
@@ -971,6 +1010,16 @@ not to plan it.
 
 Correctly sequenced last — it's a pure rollup over data that only exists once the tabs
 above are built.
+
+**First real piece built, 2026-09-01 — new applications (last 7 days).** Started ahead of
+the rest of this tab, per direct request — the org-wide overview bullet below, in its
+smallest useful form. Two columns (staff/volunteers, sponsors), each a count + list of
+name/role/date, filtered by `created_at` within a rolling 7-day window. Reuses the existing
+`getStaffVolunteers()`/`getSponsors()` — no new service functions or schema. **Known
+limitation, not a bug**: neither table has a reviewed/seen flag, so "new" is a fixed rolling
+window rather than "since you last checked" — the honest lowest-effort option; a real
+seen-tracking mechanism (e.g. a per-admin-device `localStorage` timestamp) would need to be
+added later if a fixed window turns out to miss things.
 
 **Scope, per the user (2026-08-25)** — richer than originally sketched here:
 

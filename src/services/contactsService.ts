@@ -209,8 +209,38 @@ export const confirmStaffForEvent = async (
   }
 }
 
-// Undoes markStaffInterested — deletes the invitation row entirely rather than setting some
-// "removed" status, since nothing else needs to remember it was ever there.
+// Same upsert shape as markStaffInterested, just a different status — "this person can't/
+// won't work this event," recorded so the board stops re-asking them for it. Distinct from
+// deleting the row: the point is to remember the answer, not forget it.
+export const markStaffDeclined = async (eventId: string, staffId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_invitations')
+    .upsert(
+      { event_id: eventId, staff_id: staffId, status: 'declined' },
+      { onConflict: 'event_id,staff_id' }
+    )
+
+  if (error) throw error
+}
+
+// Admin-side bookkeeping, not a rejection from the person — "we had enough people this
+// time," so next time this is exactly who to ask first. Kept as its own status rather than
+// reusing 'declined' since the two answer different questions later.
+export const markStaffNotNeeded = async (eventId: string, staffId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_invitations')
+    .upsert(
+      { event_id: eventId, staff_id: staffId, status: 'not_needed' },
+      { onConflict: 'event_id,staff_id' }
+    )
+
+  if (error) throw error
+}
+
+// Undoes markStaffInterested/markStaffDeclined/markStaffNotNeeded alike — deletes the
+// invitation row entirely (by event+staff, regardless of which status it currently holds)
+// rather than setting some "removed" status, since nothing else needs to remember it was
+// ever there.
 export const removeStaffInterest = async (eventId: string, staffId: string): Promise<void> => {
   const { error } = await supabase
     .from('event_staff_invitations')

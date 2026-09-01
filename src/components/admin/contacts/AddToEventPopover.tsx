@@ -34,8 +34,10 @@ export interface RoleSelectionConfig {
 export interface PopoverAction {
   label: string
   // 'positive' (gold, filled) for interested/confirm-type moves, 'negative' (red-tinted,
-  // matches the Radera/delete idiom used elsewhere) for remove-interest/remove-from-event.
-  variant: 'positive' | 'negative'
+  // matches the Radera/delete idiom used elsewhere) for remove-interest/remove-from-event/
+  // can't-work, 'neutral' (amber-tinted) for admin-bookkeeping moves that aren't a rejection
+  // — currently just "not needed this time."
+  variant: 'positive' | 'negative' | 'neutral'
   successMessage: string
   onClick: (
     eventId: string,
@@ -309,7 +311,9 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
                 className={
                   action.variant === 'positive'
                     ? 'btn-gold text-xs py-2 px-3 min-h-0 justify-center'
-                    : 'btn-red text-xs py-2 px-3 min-h-0 justify-center'
+                    : action.variant === 'neutral'
+                      ? 'btn-amber text-xs py-2 px-3 min-h-0 justify-center'
+                      : 'btn-red text-xs py-2 px-3 min-h-0 justify-center'
                 }
               >
                 {action.label}

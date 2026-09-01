@@ -41,11 +41,11 @@ import type {
 const ROLE_ORDER: StaffVolunteerType[] = [
   'photographer',
   'technician',
+  'doorman',
   'dj',
   'stage_kitten',
   'entertainment',
   'volunteer',
-  'doorman',
   'other',
 ]
 

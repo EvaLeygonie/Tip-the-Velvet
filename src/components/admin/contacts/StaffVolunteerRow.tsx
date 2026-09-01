@@ -5,6 +5,8 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { AddToEventPopover, type PopoverAction } from './AddToEventPopover'
 import {
   markStaffInterested,
+  markStaffDeclined,
+  markStaffNotNeeded,
   confirmStaffForEvent,
   removeStaffInterest,
   removeStaffFromEvent,
@@ -18,6 +20,8 @@ import type { StaffVolunteers, StaffVolunteerType, EventStaffInvitationStatus } 
 const EVENT_STATUS_ROW_CLASS: Record<string, string> = {
   confirmed: 'border-emerald-500/70 bg-emerald-950/20',
   interested: 'border-sky-500/60 bg-sky-950/10',
+  declined: 'border-red-500/60 bg-red-950/10',
+  not_needed: 'border-amber-500/60 bg-amber-950/10',
 }
 
 interface StaffVolunteerRowProps {
@@ -159,10 +163,24 @@ export const StaffVolunteerRow = ({
         onRemoveExisting: (eventId, role) => removeStaffFromEvent(eventId, row.id, role),
       },
     }
-    const removeInterest: PopoverAction = {
-      label: t('Ta bort intresse', 'Remove interest'),
+    const markDeclined: PopoverAction = {
+      label: t('Kan inte jobba', "Can't work"),
       variant: 'negative',
-      successMessage: t('Intresse borttaget.', 'Interest removed.'),
+      successMessage: t('Markerad som kan inte jobba.', "Marked as can't work."),
+      onClick: (eventId) => markStaffDeclined(eventId, row.id),
+    }
+    const markNotNeeded: PopoverAction = {
+      label: t('Inte aktuell', 'Not needed'),
+      variant: 'neutral',
+      successMessage: t('Markerad som inte aktuell.', 'Marked as not needed.'),
+      onClick: (eventId) => markStaffNotNeeded(eventId, row.id),
+    }
+    // Clears whichever status (interested/declined/not_needed) is currently set — same
+    // underlying delete regardless, see removeStaffInterest's own comment.
+    const clearStatus: PopoverAction = {
+      label: t('Ta bort markering', 'Remove marking'),
+      variant: 'negative',
+      successMessage: t('Markering borttagen.', 'Marking removed.'),
       onClick: (eventId) => removeStaffInterest(eventId, row.id),
     }
     const removeFromEvent: PopoverAction = {
@@ -182,9 +200,13 @@ export const StaffVolunteerRow = ({
       },
     }
 
+    // Per feedback: a can't-work/not-needed mark is informational, never a lock — Confirm
+    // stays available from every status in case plans change.
     if (eventStatus === 'confirmed') return [confirm, downgradeToInterested, removeFromEvent]
-    if (eventStatus === 'interested') return [removeInterest, confirm]
-    return [markInterested, confirm]
+    if (eventStatus === 'interested') return [clearStatus, markDeclined, markNotNeeded, confirm]
+    if (eventStatus === 'declined') return [clearStatus, markInterested, markNotNeeded, confirm]
+    if (eventStatus === 'not_needed') return [clearStatus, markInterested, markDeclined, confirm]
+    return [markInterested, markDeclined, markNotNeeded, confirm]
   }
 
   return (
@@ -210,6 +232,16 @@ export const StaffVolunteerRow = ({
                 {eventStatus === 'interested' && (
                   <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-sky-400">
                     {t('Intresserad', 'Interested')}
+                  </span>
+                )}
+                {eventStatus === 'declined' && (
+                  <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-red-400">
+                    {t('Kan inte jobba', "Can't work")}
+                  </span>
+                )}
+                {eventStatus === 'not_needed' && (
+                  <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-amber-400">
+                    {t('Inte aktuell', 'Not needed')}
                   </span>
                 )}
               </div>

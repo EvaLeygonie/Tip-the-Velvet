@@ -61,20 +61,18 @@ export const EventProgressOverview = ({
 }: EventProgressOverviewProps) => {
   const { t } = useLanguage()
 
-  // Showplanering
-  const performersMissingActs = performers.filter(
-    (p) => !acts.some((a) => a.performer_id === p.performer_id)
-  ).length
+  // Showplanering — every confirmed artist always has at least one act (created by the
+  // booking flow itself), so the only real gap left to flag is missing stage notes.
   const actsMissingNotes = acts.filter((a) => !a.stage_preparations && !a.pick_up_cleaning).length
-  const showOk = performers.length === 0 ? null : performersMissingActs === 0 && actsMissingNotes === 0
+  const showOk = performers.length === 0 ? null : actsMissingNotes === 0
   const showValue =
     performers.length === 0
       ? t('Inga artister än', 'No artists yet')
       : showOk
         ? t(`${acts.length} akter klara`, `${acts.length} acts ready`)
         : t(
-            `${performersMissingActs} utan akt, ${actsMissingNotes} utan scenanteckningar`,
-            `${performersMissingActs} without an act, ${actsMissingNotes} without stage notes`
+            `${actsMissingNotes} utan scenanteckningar`,
+            `${actsMissingNotes} without stage notes`
           )
 
   // Bemanning

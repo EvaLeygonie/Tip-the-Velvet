@@ -394,6 +394,17 @@ body {
     background-color: rgba(127, 29, 29, 1);
   }
 
+  .btn-amber {
+    @apply btn-action text-amber-100;
+    background-color: rgba(69, 40, 10, 0.9);
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 0 15px rgba(180, 83, 9, 0.4);
+  }
+
+  .btn-amber:hover {
+    background-color: rgba(146, 64, 14, 1);
+  }
+
   .btn-gold-outline {
     @apply inline-flex items-center gap-2 px-6 py-2.5 border text-accent text-xs font-semibold uppercase tracking-widest rounded-xl transition-all duration-300 cursor-pointer;
     border-color: rgba(212, 175, 55, 0.4);
