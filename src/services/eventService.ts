@@ -8,6 +8,8 @@ import type {
   EventPerformer,
   StaffVolunteers,
   Sponsors,
+  PerformerAct,
+  DietaryCategory,
 } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
@@ -238,6 +240,9 @@ export interface AdminEventStaffRow {
   id: string
   role: StaffVolunteers['role']
   role_details: string | null
+  needs_food: boolean
+  dietary_category: DietaryCategory | null
+  dietary_notes: string | null
   staff: StaffVolunteers
 }
 
@@ -248,7 +253,9 @@ export interface AdminEventStaffRow {
 export const getEventStaffForAdmin = async (eventId: string): Promise<AdminEventStaffRow[]> => {
   const { data, error } = await supabase
     .from('event_staff_volunteers')
-    .select('id, role, role_details, staff:staff_volunteers(*)')
+    .select(
+      'id, role, role_details, needs_food, dietary_category, dietary_notes, staff:staff_volunteers(*)'
+    )
     .eq('event_id', eventId)
 
   if (error) throw error
@@ -272,6 +279,46 @@ export const getEventSponsorsForAdmin = async (eventId: string): Promise<AdminEv
 
   if (error) throw error
   return (data || []) as unknown as AdminEventSponsorRow[]
+}
+
+export interface AdminEventActRow extends PerformerAct {
+  performer: Pick<Performer, 'id' | 'performer_name'>
+}
+
+// Show Planning's data source — performer_acts already collects everything a real running
+// order needs (stage_preparations/pick_up_cleaning/act_notes, per the org's own "Set list"
+// documents), it just never had an admin-facing view before.
+export const getEventActsForAdmin = async (eventId: string): Promise<AdminEventActRow[]> => {
+  const { data, error } = await supabase
+    .from('performer_acts')
+    .select('*, performer:performers(id, performer_name)')
+    .eq('event_id', eventId)
+    .order('display_order', { ascending: true })
+
+  if (error) throw error
+  return (data || []) as unknown as AdminEventActRow[]
+}
+
+export const updatePerformerActOrder = (id: string, displayOrder: number) =>
+  updateRow('performer_acts', id, { display_order: displayOrder })
+
+export const updatePerformerActNotes = (
+  id: string,
+  patch: Partial<Pick<PerformerAct, 'stage_preparations' | 'pick_up_cleaning' | 'act_notes'>>
+) => updateRow('performer_acts', id, patch)
+
+export const updateEventPerformerDietary = async (
+  eventId: string,
+  performerId: string,
+  category: DietaryCategory | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ dietary_category: category })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
 }
 
 // Keyed on the composite (event_id, performer_id) — event_performers has no surrogate `id`

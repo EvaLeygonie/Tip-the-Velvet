@@ -262,6 +262,7 @@ export type Database = {
           accommodation: string | null
           arrival_time: string | null
           created_at: string
+          dietary_category: Database["public"]["Enums"]["dietary_category"] | null
           dietary_requirements: string | null
           display_order: number
           event_id: string
@@ -281,6 +282,7 @@ export type Database = {
           accommodation?: string | null
           arrival_time?: string | null
           created_at?: string
+          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
           dietary_requirements?: string | null
           display_order?: number
           event_id: string
@@ -300,6 +302,7 @@ export type Database = {
           accommodation?: string | null
           arrival_time?: string | null
           created_at?: string
+          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
           dietary_requirements?: string | null
           display_order?: number
           event_id?: string
@@ -436,24 +439,33 @@ export type Database = {
       event_staff_volunteers: {
         Row: {
           created_at: string
+          dietary_category: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_notes: string | null
           event_id: string
           id: string
+          needs_food: boolean
           role: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details: string | null
           staff_id: string
         }
         Insert: {
           created_at?: string
+          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_notes?: string | null
           event_id: string
           id?: string
+          needs_food?: boolean
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           staff_id: string
         }
         Update: {
           created_at?: string
+          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_notes?: string | null
           event_id?: string
           id?: string
+          needs_food?: boolean
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
           staff_id?: string
@@ -1240,6 +1252,7 @@ export type Database = {
         | "declined"
         | "cancelled"
       casting_review_status: "pending" | "yes" | "maybe" | "no"
+      dietary_category: "all_eater" | "vegetarian" | "vegan"
       event_performer_role: "performer" | "host" | "headliner"
       event_staff_invitation_status:
         | "interested"
@@ -1425,6 +1438,7 @@ export const Constants = {
         "cancelled",
       ],
       casting_review_status: ["pending", "yes", "maybe", "no"],
+      dietary_category: ["all_eater", "vegetarian", "vegan"],
       event_performer_role: ["performer", "host", "headliner"],
       event_staff_invitation_status: [
         "interested",

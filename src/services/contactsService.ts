@@ -11,6 +11,7 @@ import type {
   StaffVolunteerType,
   SponsorType,
   EventStaffInvitationStatus,
+  DietaryCategory,
 } from '@/types/types'
 
 //=== READ ===///
@@ -302,6 +303,19 @@ export const updateEventStaffRoleDetails = async (
     .from('event_staff_volunteers')
     .update({ role_details: roleDetails })
     .eq('id', id)
+
+  if (error) throw error
+}
+
+export const updateStaffFoodInfo = async (
+  id: string,
+  patch: {
+    needs_food?: boolean
+    dietary_category?: DietaryCategory | null
+    dietary_notes?: string | null
+  }
+): Promise<void> => {
+  const { error } = await supabase.from('event_staff_volunteers').update(patch).eq('id', id)
 
   if (error) throw error
 }

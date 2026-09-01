@@ -9,23 +9,33 @@ import {
   getEventPerformersForAdmin,
   getEventStaffForAdmin,
   getEventSponsorsForAdmin,
+  getEventActsForAdmin,
+  updatePerformerActOrder,
+  updateEventPerformerDietary,
 } from '@/services/eventService'
 import type {
   AdminEventPerformerRow,
   AdminEventStaffRow,
   AdminEventSponsorRow,
+  AdminEventActRow,
 } from '@/services/eventService'
 import { getVipManualEntries, createVipManualEntry } from '@/services/vipListService'
 import { updateRow, deleteRow } from '@/services/databaseService'
-import { staffRoleLabel, vipCategoryLabel } from '@/lib/contactLabels'
+import { staffRoleLabel, vipCategoryLabel, dietaryCategoryLabel } from '@/lib/contactLabels'
 import { EventStaffRow } from '@/components/admin/event-plan/EventStaffRow'
-import { EventSponsorRow } from '@/components/admin/event-plan/EventSponsorRow'
+import { SponsorSlotGrid } from '@/components/admin/event-plan/SponsorSlotGrid'
 import { VipManualEntryRow } from '@/components/admin/event-plan/VipManualEntryRow'
+import { EventProgressOverview } from '@/components/admin/event-plan/EventProgressOverview'
+import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
+import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
+import { ShowPlanningActRow } from '@/components/admin/event-plan/ShowPlanningActRow'
+import { DietaryCategoryPicker } from '@/components/admin/event-plan/DietaryCategoryPicker'
+import { STANDING_ORGANIZERS, VIP_CATEGORY_ORDER } from '@/components/admin/event-plan/constants'
 import type {
   StaffVolunteerType,
   VipManualEntry,
-  VipEntryCategory,
   CreateVipManualEntryInput,
+  DietaryCategory,
 } from '@/types/types'
 
 const ROLE_ORDER: StaffVolunteerType[] = [
@@ -38,18 +48,6 @@ const ROLE_ORDER: StaffVolunteerType[] = [
   'doorman',
   'other',
 ]
-
-// The 4 standing organizers — a fixed, rarely-changing set of real people, not worth a
-// table for (confirmed against the org's own real VIP list sheets, which list the same 4
-// people/emails every time).
-const STANDING_ORGANIZERS: { name: string; email: string }[] = [
-  { name: 'Andrea Jensen', email: 'andrealuciajensen@gmail.com' },
-  { name: 'Krister Johansson', email: 'lillqrill@gmail.com' },
-  { name: 'Eva Leygonie', email: 'eva.leygonie@hotmail.fr' },
-  { name: 'Pontus Lindhé', email: 'pontus.lioh@gmail.com' },
-]
-
-const VIP_CATEGORY_ORDER: VipEntryCategory[] = ['ticket_winner', 'contest_winner', 'other']
 
 interface VipListItem {
   name: string
@@ -79,8 +77,9 @@ const escapeHtml = (value: string): string =>
 export const AdminEventPlan = () => {
   const { t } = useLanguage()
   const { selectedEventId, upcomingEvents } = useCurrentEvent()
-  const [activeTab, setActiveTab] = useState<'artists' | 'staff' | 'sponsors' | 'vip'>('artists')
+  const [activeTab, setActiveTab] = useState<EventPlanTab>('artists')
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
+  const [acts, setActs] = useState<AdminEventActRow[]>([])
   const [staffRows, setStaffRows] = useState<AdminEventStaffRow[]>([])
   const [sponsorRows, setSponsorRows] = useState<AdminEventSponsorRow[]>([])
   const [vipEntries, setVipEntries] = useState<VipManualEntry[]>([])
@@ -93,13 +92,15 @@ export const AdminEventPlan = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const [performersData, staff, sponsors, vip] = await Promise.all([
+        const [performersData, actsData, staff, sponsors, vip] = await Promise.all([
           getEventPerformersForAdmin(selectedEventId),
+          getEventActsForAdmin(selectedEventId),
           getEventStaffForAdmin(selectedEventId),
           getEventSponsorsForAdmin(selectedEventId),
           getVipManualEntries(selectedEventId),
         ])
         setPerformers(performersData.performers)
+        setActs(actsData)
         setStaffRows(staff)
         setSponsorRows(sponsors)
         setVipEntries(vip)
@@ -111,6 +112,41 @@ export const AdminEventPlan = () => {
     }
     load()
   }, [selectedEventId])
+
+  const handleMoveAct = async (index: number, direction: -1 | 1) => {
+    const otherIndex = index + direction
+    if (otherIndex < 0 || otherIndex >= acts.length) return
+    const a = acts[index]
+    const b = acts[otherIndex]
+    try {
+      await Promise.all([
+        updatePerformerActOrder(a.id, b.display_order),
+        updatePerformerActOrder(b.id, a.display_order),
+      ])
+      setActs((prev) => {
+        const next = [...prev]
+        next[index] = { ...a, display_order: b.display_order }
+        next[otherIndex] = { ...b, display_order: a.display_order }
+        return next.sort((x, y) => x.display_order - y.display_order)
+      })
+    } catch (err) {
+      toast.error(t('Kunde inte ändra ordning.', 'Could not reorder.'))
+      console.error(err)
+    }
+  }
+
+  const handleUpdatePerformerDietary = async (performerId: string, category: DietaryCategory) => {
+    if (!selectedEventId) return
+    try {
+      await updateEventPerformerDietary(selectedEventId, performerId, category)
+      setPerformers((prev) =>
+        prev.map((p) => (p.performer_id === performerId ? { ...p, dietary_category: category } : p))
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
+  }
 
   const handleSaveVipEntry = async (id: string, patch: Partial<VipManualEntry>, isNew: boolean) => {
     if (isNew) {
@@ -339,6 +375,31 @@ export const AdminEventPlan = () => {
     doc.save(`${eventTitle}-vip-lista.pdf`)
   }
 
+  // Same computation the progress overview's "Mat" card does — repeated here (not shared
+  // via a prop) since it's one small derived line, not worth threading through a callback.
+  const foodPeople: (DietaryCategory | null)[] = [
+    ...performers.map((p) => p.dietary_category),
+    ...staffRows.filter((r) => r.needs_food).map((r) => r.dietary_category),
+  ]
+  const foodNeedsCategorizing = foodPeople.some((c) => !c)
+  const foodCounts: Record<DietaryCategory, number> = { all_eater: 0, vegetarian: 0, vegan: 0 }
+  foodPeople.forEach((c) => {
+    if (c) foodCounts[c]++
+  })
+  const foodCountsSummary = (['all_eater', 'vegetarian', 'vegan'] as DietaryCategory[])
+    .filter((c) => foodCounts[c] > 0)
+    .map((c) => `${foodCounts[c]} ${dietaryCategoryLabel(t, c).toLowerCase()}`)
+    .join(', ')
+  const foodSummaryLine =
+    foodPeople.length === 0
+      ? t('Mat: ingen att kategorisera än.', 'Food: nobody to categorize yet.')
+      : foodNeedsCategorizing
+        ? t(
+            'Mat: vissa saknar fortfarande kategori (se Artister/Bemanning).',
+            'Food: some still need a category (see Artists/Staffing).'
+          )
+        : t(`Mat: ${foodCountsSummary}.`, `Food: ${foodCountsSummary}.`)
+
   return (
     <div className="page-shell">
       <div className="bg-glow-spot" />
@@ -349,7 +410,20 @@ export const AdminEventPlan = () => {
 
       {selectedEventId && (
         <>
-          <div className="flex gap-2 justify-center my-6 flex-wrap">
+          {!loading && (
+            <div className="max-w-5xl mx-auto mt-6">
+              <EventProgressOverview
+                performers={performers}
+                acts={acts}
+                staffRows={staffRows}
+                sponsorRows={sponsorRows}
+                vipEntries={vipEntries}
+                onSelectTab={setActiveTab}
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-center mb-6 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab('artists')}
@@ -363,6 +437,17 @@ export const AdminEventPlan = () => {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('show')}
+              className={
+                activeTab === 'show'
+                  ? 'btn-gold text-xs py-2 px-4'
+                  : 'btn-gold-outline text-xs py-2 px-4'
+              }
+            >
+              {t('Showplanering', 'Show Planning')}
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('staff')}
               className={
                 activeTab === 'staff'
@@ -370,7 +455,7 @@ export const AdminEventPlan = () => {
                   : 'btn-gold-outline text-xs py-2 px-4'
               }
             >
-              {t('Personal & Volontärer', 'Staff & Volunteers')}
+              {t('Bemanning', 'Staffing')}
             </button>
             <button
               type="button"
@@ -392,7 +477,7 @@ export const AdminEventPlan = () => {
                   : 'btn-gold-outline text-xs py-2 px-4'
               }
             >
-              {t('VIP-lista', 'VIP list')}
+              {t('VIP & Mat', 'VIP & Food')}
             </button>
           </div>
 
@@ -401,7 +486,7 @@ export const AdminEventPlan = () => {
               <div className="loading-text">{t('Öppnar ridån...', 'Opening the curtain...')}</div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-4">
+            <div className="max-w-5xl mx-auto space-y-4">
               {activeTab === 'artists' &&
                 (performers.length === 0 ? (
                   <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
@@ -411,7 +496,7 @@ export const AdminEventPlan = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="max-w-3xl mx-auto space-y-2">
                     {performers.map((row) => (
                       <div
                         key={row.performer_id}
@@ -429,12 +514,47 @@ export const AdminEventPlan = () => {
                           </span>
                         )}
                         {row.dietary_requirements && (
-                          <span className="flex items-center gap-1.5 text-xs text-foreground/60 italic min-w-0">
+                          <span
+                            title={row.dietary_requirements}
+                            className="flex items-center gap-1.5 text-xs text-foreground/60 italic min-w-0"
+                          >
                             <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-accent/50" />
-                            <span className="truncate">{row.dietary_requirements}</span>
+                            <span className="truncate max-w-[120px]">{row.dietary_requirements}</span>
                           </span>
                         )}
+                        <DietaryCategoryPicker
+                          value={row.dietary_category}
+                          onChange={(value) => handleUpdatePerformerDietary(row.performer_id, value)}
+                          className="shrink-0"
+                        />
                       </div>
+                    ))}
+                  </div>
+                ))}
+
+              {activeTab === 'show' &&
+                (acts.length === 0 ? (
+                  <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
+                    {t(
+                      'Inga akter registrerade för detta event ännu.',
+                      'No acts registered for this event yet.'
+                    )}
+                  </div>
+                ) : (
+                  <div className="max-w-3xl mx-auto space-y-2">
+                    {acts.map((row, index) => (
+                      <ShowPlanningActRow
+                        key={row.id}
+                        row={row}
+                        position={index + 1}
+                        isFirst={index === 0}
+                        isLast={index === acts.length - 1}
+                        onMoveUp={() => handleMoveAct(index, -1)}
+                        onMoveDown={() => handleMoveAct(index, 1)}
+                        onUpdated={(id, patch) =>
+                          setActs((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+                        }
+                      />
                     ))}
                   </div>
                 ))}
@@ -448,95 +568,96 @@ export const AdminEventPlan = () => {
                     )}
                   </div>
                 ) : (
-                  ROLE_ORDER.map((role) => {
-                    const rows = staffRows.filter((r) => r.role === role)
-                    if (rows.length === 0) return null
-                    return (
-                      <div key={role} className="space-y-2 pt-2">
-                        <div className="flex items-center justify-between border-b border-accent/10 pb-2">
-                          <h5 className="font-decorative text-base text-foreground/80">
-                            {staffRoleLabel(t, role)}
-                          </h5>
-                          <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-                            {rows.length}
-                          </span>
+                  <div className="max-w-3xl mx-auto space-y-4">
+                    <StaffingCoverageStrip staffRows={staffRows} />
+                    {ROLE_ORDER.map((role) => {
+                      const rows = staffRows.filter((r) => r.role === role)
+                      if (rows.length === 0) return null
+                      return (
+                        <div key={role} className="space-y-2 pt-2">
+                          <div className="flex items-center justify-between border-b border-accent/10 pb-2">
+                            <h5 className="font-decorative text-base text-foreground/80">
+                              {staffRoleLabel(t, role)}
+                            </h5>
+                            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
+                              {rows.length}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {rows.map((row) => (
+                              <EventStaffRow
+                                key={row.id}
+                                row={row}
+                                eventId={selectedEventId}
+                                onRemoved={(id) =>
+                                  setStaffRows((prev) => prev.filter((r) => r.id !== id))
+                                }
+                                onUpdated={(id, patch) =>
+                                  setStaffRows((prev) =>
+                                    prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+                                  )
+                                }
+                              />
+                            ))}
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          {rows.map((row) => (
-                            <EventStaffRow
-                              key={row.id}
-                              row={row}
-                              eventId={selectedEventId}
-                              onRemoved={(id) =>
-                                setStaffRows((prev) => prev.filter((r) => r.id !== id))
-                              }
-                              onUpdated={(id, roleDetails) =>
-                                setStaffRows((prev) =>
-                                  prev.map((r) => (r.id === id ? { ...r, role_details: roleDetails } : r))
-                                )
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })
+                      )
+                    })}
+                  </div>
                 ))}
 
-              {activeTab === 'sponsors' &&
-                (sponsorRows.length === 0 ? (
-                  <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
-                    {t(
-                      'Inga sponsorer bekräftade för detta event ännu.',
-                      'No sponsors confirmed for this event yet.'
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {sponsorRows.map((row) => (
-                      <EventSponsorRow
-                        key={row.sponsor_id}
-                        row={row}
-                        eventId={selectedEventId}
-                        onRemoved={(sponsorId) =>
-                          setSponsorRows((prev) => prev.filter((r) => r.sponsor_id !== sponsorId))
-                        }
-                        onUpdated={(sponsorId, details) =>
-                          setSponsorRows((prev) =>
-                            prev.map((r) => (r.sponsor_id === sponsorId ? { ...r, details } : r))
-                          )
-                        }
-                      />
-                    ))}
-                  </div>
-                ))}
+              {activeTab === 'sponsors' && (
+                <div className="max-w-3xl mx-auto">
+                  <SponsorSlotGrid
+                    sponsorRows={sponsorRows}
+                    eventId={selectedEventId}
+                    onRemoved={(sponsorId) =>
+                      setSponsorRows((prev) => prev.filter((r) => r.sponsor_id !== sponsorId))
+                    }
+                    onUpdated={(sponsorId, details) =>
+                      setSponsorRows((prev) =>
+                        prev.map((r) => (r.sponsor_id === sponsorId ? { ...r, details } : r))
+                      )
+                    }
+                  />
+                </div>
+              )}
 
               {activeTab === 'vip' && (
-                <div className="space-y-6">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDownloadVipList}
-                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {t('Ladda ner VIP-lista (A4)', 'Download VIP list (A4)')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDownloadVipListPdf}
-                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      {t('Ladda ner som PDF', 'Download as PDF')}
-                    </button>
+                <div className="max-w-3xl mx-auto space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-sm text-foreground/70">
+                      <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-accent/50" />
+                      {foodSummaryLine}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadVipList}
+                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {t('Ladda ner VIP-lista (A4)', 'Download VIP list (A4)')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownloadVipListPdf}
+                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {t('Ladda ner som PDF', 'Download as PDF')}
+                      </button>
+                    </div>
                   </div>
 
-                  {STANDING_ORGANIZERS.length > 0 && (
-                    <div className="space-y-2">
-                      <h5 className="font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2">
-                        {t('Arrangörer', 'Organizers')}
-                      </h5>
+                  <details className="group">
+                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
+                      {t('Arrangörer', 'Organizers')}
+                      <span className="text-xs font-mono text-foreground/40">
+                        {STANDING_ORGANIZERS.length}
+                      </span>
+                    </summary>
+                    <div className="space-y-2 pt-2">
                       {STANDING_ORGANIZERS.map((organizer) => (
                         <div
                           key={organizer.email}
@@ -547,90 +668,103 @@ export const AdminEventPlan = () => {
                         </div>
                       ))}
                     </div>
-                  )}
+                  </details>
 
-                  <div className="space-y-2">
-                    <h5 className="font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2">
+                  <details className="group">
+                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
                       {t('Artister', 'Artists')}
-                    </h5>
-                    {performers.length === 0 ? (
-                      <p className="text-sm text-foreground/40 italic">
-                        {t('Inga bekräftade artister ännu.', 'No confirmed artists yet.')}
-                      </p>
-                    ) : (
-                      performers.map((row) => (
-                        <div
-                          key={row.performer_id}
-                          className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
-                        >
-                          <span className="flex-1 min-w-0 truncate">{row.performer.performer_name}</span>
-                          {row.performer.email && (
-                            <span className="text-foreground/50 text-xs shrink-0">
-                              {row.performer.email}
-                            </span>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <h5 className="font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2">
-                      {t('Arbetare & volontärer', 'Staff & volunteers')}
-                    </h5>
-                    {staffRows.length === 0 ? (
-                      <p className="text-sm text-foreground/40 italic">
-                        {t('Ingen personal bekräftad ännu.', 'No staff confirmed yet.')}
-                      </p>
-                    ) : (
-                      staffRows.map((row) => (
-                        <div
-                          key={row.id}
-                          className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
-                        >
-                          <span className="flex-1 min-w-0 truncate">{row.staff.name}</span>
-                          {row.staff.email && (
-                            <span className="text-foreground/50 text-xs shrink-0">
-                              {row.staff.email}
-                            </span>
-                          )}
-                          <span className="text-accent italic text-xs shrink-0">
-                            {staffRoleLabel(t, row.role)}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <h5 className="font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2">
-                      {t("Artisternas +1", "Artists' +1")}
-                    </h5>
-                    {performers.filter((p) => p.plus_one_name).length === 0 ? (
-                      <p className="text-sm text-foreground/40 italic">
-                        {t('Inga anmälda +1 ännu.', 'No +1s registered yet.')}
-                      </p>
-                    ) : (
-                      performers
-                        .filter((p) => p.plus_one_name)
-                        .map((row) => (
+                      <span className="text-xs font-mono text-foreground/40">{performers.length}</span>
+                    </summary>
+                    <div className="space-y-2 pt-2">
+                      {performers.length === 0 ? (
+                        <p className="text-sm text-foreground/40 italic">
+                          {t('Inga bekräftade artister ännu.', 'No confirmed artists yet.')}
+                        </p>
+                      ) : (
+                        performers.map((row) => (
                           <div
                             key={row.performer_id}
                             className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
                           >
-                            <span className="flex-1 min-w-0 truncate">{row.plus_one_name}</span>
-                            {row.plus_one_email && (
+                            <span className="flex-1 min-w-0 truncate">
+                              {row.performer.performer_name}
+                            </span>
+                            {row.performer.email && (
                               <span className="text-foreground/50 text-xs shrink-0">
-                                {row.plus_one_email}
+                                {row.performer.email}
+                              </span>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </details>
+
+                  <details className="group">
+                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
+                      {t('Arbetare & volontärer', 'Staff & volunteers')}
+                      <span className="text-xs font-mono text-foreground/40">{staffRows.length}</span>
+                    </summary>
+                    <div className="space-y-2 pt-2">
+                      {staffRows.length === 0 ? (
+                        <p className="text-sm text-foreground/40 italic">
+                          {t('Ingen personal bekräftad ännu.', 'No staff confirmed yet.')}
+                        </p>
+                      ) : (
+                        staffRows.map((row) => (
+                          <div
+                            key={row.id}
+                            className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
+                          >
+                            <span className="flex-1 min-w-0 truncate">{row.staff.name}</span>
+                            {row.staff.email && (
+                              <span className="text-foreground/50 text-xs shrink-0">
+                                {row.staff.email}
                               </span>
                             )}
                             <span className="text-accent italic text-xs shrink-0">
-                              +1 {row.performer.performer_name}
+                              {staffRoleLabel(t, row.role)}
                             </span>
                           </div>
                         ))
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </details>
+
+                  <details className="group">
+                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
+                      {t("Artisternas +1", "Artists' +1")}
+                      <span className="text-xs font-mono text-foreground/40">
+                        {performers.filter((p) => p.plus_one_name).length}
+                      </span>
+                    </summary>
+                    <div className="space-y-2 pt-2">
+                      {performers.filter((p) => p.plus_one_name).length === 0 ? (
+                        <p className="text-sm text-foreground/40 italic">
+                          {t('Inga anmälda +1 ännu.', 'No +1s registered yet.')}
+                        </p>
+                      ) : (
+                        performers
+                          .filter((p) => p.plus_one_name)
+                          .map((row) => (
+                            <div
+                              key={row.performer_id}
+                              className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
+                            >
+                              <span className="flex-1 min-w-0 truncate">{row.plus_one_name}</span>
+                              {row.plus_one_email && (
+                                <span className="text-foreground/50 text-xs shrink-0">
+                                  {row.plus_one_email}
+                                </span>
+                              )}
+                              <span className="text-accent italic text-xs shrink-0">
+                                +1 {row.performer.performer_name}
+                              </span>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </details>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between border-b border-accent/10 pb-2">

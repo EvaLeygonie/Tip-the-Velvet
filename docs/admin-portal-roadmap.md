@@ -460,7 +460,77 @@ bounding-box check — 640px content column inside a 1280px viewport, not full-w
 the PDF download produces a valid, non-trivial file (correct `%PDF-` header, ~12.8KB for
 Pandaemonium's 24 real entries).
 
-### Food/dietary redesign — brainstormed 2026-08-29, not built
+### Event Planning page restructure — built 2026-08-31
+
+Prompted directly by feedback: with Staffing/Sponsors/VIP added as flat tabs (above), the
+page had come to visually mirror Contacts — a directory of clickable rows — when its actual
+job is running one show end-to-end, which needs far more than four equal-weight lists. Asked
+to propose a plan first rather than jumping to code; researched the org's own real working
+documents before designing anything:
+
+- **`docs/old-work-documents/Uppgifter och tidsramar.xlsx`** ("Tasks and timeframes") — the
+  org's own pre-existing event checklist (long-before tasks through after-event teardown) —
+  effectively the org's own definition of "everything that needs to be done for the event,"
+  used to shape the progress overview's categories below.
+- **`docs/old-work-documents/Set list - Dark Carnival.docx`** — a real per-act stage plan,
+  confirming `performer_acts` (`display_order`/`stage_preparations`/`pick_up_cleaning`/
+  `act_notes`, already collected via the artist's own `BookedArtistForm`) was exactly the
+  right data source for a running-order view that had never had an admin-facing UI before.
+
+**Shipped, all five pieces from the plan**:
+
+- **`EventProgressOverview.tsx`** — a row of 5 status cards, always visible above the tabs,
+  each a pure read-time computation (no new stored state beyond the food schema below):
+  Showplanering (acts without notes/missing entirely), Bemanning (the 3 fixed-role coverage
+  check below), Sponsorer (X/4), VIP-lista (plain headcount), Mat (categorization progress
+  → real headcount once done). Clicking a card jumps to that tab.
+- **Showplanering tab (new)** — `ShowPlanningActRow.tsx` reads `performer_acts` (previously
+  never fetched by the admin at all), ordered list with move-up/move-down buttons (plain
+  buttons, not drag-and-drop — no reorder library exists anywhere in this codebase, matches
+  the session's existing lightweight-first pattern) writing `display_order`, expand-to-edit
+  for the 3 note fields.
+- **Bemanning tab (reworked)** — `StaffingCoverageStrip.tsx` adds the 3-fixed-role check
+  (Fotograf/Tekniker/Entrévärd — `admin-portal-roadmap.md`'s own already-decided design from
+  2026-08-19, just never built) above the existing role-grouped list.
+- **Sponsorer tab (reworked)** — `SponsorSlotGrid.tsx` renders `role: 'prize'` sponsors as a
+  real 4-slot grid (always exactly 4 — one per the competition's 4 winning categories) with
+  visible empty-slot placeholders, instead of burying them in a scrolling list with every
+  other sponsor type.
+- **VIP & Mat tab (condensed)** — the four list sections (Arrangörer/Artister/Arbetare &
+  volontärer/Artisternas +1) became collapsed-by-default `<details>` groups; gained the
+  computed food summary line at top. Everything built in the prior VIP round (both download
+  buttons, manual-entry CRUD) kept working unchanged.
+
+**Schema** (small, food/dietary only — the rest needed no new columns): `dietary_category`
+enum (`all_eater | vegetarian | vegan`) added to `event_performers` (every confirmed
+performer eats) and, alongside `needs_food boolean` + `dietary_notes text`, to
+`event_staff_volunteers` (only staff/volunteers explicitly flagged need categorizing).
+**Scope decision, deliberate**: category is admin-set from a small `DietaryCategoryPicker`
+inline on the Artister/Bemanning rows, not captured on the public `BookedArtistForm` — kept
+this round scoped to the admin page; wiring the public form to set it at the source is a
+natural fast-follow, not bundled in here.
+
+**Bug caught by live verification, not shipped**: the new inline `DietaryCategoryPicker`
+initially rendered with its containing row's artist name completely invisible — traced to a
+global `select { @apply w-full ... }` base rule in `index.css` (intended for full-width form
+selects) silently overriding the compact picker's own width, since it had no `w-*` utility
+of its own to win against it. Fixed by adding `w-auto` explicitly. Worth remembering for any
+future compact inline `<select>` in this codebase — the global base style wins by default
+unless overridden.
+
+Verified live against Pandaemonium's real data end-to-end: progress cards show real counts
+(0 utan akt/6 utan scenanteckningar, Saknas: 2 roll(er), 3/4, 24 personer, Behöver
+kategoriseras); confirmed the Tobias Walka photographer restore from the earlier incident
+still holds (green check, not a warning); reordered two acts with genuinely different
+`display_order` values and confirmed the swap *and* the restore via direct DB query
+afterward (ties among untouched real acts, mostly still at `display_order: 0`, made a
+same-value round-trip look like a no-op in an earlier pass — not a bug, just degenerate
+data); set a real performer's `dietary_category` via the picker, confirmed the write via DB
+query, then had it reset back to `NULL` via SQL (the picker itself has no "clear" option, and
+guessing at someone's real dietary preference for test purposes isn't something to leave
+behind).
+
+### Food/dietary redesign — built 2026-08-31, see restructure above
 
 Prompted by realizing catering is always ordered in bulk (2–3 alternatives, e.g. pizza
 varieties) — a free-text `dietary_requirements` field per artist doesn't actually match how
@@ -662,7 +732,7 @@ today, which is exactly the gap:
   people are the ones currently confused — but worth deciding with the actual backlog size
   in view, not guessing now.
 
-### Show ordering, prep/cleanup/music/notes per act — mostly already covered
+### Show ordering, prep/cleanup/music/notes per act — built 2026-08-31 (Showplanering tab)
 Good news here too: `performer_acts` already collects `stage_preparations`,
 `pick_up_cleaning`, `act_notes`, and `audio_files` — all via the artist's own
 `BookedArtistForm`, already part of the multi-act plan. This piece of Event Planning is

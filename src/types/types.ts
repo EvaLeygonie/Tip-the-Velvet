@@ -60,6 +60,7 @@ export type Venue = Tables<'venues'>
 export type Club = Tables<'clubs'>
 export type VipManualEntry = Tables<'vip_manual_entries'>
 export type EventStaffInvitation = Tables<'event_staff_invitations'>
+export type PerformerAct = Tables<'performer_acts'>
 
 //=== INSERTS ===//
 export type CreateEventInput = TablesInsert<'events'>
@@ -115,3 +116,4 @@ export type SponsorType = Enums<'sponsor_type'>
 export type EventPerformerRole = Enums<'event_performer_role'>
 export type EventStaffInvitationStatus = Enums<'event_staff_invitation_status'>
 export type VipEntryCategory = Enums<'vip_entry_category'>
+export type DietaryCategory = Enums<'dietary_category'>

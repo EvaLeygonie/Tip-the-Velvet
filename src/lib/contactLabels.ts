@@ -1,4 +1,4 @@
-import type { StaffVolunteerType, SponsorType, VipEntryCategory } from '@/types/types'
+import type { StaffVolunteerType, SponsorType, VipEntryCategory, DietaryCategory } from '@/types/types'
 
 type Translate = (sv: string, en: string) => string
 
@@ -51,5 +51,16 @@ export const vipCategoryLabel = (t: Translate, category: VipEntryCategory): stri
       return t('Tävlingsvinnare', 'Contest winner')
     case 'other':
       return t('Övrigt', 'Other')
+  }
+}
+
+export const dietaryCategoryLabel = (t: Translate, category: DietaryCategory): string => {
+  switch (category) {
+    case 'all_eater':
+      return t('Allätare', 'Eats everything')
+    case 'vegetarian':
+      return t('Vegetarian', 'Vegetarian')
+    case 'vegan':
+      return t('Vegan', 'Vegan')
   }
 }

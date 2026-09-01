@@ -1,16 +1,22 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, UtensilsCrossed } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { staffRoleLabel } from '@/lib/contactLabels'
-import { updateEventStaffRoleDetails, removeStaffFromEvent } from '@/services/contactsService'
+import {
+  updateEventStaffRoleDetails,
+  updateStaffFoodInfo,
+  removeStaffFromEvent,
+} from '@/services/contactsService'
+import { DietaryCategoryPicker } from './DietaryCategoryPicker'
 import type { AdminEventStaffRow } from '@/services/eventService'
+import type { DietaryCategory } from '@/types/types'
 
 interface EventStaffRowProps {
   row: AdminEventStaffRow
   eventId: string
   onRemoved: (id: string) => void
-  onUpdated: (id: string, roleDetails: string | null) => void
+  onUpdated: (id: string, patch: Partial<AdminEventStaffRow>) => void
 }
 
 // Event Planning's operational view of one confirmed assignment — editing the logistics
@@ -20,14 +26,31 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [draft, setDraft] = useState(row.role_details ?? '')
+  const [draft, setDraft] = useState({
+    role_details: row.role_details ?? '',
+    needs_food: row.needs_food,
+    dietary_category: row.dietary_category,
+    dietary_notes: row.dietary_notes ?? '',
+  })
 
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const value = draft.trim() || null
-      await updateEventStaffRoleDetails(row.id, value)
-      onUpdated(row.id, value)
+      const patch = {
+        role_details: draft.role_details.trim() || null,
+        needs_food: draft.needs_food,
+        dietary_category: draft.needs_food ? draft.dietary_category : null,
+        dietary_notes: draft.needs_food ? draft.dietary_notes.trim() || null : null,
+      }
+      await Promise.all([
+        updateEventStaffRoleDetails(row.id, patch.role_details),
+        updateStaffFoodInfo(row.id, {
+          needs_food: patch.needs_food,
+          dietary_category: patch.dietary_category,
+          dietary_notes: patch.dietary_notes,
+        }),
+      ])
+      onUpdated(row.id, patch)
       toast.success(t('Sparat!', 'Saved!'))
       setIsExpanded(false)
     } catch (err) {
@@ -72,6 +95,11 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
         <span className="text-accent italic text-xs font-heading shrink-0">
           {staffRoleLabel(t, row.role)}
         </span>
+        {row.needs_food && (
+          <span title={t('Behöver mat', 'Needs food')} className="shrink-0">
+            <UtensilsCrossed className="h-3.5 w-3.5 text-accent/50" />
+          </span>
+        )}
         {row.role_details && !isExpanded && (
           <span className="text-xs text-foreground/50 italic truncate max-w-[180px] shrink-0 hidden sm:block">
             {row.role_details}
@@ -87,10 +115,36 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
           <div className="space-y-1">
             <label className="form-label-gold block">{t('Anteckning', 'Note')}</label>
             <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              value={draft.role_details}
+              onChange={(e) => setDraft({ ...draft, role_details: e.target.value })}
               className="w-full min-h-[70px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
             />
+          </div>
+          <div className="space-y-2 pt-2 border-t border-accent/10">
+            <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={draft.needs_food}
+                onChange={(e) => setDraft({ ...draft, needs_food: e.target.checked })}
+                className="accent-accent"
+              />
+              {t('Behöver mat på eventet', 'Needs food at the event')}
+            </label>
+            {draft.needs_food && (
+              <div className="flex flex-wrap items-center gap-2 pl-6">
+                <DietaryCategoryPicker
+                  value={draft.dietary_category}
+                  onChange={(value: DietaryCategory) => setDraft({ ...draft, dietary_category: value })}
+                />
+                <input
+                  type="text"
+                  value={draft.dietary_notes}
+                  onChange={(e) => setDraft({ ...draft, dietary_notes: e.target.value })}
+                  placeholder={t('Allergier etc.', 'Allergies etc.')}
+                  className="flex-1 min-w-[140px] h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
             <button type="button" onClick={handleRemove} className="btn-red text-xs py-2 px-4">
