@@ -901,6 +901,18 @@ regularly. Changes:
 already supports it, no UI); richer templates for the 11 checklist-only post types if real
 source text ever gets supplied for them.
 
+**Fix 2026-09-01 — "Artisterna, alla tillsammans" now lists artists in reveal order.**
+`buildArtistsAllTogetherText` (`ArtistsAllTogetherCard.tsx`) was passed the raw `performers`
+state — `event_performers.display_order` order — for both the name list and the hashtags,
+while the on-screen artist cards above it already use `sortArtistsForReveal` (reveal_date
+ascending, role as a tiebreaker for undated performers). One-line fix in
+`AdminMarketing.tsx`: `buildArtistsAllTogetherText(eventData, sortArtistsForReveal(performers))`.
+Verified live against Pandaemonium's real reveal dates — before the fix the name list and
+hashtag list didn't even agree with each other (the row's `draft` initializes from
+previously-saved DB content, generated pre-fix); after clicking "Återställ till mall" to
+force a fresh generate, both lists now open with Seymour Bottoms (earliest reveal_date) and
+end with Storm Dunder (latest), matching the reveal order shown elsewhere on the page.
+
 ## Email / Newsletter tab — future, not yet started
 
 Noted 2026-09-01, same source document as the Marketing tab's posting schedule

@@ -219,7 +219,7 @@ export const AdminMarketing = () => {
                 const builder = TEMPLATE_BUILDERS[item.type]
                 const generateText = eventData
                   ? item.type === 'artists_all_together'
-                    ? () => buildArtistsAllTogetherText(eventData, performers)
+                    ? () => buildArtistsAllTogetherText(eventData, sortArtistsForReveal(performers))
                     : builder
                       ? () => builder(eventData)
                       : null
