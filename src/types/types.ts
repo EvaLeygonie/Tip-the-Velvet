@@ -47,6 +47,7 @@ export type CastingApplicationPortalData = CastingApplication & {
   performers?: { id: string; bio_sv: string | null; bio_eng: string | null } | null
   event_performers?: {
     dietary_requirements: string | null
+    dietary_category: DietaryCategory | null
     travel_receipts: Json
     plus_one_name: string | null
     plus_one_email: string | null

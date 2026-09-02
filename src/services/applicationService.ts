@@ -9,6 +9,7 @@ import type {
   CreateCastingApplicationInput,
   CreateStaffVolunteerInput,
   CreateSponsorInput,
+  DietaryCategory,
 } from '@/types/types'
 
 //=== READ ===///
@@ -315,6 +316,7 @@ export const updatePerformerBioViaToken = async (
 
 export interface EventPerformerDetailsInput {
   dietary_requirements?: string
+  dietary_category?: DietaryCategory
   travel_receipts?: ReceiptItem[]
   travel_covered?: number
   notes?: string
@@ -333,6 +335,7 @@ export const updateEventPerformerDetails = async (
     p_performer_id: performerId,
     p_access_token: token,
     p_dietary_requirements: details.dietary_requirements,
+    p_dietary_category: details.dietary_category,
     p_travel_receipts: details.travel_receipts as unknown as Json,
     p_travel_covered: details.travel_covered,
     p_notes: details.notes,

@@ -14,7 +14,8 @@ import {
   Crown,
   Mic2,
 } from 'lucide-react'
-import type { CastingApplicationPortalData } from '@/types/types'
+import type { CastingApplicationPortalData, DietaryCategory } from '@/types/types'
+import { dietaryCategoryLabel } from '@/lib/contactLabels'
 import { uploadStorageFile } from '@/services/databaseService'
 import { supabase } from '@/lib/supabase'
 import {
@@ -187,6 +188,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
       // Sektion 3: Logistik
       dietary_requirements: logisticsData?.dietary_requirements ?? '',
+      dietary_category: (logisticsData?.dietary_category ?? '') as DietaryCategory | '',
       plus_one_name: logisticsData?.plus_one_name ?? '',
       plus_one_email: logisticsData?.plus_one_email ?? '',
       travel_covered: logisticsData?.travel_covered ?? 0,
@@ -203,7 +205,9 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     setIsDirty(true)
@@ -464,6 +468,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       if (actualEventId && application.performer_id) {
         const logisticsData: EventPerformerDetailsInput = {
           dietary_requirements: formData.dietary_requirements,
+          dietary_category: formData.dietary_category || undefined,
           travel_receipts: receiptFiles,
           plus_one_name: formData.plus_one_name,
           plus_one_email: formData.plus_one_email,
@@ -865,18 +870,38 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             <h2>{t('Logistik', 'Logistics')}</h2>
           </div>
 
-          <div className="form-field">
-            <label className="form-label-block text-xs">
-              {t('Matpreferenser & Allergier', 'Dietary Requirements')}
-            </label>
-            <input
-              type="text"
-              name="dietary_requirements"
-              placeholder={t('T.ex. Vegetarian, nötallergi...', 'e.g. Vegetarian, nut allergy...')}
-              value={formData.dietary_requirements}
-              onChange={handleChange}
-              className="login-input"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="form-field">
+              <label className="form-label-block text-xs">{t('Matpreferens', 'Food preference')}</label>
+              <select
+                name="dietary_category"
+                value={formData.dietary_category}
+                onChange={handleChange}
+                className="login-input"
+              >
+                <option value="" disabled>
+                  {t('Välj...', 'Select...')}
+                </option>
+                {(['all_eater', 'vegetarian', 'vegan'] as DietaryCategory[]).map((option) => (
+                  <option key={option} value={option}>
+                    {dietaryCategoryLabel(t, option)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label className="form-label-block text-xs">
+                {t('Allergier & övrigt', 'Allergies & other notes')}
+              </label>
+              <input
+                type="text"
+                name="dietary_requirements"
+                placeholder={t('T.ex. nötallergi...', 'e.g. nut allergy...')}
+                value={formData.dietary_requirements}
+                onChange={handleChange}
+                className="login-input"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/40 pt-4">
