@@ -89,6 +89,7 @@ export interface CreateCastingApplicationInput {
     event_id: string
     performer_name: string
     email: string
+    phone: string
     city?: string | null
     country?: string | null
     promo_image_id?: string | null
@@ -117,3 +118,4 @@ export type EventPerformerRole = Enums<'event_performer_role'>
 export type EventStaffInvitationStatus = Enums<'event_staff_invitation_status'>
 export type VipEntryCategory = Enums<'vip_entry_category'>
 export type DietaryCategory = Enums<'dietary_category'>
+export type VolunteerShift = Enums<'volunteer_shift'>

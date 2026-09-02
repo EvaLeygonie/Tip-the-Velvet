@@ -1,52 +1,69 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
+import type { LucideIcon } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
-import type { StaffVolunteerType } from '@/types/types'
-
-// Suggested values for role_details when the picked role is 'volunteer' — deliberately
-// free text, not a DB enum (see admin-portal-roadmap.md's staffing redesign), so this is
-// just a convenience prefill, not a rigid structured field.
-const SHIFT_PRESETS: { value: string; sv: string; en: string }[] = [
-  { value: 'setup', sv: 'Sätta upp/dekorera innan', en: 'Setup (decorating beforehand)' },
-  { value: 'door_guestlist', sv: 'Dörr & gästlista', en: 'Door & guestlist' },
-  { value: 'takedown', sv: 'Plock/nedmontering efter', en: 'Takedown (after the event)' },
-  { value: 'driving', sv: 'Köra/transportera dekorationer', en: 'Driving (transporting decorations)' },
-]
+import { VOLUNTEER_SHIFT_ORDER } from '@/components/admin/event-plan/constants'
+import { volunteerShiftLabel } from '@/lib/contactLabels'
+import type { StaffVolunteerType, VolunteerShift } from '@/types/types'
 
 interface ExistingRole {
   role: StaffVolunteerType
   roleLabel: string
   roleDetails: string | null
+  // Only meaningful for role: 'volunteer' — a person can hold several volunteer shifts at
+  // once, which are otherwise indistinguishable by role alone (see contactsService.ts's
+  // confirmStaffForEvent/removeStaffFromEvent for why shift has to be part of the identity
+  // here too, not just role).
+  shift: VolunteerShift | null
+  shiftLabel: string | null
 }
 
 export interface RoleSelectionConfig {
   roleOptions: { value: StaffVolunteerType; label: string }[]
   defaultRole: StaffVolunteerType
   defaultRoleDetails: string | null
-  // Every role this person already holds for whichever event is selected — refetched after
-  // each confirm/remove so the list (and the "add another role" flow) stays live.
+  // Every role (+ shift, for volunteers) this person already holds for whichever event is
+  // selected — refetched after each confirm/remove so the list (and the "add another role"
+  // flow) stays live.
   fetchExisting: (eventId: string) => Promise<ExistingRole[]>
-  onRemoveExisting: (eventId: string, role: StaffVolunteerType) => Promise<void>
+  onRemoveExisting: (
+    eventId: string,
+    role: StaffVolunteerType,
+    shift: VolunteerShift | null
+  ) => Promise<void>
 }
 
 export interface PopoverAction {
   label: string
   // 'positive' (gold, filled) for interested/confirm-type moves, 'negative' (red-tinted,
-  // matches the Radera/delete idiom used elsewhere) for remove-interest/remove-from-event/
-  // can't-work, 'neutral' (amber-tinted) for admin-bookkeeping moves that aren't a rejection
-  // — currently just "not needed this time."
+  // matches the Radera/delete idiom used elsewhere) for remove-from-event, 'neutral'
+  // (amber-tinted) for admin-bookkeeping moves that aren't a rejection.
   variant: 'positive' | 'negative' | 'neutral'
   successMessage: string
   onClick: (
     eventId: string,
-    selection?: { role: StaffVolunteerType; roleDetails: string | null }
+    selection?: { role: StaffVolunteerType; roleDetails: string | null; shift: VolunteerShift | null }
   ) => Promise<void>
   // Only the staff "Confirm" action sets this — reveals a role (+ shift) picker inline
   // instead of firing immediately, and keeps the popover open afterward so another role can
   // be added right away. Sponsors have no role concept, so their actions never set this.
   needsRoleSelection?: RoleSelectionConfig
+}
+
+// A small self-toggling flag, rendered as one icon among a row of icons rather than a
+// full-width colored button — for secondary, easily-combined markers (contacted/not
+// needed/can't work) that were crowding the popover as equally-weighted buttons alongside
+// the two real decisions (Interested, Confirm). isActive drives both the icon's fill and
+// which direction onClick moves it (the caller flips its own onClick based on isActive).
+export interface ToggleAction {
+  icon: LucideIcon
+  label: string
+  isActive: boolean
+  activeClassName: string
+  onClick: (eventId: string) => Promise<void>
+  successMessage: string
 }
 
 interface AddToEventPopoverProps {
@@ -55,6 +72,13 @@ interface AddToEventPopoverProps {
   // (none/interested/confirmed) — the popover just renders whatever it's given, so it stays
   // agnostic of staff-vs-sponsor status semantics.
   actions: PopoverAction[]
+  // Small toggle-icon row shown below `actions`, in the same non-role-selection view.
+  // Optional — sponsors/venues have no equivalent flags, so they never set this.
+  toggleActions?: ToggleAction[]
+  // A single plain-text link (not a colored button) for the one remaining case that isn't
+  // self-toggling via an icon — clearing "interested" specifically, since it has no icon of
+  // its own. Optional; omitted whenever there's nothing to clear.
+  clearAction?: PopoverAction
   // Lets the Contacts page refresh its status badges/tally after a write here, without
   // this component needing to know how that state is stored.
   onChanged?: () => void
@@ -64,8 +88,14 @@ interface AddToEventPopoverProps {
 // overflow-hidden (keeps its content within the rounded card border), which would clip an
 // absolutely-positioned popover nested inside it. Portaled to document.body instead, same
 // pattern already proven by ContactMailModal.tsx.
-export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPopoverProps) => {
-  const { t, language } = useLanguage()
+export const AddToEventPopover = ({
+  onClose,
+  actions,
+  toggleActions,
+  clearAction,
+  onChanged,
+}: AddToEventPopoverProps) => {
+  const { t } = useLanguage()
   const { upcomingEvents, selectedEventId } = useCurrentEvent()
   const [targetEventId, setTargetEventId] = useState(selectedEventId)
   const [isSaving, setIsSaving] = useState(false)
@@ -73,6 +103,7 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
   const [pendingAction, setPendingAction] = useState<PopoverAction | null>(null)
   const [selectedRole, setSelectedRole] = useState<StaffVolunteerType | null>(null)
   const [roleDetails, setRoleDetails] = useState('')
+  const [selectedShift, setSelectedShift] = useState<VolunteerShift | null>(null)
   const [existingRoles, setExistingRoles] = useState<ExistingRole[]>([])
   const [loadingExisting, setLoadingExisting] = useState(false)
 
@@ -113,6 +144,7 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
       setPendingAction(action)
       setSelectedRole(action.needsRoleSelection.defaultRole)
       setRoleDetails(action.needsRoleSelection.defaultRoleDetails ?? '')
+      setSelectedShift(null)
       return
     }
     setIsSaving(true)
@@ -129,6 +161,23 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
     }
   }
 
+  // Deliberately doesn't call onClose() — a toggle click shouldn't dismiss the popover, so
+  // several flags can be flipped in one visit without reopening it each time.
+  const handleToggleAction = async (action: ToggleAction) => {
+    if (!targetEventId) return
+    setIsSaving(true)
+    try {
+      await action.onClick(targetEventId)
+      toast.success(action.successMessage)
+      onChanged?.()
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleConfirmRole = async () => {
     if (!targetEventId || !pendingAction || !selectedRole) return
     setIsSaving(true)
@@ -136,10 +185,12 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
       await pendingAction.onClick(targetEventId, {
         role: selectedRole,
         roleDetails: roleDetails.trim() || null,
+        shift: selectedRole === 'volunteer' ? selectedShift : null,
       })
       toast.success(pendingAction.successMessage)
       onChanged?.()
       setRoleDetails('')
+      setSelectedShift(null)
       await loadExisting(pendingAction, targetEventId)
     } catch (err) {
       toast.error(t('Kunde inte spara.', 'Could not save.'))
@@ -149,10 +200,10 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
     }
   }
 
-  const handleRemoveExisting = async (role: StaffVolunteerType) => {
+  const handleRemoveExisting = async (role: StaffVolunteerType, shift: VolunteerShift | null) => {
     if (!targetEventId || !pendingAction?.needsRoleSelection) return
     try {
-      await pendingAction.needsRoleSelection.onRemoveExisting(targetEventId, role)
+      await pendingAction.needsRoleSelection.onRemoveExisting(targetEventId, role, shift)
       toast.success(t('Borttagen.', 'Removed.'))
       onChanged?.()
       await loadExisting(pendingAction, targetEventId)
@@ -160,11 +211,6 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
       toast.error(t('Kunde inte ta bort.', 'Could not remove.'))
       console.error(err)
     }
-  }
-
-  const applyShiftPreset = (value: string) => {
-    const preset = SHIFT_PRESETS.find((p) => p.value === value)
-    if (preset) setRoleDetails(language === 'sv' ? preset.sv : preset.en)
   }
 
   if (typeof window === 'undefined') return null
@@ -214,13 +260,13 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
                 <div className="flex flex-wrap gap-1.5 justify-center">
                   {existingRoles.map((r) => (
                     <span
-                      key={r.role}
+                      key={`${r.role}-${r.shift ?? 'none'}`}
                       className="flex items-center gap-1 text-[11px] py-1 px-2 rounded-full border border-accent/30 bg-accent/10 text-accent"
                     >
-                      {r.roleLabel}
+                      {r.shiftLabel ? `${r.roleLabel} — ${r.shiftLabel}` : r.roleLabel}
                       <button
                         type="button"
-                        onClick={() => handleRemoveExisting(r.role)}
+                        onClick={() => handleRemoveExisting(r.role, r.shift)}
                         title={t('Ta bort roll', 'Remove role')}
                         className="hover:text-red-400 transition-colors leading-none"
                       >
@@ -251,14 +297,16 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
               <div className="space-y-1.5">
                 <label className="form-label-gold block">{t('Pass', 'Shift')}</label>
                 <select
-                  value=""
-                  onChange={(e) => applyShiftPreset(e.target.value)}
+                  value={selectedShift ?? ''}
+                  onChange={(e) =>
+                    setSelectedShift((e.target.value || null) as VolunteerShift | null)
+                  }
                   className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
                 >
-                  <option value="">{t('Välj pass (valfritt)', 'Choose shift (optional)')}</option>
-                  {SHIFT_PRESETS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {language === 'sv' ? p.sv : p.en}
+                  <option value="">{t('Inget pass (valfritt)', 'No shift (optional)')}</option>
+                  {VOLUNTEER_SHIFT_ORDER.map((shift) => (
+                    <option key={shift} value={shift}>
+                      {volunteerShiftLabel(t, shift)}
                     </option>
                   ))}
                 </select>
@@ -319,12 +367,45 @@ export const AddToEventPopover = ({ onClose, actions, onChanged }: AddToEventPop
                 {action.label}
               </button>
             ))}
+
+            {toggleActions && toggleActions.length > 0 && (
+              <div className="flex items-center justify-center gap-3 pt-1">
+                {toggleActions.map((toggle) => (
+                  <button
+                    key={toggle.label}
+                    type="button"
+                    title={toggle.label}
+                    onClick={() => handleToggleAction(toggle)}
+                    disabled={isSaving || !targetEventId}
+                    className={`p-2 rounded-full border transition-colors ${
+                      toggle.isActive
+                        ? toggle.activeClassName
+                        : 'border-accent/15 text-foreground/25 hover:text-foreground/50 hover:border-accent/30'
+                    }`}
+                  >
+                    <toggle.icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {clearAction && (
+              <button
+                type="button"
+                onClick={() => handleAction(clearAction)}
+                disabled={isSaving || !targetEventId}
+                className="text-[11px] text-foreground/40 hover:text-foreground/70 underline decoration-dotted transition-colors"
+              >
+                {clearAction.label}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onClose}
               className="text-xs text-foreground/60 hover:text-foreground/90 transition-colors"
             >
-              {t('Avbryt', 'Cancel')}
+              {t('Stäng', 'Close')}
             </button>
           </div>
         )}

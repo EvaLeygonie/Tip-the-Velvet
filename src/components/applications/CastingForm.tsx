@@ -59,6 +59,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     language: preferredLang,
     agreed_to_terms: false,
     email: '',
+    phone: '',
     promo_image_id: null,
     photographer: '',
     requested_fee: 1000,
@@ -201,6 +202,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         event_id: event.id,
         performer_name: formData.performer_name?.trim() || '',
         email: formData.email?.trim() || '',
+        phone: formData.phone?.trim() || '',
         city: formData.city,
         country: formData.country,
         promo_image_id: finalImageId,
@@ -249,6 +251,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         agreed_to_terms: false,
         performer_name: '',
         email: '',
+        phone: '',
         promo_image_id: null,
         requested_fee: 1000,
         needs_travel_costs: false,
@@ -330,36 +333,37 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       <div className="gold-divider" />
 
       <form onSubmit={handleSubmit} className="form-stack">
-        {/* LANGUAGE & EMAIL */}
-        <div className="form-row-2">
-          <fieldset className="form-field">
-            <label className="form-label-block">
-              {t('Kommunikationsspråk', 'Preferred Language')}
+        {/* LANGUAGE */}
+        <fieldset className="form-field">
+          <label className="form-label-block">
+            {t('Kommunikationsspråk', 'Preferred Language')}
+          </label>
+          <div className="gap-6 h-[46px] flex items-center">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="preferred_lang"
+                checked={preferredLang === 'sv'}
+                onChange={() => handleLanguageChange('sv')}
+                className="accent-accent"
+              />
+              <span>Svenska</span>
             </label>
-            <div className="gap-6 h-[46px] flex items-center">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="preferred_lang"
-                  checked={preferredLang === 'sv'}
-                  onChange={() => handleLanguageChange('sv')}
-                  className="accent-accent"
-                />
-                <span>Svenska</span>
-              </label>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="preferred_lang"
-                  checked={preferredLang === 'eng'}
-                  onChange={() => handleLanguageChange('eng')}
-                  className="accent-accent"
-                />
-                <span>English</span>
-              </label>
-            </div>
-          </fieldset>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="preferred_lang"
+                checked={preferredLang === 'eng'}
+                onChange={() => handleLanguageChange('eng')}
+                className="accent-accent"
+              />
+              <span>English</span>
+            </label>
+          </div>
+        </fieldset>
 
+        {/* EMAIL & PHONE */}
+        <div className="form-row-2-tight">
           <div className="form-field">
             <label className="form-label-block">Email *</label>
             <input
@@ -367,6 +371,17 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
               name="email"
               placeholder={t('ditt@mail.com', 'your@email.com')}
               value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="form-field">
+            <label className="form-label-block">{t('Telefonnummer', 'Phone number')} *</label>
+            <input
+              type="tel"
+              name="phone"
+              placeholder={t('ditt telefonnummer', 'your phone number')}
+              value={formData.phone || ''}
               onChange={handleChange}
               required
             />

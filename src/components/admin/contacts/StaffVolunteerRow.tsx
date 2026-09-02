@@ -1,22 +1,29 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Mail, CalendarPlus, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mail, CalendarPlus, CircleMinus, Ban, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { AddToEventPopover, type PopoverAction } from './AddToEventPopover'
+import { formatDate } from '@/lib/utils'
+import { volunteerShiftLabel } from '@/lib/contactLabels'
+import { AddToEventPopover, type PopoverAction, type ToggleAction } from './AddToEventPopover'
 import {
   markStaffInterested,
   markStaffDeclined,
   markStaffNotNeeded,
+  markStaffContacted,
+  clearStaffContacted,
+  clearStaffResponseStatus,
   confirmStaffForEvent,
-  removeStaffInterest,
   removeStaffFromEvent,
   getStaffRolesForEvent,
 } from '@/services/contactsService'
-import type { StaffVolunteers, StaffVolunteerType, EventStaffInvitationStatus } from '@/types/types'
+import type { StaffEventStatus } from '@/services/contactsService'
+import type { StaffVolunteers, StaffVolunteerType } from '@/types/types'
 
 // Mirrors CastingApplicationRow.tsx's statusRowClass convention rather than inventing a
 // new one — plain border/bg tint, no pill, so it reads at a glance without competing with
-// the name badge.
+// the name badge. Keyed by StaffEventStatus.status only — "contacted" is a separate signal
+// shown as its own small icon (see the render below), not a row tint of its own, since it
+// can coexist with any of these.
 const EVENT_STATUS_ROW_CLASS: Record<string, string> = {
   confirmed: 'border-emerald-500/70 bg-emerald-950/20',
   interested: 'border-sky-500/60 bg-sky-950/10',
@@ -34,7 +41,7 @@ interface StaffVolunteerRowProps {
   onCancelNew?: (id: string) => void
   // Status for whichever event Contacts is currently showing (see AdminContacts.tsx) —
   // undefined means this person has no relation to that event at all.
-  eventStatus?: EventStaffInvitationStatus
+  eventStatus?: StaffEventStatus
   onEventStatusChanged?: () => void
 }
 
@@ -49,7 +56,7 @@ export const StaffVolunteerRow = ({
   eventStatus,
   onEventStatusChanged,
 }: StaffVolunteerRowProps) => {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
   const [showEventPopover, setShowEventPopover] = useState(false)
@@ -125,88 +132,148 @@ export const StaffVolunteerRow = ({
     }
   }
 
-  const rowStatusClass = eventStatus ? (EVENT_STATUS_ROW_CLASS[eventStatus] ?? '') : ''
+  const status = eventStatus?.status
+  const rowStatusClass = status ? (EVENT_STATUS_ROW_CLASS[status] ?? '') : ''
 
   // Which actions make sense depends on where this person already stands for the event —
   // e.g. once confirmed, "Mark interested" again would be a no-op. "Confirm" itself is
   // always offered though, confirmed or not: it now supports adding a second (or third)
   // role to the same event, not just the first one (see AddToEventPopover's
   // needsRoleSelection), so it stays useful past the initial confirmation.
-  const buildPopoverActions = (): PopoverAction[] => {
-    const markInterested: PopoverAction = {
-      label: t('Markera intresserad', 'Mark interested'),
-      variant: 'positive',
-      successMessage: t('Markerad som intresserad!', 'Marked as interested!'),
-      onClick: (eventId) => markStaffInterested(eventId, row.id),
-    }
-    const confirm: PopoverAction = {
-      label: t('Bekräfta', 'Confirm'),
-      variant: 'positive',
-      successMessage: t('Bekräftad för eventet!', 'Confirmed for the event!'),
-      onClick: (eventId, selection) => {
-        const role = selection?.role ?? row.role
-        const roleDetails = selection?.roleDetails ?? row.role_details
-        return confirmStaffForEvent(eventId, row.id, row.name, role, roleDetails)
+  //
+  // Per feedback (2026-09-02): the popover had grown to 5 stacked, differently-colored
+  // buttons and felt crowded. Redesigned around two real decisions staying as buttons
+  // (Interested, Confirm) with the three secondary, freely-combinable flags (contacted/
+  // not needed/can't work) demoted to a row of small self-toggling icons underneath —
+  // clicking an active icon undoes it, so there's no separate "remove" button needed for
+  // any of the three. The one remaining gap is undoing "interested" itself, which has no
+  // icon of its own — that's the lone plain-text link at the bottom.
+  const markInterested: PopoverAction = {
+    label: t('Markera intresserad', 'Mark interested'),
+    variant: 'positive',
+    successMessage: t('Markerad som intresserad!', 'Marked as interested!'),
+    onClick: (eventId) => markStaffInterested(eventId, row.id),
+  }
+  const confirm: PopoverAction = {
+    label: t('Tilldela roll', 'Assign role'),
+    variant: 'positive',
+    successMessage: t('Bekräftad för eventet!', 'Confirmed for the event!'),
+    onClick: (eventId, selection) => {
+      const role = selection?.role ?? row.role
+      const roleDetails = selection?.roleDetails ?? row.role_details
+      const shift = selection?.shift ?? null
+      return confirmStaffForEvent(eventId, row.id, row.name, role, roleDetails, shift)
+    },
+    needsRoleSelection: {
+      roleOptions,
+      defaultRole: row.role,
+      defaultRoleDetails: row.role_details,
+      fetchExisting: async (eventId) => {
+        const roles = await getStaffRolesForEvent(eventId, row.id)
+        return roles.map((r) => ({
+          role: r.role,
+          roleLabel: roleOptions.find((o) => o.value === r.role)?.label ?? r.role,
+          roleDetails: r.roleDetails,
+          shift: r.shift,
+          shiftLabel: r.shift ? volunteerShiftLabel(t, r.shift) : null,
+        }))
       },
-      needsRoleSelection: {
-        roleOptions,
-        defaultRole: row.role,
-        defaultRoleDetails: row.role_details,
-        fetchExisting: async (eventId) => {
-          const roles = await getStaffRolesForEvent(eventId, row.id)
-          return roles.map((r) => ({
-            role: r.role,
-            roleLabel: roleOptions.find((o) => o.value === r.role)?.label ?? r.role,
-            roleDetails: r.roleDetails,
-          }))
-        },
-        onRemoveExisting: (eventId, role) => removeStaffFromEvent(eventId, row.id, role),
+      onRemoveExisting: (eventId, role, shift) =>
+        removeStaffFromEvent(eventId, row.id, role, shift),
+    },
+  }
+  // "Remove from event" means the whole relationship, not one role — removes every role
+  // (and every volunteer shift) this person holds for the event, not just row.role (their
+  // own default role from the contacts table, which could easily differ from what they were
+  // actually confirmed as here once multi-role support exists).
+  const removeFromEvent: PopoverAction = {
+    label: t('Ta bort från event', 'Remove from event'),
+    variant: 'negative',
+    successMessage: t('Borttagen från eventet.', 'Removed from the event.'),
+    onClick: (eventId) => removeStaffFromEvent(eventId, row.id),
+  }
+  // Downgrading from confirmed has to both leave the confirmed roster and record the
+  // interest — confirmed always wins over interested in the status map (see
+  // getStaffEventStatuses), so marking interested alone wouldn't visibly change anything.
+  // Same "every role" reasoning as removeFromEvent above.
+  const downgradeToInterested: PopoverAction = {
+    ...markInterested,
+    onClick: async (eventId) => {
+      await removeStaffFromEvent(eventId, row.id)
+      await markStaffInterested(eventId, row.id)
+    },
+  }
+
+  const buildActions = (): PopoverAction[] => {
+    // Per feedback: a can't-work/not-needed mark is informational, never a lock — Confirm
+    // stays available from every status in case plans change.
+    if (status === 'confirmed') return [confirm, downgradeToInterested, removeFromEvent]
+    return [markInterested, confirm]
+  }
+
+  const buildToggleActions = (): ToggleAction[] => {
+    if (status === 'confirmed') return []
+    const contacted = !!eventStatus?.contactedAt
+    return [
+      {
+        icon: Mail,
+        label: contacted
+          ? t('Kontaktad — klicka för att ta bort', 'Contacted — click to remove')
+          : t('Markera kontaktad', 'Mark as contacted'),
+        isActive: contacted,
+        activeClassName: 'border-violet-400/50 text-violet-300 bg-violet-500/10',
+        successMessage: contacted
+          ? t('Kontakt-markering borttagen.', 'Contacted marking removed.')
+          : t('Markerad som kontaktad!', 'Marked as contacted!'),
+        onClick: (eventId) =>
+          contacted ? clearStaffContacted(eventId, row.id) : markStaffContacted(eventId, row.id),
       },
-    }
-    const markDeclined: PopoverAction = {
-      label: t('Kan inte jobba', "Can't work"),
-      variant: 'negative',
-      successMessage: t('Markerad som kan inte jobba.', "Marked as can't work."),
-      onClick: (eventId) => markStaffDeclined(eventId, row.id),
-    }
-    const markNotNeeded: PopoverAction = {
-      label: t('Inte aktuell', 'Not needed'),
-      variant: 'neutral',
-      successMessage: t('Markerad som inte aktuell.', 'Marked as not needed.'),
-      onClick: (eventId) => markStaffNotNeeded(eventId, row.id),
-    }
-    // Clears whichever status (interested/declined/not_needed) is currently set — same
-    // underlying delete regardless, see removeStaffInterest's own comment.
-    const clearStatus: PopoverAction = {
+      {
+        icon: CircleMinus,
+        label:
+          status === 'not_needed'
+            ? t('Inte aktuell — klicka för att ta bort', 'Not needed — click to remove')
+            : t('Inte aktuell', 'Not needed'),
+        isActive: status === 'not_needed',
+        activeClassName: 'border-amber-400/50 text-amber-300 bg-amber-500/10',
+        successMessage:
+          status === 'not_needed'
+            ? t('Markering borttagen.', 'Marking removed.')
+            : t('Markerad som inte aktuell.', 'Marked as not needed.'),
+        onClick: (eventId) =>
+          status === 'not_needed'
+            ? clearStaffResponseStatus(eventId, row.id)
+            : markStaffNotNeeded(eventId, row.id),
+      },
+      {
+        icon: Ban,
+        label:
+          status === 'declined'
+            ? t('Kan inte jobba — klicka för att ta bort', "Can't work — click to remove")
+            : t('Kan inte jobba', "Can't work"),
+        isActive: status === 'declined',
+        activeClassName: 'border-red-400/50 text-red-300 bg-red-500/10',
+        successMessage:
+          status === 'declined'
+            ? t('Markering borttagen.', 'Marking removed.')
+            : t('Markerad som kan inte jobba.', "Marked as can't work."),
+        onClick: (eventId) =>
+          status === 'declined'
+            ? clearStaffResponseStatus(eventId, row.id)
+            : markStaffDeclined(eventId, row.id),
+      },
+    ]
+  }
+
+  // The one status without a self-toggling icon — everything else undoes via its own icon.
+  const buildClearAction = (): PopoverAction | undefined => {
+    if (status !== 'interested') return undefined
+    return {
       label: t('Ta bort markering', 'Remove marking'),
       variant: 'negative',
       successMessage: t('Markering borttagen.', 'Marking removed.'),
-      onClick: (eventId) => removeStaffInterest(eventId, row.id),
+      onClick: (eventId) => clearStaffResponseStatus(eventId, row.id),
     }
-    const removeFromEvent: PopoverAction = {
-      label: t('Ta bort från event', 'Remove from event'),
-      variant: 'negative',
-      successMessage: t('Borttagen från eventet.', 'Removed from the event.'),
-      onClick: (eventId) => removeStaffFromEvent(eventId, row.id, row.role),
-    }
-    // Downgrading from confirmed has to both leave the confirmed roster and record the
-    // interest — confirmed always wins over interested in the status map (see
-    // getStaffEventStatuses), so marking interested alone wouldn't visibly change anything.
-    const downgradeToInterested: PopoverAction = {
-      ...markInterested,
-      onClick: async (eventId) => {
-        await removeStaffFromEvent(eventId, row.id, row.role)
-        await markStaffInterested(eventId, row.id)
-      },
-    }
-
-    // Per feedback: a can't-work/not-needed mark is informational, never a lock — Confirm
-    // stays available from every status in case plans change.
-    if (eventStatus === 'confirmed') return [confirm, downgradeToInterested, removeFromEvent]
-    if (eventStatus === 'interested') return [clearStatus, markDeclined, markNotNeeded, confirm]
-    if (eventStatus === 'declined') return [clearStatus, markInterested, markNotNeeded, confirm]
-    if (eventStatus === 'not_needed') return [clearStatus, markInterested, markDeclined, confirm]
-    return [markInterested, markDeclined, markNotNeeded, confirm]
   }
 
   return (
@@ -224,24 +291,35 @@ export const StaffVolunteerRow = ({
             <div className="truncate">
               <div className="font-decorative text-base text-foreground tracking-wide truncate flex items-center gap-1.5">
                 <span className="truncate">{row.name || t('(Namnlös)', '(Unnamed)')}</span>
-                {eventStatus === 'confirmed' && (
+                {status === 'confirmed' && (
                   <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-green-400">
                     {t('Bekräftad', 'Confirmed')}
                   </span>
                 )}
-                {eventStatus === 'interested' && (
+                {status === 'interested' && (
                   <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-sky-400">
                     {t('Intresserad', 'Interested')}
                   </span>
                 )}
-                {eventStatus === 'declined' && (
+                {status === 'declined' && (
                   <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-red-400">
                     {t('Kan inte jobba', "Can't work")}
                   </span>
                 )}
-                {eventStatus === 'not_needed' && (
+                {status === 'not_needed' && (
                   <span className="shrink-0 not-italic font-body font-semibold text-[10px] text-amber-400">
                     {t('Inte aktuell', 'Not needed')}
+                  </span>
+                )}
+                {eventStatus?.contactedAt && (
+                  <span
+                    title={t(
+                      `Kontaktad ${formatDate(language, eventStatus.contactedAt)}`,
+                      `Contacted ${formatDate(language, eventStatus.contactedAt)}`
+                    )}
+                    className="shrink-0 text-violet-400"
+                  >
+                    <Mail className="h-3 w-3" />
                   </span>
                 )}
               </div>
@@ -294,11 +372,19 @@ export const StaffVolunteerRow = ({
             onClick={() => row.email && onEmail(row)}
             disabled={!row.email}
             className={`p-2 border rounded-md transition-colors shrink-0 ${
-              row.email
-                ? 'bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black'
-                : 'opacity-0 pointer-events-none'
+              !row.email
+                ? 'opacity-0 pointer-events-none'
+                : eventStatus?.contactedAt
+                  ? 'bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500 hover:text-black'
+                  : 'bg-accent/10 border-accent/20 text-accent hover:bg-accent hover:text-black'
             }`}
-            title={row.email ? t('Skicka mail', 'Send email') : undefined}
+            title={
+              row.email
+                ? eventStatus?.contactedAt
+                  ? t('Redan kontaktad för eventet — skicka igen?', 'Already contacted for this event — send again?')
+                  : t('Skicka mail', 'Send email')
+                : undefined
+            }
           >
             <Mail className="h-4 w-4" />
           </button>
@@ -314,7 +400,9 @@ export const StaffVolunteerRow = ({
               {showEventPopover && (
                 <AddToEventPopover
                   onClose={() => setShowEventPopover(false)}
-                  actions={buildPopoverActions()}
+                  actions={buildActions()}
+                  toggleActions={buildToggleActions()}
+                  clearAction={buildClearAction()}
                   onChanged={onEventStatusChanged}
                 />
               )}

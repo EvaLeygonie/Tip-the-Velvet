@@ -10,8 +10,10 @@ import {
   getEventStaffForAdmin,
   getEventSponsorsForAdmin,
   getEventActsForAdmin,
+  getEventAfterpartyPlaylist,
   updatePerformerActOrder,
   updateEventPerformerDietary,
+  updateEvent,
 } from '@/services/eventService'
 import type {
   AdminEventPerformerRow,
@@ -21,33 +23,39 @@ import type {
 } from '@/services/eventService'
 import { getVipManualEntries, createVipManualEntry } from '@/services/vipListService'
 import { updateRow, deleteRow } from '@/services/databaseService'
+import {
+  getStaffVolunteers,
+  getSponsors,
+  confirmStaffForEvent,
+  confirmSponsorForEvent,
+  setSponsorMerchTable,
+} from '@/services/contactsService'
 import { staffRoleLabel, vipCategoryLabel, dietaryCategoryLabel } from '@/lib/contactLabels'
 import { EventStaffRow } from '@/components/admin/event-plan/EventStaffRow'
+import { AfterpartySection } from '@/components/admin/event-plan/AfterpartySection'
+import { VolunteerShiftGroups } from '@/components/admin/event-plan/VolunteerShiftGroups'
 import { SponsorSlotGrid } from '@/components/admin/event-plan/SponsorSlotGrid'
+import {
+  InlineAddPicker,
+  type InlineAddPickerItem,
+} from '@/components/admin/event-plan/InlineAddPicker'
 import { VipManualEntryRow } from '@/components/admin/event-plan/VipManualEntryRow'
 import { EventProgressOverview } from '@/components/admin/event-plan/EventProgressOverview'
 import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
 import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
 import { ShowPlanningActRow } from '@/components/admin/event-plan/ShowPlanningActRow'
 import { DietaryCategoryPicker } from '@/components/admin/event-plan/DietaryCategoryPicker'
-import { STANDING_ORGANIZERS, VIP_CATEGORY_ORDER } from '@/components/admin/event-plan/constants'
+import {
+  STANDING_ORGANIZERS,
+  VIP_CATEGORY_ORDER,
+  ROLE_ORDER,
+} from '@/components/admin/event-plan/constants'
 import type {
-  StaffVolunteerType,
   VipManualEntry,
   CreateVipManualEntryInput,
   DietaryCategory,
+  StaffVolunteerType,
 } from '@/types/types'
-
-const ROLE_ORDER: StaffVolunteerType[] = [
-  'photographer',
-  'technician',
-  'doorman',
-  'dj',
-  'stage_kitten',
-  'entertainment',
-  'volunteer',
-  'other',
-]
 
 interface VipListItem {
   name: string
@@ -68,16 +76,12 @@ const blankVipEntry = (eventId: string): VipManualEntry => ({
 // The print view builds a real HTML document from admin-entered strings (names/notes) —
 // escaped so a stray "&"/"<" in someone's name can't break the markup.
 const escapeHtml = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 export const AdminEventPlan = () => {
   const { t } = useLanguage()
   const { selectedEventId, upcomingEvents } = useCurrentEvent()
-  const [activeTab, setActiveTab] = useState<EventPlanTab>('artists')
+  const [activeTab, setActiveTab] = useState<EventPlanTab>('staff')
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [acts, setActs] = useState<AdminEventActRow[]>([])
   const [staffRows, setStaffRows] = useState<AdminEventStaffRow[]>([])
@@ -85,6 +89,16 @@ export const AdminEventPlan = () => {
   const [vipEntries, setVipEntries] = useState<VipManualEntry[]>([])
   const [vipDrafts, setVipDrafts] = useState<VipManualEntry[]>([])
   const [loading, setLoading] = useState(false)
+  // CurrentEventContext only carries id/title/event_start (a deliberately narrow shared
+  // query — see getEventVenueId's comment in eventService.ts for the same pattern), so
+  // afterparty_playlist needs its own dedicated fetch here, same as venue_id does elsewhere.
+  const [afterpartyPlaylist, setAfterpartyPlaylist] = useState<string | null>(null)
+
+  const handleSaveAfterpartyPlaylist = async (value: string) => {
+    const trimmed = value.trim()
+    await updateEvent(selectedEventId, { afterparty_playlist: trimmed || null })
+    setAfterpartyPlaylist(trimmed || null)
+  }
 
   useEffect(() => {
     if (!selectedEventId) return
@@ -92,18 +106,20 @@ export const AdminEventPlan = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const [performersData, actsData, staff, sponsors, vip] = await Promise.all([
+        const [performersData, actsData, staff, sponsors, vip, playlist] = await Promise.all([
           getEventPerformersForAdmin(selectedEventId),
           getEventActsForAdmin(selectedEventId),
           getEventStaffForAdmin(selectedEventId),
           getEventSponsorsForAdmin(selectedEventId),
           getVipManualEntries(selectedEventId),
+          getEventAfterpartyPlaylist(selectedEventId),
         ])
         setPerformers(performersData.performers)
         setActs(actsData)
         setStaffRows(staff)
         setSponsorRows(sponsors)
         setVipEntries(vip)
+        setAfterpartyPlaylist(playlist)
       } catch (err) {
         console.error('Kunde inte hämta eventplan:', err)
       } finally {
@@ -112,6 +128,90 @@ export const AdminEventPlan = () => {
     }
     load()
   }, [selectedEventId])
+
+  // Shared by the Afterparty section and the regular role-grouped list below it — both
+  // just patch/remove one row of the same staffRows array.
+  const handleStaffRowRemoved = (id: string) =>
+    setStaffRows((prev) => prev.filter((r) => r.id !== id))
+  const handleStaffRowUpdated = (id: string, patch: Partial<AdminEventStaffRow>) =>
+    setStaffRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+
+  // Bemanning's per-section "+" pickers — confirms an existing contact straight into that
+  // role without leaving Event Planning for Contacts. Refetches the whole staff list
+  // afterward rather than constructing the joined row locally (confirmStaffForEvent only
+  // returns void) — a full reload is simplest for a rare, deliberate action like this.
+  const fetchStaffCandidatesForRole =
+    (role: StaffVolunteerType) => async (): Promise<InlineAddPickerItem[]> => {
+      const all = await getStaffVolunteers()
+      const alreadyIds = new Set(staffRows.filter((r) => r.role === role).map((r) => r.staff.id))
+      return all
+        .filter((c) => !alreadyIds.has(c.id))
+        .map((c) => ({ id: c.id, label: c.name, sublabel: c.email }))
+    }
+  const handleAddStaffToRole =
+    (role: StaffVolunteerType) =>
+    async (item: InlineAddPickerItem): Promise<void> => {
+      await confirmStaffForEvent(selectedEventId, item.id, item.label, role, null, null)
+      setStaffRows(await getEventStaffForAdmin(selectedEventId))
+      toast.success(t('Tillagd!', 'Added!'))
+    }
+  const fetchDjCandidates = fetchStaffCandidatesForRole('dj')
+  const handleAddDj = handleAddStaffToRole('dj')
+
+  // Sponsors tab's equivalents — Pris-sponsorer confirms straight into role: 'prize'.
+  // Sales is independent of role (see SponsorSlotGrid.tsx's own comment): picking someone
+  // already confirmed under some other role just flips has_merch_table, without touching
+  // their role; picking someone brand new to the event confirms them with role: 'sales'
+  // (their most likely actual relationship) and sets the flag in the same action.
+  const fetchPrizeCandidates = async (): Promise<InlineAddPickerItem[]> => {
+    const all = await getSponsors()
+    const alreadyIds = new Set(
+      sponsorRows.filter((r) => r.role === 'prize').map((r) => r.sponsor_id)
+    )
+    return all
+      .filter((s) => !alreadyIds.has(s.id))
+      .map((s) => ({ id: s.id, label: s.name, sublabel: s.email }))
+  }
+  const handleAddPrizeSponsor = async (item: InlineAddPickerItem): Promise<void> => {
+    await confirmSponsorForEvent(selectedEventId, item.id, 'prize', null)
+    setSponsorRows(await getEventSponsorsForAdmin(selectedEventId))
+    toast.success(t('Tillagd!', 'Added!'))
+  }
+  const fetchSalesCandidates = async (): Promise<InlineAddPickerItem[]> => {
+    const all = await getSponsors()
+    const alreadyIds = new Set(
+      sponsorRows.filter((r) => r.has_merch_table).map((r) => r.sponsor_id)
+    )
+    return all
+      .filter((s) => !alreadyIds.has(s.id))
+      .map((s) => ({ id: s.id, label: s.name, sublabel: s.email }))
+  }
+  const handleAddSalesSponsor = async (item: InlineAddPickerItem): Promise<void> => {
+    const alreadyConfirmed = sponsorRows.some((r) => r.sponsor_id === item.id)
+    if (alreadyConfirmed) {
+      await setSponsorMerchTable(selectedEventId, item.id, true)
+    } else {
+      await confirmSponsorForEvent(selectedEventId, item.id, 'sales', null)
+      await setSponsorMerchTable(selectedEventId, item.id, true)
+    }
+    setSponsorRows(await getEventSponsorsForAdmin(selectedEventId))
+    toast.success(t('Tillagd!', 'Added!'))
+  }
+
+  // A merch table means salespeople on-site — nudges the board toward the VIP list rather
+  // than enforcing it, matching this app's "no stored requirement system" philosophy.
+  // Switches to the VIP tab and drops in a pre-noted blank draft; the admin still fills in
+  // the actual name(s).
+  const handleRequestVipForSalesperson = (sponsorName: string) => {
+    setVipDrafts((prev) => [
+      ...prev,
+      {
+        ...blankVipEntry(selectedEventId),
+        note: t(`Säljare — ${sponsorName}`, `Salesperson — ${sponsorName}`),
+      },
+    ])
+    setActiveTab('vip')
+  }
 
   const handleMoveAct = async (index: number, direction: -1 | 1) => {
     const otherIndex = index + direction
@@ -179,7 +279,10 @@ export const AdminEventPlan = () => {
     },
     {
       title: t('Artister', 'Artists'),
-      items: performers.map((p) => ({ name: p.performer.performer_name, email: p.performer.email })),
+      items: performers.map((p) => ({
+        name: p.performer.performer_name,
+        email: p.performer.email,
+      })),
     },
     {
       title: t('Arbetare & volontärer', 'Staff & volunteers'),
@@ -190,7 +293,7 @@ export const AdminEventPlan = () => {
       })),
     },
     {
-      title: t("Artisternas +1", "Artists' +1"),
+      title: t('Artisternas +1', "Artists' +1"),
       items: performers
         .filter((p) => p.plus_one_name)
         .map((p) => ({
@@ -426,28 +529,6 @@ export const AdminEventPlan = () => {
           <div className="flex gap-2 justify-center mb-6 flex-wrap">
             <button
               type="button"
-              onClick={() => setActiveTab('artists')}
-              className={
-                activeTab === 'artists'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Artister', 'Artists')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('show')}
-              className={
-                activeTab === 'show'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Showplanering', 'Show Planning')}
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveTab('staff')}
               className={
                 activeTab === 'staff'
@@ -467,6 +548,28 @@ export const AdminEventPlan = () => {
               }
             >
               {t('Sponsorer', 'Sponsors')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('show')}
+              className={
+                activeTab === 'show'
+                  ? 'btn-gold text-xs py-2 px-4'
+                  : 'btn-gold-outline text-xs py-2 px-4'
+              }
+            >
+              {t('Showplanering', 'Show Planning')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('artists')}
+              className={
+                activeTab === 'artists'
+                  ? 'btn-gold text-xs py-2 px-4'
+                  : 'btn-gold-outline text-xs py-2 px-4'
+              }
+            >
+              {t('Artister', 'Artists')}
             </button>
             <button
               type="button"
@@ -519,12 +622,16 @@ export const AdminEventPlan = () => {
                             className="flex items-center gap-1.5 text-xs text-foreground/60 italic min-w-0"
                           >
                             <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-accent/50" />
-                            <span className="truncate max-w-[120px]">{row.dietary_requirements}</span>
+                            <span className="truncate max-w-[120px]">
+                              {row.dietary_requirements}
+                            </span>
                           </span>
                         )}
                         <DietaryCategoryPicker
                           value={row.dietary_category}
-                          onChange={(value) => handleUpdatePerformerDietary(row.performer_id, value)}
+                          onChange={(value) =>
+                            handleUpdatePerformerDietary(row.performer_id, value)
+                          }
                           className="shrink-0"
                         />
                       </div>
@@ -569,37 +676,74 @@ export const AdminEventPlan = () => {
                   </div>
                 ) : (
                   <div className="max-w-3xl mx-auto space-y-4">
-                    <StaffingCoverageStrip staffRows={staffRows} />
-                    {ROLE_ORDER.map((role) => {
+                    <StaffingCoverageStrip
+                      staffRows={staffRows}
+                      hasPlaylist={Boolean(afterpartyPlaylist?.trim())}
+                    />
+                    <AfterpartySection
+                      key={selectedEventId}
+                      djRows={staffRows.filter((r) => r.role === 'dj')}
+                      eventId={selectedEventId}
+                      playlist={afterpartyPlaylist}
+                      onRemoved={handleStaffRowRemoved}
+                      onUpdated={handleStaffRowUpdated}
+                      onSavePlaylist={handleSaveAfterpartyPlaylist}
+                      fetchDjCandidates={fetchDjCandidates}
+                      onAddDj={handleAddDj}
+                    />
+                    {ROLE_ORDER.filter((role) => role !== 'dj').map((role) => {
                       const rows = staffRows.filter((r) => r.role === role)
-                      if (rows.length === 0) return null
+                      // Distinct people for the badge count — a volunteer on 2 shifts
+                      // produces 2 rows here but is still 1 person (same reasoning as
+                      // StaffingCoverageStrip/EventProgressOverview); every other role can
+                      // only ever hold 1 row per person already, so this is a no-op there.
+                      const distinctCount = new Set(rows.map((r) => r.staff.id)).size
+
                       return (
                         <div key={role} className="space-y-2 pt-2">
                           <div className="flex items-center justify-between border-b border-accent/10 pb-2">
                             <h5 className="font-decorative text-base text-foreground/80">
                               {staffRoleLabel(t, role)}
                             </h5>
-                            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-                              {rows.length}
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {rows.map((row) => (
-                              <EventStaffRow
-                                key={row.id}
-                                row={row}
-                                eventId={selectedEventId}
-                                onRemoved={(id) =>
-                                  setStaffRows((prev) => prev.filter((r) => r.id !== id))
-                                }
-                                onUpdated={(id, patch) =>
-                                  setStaffRows((prev) =>
-                                    prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
-                                  )
-                                }
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
+                                {distinctCount}
+                              </span>
+                              <InlineAddPicker
+                                fetchItems={fetchStaffCandidatesForRole(role)}
+                                onSelect={handleAddStaffToRole(role)}
+                                placeholder={t('Sök kontakt...', 'Search contacts...')}
+                                emptyMessage={t(
+                                  'Inga fler kontakter att lägga till.',
+                                  'No more contacts to add.'
+                                )}
                               />
-                            ))}
+                            </div>
                           </div>
+                          {rows.length === 0 ? (
+                            <p className="text-xs text-foreground/40 italic pt-1">
+                              {t('Ingen tillagd ännu.', 'Nobody added yet.')}
+                            </p>
+                          ) : role === 'volunteer' ? (
+                            <VolunteerShiftGroups
+                              rows={rows}
+                              eventId={selectedEventId}
+                              onRemoved={handleStaffRowRemoved}
+                              onUpdated={handleStaffRowUpdated}
+                            />
+                          ) : (
+                            <div className="space-y-2">
+                              {rows.map((row) => (
+                                <EventStaffRow
+                                  key={row.id}
+                                  row={row}
+                                  eventId={selectedEventId}
+                                  onRemoved={handleStaffRowRemoved}
+                                  onUpdated={handleStaffRowUpdated}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -619,6 +763,18 @@ export const AdminEventPlan = () => {
                         prev.map((r) => (r.sponsor_id === sponsorId ? { ...r, details } : r))
                       )
                     }
+                    onMerchToggled={(sponsorId, value) =>
+                      setSponsorRows((prev) =>
+                        prev.map((r) =>
+                          r.sponsor_id === sponsorId ? { ...r, has_merch_table: value } : r
+                        )
+                      )
+                    }
+                    fetchPrizeCandidates={fetchPrizeCandidates}
+                    onAddPrizeSponsor={handleAddPrizeSponsor}
+                    fetchSalesCandidates={fetchSalesCandidates}
+                    onAddSalesSponsor={handleAddSalesSponsor}
+                    onRequestVipForSalesperson={handleRequestVipForSalesperson}
                   />
                 </div>
               )}
@@ -664,7 +820,9 @@ export const AdminEventPlan = () => {
                           className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
                         >
                           <span className="flex-1 min-w-0 truncate">{organizer.name}</span>
-                          <span className="text-foreground/50 text-xs shrink-0">{organizer.email}</span>
+                          <span className="text-foreground/50 text-xs shrink-0">
+                            {organizer.email}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -673,7 +831,9 @@ export const AdminEventPlan = () => {
                   <details className="group">
                     <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
                       {t('Artister', 'Artists')}
-                      <span className="text-xs font-mono text-foreground/40">{performers.length}</span>
+                      <span className="text-xs font-mono text-foreground/40">
+                        {performers.length}
+                      </span>
                     </summary>
                     <div className="space-y-2 pt-2">
                       {performers.length === 0 ? (
@@ -703,7 +863,9 @@ export const AdminEventPlan = () => {
                   <details className="group">
                     <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
                       {t('Arbetare & volontärer', 'Staff & volunteers')}
-                      <span className="text-xs font-mono text-foreground/40">{staffRows.length}</span>
+                      <span className="text-xs font-mono text-foreground/40">
+                        {staffRows.length}
+                      </span>
                     </summary>
                     <div className="space-y-2 pt-2">
                       {staffRows.length === 0 ? (
@@ -733,7 +895,7 @@ export const AdminEventPlan = () => {
 
                   <details className="group">
                     <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
-                      {t("Artisternas +1", "Artists' +1")}
+                      {t('Artisternas +1', "Artists' +1")}
                       <span className="text-xs font-mono text-foreground/40">
                         {performers.filter((p) => p.plus_one_name).length}
                       </span>
@@ -792,7 +954,9 @@ export const AdminEventPlan = () => {
                           isNew
                           onSave={handleSaveVipEntry}
                           onDelete={handleDeleteVipEntry}
-                          onCancelNew={(id) => setVipDrafts((prev) => prev.filter((d2) => d2.id !== id))}
+                          onCancelNew={(id) =>
+                            setVipDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                          }
                         />
                       ))}
                       {vipEntries.length === 0 && vipDrafts.length === 0 ? (

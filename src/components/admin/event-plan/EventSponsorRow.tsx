@@ -3,7 +3,11 @@ import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { sponsorTypeLabel } from '@/lib/contactLabels'
-import { updateEventSponsorDetails, removeSponsorFromEvent } from '@/services/contactsService'
+import {
+  updateEventSponsorDetails,
+  removeSponsorFromEvent,
+  setSponsorMerchTable,
+} from '@/services/contactsService'
 import type { AdminEventSponsorRow } from '@/services/eventService'
 
 interface EventSponsorRowProps {
@@ -11,16 +15,43 @@ interface EventSponsorRowProps {
   eventId: string
   onRemoved: (sponsorId: string) => void
   onUpdated: (sponsorId: string, details: string | null) => void
+  onMerchToggled: (sponsorId: string, value: boolean) => void
 }
 
 // Mirrors EventStaffRow.tsx — Event Planning's operational view of one confirmed
 // sponsorship, editing the logistics note and removing them from this event. Everything
 // else about the contact is still only editable via Contacts.
-export const EventSponsorRow = ({ row, eventId, onRemoved, onUpdated }: EventSponsorRowProps) => {
+export const EventSponsorRow = ({
+  row,
+  eventId,
+  onRemoved,
+  onUpdated,
+  onMerchToggled,
+}: EventSponsorRowProps) => {
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isTogglingMerch, setIsTogglingMerch] = useState(false)
   const [draft, setDraft] = useState(row.details ?? '')
+
+  const handleToggleMerch = async () => {
+    setIsTogglingMerch(true)
+    try {
+      const next = !row.has_merch_table
+      await setSponsorMerchTable(eventId, row.sponsor_id, next)
+      onMerchToggled(row.sponsor_id, next)
+      toast.success(
+        next
+          ? t('Markerad med säljbord.', 'Marked as running a merch table.')
+          : t('Säljbord borttaget.', 'Merch table removed.')
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    } finally {
+      setIsTogglingMerch(false)
+    }
+  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -40,10 +71,7 @@ export const EventSponsorRow = ({ row, eventId, onRemoved, onUpdated }: EventSpo
 
   const handleRemove = async () => {
     const confirmed = window.confirm(
-      t(
-        `Ta bort ${row.sponsor.name} från eventet?`,
-        `Remove ${row.sponsor.name} from the event?`
-      )
+      t(`Ta bort ${row.sponsor.name} från eventet?`, `Remove ${row.sponsor.name} from the event?`)
     )
     if (!confirmed) return
     try {
@@ -74,6 +102,11 @@ export const EventSponsorRow = ({ row, eventId, onRemoved, onUpdated }: EventSpo
             {sponsorTypeLabel(t, row.role)}
           </span>
         )}
+        {row.has_merch_table && (
+          <span className="text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-2 py-0.5 shrink-0">
+            {t('Säljbord', 'Merch table')}
+          </span>
+        )}
         {row.details && !isExpanded && (
           <span className="text-xs text-foreground/50 italic truncate max-w-[180px] shrink-0 hidden sm:block">
             {row.details}
@@ -86,6 +119,16 @@ export const EventSponsorRow = ({ row, eventId, onRemoved, onUpdated }: EventSpo
           className="border-t border-accent/10 bg-black/20 p-4 space-y-3 cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
+          <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={row.has_merch_table}
+              onChange={handleToggleMerch}
+              disabled={isTogglingMerch}
+              className="h-4 w-4 accent-accent"
+            />
+            {t('Sätter upp säljbord på eventet', 'Setting up a merch table at the event')}
+          </label>
           <div className="space-y-1">
             <label className="form-label-gold block">{t('Anteckning', 'Note')}</label>
             <textarea

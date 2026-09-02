@@ -86,6 +86,7 @@ export type Database = {
           other_link: string | null
           performer_id: string | null
           performer_name: string
+          phone: string | null
           photographer: string | null
           promo_image_id: string | null
           promo_text: string | null
@@ -118,6 +119,7 @@ export type Database = {
           other_link?: string | null
           performer_id?: string | null
           performer_name: string
+          phone?: string | null
           photographer?: string | null
           promo_image_id?: string | null
           promo_text?: string | null
@@ -150,6 +152,7 @@ export type Database = {
           other_link?: string | null
           performer_id?: string | null
           performer_name?: string
+          phone?: string | null
           photographer?: string | null
           promo_image_id?: string | null
           promo_text?: string | null
@@ -347,6 +350,7 @@ export type Database = {
           created_at: string
           details: string | null
           event_id: string
+          has_merch_table: boolean
           role: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id: string
         }
@@ -354,6 +358,7 @@ export type Database = {
           created_at?: string
           details?: string | null
           event_id?: string
+          has_merch_table?: boolean
           role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
         }
@@ -361,6 +366,7 @@ export type Database = {
           created_at?: string
           details?: string | null
           event_id?: string
+          has_merch_table?: boolean
           role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
         }
@@ -443,9 +449,11 @@ export type Database = {
           dietary_notes: string | null
           event_id: string
           id: string
+          in_charge: boolean
           needs_food: boolean
           role: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details: string | null
+          shift: Database["public"]["Enums"]["volunteer_shift"] | null
           staff_id: string
         }
         Insert: {
@@ -454,9 +462,11 @@ export type Database = {
           dietary_notes?: string | null
           event_id: string
           id?: string
+          in_charge?: boolean
           needs_food?: boolean
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
+          shift?: Database["public"]["Enums"]["volunteer_shift"] | null
           staff_id: string
         }
         Update: {
@@ -465,9 +475,11 @@ export type Database = {
           dietary_notes?: string | null
           event_id?: string
           id?: string
+          in_charge?: boolean
           needs_food?: boolean
           role?: Database["public"]["Enums"]["staff_volunteer_type"]
           role_details?: string | null
+          shift?: Database["public"]["Enums"]["volunteer_shift"] | null
           staff_id?: string
         }
         Relationships: [
@@ -1302,6 +1314,7 @@ export type Database = {
         | "doorman"
         | "other"
       vip_entry_category: "ticket_winner" | "contest_winner" | "other"
+      volunteer_shift: "driving" | "setup" | "guestlist" | "takedown"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1485,6 +1498,7 @@ export const Constants = {
         "other",
       ],
       vip_entry_category: ["ticket_winner", "contest_winner", "other"],
+      volunteer_shift: ["driving", "setup", "guestlist", "takedown"],
     },
   },
 } as const

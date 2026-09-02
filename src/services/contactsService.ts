@@ -12,6 +12,7 @@ import type {
   SponsorType,
   EventStaffInvitationStatus,
   DietaryCategory,
+  VolunteerShift,
 } from '@/types/types'
 
 //=== READ ===///
@@ -48,46 +49,74 @@ export const getVenues = async (): Promise<Venue[]> => {
   return data || []
 }
 
+// 'invited' as a raw DB status now only ever means "we've got an invitation row purely to
+// hold invited_at, no real decision yet" — it's never shown as a status in its own right
+// (see StaffEventStatus below), so callers should never see it.
+export type StaffResponseStatus = Exclude<EventStaffInvitationStatus, 'invited'>
+
+// Two independent signals, not one: `status` is the person's actual decision (or lack of
+// one) — interested/declined/not_needed/confirmed. `contactedAt` is just "have we reached
+// out," true regardless of status, since being asked and having answered are different
+// facts. Surfaced by feedback: "interested" alone couldn't distinguish someone who
+// self-reported via the Join Us checkbox from someone the board had actually emailed.
+export interface StaffEventStatus {
+  status?: StaffResponseStatus
+  contactedAt: string | null
+}
+
 // One event's worth of "where does each staff/volunteer stand" — keyed by staff_id.
-// Merges the invitation table (interested/invited/declined/not_needed) with the confirmed
-// roster (event_staff_volunteers); a confirmed assignment always wins over whatever the
-// invitation row says, since it's the more definitive state.
+// Merges the invitation table (status + invited_at) with the confirmed roster
+// (event_staff_volunteers); a confirmed assignment always wins over whatever the
+// invitation row's status says, since it's the more definitive state — but contactedAt
+// always comes from the invitation row regardless, since confirming someone doesn't erase
+// the fact that they were (or weren't) emailed first.
 export const getStaffEventStatuses = async (
   eventId: string
-): Promise<Record<string, EventStaffInvitationStatus>> => {
+): Promise<Record<string, StaffEventStatus>> => {
   const [invitations, confirmed] = await Promise.all([
-    supabase.from('event_staff_invitations').select('staff_id, status').eq('event_id', eventId),
+    supabase
+      .from('event_staff_invitations')
+      .select('staff_id, status, invited_at')
+      .eq('event_id', eventId),
     supabase.from('event_staff_volunteers').select('staff_id').eq('event_id', eventId),
   ])
 
   if (invitations.error) throw invitations.error
   if (confirmed.error) throw confirmed.error
 
-  const map: Record<string, EventStaffInvitationStatus> = {}
+  const map: Record<string, StaffEventStatus> = {}
   for (const row of invitations.data || []) {
-    map[row.staff_id] = row.status
+    map[row.staff_id] = {
+      status: row.status === 'invited' ? undefined : row.status,
+      contactedAt: row.invited_at,
+    }
   }
   for (const row of confirmed.data || []) {
-    map[row.staff_id] = 'confirmed'
+    map[row.staff_id] = { status: 'confirmed', contactedAt: map[row.staff_id]?.contactedAt ?? null }
   }
   return map
 }
 
-// Every role one specific person is confirmed under for one specific event — powers the
-// "already confirmed as: X, Y" list in the Confirm popover's role picker, now that a
-// person can hold more than one role per event.
+// Every role (and, for volunteer rows, shift) one specific person is confirmed under for
+// one specific event — powers the "already confirmed as: X, Y" list in the Confirm
+// popover's role picker, now that a person can hold more than one role (or more than one
+// volunteer shift) per event.
 export const getStaffRolesForEvent = async (
   eventId: string,
   staffId: string
-): Promise<{ role: StaffVolunteerType; roleDetails: string | null }[]> => {
+): Promise<{ role: StaffVolunteerType; roleDetails: string | null; shift: VolunteerShift | null }[]> => {
   const { data, error } = await supabase
     .from('event_staff_volunteers')
-    .select('role, role_details')
+    .select('role, role_details, shift')
     .eq('event_id', eventId)
     .eq('staff_id', staffId)
 
   if (error) throw error
-  return (data || []).map((row) => ({ role: row.role, roleDetails: row.role_details }))
+  return (data || []).map((row) => ({
+    role: row.role,
+    roleDetails: row.role_details,
+    shift: row.shift,
+  }))
 }
 
 //=== CREATE ===///
@@ -159,6 +188,13 @@ export const markStaffInterested = async (eventId: string, staffId: string): Pro
 // its details, confirming a *different* role adds a second row rather than overwriting the
 // first.
 //
+// Volunteer rows are additionally keyed by `shift`: role alone can't distinguish "this
+// volunteer on the setup shift" from "this volunteer on the guestlist shift" — both are
+// role: 'volunteer' — so without matching on shift too, confirming a second shift would
+// just overwrite the first shift's row instead of adding one, and a person could never
+// actually hold two shifts (a real gap reported directly: "I don't seem to be able to add
+// the same person in several roles").
+//
 // Photographer is special-cased: events.photographer_id/photographer (set from
 // EventEditor.tsx) and this roster are two views onto the same fact — confirming a
 // photographer here needs to update both, and since there's only one photographer per
@@ -168,27 +204,34 @@ export const confirmStaffForEvent = async (
   staffId: string,
   staffName: string,
   role: StaffVolunteerType,
-  roleDetails: string | null
+  roleDetails: string | null,
+  shift: VolunteerShift | null = null
 ): Promise<void> => {
-  const { data: existing, error: selectError } = await supabase
+  let existingQuery = supabase
     .from('event_staff_volunteers')
     .select('id')
     .eq('event_id', eventId)
     .eq('staff_id', staffId)
     .eq('role', role)
-    .maybeSingle()
+  // PostgREST rejects .eq(col, null) outright (it tries to cast the literal "null" to the
+  // column's type) — .is() is the only correct way to filter for an actual null.
+  if (role === 'volunteer') {
+    existingQuery = shift === null ? existingQuery.is('shift', null) : existingQuery.eq('shift', shift)
+  }
+
+  const { data: existing, error: selectError } = await existingQuery.maybeSingle()
   if (selectError) throw selectError
 
   if (existing) {
     const { error } = await supabase
       .from('event_staff_volunteers')
-      .update({ role_details: roleDetails })
+      .update({ role_details: roleDetails, shift })
       .eq('id', existing.id)
     if (error) throw error
   } else {
     const { error } = await supabase
       .from('event_staff_volunteers')
-      .insert({ event_id: eventId, staff_id: staffId, role, role_details: roleDetails })
+      .insert({ event_id: eventId, staff_id: staffId, role, role_details: roleDetails, shift })
     if (error) throw error
   }
 
@@ -237,40 +280,102 @@ export const markStaffNotNeeded = async (eventId: string, staffId: string): Prom
   if (error) throw error
 }
 
-// Undoes markStaffInterested/markStaffDeclined/markStaffNotNeeded alike — deletes the
-// invitation row entirely (by event+staff, regardless of which status it currently holds)
-// rather than setting some "removed" status, since nothing else needs to remember it was
-// ever there.
-export const removeStaffInterest = async (eventId: string, staffId: string): Promise<void> => {
+// Fired automatically when the Contacts "email" button successfully sends to a staff/
+// volunteer (see AdminContacts.tsx's handleMailSent) — not a manual popover action. Only
+// ever touches `invited_at`, deliberately never `status`: unlike markStaffInterested/
+// Declined/NotNeeded (which upsert `status` and, by only listing that column, leave
+// `invited_at` untouched on an existing row), this only writes `invited_at`, so emailing
+// someone who's already interested/declined/not_needed/confirmed can never quietly
+// downgrade their real answer. Read-then-write rather than a blind upsert because a plain
+// upsert would need to name a `status` value for the insert-path row to exist at all —
+// 'invited' is used for that fallback-only case, but only ever seen here, never elsewhere
+// (see StaffResponseStatus above).
+export const markStaffContacted = async (eventId: string, staffId: string): Promise<void> => {
+  const { data: existing, error: selectError } = await supabase
+    .from('event_staff_invitations')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('staff_id', staffId)
+    .maybeSingle()
+  if (selectError) throw selectError
+
+  const invitedAt = new Date().toISOString()
+  if (existing) {
+    const { error } = await supabase
+      .from('event_staff_invitations')
+      .update({ invited_at: invitedAt })
+      .eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('event_staff_invitations')
+      .insert({ event_id: eventId, staff_id: staffId, status: 'invited', invited_at: invitedAt })
+    if (error) throw error
+  }
+}
+
+// Toggle-off twin of markStaffContacted — only ever touches invited_at, same reasoning:
+// un-contacting someone should never disturb whatever status they separately hold. Only
+// ever called when a row is already known to exist (the row's own contacted icon is only
+// shown/clickable-to-clear when contactedAt is already set), so a plain update is enough.
+export const clearStaffContacted = async (eventId: string, staffId: string): Promise<void> => {
   const { error } = await supabase
     .from('event_staff_invitations')
-    .delete()
+    .update({ invited_at: null })
     .eq('event_id', eventId)
     .eq('staff_id', staffId)
 
   if (error) throw error
 }
 
-// Undoes confirmStaffForEvent — removes one specific role assignment, not every role this
-// person might hold at the event (see confirmStaffForEvent's note on multi-role support).
-// Mirrors that function's photographer special-case: if they were the event's photographer,
-// clears events.photographer_id/photographer too (guarded by matching photographer_id so
-// this can't clobber a different photographer who's since been confirmed instead).
+// Resets `status` back to the neutral placeholder ('invited' — see markStaffContacted's
+// comment on why that value means "no real decision," not "invited" in the literal sense)
+// without touching `invited_at` — the toggle-off twin of markStaffDeclined/NotNeeded, and
+// also used for un-marking "interested" specifically (the one status with no icon of its
+// own, per the popover's now-decluttered button/icon split). Same "only called when a row
+// already exists" reasoning as clearStaffContacted above.
+export const clearStaffResponseStatus = async (eventId: string, staffId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_invitations')
+    .update({ status: 'invited' })
+    .eq('event_id', eventId)
+    .eq('staff_id', staffId)
+
+  if (error) throw error
+}
+
+// Undoes confirmStaffForEvent. `role` omitted removes every role this person holds at the
+// event (used by the top-level "Remove from event" action — its label means the whole
+// event relationship, not one role, and blindly assuming their staff_volunteers.role would
+// be wrong for anyone confirmed under a *different* role than their default one). `role`
+// given removes just that assignment; for volunteers, `shift` narrows it further to one
+// specific shift row, since role alone can't tell two shifts apart (see
+// confirmStaffForEvent's note) — omitting shift for a volunteer role removes every shift
+// row they hold. Mirrors confirmStaffForEvent's photographer special-case: clears
+// events.photographer_id/photographer too, whenever a photographer row could have been
+// among the ones just deleted (guarded by matching photographer_id so this can't clobber a
+// different photographer who's since been confirmed instead).
 export const removeStaffFromEvent = async (
   eventId: string,
   staffId: string,
-  role: StaffVolunteerType
+  role?: StaffVolunteerType,
+  shift?: VolunteerShift | null
 ): Promise<void> => {
-  const { error } = await supabase
+  let query = supabase
     .from('event_staff_volunteers')
     .delete()
     .eq('event_id', eventId)
     .eq('staff_id', staffId)
-    .eq('role', role)
-
+  if (role) {
+    query = query.eq('role', role)
+    if (role === 'volunteer' && shift !== undefined) {
+      query = shift === null ? query.is('shift', null) : query.eq('shift', shift)
+    }
+  }
+  const { error } = await query
   if (error) throw error
 
-  if (role === 'photographer') {
+  if (!role || role === 'photographer') {
     const { error: eventError } = await supabase
       .from('events')
       .update({ photographer_id: null, photographer: null })
@@ -297,6 +402,24 @@ export const confirmSponsorForEvent = async (
       { event_id: eventId, sponsor_id: sponsorId, role: sponsorType, details },
       { onConflict: 'event_id,sponsor_id' }
     )
+
+  if (error) throw error
+}
+
+// A merch/sales table is independent of a sponsor's main role for the event — a prize
+// sponsor can also run one, without that counting as a second sponsor slot (they're still
+// the same event_sponsors row; this only flips one column on it). Direct request,
+// 2026-09-02: "one can be in several spots, but not count as 'more sponsors'."
+export const setSponsorMerchTable = async (
+  eventId: string,
+  sponsorId: string,
+  hasMerchTable: boolean
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_sponsors')
+    .update({ has_merch_table: hasMerchTable })
+    .eq('event_id', eventId)
+    .eq('sponsor_id', sponsorId)
 
   if (error) throw error
 }
@@ -332,6 +455,30 @@ export const updateEventStaffRoleDetails = async (
   const { error } = await supabase
     .from('event_staff_volunteers')
     .update({ role_details: roleDetails })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+// Lets the Bemanning tab move a volunteer between shift subsections after the fact, not
+// just at confirm time — same single-column-update shape as updateEventStaffRoleDetails.
+// Meaningless for non-volunteer roles, but not restricted here; the UI only ever calls this
+// from a volunteer row.
+export const updateEventStaffShift = async (
+  id: string,
+  shift: VolunteerShift | null
+): Promise<void> => {
+  const { error } = await supabase.from('event_staff_volunteers').update({ shift }).eq('id', id)
+
+  if (error) throw error
+}
+
+// A plain, uncoupled toggle — appointing an experienced volunteer to guide others on their
+// shift. Nothing enforces one-per-shift; the board decides operationally.
+export const setStaffInCharge = async (id: string, inCharge: boolean): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_volunteers')
+    .update({ in_charge: inCharge })
     .eq('id', id)
 
   if (error) throw error

@@ -1,4 +1,10 @@
-import type { StaffVolunteerType, SponsorType, VipEntryCategory, DietaryCategory } from '@/types/types'
+import type {
+  StaffVolunteerType,
+  SponsorType,
+  VipEntryCategory,
+  DietaryCategory,
+  VolunteerShift,
+} from '@/types/types'
 
 type Translate = (sv: string, en: string) => string
 
@@ -62,5 +68,21 @@ export const dietaryCategoryLabel = (t: Translate, category: DietaryCategory): s
       return t('Vegetarian', 'Vegetarian')
     case 'vegan':
       return t('Vegan', 'Vegan')
+  }
+}
+
+// sv/en pairs per the board's own real shift order for running a show — replaces the old
+// free-text SHIFT_PRESETS prose once shift became a real field instead of a role_details
+// prefill suggestion.
+export const volunteerShiftLabel = (t: Translate, shift: VolunteerShift): string => {
+  switch (shift) {
+    case 'driving':
+      return t('Transport', 'Driving')
+    case 'setup':
+      return t('Setup', 'Setup')
+    case 'guestlist':
+      return t('Gästlista', 'Guestlist')
+    case 'takedown':
+      return t('Städ', 'Takedown')
   }
 }

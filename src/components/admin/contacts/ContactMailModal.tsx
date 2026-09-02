@@ -11,6 +11,10 @@ interface ContactMailModalProps {
   recipientEmail: string
   defaultSubject: string
   defaultBody: string
+  // Fired after a real successful send (HTTP 200 from the edge function), not just on
+  // clicking Send — lets the caller record "this person was actually contacted" without
+  // this modal needing to know what that means for any particular contact type.
+  onSent?: () => void
 }
 
 export const ContactMailModal = ({
@@ -20,6 +24,7 @@ export const ContactMailModal = ({
   recipientEmail,
   defaultSubject,
   defaultBody,
+  onSent,
 }: ContactMailModalProps) => {
   const { t } = useLanguage()
   const [subject, setSubject] = useState(defaultSubject)
@@ -54,6 +59,7 @@ export const ContactMailModal = ({
       })
       if (!response.ok) throw new Error('Failed to send')
       toast.success(t('Mail skickat!', 'Email sent!'))
+      onSent?.()
       onClose()
     } catch (err) {
       console.error('Kunde inte skicka mail:', err)

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Mail,
+  Phone,
   Link as LinkIcon,
   Video,
   Save,
@@ -656,7 +657,7 @@ export const CastingApplicationRow = ({
             </div>
           </div>
 
-          <div className="col-span-4 md:col-span-3 text-sm text-foreground/60 font-body truncate">
+          <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body truncate">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
               {t('Plats', 'Location')}
             </span>
@@ -666,7 +667,7 @@ export const CastingApplicationRow = ({
             </span>
           </div>
 
-          <div className="col-span-4 md:col-span-2 text-sm text-foreground/60 font-body truncate">
+          <div className="col-span-4 md:col-span-3 text-sm text-foreground/60 font-body truncate text-center">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
               {t('Akter', 'Acts')}
             </span>
@@ -785,6 +786,15 @@ export const CastingApplicationRow = ({
                   <Mail className="h-4 w-4 shrink-0" />{' '}
                   <span className="truncate">{application.email}</span>
                 </a>
+                {application.phone && (
+                  <a
+                    href={`tel:${application.phone}`}
+                    className="flex items-center gap-2 text-accent hover:underline"
+                  >
+                    <Phone className="h-4 w-4 shrink-0" />{' '}
+                    <span className="truncate">{application.phone}</span>
+                  </a>
+                )}
                 {application.instagram_link && (
                   <a
                     href={application.instagram_link}

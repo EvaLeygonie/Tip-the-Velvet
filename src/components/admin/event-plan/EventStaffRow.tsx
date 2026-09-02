@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2, UtensilsCrossed } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, UtensilsCrossed, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { staffRoleLabel } from '@/lib/contactLabels'
+import { volunteerShiftLabel } from '@/lib/contactLabels'
 import {
   updateEventStaffRoleDetails,
   updateStaffFoodInfo,
+  updateEventStaffShift,
+  setStaffInCharge,
   removeStaffFromEvent,
 } from '@/services/contactsService'
 import { DietaryCategoryPicker } from './DietaryCategoryPicker'
+import { VOLUNTEER_SHIFT_ORDER } from './constants'
 import type { AdminEventStaffRow } from '@/services/eventService'
-import type { DietaryCategory } from '@/types/types'
+import type { DietaryCategory, VolunteerShift } from '@/types/types'
 
 interface EventStaffRowProps {
   row: AdminEventStaffRow
@@ -26,11 +29,14 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isTogglingInCharge, setIsTogglingInCharge] = useState(false)
+  const isVolunteer = row.role === 'volunteer'
   const [draft, setDraft] = useState({
     role_details: row.role_details ?? '',
     needs_food: row.needs_food,
     dietary_category: row.dietary_category,
     dietary_notes: row.dietary_notes ?? '',
+    shift: row.shift,
   })
 
   const handleSave = async () => {
@@ -41,6 +47,7 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
         needs_food: draft.needs_food,
         dietary_category: draft.needs_food ? draft.dietary_category : null,
         dietary_notes: draft.needs_food ? draft.dietary_notes.trim() || null : null,
+        shift: isVolunteer ? draft.shift : row.shift,
       }
       await Promise.all([
         updateEventStaffRoleDetails(row.id, patch.role_details),
@@ -49,6 +56,7 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
           dietary_category: patch.dietary_category,
           dietary_notes: patch.dietary_notes,
         }),
+        ...(isVolunteer ? [updateEventStaffShift(row.id, patch.shift)] : []),
       ])
       onUpdated(row.id, patch)
       toast.success(t('Sparat!', 'Saved!'))
@@ -61,6 +69,23 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
     }
   }
 
+  // A plain toggle, not a form field — fires immediately, no expand-then-save step, since
+  // this is meant to be a lightweight marker the board can flip in passing.
+  const handleToggleInCharge = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsTogglingInCharge(true)
+    try {
+      const next = !row.in_charge
+      await setStaffInCharge(row.id, next)
+      onUpdated(row.id, { in_charge: next })
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    } finally {
+      setIsTogglingInCharge(false)
+    }
+  }
+
   const handleRemove = async () => {
     const confirmed = window.confirm(
       t(
@@ -70,7 +95,7 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
     )
     if (!confirmed) return
     try {
-      await removeStaffFromEvent(eventId, row.staff.id, row.role)
+      await removeStaffFromEvent(eventId, row.staff.id, row.role, row.shift)
       onRemoved(row.id)
       toast.success(t('Borttagen från eventet.', 'Removed from the event.'))
     } catch (err) {
@@ -92,16 +117,34 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
         <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">
           {row.staff.name}
         </span>
-        <span className="text-accent italic text-xs font-heading shrink-0">
-          {staffRoleLabel(t, row.role)}
-        </span>
+        {isVolunteer && row.staff.worked_with && (
+          <span
+            title={t('Har jobbat med oss förut', 'Has worked with us before')}
+            className="text-green-400 shrink-0"
+          >
+            ✓
+          </span>
+        )}
+        {isVolunteer && (
+          <button
+            type="button"
+            onClick={handleToggleInCharge}
+            disabled={isTogglingInCharge}
+            title={t('Ansvarig för passet', 'In charge of this shift')}
+            className={`shrink-0 transition-colors ${
+              row.in_charge ? 'text-accent' : 'text-foreground/20 hover:text-foreground/50'
+            }`}
+          >
+            <Crown className="h-4 w-4" fill={row.in_charge ? 'currentColor' : 'none'} />
+          </button>
+        )}
         {row.needs_food && (
           <span title={t('Behöver mat', 'Needs food')} className="shrink-0">
             <UtensilsCrossed className="h-3.5 w-3.5 text-accent/50" />
           </span>
         )}
         {row.role_details && !isExpanded && (
-          <span className="text-xs text-foreground/50 italic truncate max-w-[180px] shrink-0 hidden sm:block">
+          <span className="text-xs text-foreground/50 italic truncate shrink-0 max-w-[220px] hidden sm:block">
             {row.role_details}
           </span>
         )}
@@ -112,6 +155,25 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
           className="border-t border-accent/10 bg-black/20 p-4 space-y-3 cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
+          {isVolunteer && (
+            <div className="space-y-1">
+              <label className="form-label-gold block">{t('Pass', 'Shift')}</label>
+              <select
+                value={draft.shift ?? ''}
+                onChange={(e) =>
+                  setDraft({ ...draft, shift: (e.target.value || null) as VolunteerShift | null })
+                }
+                className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+              >
+                <option value="">{t('Inget pass', 'No shift')}</option>
+                {VOLUNTEER_SHIFT_ORDER.map((shift) => (
+                  <option key={shift} value={shift}>
+                    {volunteerShiftLabel(t, shift)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="form-label-gold block">{t('Anteckning', 'Note')}</label>
             <textarea

@@ -10,6 +10,7 @@ import type {
   Sponsors,
   PerformerAct,
   DietaryCategory,
+  VolunteerShift,
 } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
@@ -243,6 +244,9 @@ export interface AdminEventStaffRow {
   needs_food: boolean
   dietary_category: DietaryCategory | null
   dietary_notes: string | null
+  // Only meaningful for role: 'volunteer' — every other role leaves both null/false.
+  shift: VolunteerShift | null
+  in_charge: boolean
   staff: StaffVolunteers
 }
 
@@ -254,7 +258,7 @@ export const getEventStaffForAdmin = async (eventId: string): Promise<AdminEvent
   const { data, error } = await supabase
     .from('event_staff_volunteers')
     .select(
-      'id, role, role_details, needs_food, dietary_category, dietary_notes, staff:staff_volunteers(*)'
+      'id, role, role_details, needs_food, dietary_category, dietary_notes, shift, in_charge, staff:staff_volunteers(*)'
     )
     .eq('event_id', eventId)
 
@@ -266,6 +270,7 @@ export interface AdminEventSponsorRow {
   sponsor_id: string
   role: Sponsors['sponsor_type']
   details: string | null
+  has_merch_table: boolean
   sponsor: Sponsors
 }
 
@@ -274,7 +279,7 @@ export interface AdminEventSponsorRow {
 export const getEventSponsorsForAdmin = async (eventId: string): Promise<AdminEventSponsorRow[]> => {
   const { data, error } = await supabase
     .from('event_sponsors')
-    .select('sponsor_id, role, details, sponsor:sponsors(*)')
+    .select('sponsor_id, role, details, has_merch_table, sponsor:sponsors(*)')
     .eq('event_id', eventId)
 
   if (error) throw error
@@ -405,6 +410,19 @@ export const getEventVenueId = async (eventId: string): Promise<string | null> =
 
   if (error) throw error
   return data?.venue_id ?? null
+}
+
+// Same reasoning as getEventVenueId above — Event Planning's Afterparty section needs
+// afterparty_playlist, which CurrentEventContext's shared query doesn't carry.
+export const getEventAfterpartyPlaylist = async (eventId: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('afterparty_playlist')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data?.afterparty_playlist ?? null
 }
 
 // Marketing's asset panel is the only place hashtags get edited now (removed from

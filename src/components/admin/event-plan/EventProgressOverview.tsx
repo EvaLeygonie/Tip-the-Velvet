@@ -78,7 +78,11 @@ export const EventProgressOverview = ({
   // Bemanning
   const missingRoles = FIXED_STAFF_ROLES.filter((role) => !staffRows.some((r) => r.role === role))
   const staffOk = missingRoles.length === 0
-  const volunteerCount = staffRows.filter((r) => r.role === 'volunteer').length
+  // Distinct people, not rows — same reasoning as StaffingCoverageStrip's own count: a
+  // volunteer on two shifts is still one volunteer.
+  const volunteerCount = new Set(
+    staffRows.filter((r) => r.role === 'volunteer').map((r) => r.staff.id)
+  ).size
   const staffValue = staffOk
     ? t(`Nyckelroller klara, ${volunteerCount} volontärer`, `Key roles filled, ${volunteerCount} volunteers`)
     : t(`Saknas: ${missingRoles.length} roll(er)`, `Missing: ${missingRoles.length} role(s)`)

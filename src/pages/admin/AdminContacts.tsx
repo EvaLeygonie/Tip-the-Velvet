@@ -13,7 +13,9 @@ import {
   createClub,
   getStaffEventStatuses,
   getConfirmedSponsorIds,
+  markStaffContacted,
 } from '@/services/contactsService'
+import type { StaffEventStatus } from '@/services/contactsService'
 import { getEventVenueId } from '@/services/eventService'
 import { updateRow, deleteRow } from '@/services/databaseService'
 import type {
@@ -26,7 +28,6 @@ import type {
   CreateStaffVolunteerInput,
   CreateSponsorInput,
   CreateClubInput,
-  EventStaffInvitationStatus,
 } from '@/types/types'
 import { staffRoleLabel, sponsorTypeLabel as contactSponsorTypeLabel } from '@/lib/contactLabels'
 import { ContactsToolbar } from '@/components/admin/contacts/ContactsToolbar'
@@ -65,7 +66,11 @@ const blankStaff = (): StaffVolunteers => ({
   role_details: null,
   link: null,
   fee: null,
-  agreed_to_terms: null,
+  // Defaults true (not null) — the board never adds a real person here without already
+  // having their explicit verbal/written consent, and createStaffVolunteer forces this true
+  // on save regardless. Defaulting to null just made the draft UI show a misleading "no
+  // consent on record" warning for the seconds before saving.
+  agreed_to_terms: true,
   worked_with: null,
   created_at: new Date().toISOString(),
 })
@@ -120,9 +125,9 @@ export const AdminContacts = () => {
   // Defaults to the shared selection once it's loaded (CurrentEventContext fetches
   // independently of this page's own data, so it may not be ready on first render).
   const [statusEventId, setStatusEventId] = useState('')
-  const [staffEventStatuses, setStaffEventStatuses] = useState<
-    Record<string, EventStaffInvitationStatus>
-  >({})
+  const [staffEventStatuses, setStaffEventStatuses] = useState<Record<string, StaffEventStatus>>(
+    {}
+  )
   const [confirmedSponsorIds, setConfirmedSponsorIds] = useState<Set<string>>(new Set())
   const [statusEventVenueId, setStatusEventVenueId] = useState<string | null>(null)
 
@@ -176,6 +181,9 @@ export const AdminContacts = () => {
     email: string
     defaultSubject: string
     defaultBody: string
+    // Only set for the staff/volunteer email path — sponsors/venues have no
+    // event_staff_invitations concept, so this stays undefined for those.
+    staffId?: string
   } | null>(null)
 
   useEffect(() => {
@@ -227,21 +235,32 @@ export const AdminContacts = () => {
   }
 
   const statusEvent = upcomingEvents.find((e) => e.id === statusEventId)
-  const interestedCount = Object.values(staffEventStatuses).filter((s) => s === 'interested').length
-  const confirmedCount = Object.values(staffEventStatuses).filter((s) => s === 'confirmed').length
-  const declinedCount = Object.values(staffEventStatuses).filter((s) => s === 'declined').length
-  const notNeededCount = Object.values(staffEventStatuses).filter((s) => s === 'not_needed').length
+  const interestedCount = Object.values(staffEventStatuses).filter(
+    (s) => s.status === 'interested'
+  ).length
+  const contactedCount = Object.values(staffEventStatuses).filter((s) => s.contactedAt).length
+  const confirmedCount = Object.values(staffEventStatuses).filter(
+    (s) => s.status === 'confirmed'
+  ).length
+  const declinedCount = Object.values(staffEventStatuses).filter(
+    (s) => s.status === 'declined'
+  ).length
+  const notNeededCount = Object.values(staffEventStatuses).filter(
+    (s) => s.status === 'not_needed'
+  ).length
   const confirmedSponsorCount = confirmedSponsorIds.size
 
   // Confirmed first, interested second, no-status third, declined/not-needed last — keeps
-  // people who are settled either way (can't work, or we don't need them) out of the way at
-  // the bottom, below anyone still worth asking.
+  // people who are settled either way (can't work, or we don't need them) out of the way
+  // at the bottom, below anyone still worth asking. Whether someone's been contacted
+  // doesn't affect rank — it's an independent signal, shown as its own badge/icon, not a
+  // rung on this ladder.
   const byEventStatusFirst = <T extends { id: string }>(
     rows: T[],
-    statuses: Record<string, EventStaffInvitationStatus>
+    statuses: Record<string, StaffEventStatus>
   ): T[] => {
     const rank = (id: string) => {
-      const status = statuses[id]
+      const status = statuses[id]?.status
       if (status === 'confirmed') return 0
       if (status === 'interested') return 1
       if (status === 'declined' || status === 'not_needed') return 3
@@ -399,8 +418,9 @@ export const AdminContacts = () => {
 
   // Volunteers only, per feedback — a full "Hej Förnamn Efternamn," reads too formal for
   // this group specifically. Sponsors/venues keep the full-name greeting via
-  // openMailModalFor above.
-  const openMailModalForVolunteer = (row: { name: string; email: string | null }) => {
+  // openMailModalFor above. Carries staffId through to mailTarget so handleMailSent can
+  // record "contacted" for whichever event Contacts is currently showing statuses for.
+  const openMailModalForVolunteer = (row: { id: string; name: string; email: string | null }) => {
     if (!row.email) return
     const firstName = row.name.trim().split(/\s+/)[0]
     setMailTarget({
@@ -408,13 +428,33 @@ export const AdminContacts = () => {
       email: row.email,
       defaultSubject: '',
       defaultBody: `Hej ${firstName}!\n\n\n\nVarma hälsningar,\nTip the Velvet`,
+      staffId: row.id,
     })
+  }
+
+  // Fired only after a real successful send (see ContactMailModal's onSent) — records
+  // "we've reached out to this person about this event" so the board stops relying on
+  // "interested" as a stand-in for "I emailed them." Always safe to call regardless of
+  // current status: markStaffContacted only ever touches invited_at, never status, so this
+  // can never downgrade a real interested/declined/not_needed/confirmed answer.
+  const handleMailSent = async () => {
+    if (!mailTarget?.staffId || !statusEventId) return
+    try {
+      await markStaffContacted(statusEventId, mailTarget.staffId)
+      await refreshStaffEventStatuses()
+    } catch (err) {
+      console.error('Kunde inte markera som kontaktad:', err)
+    }
   }
 
   const renderRoleSection = (role: StaffVolunteerType, rows: StaffVolunteers[]) => {
     if (rows.length === 0) return null
-    const sectionInterested = rows.filter((r) => staffEventStatuses[r.id] === 'interested').length
-    const sectionConfirmed = rows.filter((r) => staffEventStatuses[r.id] === 'confirmed').length
+    const sectionInterested = rows.filter(
+      (r) => staffEventStatuses[r.id]?.status === 'interested'
+    ).length
+    const sectionConfirmed = rows.filter(
+      (r) => staffEventStatuses[r.id]?.status === 'confirmed'
+    ).length
     return (
       <div key={role} className="space-y-3 pt-4">
         <div className="flex items-center justify-between border-b border-accent/10 pb-2">
@@ -556,6 +596,10 @@ export const AdminContacts = () => {
                   <span className="text-foreground/40">•</span>
                   <span className="text-sky-400">
                     {interestedCount} {t('intresserade', 'interested')}
+                  </span>
+                  <span className="text-foreground/40">·</span>
+                  <span className="text-violet-400">
+                    {contactedCount} {t('kontaktade', 'contacted')}
                   </span>
                   <span className="text-foreground/40">·</span>
                   <span className="text-green-400">
@@ -785,6 +829,7 @@ export const AdminContacts = () => {
         recipientEmail={mailTarget?.email ?? ''}
         defaultSubject={mailTarget?.defaultSubject ?? ''}
         defaultBody={mailTarget?.defaultBody ?? ''}
+        onSent={handleMailSent}
       />
     </div>
   )

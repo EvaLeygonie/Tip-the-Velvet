@@ -771,6 +771,489 @@ call sites; sponsors/venues keep the full-name greeting unchanged. No schema for
 name — `staff_volunteers.name` is one string column, so it's a plain
 `row.name.trim().split(/\s+/)[0]`.
 
+**Built 2026-09-01 — `invited` status, set automatically by the Contacts email button.**
+Prompted by a real problem the user caught themselves: they'd been (ab)using "mark
+interested" as a stand-in for "I emailed this person," which broke once the public
+application form gained its own self-service interest checkbox — an email sent and an
+applicant's own "yes, I'm interested" both landed in the same bucket, indistinguishable.
+`event_staff_invitations.status`'s `invited` enum value (and its `invited_at` column) had
+been sitting completely unused since the table was first built — exactly the right fit,
+no new schema needed.
+- `ContactMailModal.tsx` gained an `onSent?: () => void` prop, fired only after a real
+  successful send (`response.ok` from `send-casting-email`, the same edge function this
+  modal already used) — not on clicking Send, and not on failure (the modal has always
+  stayed open + shown an error toast on failure, unchanged).
+- `AdminContacts.tsx`: `mailTarget` now carries `staffId` (only set by
+  `openMailModalForVolunteer`, left undefined for sponsors/venues — this status has no
+  meaning for them). New `handleMailSent`, wired as `onSent`, calls the new
+  `markStaffInvited(eventId, staffId)` — **but only when the person currently has no
+  status at all** (checked against the already-loaded `staffEventStatuses` map), so
+  emailing someone who's already interested/declined/not_needed/confirmed never silently
+  downgrades a real answer back to "just contacted." Uses `statusEventId` (the event the
+  Contacts status bar is currently showing), not the separate globally-selected event, so
+  what gets marked always matches what's on screen.
+- `StaffVolunteerRow.tsx`: `invited` joins the row-tint/badge system (violet, "Kontaktad"/
+  "Contacted") alongside confirmed/interested/declined/not_needed — and, per the user's own
+  suggested simplest-version ("change the color of the email icon"), the mail button itself
+  re-tints violet and its title changes to "Already contacted — send again?" when set.
+  `buildPopoverActions()` gained an explicit `invited` branch (5 buttons, one more than the
+  usual 4) — unlike the other statuses, none of the 3 "mark X" actions is redundant with
+  "invited" itself, so all three stay alongside "Ta bort markering" and Confirm.
+- `AdminContacts.tsx` sort/tally: `invited` ranks between interested and no-status in
+  `byEventStatusFirst`, and the status bar gained a violet "kontaktade" count pill.
+
+Verified live end-to-end **without sending a real email** — Playwright intercepted the
+`/api/send-casting-email` request and fulfilled it with a fake `200 {success:true}` so the
+real client-side success path still ran (toast, the mark-contacted write, row/badge/icon
+update) but nothing actually reached Resend or a real volunteer's inbox. Confirmed the
+intercepted request body used the first-name-only greeting from the fix above; confirmed
+the badge/icon appear immediately; confirmed "Ta bort markering" clears it and the clear
+survives a full page reload.
+
+**Revised same day — "contacted" decoupled from status entirely.** The design above
+(shipped first) still stored "contacted" as `status: 'invited'`, so it was mutually
+exclusive with interested/declined/not_needed/confirmed — the user caught this immediately:
+"it's important to know which of the interested people I've written to or not," since
+someone can now self-report interested via the public form's own checkbox without ever
+being contacted. Reworked so the two are independent signals on the same
+`event_staff_invitations` row: `status` stays the decision (or none),
+`invited_at` alone means "contacted," regardless of what `status` holds.
+- `contactsService.ts`: `getStaffEventStatuses` now returns `{ status?, contactedAt }` per
+  staff id (new exported type `StaffEventStatus`) instead of a bare status string; `status:
+  'invited'` is normalized to `undefined` here so no downstream code ever sees it as a real
+  status again. `markStaffInvited` renamed to `markStaffContacted` and rewritten as a
+  read-then-write that only ever touches `invited_at` — never `status` — so contacting an
+  already-interested/declined/not_needed/confirmed person can no longer downgrade their
+  real answer (the original version's "only call this if no status yet" guard in
+  `handleMailSent` is gone; it's unconditionally safe now).
+- `StaffVolunteerRow.tsx`: the violet row-tint/text-badge for "invited" is gone (row tint is
+  status-only again); in its place, a small violet mail-glyph icon renders next to the name
+  whenever `contactedAt` is set, **independent of and alongside** any status badge — so
+  "Intresserad" (sky) and the contacted icon can and do appear together. The mail button
+  itself still re-tints violet on `contactedAt`, unchanged. `buildPopoverActions()` reverted
+  to its pre-invited 4-branch shape (no more special 'invited' case), since `status` is now
+  never `'invited'`.
+
+Verified live: marked a volunteer interested, then contacted them (network-intercepted, no
+real email) — confirmed the row stayed sky-tinted with "Intresserad" *and* gained the
+violet mail-glyph icon simultaneously; confirmed the mail button itself re-tinted violet;
+cleared via "Ta bort markering," confirmed both signals gone after a full reload.
+
+**Built 2026-09-01 — volunteer shift subcategories, admin note instead of role label,
+"in charge" marker.** The Bemanning tab's Volontär section was one flat list, every row
+showing "Volontär" redundantly next to the name. `AddToEventPopover.tsx`'s `SHIFT_PRESETS`
+already existed as free-text prefill suggestions for `role_details` (setup/door&guestlist/
+takedown/driving) — not a real field, just prose dropped into the same note textarea. Made
+it real:
+- New `event_staff_volunteers` columns: `shift` (enum `driving | setup | guestlist |
+  takedown`, nullable — only meaningful for `role: 'volunteer'`) and `in_charge` (boolean,
+  default false). Both optional/settable-later, matching this app's existing "no fixed
+  requirement system" staffing philosophy.
+- Renamed shift labels per the user's exact wording/order — Driving/Transport,
+  Setup/Setup, Guestlist/Gästlista, Takedown/Städ — replacing the old verbose sv/en prose
+  entirely (`volunteerShiftLabel` in `contactLabels.ts`, `VOLUNTEER_SHIFT_ORDER` in
+  `event-plan/constants.ts`).
+- `AddToEventPopover.tsx`'s shift picker converted from a preset-button-that-prefills-text
+  into a genuine `<select>` bound to its own field — the "Detaljer" textarea is now purely
+  free-text specifics, no longer double-duty as a shift-prefill target.
+  `confirmStaffForEvent` gained a `shift` parameter threaded through from the popover.
+- `EventStaffRow.tsx`, scoped to `role === 'volunteer'` only (every other role's row is
+  untouched): dropped the redundant `staffRoleLabel` display, widened `role_details`'s
+  display slot in its place (it was already shown, just secondary before); added a
+  clickable `Crown` icon toggling `in_charge` immediately (no expand-then-save — a
+  lightweight marker, not a form field); added a small `worked_with` ✓ indicator (not
+  asked for outright, but directly supports the user's own stated reasoning — "appoint
+  volunteers who've worked with us before" — at near-zero cost since the field was already
+  fetched); expanded panel gained a `shift` `<select>` so it's editable after the fact, not
+  just at confirm time.
+- New `VolunteerShiftGroups.tsx` — splits the Volontär section's rows into the 4 shift
+  subsections in order, plus a final "Inget pass tilldelat"/"No shift assigned" bucket for
+  anyone without one (all pre-existing real volunteers landed here, as expected — none had
+  a real shift value before this, only the old free-text prose in their notes).
+  `AdminEventPlan.tsx`'s `ROLE_ORDER.map` loop special-cases `role === 'volunteer'` to
+  render this instead of the flat list every other role still uses.
+
+Verified live against Pandaemonium's real volunteer roster (8 people): confirmed
+non-volunteer rows (Fotograf/Tekniker) render exactly as before; confirmed all 8 existing
+volunteers correctly fell into "Inget pass tilldelat" with their old free-text shift notes
+now showing as plain notes; assigned one volunteer's shift to Gästlista via the expanded
+panel, confirmed she moved subsections and it survived a reload, then reset her back to no
+shift and confirmed via a fresh reload (count still 8, no data loss, her original note
+untouched); toggled "in charge" on another volunteer, confirmed the crown filled gold and
+persisted, then toggled back off and confirmed via reload; confirmed the Contacts popover's
+new shift `<select>` renders the 4 options in the exact requested order/labels (backed out
+via Cancel, nothing saved).
+
+**Built 2026-09-02 — manual "mark as contacted" button.** Prompted directly: the user had
+already been contacting volunteers before this feature existed (and some contact happens
+outside the app entirely — social media, in person), so the auto-mark-on-email-send from
+the previous round couldn't cover that history. Added `markStaffContacted` as a fifth
+button in the same "Add to event" popover the other manual markers already live in
+(Markera intresserad/Kan inte jobba/Inte aktuell), rather than inside the email-compose
+modal — since this isn't about sending anything, and the popover is already the app's one
+place for manual event-relationship markings. Reuses the exact write the email button
+already triggers (`markStaffContacted` was already independent of `status`, so this needed
+no new backend logic) — only shown while not already marked, since the row's own violet
+icon already shows once it is. New 4th `PopoverAction` variant, `'info'` (violet-tinted,
+new `.btn-violet` class mirroring `.btn-red`/`.btn-amber`'s shape), matching the row-level
+violet convention for "contacted" everywhere else.
+
+**Bug caught by live verification, not shipped**: someone contacted-but-with-no-other-status
+had no way to undo it — `buildPopoverActions()`'s no-status branch never offered
+`clearStatus` (there was nothing to clear there before contacted became a thing). Fixed by
+offering `clearStatus` in the no-status branch too whenever `contactedAt` is set. Caught
+during verification (a test row got stuck contacted-only with no popover action to reverse
+it) before it could reach the user.
+
+Verified live: the button appears (violet-styled, 5th in the no-status set), marks
+`contactedAt` on click, disappears once already marked (replaced by "Ta bort markering"),
+and clearing + a full reload confirms it's genuinely gone. Also caught and cleaned up two
+real roster entries (Emelie Björkman, Stephanie Behre) left contacted-only from earlier
+verification passes this session, confirmed via a fresh reload of the status bar (0
+kontaktade before wrapping up).
+
+**Redesigned 2026-09-02 — popover decluttered: 2 buttons + a row of self-toggling icons.**
+Direct feedback the very next day: the popover from the round above had grown to 5 stacked,
+differently-colored buttons (Markera intresserad/Kan inte jobba/Inte aktuell/Bekräfta/
+Markera kontaktad) and felt crowded. Redesigned around the two real decisions staying as
+buttons — **Interested** and **Confirm** — with the three secondary, freely-combinable
+flags (contacted/not needed/can't work) demoted to a row of small icons underneath
+(`Mail`/`CircleMinus`/`Ban`, violet/amber/red when active, muted outline when not).
+- Each icon is now genuinely self-toggling — clicking an active one undoes it — which
+  needed two new granular service functions: `clearStaffContacted` (clears just
+  `invited_at`) and `clearStaffResponseStatus` (resets `status` back to the neutral
+  `'invited'` placeholder). This made the old catch-all `removeStaffInterest` (full-row
+  delete) obsolete everywhere it was used, so it was deleted rather than left as dead code.
+- The one status left without an icon — "interested" — keeps a single plain-text link
+  ("Ta bort markering", not a colored button) at the bottom, shown only while
+  `status === 'interested'`.
+- `AddToEventPopover.tsx` gained a new `ToggleAction` type/render path (a `toggleActions`
+  prop, rendered as a small icon row) and a `clearAction` prop (rendered as a muted text
+  link) alongside the existing `actions` (full buttons) — the popover itself stays generic/
+  agnostic of what each represents, same as before. The now-unused `'info'` `PopoverAction`
+  variant and its `.btn-violet` CSS class were removed along with it.
+- Clicking a toggle icon deliberately does **not** close the popover (unlike the main
+  buttons) — several flags can be flipped in one visit without reopening it each time.
+
+Verified live: popover now shows exactly 2 gold buttons + 3 small muted icons (screenshot-
+confirmed dramatically less crowded); clicked the "Inte aktuell" icon — it filled amber,
+the popover stayed open, a toast confirmed, and the row behind it updated live; clicked the
+same icon again — reverted to muted, confirmed gone after a full reload.
+
+**Also fixed same day, from the same feedback:**
+- **Role label dropped from every row, not just Volontär.** The earlier round (2026-09-01)
+  only removed the redundant `staffRoleLabel` display for volunteer rows; the user pointed
+  out every other role (Fotograf, Tekniker, etc.) has the exact same redundancy against its
+  own section header. `EventStaffRow.tsx`'s `!isVolunteer` gate around that removal is
+  gone — every row now shows its note in that slot instead, universally.
+- **Staffing coverage strip rebuilt — one card per role, a count instead of names.**
+  Previously only showed the 3 fixed roles (photographer/technician/doorman) by name, and
+  had no card at all for DJ/Stage kitten/Entertainment/Other. `ROLE_ORDER` moved from a
+  local constant in `AdminEventPlan.tsx` into `event-plan/constants.ts` so both it and the
+  new `StaffingCoverageStrip.tsx` share one source of truth. Now renders all 8 categories
+  as `{label}` + `{count}` cards; the checkmark/warning distinction stays scoped to
+  `FIXED_STAFF_ROLES` (the 3 roles with a real 1-person target) — every other card is a
+  plain, judgment-free number, matching the "no stored requirement system" philosophy
+  already decided for staffing generally.
+
+Verified live against Pandaemonium: coverage strip now shows all 8 role cards (Fotograf 1 ✓,
+Tekniker 1 ✓, Entrévärd 0 ⚠, DJ 0, Stage kitten 1, Underhållning 0, Volontär 8, Övrigt 0);
+confirmed Tobias Walka's (Fotograf) row no longer shows a role label next to his name,
+matching the volunteer rows' existing treatment.
+
+**Revised again same day — coverage strip made more compact, "Other" dropped.** Immediate
+follow-up feedback: 8 cards still didn't fit on one row, and "Other" is a card no one will
+ever actually fill (worst case an unassigned volunteer, not an "other"). `COVERAGE_CARD_ROLES`
+now filters `'other'` out of the shared `ROLE_ORDER` (still valid everywhere else — the
+Contacts role dropdown, the role-grouped list below — just not given a card here). Grid
+widened to `sm:grid-cols-7` with tighter padding/gaps; a new card-local `shortLabel` helper
+shortens just the two widest labels ("Entrévärd"/"Host" → "Värd"/"Host", "Stage kitten" →
+"Stage") without touching `staffRoleLabel` itself, which stays full-length everywhere else.
+The checkmark/warning icon moved off the label row and onto the count row, next to the
+number, to save horizontal width. Verified live at 1300px: all 7 remaining cards
+(Fotograf 1 ✓, Tekniker 1 ✓, Värd 0 ⚠, DJ 0, Stage 1, Underhållning 0, Volontär 8) fit on
+one row.
+
+**Built 2026-09-02 — phone number on casting applications.** Direct request: applicants'
+phone numbers weren't being collected at all, and the board needs them to reach artists
+directly (not just email). New nullable `phone text` column on `casting_applications`
+(SQL handed to the user to run, not written directly — see `CLAUDE.md`/standing rule).
+- **Public form** (`CastingForm.tsx`): new required `tel` input, paired with Email in its
+  own "EMAIL & PHONE" row (Language, previously grouped with Email, now stands alone) —
+  wired into `formData`/submission payload/reset exactly like every other field there.
+  Required client-side only, matching how the user described it ("mandatory in the
+  frontend") — the DB column itself stays nullable so older rows aren't retroactively
+  invalid.
+- **Admin backfill** (`CastingApplicationRow.tsx`/`AdminCasting.tsx`): a small editable
+  phone field + save button next to Admin Notes (`onSavePhone` → `handleSavePhone` →
+  `updateApplicationPhone`, mirroring the existing `onSaveNotes` pattern exactly) — lets
+  the board fill in phone numbers for applications submitted before this field existed,
+  which the user said they'd do by hand after contacting those artists directly. When a
+  phone number exists, it's also shown as a `tel:` link next to the email link under Media
+  & Links.
+- **Known gap, not yet resolved**: neither the `submit_casting_application` nor the
+  `confirm_and_migrate_artist` Postgres RPC has been updated to read/write `phone` — no SQL
+  body for either function exists anywhere in this repo to safely diff against (confirmed
+  via a full grep of `docs/*.md`; `database.types.ts` only documents table columns, not
+  function bodies, per `CLAUDE.md`). Until the user shares each function's current
+  definition (e.g. `select pg_get_functiondef(oid) from pg_proc where proname = '...'` in
+  the Supabase SQL editor) so a precise, non-destructive update can be written, phone is
+  captured on the form but **not actually persisted through the RPC**, and does **not**
+  carry over to the `performers` profile on confirm — `performers.phone` already existed
+  and is unaffected, just not auto-filled from the application yet.
+- `npx tsc -b` and `npm run lint` both clean. Live-verified via Playwright that the public
+  form's JSX/required attribute are wired correctly by reading the rendered source; could
+  not click through an actual submission, since there was no open casting call event to
+  test against at the time (`getEventWithCasting()` returned none) and creating one would
+  mean writing test data to a real, publicly-visible table.
+
+**Reverted same day — admin-side phone backfill removed.** Direct follow-up: the board will
+add phone numbers via Supabase directly or the performer profile itself (`performers.phone`
+already existed and is the field that actually matters long-term), so the editable field +
+save button next to Admin Notes on `CastingApplicationRow.tsx` was unnecessary — removed
+along with `onSavePhone`/`handleSavePhone` (both `CastingApplicationRow.tsx` and
+`AdminCasting.tsx`) and the now-dead `updateApplicationPhone` service function. The rest of
+the phone-number work above is untouched: the DB column, the required public-form field, and
+the read-only `tel:` link shown next to email under Media & Links when a phone is present all
+stay — this only removes the manual-backfill editing path specifically.
+
+**Revised 2026-09-02 — staffing coverage cards, three bespoke per-role rules.** Direct
+follow-up on the cards above:
+- **Värd (Host) no longer warns when empty** — it's a voluntary position. `doorman` was
+  removed from `FIXED_STAFF_ROLES` (now just `['photographer', 'technician']`), which also
+  fixes `EventProgressOverview.tsx`'s "key roles" checklist to match, since it reads off the
+  same constant. Still shows a checkmark when filled — only the warning was unwanted.
+- **Stage (stage kitten) now needs ≥2 people, not just 1**, to show as covered — a new
+  `STAGE_KITTEN_MIN = 2` local to `StaffingCoverageStrip.tsx`, warns below that threshold.
+- **DJ is covered by either an assigned DJ or a stored playlist.** Reuses the existing
+  `events.afterparty_playlist` field (already free-text, with a "Link or 'DJ'" placeholder
+  on `EventEditor.tsx` — the only playlist-shaped field anywhere in the schema, confirmed via
+  a full grep) as the playlist signal — no new column. `AdminEventPlan.tsx` passes a new
+  `hasPlaylist` prop down, computed from the currently-selected event's
+  `afterparty_playlist`. When DJ count is 0 but a playlist exists, the card shows a green
+  `Music2` icon instead of the usual checkmark (so it's visible *how* it's covered, not just
+  that it is); with neither a DJ nor a playlist, it warns as before.
+
+Verified live against Pandaemonium (no playlist set, 1 stage kitten, 0 doorman): Värd shows
+`0` with no icon (previously warned); Stage shows `1 ⚠` (previously showed `1 ✓`, incorrectly
+reading as fully covered); DJ shows `0 ⚠` (unchanged, correctly warning — no playlist and no
+DJ). The playlist-covered branch (DJ green via `Music2`) was verified by code review only —
+its condition is the direct boolean-flip of the just-confirmed warning branch, and exercising
+it live would have meant editing a real, publicly-linked event's playlist field beyond what
+was asked.
+
+**Built 2026-09-02 — Afterparty section on Bemanning, playlist editable in-place.** Direct
+follow-up: the DJ-covered-by-playlist logic above only reads `events.afterparty_playlist`,
+but that field previously only had one editor — a page in the Event Editor separate from
+Event Planning — so it stayed empty in practice even for events that do have a real playlist.
+New `AfterpartySection.tsx` replaces the plain `dj`-role block in the Bemanning tab's
+role-grouped list: unlike every other role's section (hidden entirely when its count is 0),
+this one always renders, since the playlist field needs to be reachable regardless of DJ
+headcount. It holds the existing DJ roster (still real `event_staff_volunteers` rows, still
+counted on the coverage strip above it, added the normal way via Contacts) plus a small
+inline text field + save button for `afterparty_playlist`, mirroring the Admin Notes
+edit-in-place pattern already used elsewhere. Saving goes through the existing
+`updateEvent()` (no new service function needed); `AdminEventPlan.tsx` tracks the saved
+value as a small local eventId-scoped override so both this field and the coverage strip's
+DJ card update immediately, without needing `CurrentEventContext` itself to refetch.
+
+Verified live against Pandaemonium: entered a test playlist link, saved — toast confirmed,
+the DJ coverage card immediately switched from an amber warning to a green `Music2` note
+icon (proving the playlist-covered branch noted above as "code review only" actually works
+live); reverted the field back to empty afterward and confirmed the card returned to warning
+state, leaving the real event's data untouched.
+
+**Partly resolved 2026-09-02 — `submit_casting_application` fix drafted, `confirm_and_migrate_artist`
+still blocked.** The user pulled `submit_casting_application`'s real body via
+`pg_get_functiondef` — it inserts via an explicit named-column list, not
+`jsonb_populate_record`, so the earlier "might already flow through" possibility is ruled
+out: `phone` was genuinely being silently dropped. Drafted a minimal diff (added `phone` to
+both the column list and the `VALUES` list, reading `p_application->>'phone'`, no other
+change) and handed it to the user as a `CREATE OR REPLACE FUNCTION` to run themselves — not
+run directly, per standing rule. The user also confirmed `confirm_and_migrate_artist` is the
+function that creates the `performers` row and still needs a `phone` copy added — its body
+hasn't been shared yet, so that half is still blocked on the same `pg_get_functiondef` ask.
+
+**Reverted 2026-09-02 — admin phone backfill on casting applications, see above.** (Recorded
+here again for date-order clarity: this is the same removal already logged under the phone-
+number entry above, done in this same round.)
+
+**Fixed 2026-09-02 — Acts column centered on the casting page's collapsed row.** Purely
+cosmetic, per direct request: `CastingApplicationRow.tsx`'s "Akter"/"Acts" value (the
+`chosenActsCount/acts.length` or plain count) now has `text-center` added to it specifically
+— the label above it and every other column stay exactly as they were.
+
+**Fixed 2026-09-02 — "No consent on record" no longer flashes on new admin-added staff.**
+`createStaffVolunteer` (`contactsService.ts`) already force-sets `agreed_to_terms: true` on
+every admin-created row — a board member only adds a real person here after already getting
+their actual verbal/written consent, never speculatively — so this was never really a gap in
+enforcement. The bug was purely cosmetic: `AdminContacts.tsx`'s `blankStaff()` (the client-
+side draft shown before that first save) defaulted `agreed_to_terms` to `null`, so the
+in-progress add-contact form briefly showed "Inget samtycke registrerat" / "No consent on
+record" for a value that was always going to be forced true on save regardless. Changed the
+draft's default to `true` to match. Scoped to staff/volunteers only, per the request —
+`SponsorRow.tsx`/`blankSponsor()` has the identical pattern but wasn't asked about, so it's
+untouched.
+
+**Fixed 2026-09-02 — Afterparty section moved to the top of Bemanning, and a real bug in
+reading its playlist.** Two direct follow-ups on the section built earlier the same day:
+- **Moved to the top** of the role-grouped list (above Fotograf/Tekniker/etc.), since its
+  aesthetic (a text field, not a roster) doesn't match the rest — it no longer renders
+  inside the `ROLE_ORDER.map` loop at all; `dj` is filtered out of that loop and the section
+  is rendered once, directly after `StaffingCoverageStrip`.
+- **Real bug, not cosmetic: the playlist never actually displayed, regardless of what was
+  saved via Event Editor.** Root cause, once asked directly whether a joined view was in
+  play — no view; the actual bug was that `CurrentEventContext` (`selectedEvent`, what
+  `AdminEventPlan.tsx` was reading `afterparty_playlist` from) is a deliberately narrow
+  shared query — `fetchEventsForAdmin()` only ever selects `id, title, event_start` — so
+  `selectedEvent?.afterparty_playlist` was `undefined` no matter what the database held.
+  This is an existing, intentional pattern in this codebase: `getEventVenueId()` in
+  `eventService.ts` already does a small dedicated fetch for the same reason (Contacts'
+  venue-highlight feature needs `venue_id`, which isn't in the shared query either, so it
+  gets its own light read instead of widening the shared one). Added the matching
+  `getEventAfterpartyPlaylist(eventId)`, fetched alongside the rest of Event Planning's data
+  in `AdminEventPlan.tsx`'s existing per-event `Promise.all`, replacing the broken
+  context-read entirely — `afterpartyPlaylist` is now real local state, set from the fetch on
+  load and updated directly after a successful save (no more of the eventId-scoped-override
+  workaround from earlier the same day, since the state is now fetched fresh per event
+  rather than derived from a context value that never had it).
+- **Checked directly against the database while debugging this**: Pandaemonium's
+  `afterparty_playlist` is currently `null` — confirmed via a direct read-only Supabase
+  query, bypassing the app entirely, to rule out any remaining app-layer bug before
+  reporting back. So the fetch fix above is real and necessary, but it isn't why the user's
+  own playlist isn't showing for Pandaemonium specifically — that value was never persisted
+  to begin with (Event Editor's save presumably didn't go through, or it was entered against
+  a different event). Flagged back to the user rather than assumed.
+
+**Fixed 2026-09-02 — Acts column centering, second pass.** The first attempt only centered
+the value (`text-center` on the number itself), which left it centered under the *column*,
+not under the left-aligned "Akter"/"Acts" label above it — reported as "way off to the
+right." Moved `text-center` to the column's wrapping `<div>` instead, so the label and the
+value are centered as one unit and stay aligned with each other. Other columns untouched.
+
+**Fixed 2026-09-02 — Acts column position, third pass.** Still looked off after centering:
+the grid gave it too little width (`md:col-span-2`) sitting hard against a wide, left-hugging
+Location column, so its centered content read as shoved toward Offered Fee. Swapped the two
+columns' spans — Location `md:col-span-3` → `2`, Acts `2` → `3` — so Acts starts a column
+earlier and has more room, landing visibly between Location and Offered Fee instead of
+crowded against the latter.
+
+**Built 2026-09-02 — several requests on the staff booking flow and Event Planning, all from
+one message.** In order:
+
+- **Popover "Confirm" renamed to "Assign role."** The button opens a role picker and
+  actually assigns a role — "Confirm" undersold what it does, especially now that it's
+  reusable for adding a *second* role to someone already on the roster. `StaffVolunteerRow.tsx`'s
+  `confirm.label` changed; nothing else about the action changed.
+- **A small "Confirm" button added next to "Cancel" in the popover's main view.** Reported
+  directly: after flipping a toggle like "contacted," the only way to close the popover was
+  "Avbryt" (Cancel), which reads as undoing something rather than being done. The
+  role-selection sub-view already had exactly this pattern (a "Klar"/"Done" link below its
+  own submit button) — added the equivalent to the main view: a small gold "Bekräfta"/
+  "Confirm" button beside Avbryt. Both just call `onClose()` — every toggle already saves
+  live as it's clicked, so there's nothing left to "confirm"; this is purely about not
+  making the exit door read as a rejection.
+- **Real bug fixed: a person genuinely couldn't hold two volunteer shifts at once.**
+  Reported directly ("I don't seem to be able to add the same person in several roles").
+  `event_staff_volunteers` was already keyed by (event_id, staff_id, role) specifically so
+  one person could hold several *roles* — but a volunteer's two shifts are both
+  `role: 'volunteer'`, so `confirmStaffForEvent`'s existing-row lookup matched on role alone
+  and silently overwrote the first shift with the second instead of adding a row. Fixed by
+  also matching on `shift` for volunteer rows specifically (a real PostgREST gotcha found
+  along the way: `.eq('shift', null)` throws — `column "shift" is of type volunteer_shift`
+  can't compare against the literal `null` — `.is('shift', null)` is required instead).
+  `getStaffRolesForEvent` now returns `shift` too, so the popover's "Redan bekräftad som"
+  chips show `Volontär — Setup` / `Volontär — Transport` as two distinct, individually
+  removable chips instead of one ambiguous "Volontär." `removeStaffFromEvent` gained an
+  optional `shift` param for that per-chip removal, and a separate fix: `role` itself is
+  now optional — omitting it removes *every* role the person holds, used by the top-level
+  "Remove from event"/"downgrade to interested" actions, which previously deleted only
+  `row.role` (the contact's own default role from Contacts, not necessarily what they were
+  actually confirmed as for this specific event — a second latent bug caught while fixing
+  the first).
+  - **Verified live** against a real volunteer (Arzon Einevik, Pandaemonium): added a second
+    shift via the popover, confirmed both "Volontär — Setup" and "Volontär — Transport"
+    chips appeared distinctly; removed the Setup chip specifically and confirmed only
+    Transport remained, both in the popover and after a full page reload (nothing left
+    behind — the standing verify-cleanup rule).
+- **Volunteer headcount no longer double-counts someone on 2 shifts.** Direct follow-up
+  concern on the fix above. `StaffingCoverageStrip`'s card count, `EventProgressOverview`'s
+  "X volontärer" line, and the Bemanning tab's own per-role count badge all switched from
+  `rows.length` to `new Set(rows.map(r => r.staff.id)).size` — distinct people, not rows.
+  Harmless no-op for every other role (only volunteers can ever hold 2 rows).
+- **"Add" buttons directly on Event Planning**, for both Bemanning and Sponsors — new
+  `InlineAddPicker.tsx`: a small "+" that expands into a searchable list of existing
+  contacts/sponsors not yet in that specific category; picking one confirms them
+  immediately via the same service calls the Contacts popover already uses. No "create a
+  brand-new contact" path here on purpose (stays on Contacts, so that whole form isn't
+  duplicated) — a note under the list says so. Every Bemanning role section (including the
+  Afterparty section's DJ list) and both new Sponsors sections got one. A side effect,
+  needed to make empty categories reachable at all: role sections on Bemanning no longer
+  hide themselves when they have 0 people — they now show "Ingen tillagd ännu"/"Nobody added
+  yet" instead, so there's always somewhere to click "+".
+- **Event Planning tab order changed**: Bemanning, Sponsorer, Showplanering, Artister,
+  VIP & Mat (previously Artister, Showplanering, Bemanning, Sponsorer, VIP & Mat). The
+  default `activeTab` on load changed from `'artists'` to `'staff'` to match.
+- **Prize sponsor slots: 4 stays the expected count, not a hard cap.** `PRIZE_SLOT_COUNT`
+  (still 4) now only drives the grid's default slot count and the "filled" badge threshold
+  — the new "+" picker on Pris-sponsorer doesn't stop at 4, so a 5th (or more) just adds
+  another real card; the counter reads e.g. "5/4," which is a fine, honest way to say "more
+  than the usual number," not a bug.
+- **New "Sales" section for merch-table sponsors — orthogonal to prize status, same pattern
+  as the Afterparty section's DJ-or-playlist logic.** New `event_sponsors.has_merch_table`
+  boolean column (SQL below), completely independent of `role`/`sponsor_type` — a sponsor
+  can be `role: 'prize'` (one of the 4 slots) *and* `has_merch_table: true` at the same
+  time, without that counting as a second sponsor. `EventSponsorRow.tsx` gained a checkbox
+  ("Sätter upp merchbord på eventet") in its expanded panel for toggling this on any
+  already-confirmed sponsor regardless of role; `SponsorSlotGrid.tsx`'s new Sales section
+  lists everyone with the flag set, plus its own "+" picker for someone brand-new to the
+  event (confirms them with `role: 'sales'` and the flag together in one action — picking
+  an already-confirmed sponsor from that picker only flips the flag, never touches their
+  existing role). "Övriga sponsorer" now excludes anyone already shown in Sales, so a
+  sales-type sponsor with the flag set doesn't also duplicate into that bucket.
+  - **Also requested**: a merch table means salespeople on-site, which the VIP list should
+    know about. Not enforced (matches this app's standing "no stored requirement system"
+    philosophy) — a small "Lägg till säljare i VIP-listan"/"Add salesperson to VIP list"
+    button appears under each Sales-section sponsor, switches to the VIP tab and drops in a
+    blank manual-entry draft pre-noted `Säljare — <sponsor name>`, ready for the board to
+    fill in the actual name(s).
+  - **Not yet verified live** — blocked on the SQL below actually being run; confirmed via
+    a live test that the whole Event Planning page's data load currently fails outright
+    with the new column missing (`getEventSponsorsForAdmin`'s select names
+    `has_merch_table`, and the single `Promise.all` covering every tab's data means one
+    missing column blanks out the *entire* page, not just Sponsors — caught this via a
+    real Postgres 42703 error during this same round's verification pass, not by the user).
+
+```sql
+ALTER TABLE public.event_sponsors
+  ADD COLUMN has_merch_table boolean NOT NULL DEFAULT false;
+```
+
+**Answered directly, not a code change — does an `event_staff_invitations` row get deleted
+once someone's added to an event?** No. `confirmStaffForEvent` only ever writes to
+`event_staff_volunteers` (the confirmed roster) — it never touches or deletes the
+`event_staff_invitations` row. Both persist side by side; `getStaffEventStatuses` just lets
+the confirmed roster's status override what's *displayed*, while `contactedAt` always still
+comes from the invitation row regardless of confirmation, exactly so that fact isn't lost.
+
+**Verified live 2026-09-02, after the SQL above was run**: the whole Event Planning page
+loads real data again; toggling Mshop's merch-table checkbox made it appear in both
+Pris-sponsorer *and* the merch section at once without moving the Sponsorer summary card off
+"3/4" (proving the flag really is independent of prize-slot count); the VIP nudge button
+switched to VIP & Mat and dropped in a blank draft pre-noted "Säljare — Mshop." Everything
+reverted afterward (flag back off, draft cancelled unsaved) and confirmed gone on a fresh
+reload — no residue left on real event data. (Section is labeled "Säljbord," not "Sales
+(merchbord)" as first built — simplified straight in the file after this round, no separate
+request needed.)
+
+**Simplified 2026-09-02 — popover's main view down to one "Close" button.** Immediate
+follow-up: the two-button pair added earlier the same day (gold "Bekräfta"/Confirm + muted
+"Avbryt"/Cancel) was itself judged one button too many — every toggle already saves the
+moment it's clicked, so there was never anything to actually "confirm" before closing.
+Replaced both with a single muted "Stäng"/"Close" link, same style Avbryt already had.
+Considered a corner "×" too but left it out — one discreet close affordance already covers
+it without adding a second way to do the same thing.
+
 ### Show ordering, prep/cleanup/music/notes per act — built 2026-08-31 (Showplanering tab)
 Good news here too: `performer_acts` already collects `stage_preparations`,
 `pick_up_cleaning`, `act_notes`, and `audio_files` — all via the artist's own
