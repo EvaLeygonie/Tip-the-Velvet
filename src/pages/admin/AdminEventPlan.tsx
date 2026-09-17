@@ -29,8 +29,15 @@ import {
   confirmStaffForEvent,
   confirmSponsorForEvent,
   setSponsorMerchTable,
+  updateStaffFoodInfoForPerson,
 } from '@/services/contactsService'
-import { staffRoleLabel, vipCategoryLabel, dietaryCategoryLabel } from '@/lib/contactLabels'
+import {
+  staffRoleLabel,
+  staffPersonRoleSummary,
+  vipCategoryLabel,
+  dietaryCategoryLabel,
+} from '@/lib/contactLabels'
+import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { EventStaffRow } from '@/components/admin/event-plan/EventStaffRow'
 import { AfterpartySection } from '@/components/admin/event-plan/AfterpartySection'
 import { VolunteerShiftGroups } from '@/components/admin/event-plan/VolunteerShiftGroups'
@@ -44,7 +51,7 @@ import { EventProgressOverview } from '@/components/admin/event-plan/EventProgre
 import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
 import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
 import { ShowPlanningActRow } from '@/components/admin/event-plan/ShowPlanningActRow'
-import { DietaryCategoryPicker } from '@/components/admin/event-plan/DietaryCategoryPicker'
+import { FoodTab } from '@/components/admin/event-plan/FoodTab'
 import {
   STANDING_ORGANIZERS,
   VIP_CATEGORY_ORDER,
@@ -133,8 +140,17 @@ export const AdminEventPlan = () => {
   // just patch/remove one row of the same staffRows array.
   const handleStaffRowRemoved = (id: string) =>
     setStaffRows((prev) => prev.filter((r) => r.id !== id))
+  // A food/dietary patch is written server-side to every row this person holds for the event
+  // (see updateStaffFoodInfoForPerson) — mirror that here so local state doesn't show it as
+  // saved on only the one role that happened to be expanded when it was edited.
   const handleStaffRowUpdated = (id: string, patch: Partial<AdminEventStaffRow>) =>
-    setStaffRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+    setStaffRows((prev) => {
+      const isFoodPatch =
+        'needs_food' in patch || 'dietary_category' in patch || 'dietary_notes' in patch
+      const target = prev.find((r) => r.id === id)
+      if (!isFoodPatch || !target) return prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+      return prev.map((r) => (r.staff.id === target.staff.id ? { ...r, ...patch } : r))
+    })
 
   // Bemanning's per-section "+" pickers — confirms an existing contact straight into that
   // role without leaving Event Planning for Contacts. Refetches the whole staff list
@@ -248,6 +264,29 @@ export const AdminEventPlan = () => {
     }
   }
 
+  // The Food tab's single write path for staff/volunteer food info — looks up any one row
+  // this person holds (updateStaffFoodInfoForPerson writes to all of them server-side; see
+  // its own comment) purely to get an id handleStaffRowUpdated can key its local-state patch
+  // off of.
+  const handleStaffFoodUpdated = async (
+    staffId: string,
+    patch: {
+      needs_food?: boolean
+      dietary_category?: DietaryCategory | null
+      dietary_notes?: string | null
+    }
+  ) => {
+    const anyRow = staffRows.find((r) => r.staff.id === staffId)
+    if (!anyRow) return
+    try {
+      await updateStaffFoodInfoForPerson(selectedEventId, staffId, patch)
+      handleStaffRowUpdated(anyRow.id, patch)
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
+  }
+
   const handleSaveVipEntry = async (id: string, patch: Partial<VipManualEntry>, isNew: boolean) => {
     if (isNew) {
       const created = await createVipManualEntry({
@@ -270,6 +309,11 @@ export const AdminEventPlan = () => {
     toast.success(t('Raderad.', 'Deleted.'))
   }
 
+  // One entry per distinct person, not one per event_staff_volunteers row — see
+  // groupStaffRowsByPerson's comment. Everything below (VIP list, on-screen VIP tab, food
+  // summary, progress overview) reads from this instead of raw staffRows.
+  const groupedStaff = groupStaffRowsByPerson(staffRows)
+
   // Shared by both export formats below, so the two never drift out of sync with each
   // other (or with the on-screen list above).
   const buildVipSections = (): { title: string; items: VipListItem[] }[] => [
@@ -286,10 +330,10 @@ export const AdminEventPlan = () => {
     },
     {
       title: t('Arbetare & volontärer', 'Staff & volunteers'),
-      items: staffRows.map((r) => ({
-        name: r.staff.name,
-        email: r.staff.email,
-        sub: staffRoleLabel(t, r.role),
+      items: groupedStaff.map((p) => ({
+        name: p.staff.name,
+        email: p.staff.email,
+        sub: staffPersonRoleSummary(t, p.rows),
       })),
     },
     {
@@ -319,7 +363,6 @@ export const AdminEventPlan = () => {
   // printing, so without this the file looks fine on paper but edge-to-edge and cramped
   // when just opened and viewed in a browser (e.g. on an iPad at the door).
   const handleDownloadVipList = () => {
-    const eventTitle = upcomingEvents.find((e) => e.id === selectedEventId)?.title ?? 'Event'
 
     const section = (title: string, items: VipListItem[]) => {
       if (items.length === 0) return ''
@@ -411,7 +454,6 @@ export const AdminEventPlan = () => {
   // dependency just to convert the HTML version, since the layout here is simple enough
   // (headers + rows) to lay out by hand.
   const handleDownloadVipListPdf = () => {
-    const eventTitle = upcomingEvents.find((e) => e.id === selectedEventId)?.title ?? 'Event'
     const doc = new jsPDF({ unit: 'mm', format: 'a4' })
     const margin = 18
     const pageWidth = 210
@@ -478,30 +520,7 @@ export const AdminEventPlan = () => {
     doc.save(`${eventTitle}-vip-lista.pdf`)
   }
 
-  // Same computation the progress overview's "Mat" card does — repeated here (not shared
-  // via a prop) since it's one small derived line, not worth threading through a callback.
-  const foodPeople: (DietaryCategory | null)[] = [
-    ...performers.map((p) => p.dietary_category),
-    ...staffRows.filter((r) => r.needs_food).map((r) => r.dietary_category),
-  ]
-  const foodNeedsCategorizing = foodPeople.some((c) => !c)
-  const foodCounts: Record<DietaryCategory, number> = { all_eater: 0, vegetarian: 0, vegan: 0 }
-  foodPeople.forEach((c) => {
-    if (c) foodCounts[c]++
-  })
-  const foodCountsSummary = (['all_eater', 'vegetarian', 'vegan'] as DietaryCategory[])
-    .filter((c) => foodCounts[c] > 0)
-    .map((c) => `${foodCounts[c]} ${dietaryCategoryLabel(t, c).toLowerCase()}`)
-    .join(', ')
-  const foodSummaryLine =
-    foodPeople.length === 0
-      ? t('Mat: ingen att kategorisera än.', 'Food: nobody to categorize yet.')
-      : foodNeedsCategorizing
-        ? t(
-            'Mat: vissa saknar fortfarande kategori (se Artister/Bemanning).',
-            'Food: some still need a category (see Artists/Staffing).'
-          )
-        : t(`Mat: ${foodCountsSummary}.`, `Food: ${foodCountsSummary}.`)
+  const eventTitle = upcomingEvents.find((e) => e.id === selectedEventId)?.title ?? 'Event'
 
   return (
     <div className="page-shell">
@@ -520,7 +539,6 @@ export const AdminEventPlan = () => {
                 acts={acts}
                 staffRows={staffRows}
                 sponsorRows={sponsorRows}
-                vipEntries={vipEntries}
                 onSelectTab={setActiveTab}
               />
             </div>
@@ -562,14 +580,14 @@ export const AdminEventPlan = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('artists')}
+              onClick={() => setActiveTab('food')}
               className={
-                activeTab === 'artists'
+                activeTab === 'food'
                   ? 'btn-gold text-xs py-2 px-4'
                   : 'btn-gold-outline text-xs py-2 px-4'
               }
             >
-              {t('Artister', 'Artists')}
+              {t('Mat', 'Food')}
             </button>
             <button
               type="button"
@@ -580,7 +598,7 @@ export const AdminEventPlan = () => {
                   : 'btn-gold-outline text-xs py-2 px-4'
               }
             >
-              {t('VIP & Mat', 'VIP & Food')}
+              {t('VIP', 'VIP')}
             </button>
           </div>
 
@@ -590,54 +608,17 @@ export const AdminEventPlan = () => {
             </div>
           ) : (
             <div className="max-w-5xl mx-auto space-y-4">
-              {activeTab === 'artists' &&
-                (performers.length === 0 ? (
-                  <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
-                    {t(
-                      'Inga bekräftade artister för detta event ännu.',
-                      'No confirmed artists for this event yet.'
-                    )}
-                  </div>
-                ) : (
-                  <div className="max-w-3xl mx-auto space-y-2">
-                    {performers.map((row) => (
-                      <div
-                        key={row.performer_id}
-                        className="admin-panel velvet-surface p-3 flex items-center gap-3"
-                      >
-                        <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">
-                          {row.performer.performer_name}
-                        </span>
-                        {row.plus_one_name && (
-                          <span
-                            title={`+1: ${row.plus_one_name}`}
-                            className="shrink-0 text-[10px] font-body font-semibold text-sky-400 border border-sky-400/30 rounded-full px-1.5 py-0.5"
-                          >
-                            +1
-                          </span>
-                        )}
-                        {row.dietary_requirements && (
-                          <span
-                            title={row.dietary_requirements}
-                            className="flex items-center gap-1.5 text-xs text-foreground/60 italic min-w-0"
-                          >
-                            <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-accent/50" />
-                            <span className="truncate max-w-[120px]">
-                              {row.dietary_requirements}
-                            </span>
-                          </span>
-                        )}
-                        <DietaryCategoryPicker
-                          value={row.dietary_category}
-                          onChange={(value) =>
-                            handleUpdatePerformerDietary(row.performer_id, value)
-                          }
-                          className="shrink-0"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ))}
+              {activeTab === 'food' && (
+                <div className="max-w-3xl mx-auto">
+                  <FoodTab
+                    eventTitle={eventTitle}
+                    performers={performers}
+                    groupedStaff={groupedStaff}
+                    onUpdatePerformerDietary={handleUpdatePerformerDietary}
+                    onStaffFoodUpdated={handleStaffFoodUpdated}
+                  />
+                </div>
+              )}
 
               {activeTab === 'show' &&
                 (acts.length === 0 ? (
@@ -781,29 +762,23 @@ export const AdminEventPlan = () => {
 
               {activeTab === 'vip' && (
                 <div className="max-w-3xl mx-auto space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-sm text-foreground/70">
-                      <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-accent/50" />
-                      {foodSummaryLine}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={handleDownloadVipList}
-                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        {t('Ladda ner VIP-lista (A4)', 'Download VIP list (A4)')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDownloadVipListPdf}
-                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {t('Ladda ner som PDF', 'Download as PDF')}
-                      </button>
-                    </div>
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadVipList}
+                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {t('Ladda ner VIP-lista (A4)', 'Download VIP list (A4)')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadVipListPdf}
+                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      {t('Ladda ner som PDF', 'Download as PDF')}
+                    </button>
                   </div>
 
                   <details className="group">
@@ -849,6 +824,26 @@ export const AdminEventPlan = () => {
                             <span className="flex-1 min-w-0 truncate">
                               {row.performer.performer_name}
                             </span>
+                            {row.plus_one_name && (
+                              <span
+                                title={`+1: ${row.plus_one_name}`}
+                                className="shrink-0 text-[10px] font-body font-semibold text-sky-400 border border-sky-400/30 rounded-full px-1.5 py-0.5"
+                              >
+                                +1
+                              </span>
+                            )}
+                            <span
+                              title={
+                                row.dietary_category
+                                  ? dietaryCategoryLabel(t, row.dietary_category)
+                                  : t('Mat ej kategoriserad', 'Food not categorized')
+                              }
+                              className="shrink-0"
+                            >
+                              <UtensilsCrossed
+                                className={`h-3.5 w-3.5 ${row.dietary_category ? 'text-accent/50' : 'text-amber-400/70'}`}
+                              />
+                            </span>
                             {row.performer.email && (
                               <span className="text-foreground/50 text-xs shrink-0">
                                 {row.performer.email}
@@ -864,28 +859,42 @@ export const AdminEventPlan = () => {
                     <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
                       {t('Arbetare & volontärer', 'Staff & volunteers')}
                       <span className="text-xs font-mono text-foreground/40">
-                        {staffRows.length}
+                        {groupedStaff.length}
                       </span>
                     </summary>
                     <div className="space-y-2 pt-2">
-                      {staffRows.length === 0 ? (
+                      {groupedStaff.length === 0 ? (
                         <p className="text-sm text-foreground/40 italic">
                           {t('Ingen personal bekräftad ännu.', 'No staff confirmed yet.')}
                         </p>
                       ) : (
-                        staffRows.map((row) => (
+                        groupedStaff.map((person) => (
                           <div
-                            key={row.id}
+                            key={person.staff.id}
                             className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
                           >
-                            <span className="flex-1 min-w-0 truncate">{row.staff.name}</span>
-                            {row.staff.email && (
+                            <span className="flex-1 min-w-0 truncate">{person.staff.name}</span>
+                            {person.needs_food && (
+                              <span
+                                title={
+                                  person.dietary_category
+                                    ? dietaryCategoryLabel(t, person.dietary_category)
+                                    : t('Mat ej kategoriserad', 'Food not categorized')
+                                }
+                                className="shrink-0"
+                              >
+                                <UtensilsCrossed
+                                  className={`h-3.5 w-3.5 ${person.dietary_category ? 'text-accent/50' : 'text-amber-400/70'}`}
+                                />
+                              </span>
+                            )}
+                            {person.staff.email && (
                               <span className="text-foreground/50 text-xs shrink-0">
-                                {row.staff.email}
+                                {person.staff.email}
                               </span>
                             )}
                             <span className="text-accent italic text-xs shrink-0">
-                              {staffRoleLabel(t, row.role)}
+                              {staffPersonRoleSummary(t, person.rows)}
                             </span>
                           </div>
                         ))

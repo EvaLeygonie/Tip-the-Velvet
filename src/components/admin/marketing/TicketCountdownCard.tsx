@@ -1,4 +1,4 @@
-import { toBoldSerif, toSmallCaps, formatSocialDateLine } from '@/lib/utils'
+import { toBoldSerif, toSmallCaps, formatSocialDateLine, formatEventDateVenueLine } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 // The short "gates ajar" teaser, not the full release-day post (that's buildTicketReleaseText).
@@ -10,9 +10,7 @@ export const buildTicketCountdownText = (event: EventMarketingData): string => {
   const releaseEng = event.ticketReleaseDate
     ? `This Saturday, the ${formatSocialDateLine(event.ticketReleaseDate, 'eng')},`
     : 'Soon'
-  const dateVenue = event.eventStart
-    ? `🎪 ${formatSocialDateLine(event.eventStart, 'eng')}\n📍 ${event.location ?? ''}`
-    : ''
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
 
   return [
     `🇸🇪 ${toBoldSerif('Ticket release')} \n\nPortarna till ${event.title} står på glänt… ${releaseSv} släpper vi våra biljetter till ${titleSmallCaps}!`,

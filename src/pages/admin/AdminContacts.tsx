@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
@@ -177,14 +178,22 @@ export const AdminContacts = () => {
   const [clubRegionFilter, setClubRegionFilter] = useState('')
 
   const [mailTarget, setMailTarget] = useState<{
-    name: string
-    email: string
+    recipients: { name: string; email: string; staffId?: string }[]
     defaultSubject: string
+    defaultGreeting: string
     defaultBody: string
-    // Only set for the staff/volunteer email path — sponsors/venues have no
-    // event_staff_invitations concept, so this stays undefined for those.
-    staffId?: string
   } | null>(null)
+
+  // Staff & Volunteers tab only — lets the board email several people (e.g. everyone
+  // they're asking to cover the door) in one go instead of one-by-one.
+  const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string>>(new Set())
+  const toggleStaffSelected = (id: string) =>
+    setSelectedStaffIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   useEffect(() => {
     const load = async () => {
@@ -406,41 +415,76 @@ export const AdminContacts = () => {
 
   //=== MAIL modal ===///
 
-  const openMailModalFor = (row: { name: string; email: string | null }) => {
+  // Category + upcoming event, e.g. "Volontär Pandaemonium" — skips the category when there
+  // isn't one (venues have no type enum) and skips the event when none is selected yet.
+  const buildMailSubject = (category: string | null): string =>
+    [category, statusEvent?.title].filter(Boolean).join(' ')
+
+  const openMailModalForSponsor = (row: Sponsors) => {
     if (!row.email) return
     setMailTarget({
-      name: row.name,
-      email: row.email,
-      defaultSubject: '',
-      defaultBody: `Hej ${row.name}!\n\n\n\nVarma hälsningar,\nTip the Velvet`,
+      recipients: [{ name: row.name, email: row.email }],
+      defaultSubject: buildMailSubject(row.sponsor_type ? sponsorTypeLabel(row.sponsor_type) : null),
+      defaultGreeting: `Hej ${row.name}!`,
+      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
+    })
+  }
+
+  const openMailModalForVenue = (row: Venue) => {
+    if (!row.email) return
+    setMailTarget({
+      recipients: [{ name: row.name, email: row.email }],
+      defaultSubject: buildMailSubject(null),
+      defaultGreeting: `Hej ${row.name}!`,
+      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
     })
   }
 
   // Volunteers only, per feedback — a full "Hej Förnamn Efternamn," reads too formal for
-  // this group specifically. Sponsors/venues keep the full-name greeting via
-  // openMailModalFor above. Carries staffId through to mailTarget so handleMailSent can
-  // record "contacted" for whichever event Contacts is currently showing statuses for.
-  const openMailModalForVolunteer = (row: { id: string; name: string; email: string | null }) => {
+  // this group specifically. Sponsors/venues keep the full-name greeting above. Carries
+  // staffId through to mailTarget so handleMailSent can record "contacted" for whichever
+  // event Contacts is currently showing statuses for.
+  const openMailModalForVolunteer = (row: StaffVolunteers) => {
     if (!row.email) return
     const firstName = row.name.trim().split(/\s+/)[0]
     setMailTarget({
-      name: row.name,
-      email: row.email,
-      defaultSubject: '',
-      defaultBody: `Hej ${firstName}!\n\n\n\nVarma hälsningar,\nTip the Velvet`,
-      staffId: row.id,
+      recipients: [{ name: row.name, email: row.email, staffId: row.id }],
+      defaultSubject: buildMailSubject(roleLabel(row.role)),
+      defaultGreeting: `Hej ${firstName}!`,
+      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
     })
   }
 
-  // Fired only after a real successful send (see ContactMailModal's onSent) — records
-  // "we've reached out to this person about this event" so the board stops relying on
-  // "interested" as a stand-in for "I emailed them." Always safe to call regardless of
-  // current status: markStaffContacted only ever touches invited_at, never status, so this
-  // can never downgrade a real interested/declined/not_needed/confirmed answer.
-  const handleMailSent = async () => {
-    if (!mailTarget?.staffId || !statusEventId) return
+  // "Email selected" — everyone currently ticked in the Staff & Volunteers tab who has an
+  // email on file, sent as one shared draft instead of one-by-one.
+  const openMailModalForSelectedStaff = () => {
+    const rows = staffRows.filter((r) => selectedStaffIds.has(r.id) && r.email)
+    if (rows.length === 0) return
+    const roles = new Set(rows.map((r) => r.role))
+    setMailTarget({
+      recipients: rows.map((r) => ({ name: r.name, email: r.email as string, staffId: r.id })),
+      defaultSubject: buildMailSubject(roles.size === 1 ? roleLabel(rows[0].role) : null),
+      defaultGreeting: t('Hej allihopa!', 'Hi everyone!'),
+      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
+    })
+  }
+
+  // Fired once the whole send batch settles (see ContactMailModal's onSent) — records "we've
+  // reached out to this person about this event" for every recipient that actually went
+  // through, so the board stops relying on "interested" as a stand-in for "I emailed them."
+  // Always safe to call regardless of current status: markStaffContacted only ever touches
+  // invited_at, never status, so this can never downgrade a real interested/declined/
+  // not_needed/confirmed answer.
+  const handleMailSent = async (
+    results: { recipient: { staffId?: string }; ok: boolean }[]
+  ) => {
+    setSelectedStaffIds(new Set())
+    const staffIds = results
+      .filter((r) => r.ok && r.recipient.staffId)
+      .map((r) => r.recipient.staffId as string)
+    if (staffIds.length === 0 || !statusEventId) return
     try {
-      await markStaffContacted(statusEventId, mailTarget.staffId)
+      await Promise.all(staffIds.map((id) => markStaffContacted(statusEventId, id)))
       await refreshStaffEventStatuses()
     } catch (err) {
       console.error('Kunde inte markera som kontaktad:', err)
@@ -493,6 +537,8 @@ export const AdminContacts = () => {
               onEmail={openMailModalForVolunteer}
               eventStatus={staffEventStatuses[row.id]}
               onEventStatusChanged={refreshStaffEventStatuses}
+              selected={selectedStaffIds.has(row.id)}
+              onToggleSelect={toggleStaffSelected}
             />
           ))}
         </div>
@@ -616,6 +662,29 @@ export const AdminContacts = () => {
                 </div>
               )}
 
+              {selectedStaffIds.size > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-3 mb-3 text-sm">
+                  <span className="text-foreground/70">
+                    {t(`${selectedStaffIds.size} valda`, `${selectedStaffIds.size} selected`)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={openMailModalForSelectedStaff}
+                    className="flex items-center gap-1.5 text-xs py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    {t('Mejla valda', 'Email selected')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStaffIds(new Set())}
+                    className="text-xs text-foreground/50 hover:text-foreground/80 underline"
+                  >
+                    {t('Avmarkera alla', 'Clear selection')}
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-3">
                 {staffDrafts.map((d) => (
                   <StaffVolunteerRow
@@ -697,7 +766,7 @@ export const AdminContacts = () => {
                     clubOptions={clubOptions}
                     onSave={handleSaveSponsor}
                     onDelete={handleDeleteSponsor}
-                    onEmail={openMailModalFor}
+                    onEmail={openMailModalForSponsor}
                     onCancelNew={(id) =>
                       setSponsorDrafts((prev) => prev.filter((d2) => d2.id !== id))
                     }
@@ -716,7 +785,7 @@ export const AdminContacts = () => {
                       clubOptions={clubOptions}
                       onSave={handleSaveSponsor}
                       onDelete={handleDeleteSponsor}
-                      onEmail={openMailModalFor}
+                      onEmail={openMailModalForSponsor}
                       isConfirmedForEvent={confirmedSponsorIds.has(row.id)}
                       onConfirmed={refreshConfirmedSponsorIds}
                     />
@@ -746,7 +815,7 @@ export const AdminContacts = () => {
                     isNew
                     onSave={handleSaveVenue}
                     onDelete={handleDeleteVenue}
-                    onEmail={openMailModalFor}
+                    onEmail={openMailModalForVenue}
                     onCancelNew={(id) =>
                       setVenueDrafts((prev) => prev.filter((d2) => d2.id !== id))
                     }
@@ -763,7 +832,7 @@ export const AdminContacts = () => {
                       row={row}
                       onSave={handleSaveVenue}
                       onDelete={handleDeleteVenue}
-                      onEmail={openMailModalFor}
+                      onEmail={openMailModalForVenue}
                       isBookedForEvent={row.id === statusEventVenueId}
                     />
                   ))
@@ -825,9 +894,9 @@ export const AdminContacts = () => {
       <ContactMailModal
         isOpen={!!mailTarget}
         onClose={() => setMailTarget(null)}
-        recipientName={mailTarget?.name ?? ''}
-        recipientEmail={mailTarget?.email ?? ''}
+        recipients={mailTarget?.recipients ?? []}
         defaultSubject={mailTarget?.defaultSubject ?? ''}
+        defaultGreeting={mailTarget?.defaultGreeting ?? ''}
         defaultBody={mailTarget?.defaultBody ?? ''}
         onSent={handleMailSent}
       />

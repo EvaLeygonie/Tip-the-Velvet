@@ -180,6 +180,8 @@ export const AdminMarketing = () => {
                 title: eventData?.title ?? '',
                 ticketUrl,
                 hashtags,
+                eventStart: eventData?.eventStart ?? null,
+                location: eventData?.location ?? null,
               }}
               onChanged={handleChanged}
             />

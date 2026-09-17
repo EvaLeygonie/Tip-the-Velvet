@@ -265,7 +265,9 @@ export type Database = {
           accommodation: string | null
           arrival_time: string | null
           created_at: string
-          dietary_category: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_category:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
           dietary_requirements: string | null
           display_order: number
           event_id: string
@@ -285,7 +287,9 @@ export type Database = {
           accommodation?: string | null
           arrival_time?: string | null
           created_at?: string
-          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_category?:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
           dietary_requirements?: string | null
           display_order?: number
           event_id: string
@@ -305,7 +309,9 @@ export type Database = {
           accommodation?: string | null
           arrival_time?: string | null
           created_at?: string
-          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_category?:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
           dietary_requirements?: string | null
           display_order?: number
           event_id?: string
@@ -387,6 +393,58 @@ export type Database = {
           },
         ]
       }
+      event_staff_food: {
+        Row: {
+          dietary_category:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
+          dietary_notes: string | null
+          event_id: string
+          needs_food: boolean
+          staff_id: string
+        }
+        Insert: {
+          dietary_category?:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
+          dietary_notes?: string | null
+          event_id: string
+          needs_food?: boolean
+          staff_id: string
+        }
+        Update: {
+          dietary_category?:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
+          dietary_notes?: string | null
+          event_id?: string
+          needs_food?: boolean
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_staff_food_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_staff_food_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "public_photographers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_staff_food_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_volunteers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_staff_invitations: {
         Row: {
           created_at: string
@@ -445,7 +503,9 @@ export type Database = {
       event_staff_volunteers: {
         Row: {
           created_at: string
-          dietary_category: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_category:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
           dietary_notes: string | null
           event_id: string
           id: string
@@ -458,7 +518,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_category?:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
           dietary_notes?: string | null
           event_id: string
           id?: string
@@ -471,7 +533,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          dietary_category?: Database["public"]["Enums"]["dietary_category"] | null
+          dietary_category?:
+            | Database["public"]["Enums"]["dietary_category"]
+            | null
           dietary_notes?: string | null
           event_id?: string
           id?: string
@@ -1202,20 +1266,36 @@ export type Database = {
         Returns: string
       }
       unaccent: { Args: { "": string }; Returns: string }
-      update_event_performer_via_token: {
-        Args: {
-          p_access_token: string
-          p_dietary_requirements?: string
-          p_event_id: string
-          p_notes?: string
-          p_performer_id: string
-          p_plus_one_email?: string
-          p_plus_one_name?: string
-          p_travel_covered?: number
-          p_travel_receipts?: Json
-        }
-        Returns: undefined
-      }
+      update_event_performer_via_token:
+        | {
+            Args: {
+              p_access_token: string
+              p_dietary_category?: Database["public"]["Enums"]["dietary_category"]
+              p_dietary_requirements?: string
+              p_event_id: string
+              p_notes?: string
+              p_performer_id: string
+              p_plus_one_email?: string
+              p_plus_one_name?: string
+              p_travel_covered?: number
+              p_travel_receipts?: Json
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_access_token: string
+              p_dietary_requirements?: string
+              p_event_id: string
+              p_notes?: string
+              p_performer_id: string
+              p_plus_one_email?: string
+              p_plus_one_name?: string
+              p_travel_covered?: number
+              p_travel_receipts?: Json
+            }
+            Returns: undefined
+          }
       update_performer_act_via_token: {
         Args: {
           p_access_token: string
@@ -1330,12 +1410,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1359,11 +1439,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1384,11 +1464,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1409,11 +1489,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1426,11 +1506,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

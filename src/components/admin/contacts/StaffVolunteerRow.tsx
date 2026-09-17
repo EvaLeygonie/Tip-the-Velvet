@@ -43,6 +43,10 @@ interface StaffVolunteerRowProps {
   // undefined means this person has no relation to that event at all.
   eventStatus?: StaffEventStatus
   onEventStatusChanged?: () => void
+  // Bulk-select for "email everyone selected" — omitted entirely for draft/new rows, which
+  // aren't saved yet and so have nothing to bulk-email.
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
 export const StaffVolunteerRow = ({
@@ -55,6 +59,8 @@ export const StaffVolunteerRow = ({
   onCancelNew,
   eventStatus,
   onEventStatusChanged,
+  selected,
+  onToggleSelect,
 }: StaffVolunteerRowProps) => {
   const { t, language } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(isNew)
@@ -285,6 +291,17 @@ export const StaffVolunteerRow = ({
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
         <div className="grid grid-cols-12 gap-4 items-center flex-1 min-w-0">
           <div className="col-span-12 sm:col-span-4 flex items-center gap-3 min-w-0">
+            {onToggleSelect && (
+              <input
+                type="checkbox"
+                checked={Boolean(selected)}
+                disabled={!row.email}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => onToggleSelect(row.id)}
+                title={!row.email ? t('Ingen e-post', 'No email') : undefined}
+                className="accent-accent shrink-0 h-4 w-4"
+              />
+            )}
             <div className="text-accent/50 shrink-0">
               {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </div>

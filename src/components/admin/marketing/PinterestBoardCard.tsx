@@ -1,4 +1,4 @@
-import { toSmallCaps, formatSocialDateLine } from '@/lib/utils'
+import { toSmallCaps, formatEventDateVenueLine } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 // Text-only — the org's real example has no separate image (Pinterest itself is the
@@ -6,9 +6,7 @@ import type { EventMarketingData } from '@/services/eventService'
 // EventEditor.tsx's "Fler detaljer" section) for the board link.
 export const buildPinterestBoardText = (event: EventMarketingData): string => {
   const titleSmallCaps = toSmallCaps(event.title)
-  const dateVenue = event.eventStart
-    ? `🎪 ${formatSocialDateLine(event.eventStart, 'eng')}\n📍 ${event.location ?? ''}`
-    : ''
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
 
   return [
     `🇸🇪 I väntan på vårt nästa event, ${titleSmallCaps}, så finns ju gott om tid att planera en fängslande outfit!\n\nVad inspirerar dig? Musik, färger, ädelstenar, böcker, filmer, en specifik accessoar…? Kommentera nedan! Vill vill veta vad som inspirerar er! ✨`,

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CheckCircle2, AlertTriangle, Drama, Users, Gift, Crown, UtensilsCrossed } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Drama, Users, UserPlus, Gift, UtensilsCrossed } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type {
   AdminEventPerformerRow,
@@ -7,18 +7,18 @@ import type {
   AdminEventSponsorRow,
   AdminEventActRow,
 } from '@/services/eventService'
-import type { VipManualEntry, DietaryCategory } from '@/types/types'
-import { STANDING_ORGANIZERS, FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from './constants'
-import { dietaryCategoryLabel } from '@/lib/contactLabels'
+import type { DietaryCategory } from '@/types/types'
+import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from './constants'
+import { dietaryCategoryLabel, staffRoleLabel } from '@/lib/contactLabels'
+import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 
-export type EventPlanTab = 'artists' | 'show' | 'staff' | 'sponsors' | 'vip'
+export type EventPlanTab = 'show' | 'staff' | 'sponsors' | 'food' | 'vip'
 
 interface EventProgressOverviewProps {
   performers: AdminEventPerformerRow[]
   acts: AdminEventActRow[]
   staffRows: AdminEventStaffRow[]
   sponsorRows: AdminEventSponsorRow[]
-  vipEntries: VipManualEntry[]
   onSelectTab: (tab: EventPlanTab) => void
 }
 
@@ -50,16 +50,22 @@ const StatusCard = ({ label, value, ok, icon, onClick }: StatusCardProps) => (
 
 // The page's "what's left to do for this event" summary — every card is a pure read-time
 // computation over data the tabs below already load, nothing stored. Clicking a card jumps
-// straight to the relevant tab.
+// straight to the relevant tab. Kept to short, scannable values (a role list or a plain
+// count) rather than full sentences — the old combined "Bemanning" card ("Nyckelroller
+// klara, X volontärer") read as a wall of text, per direct feedback (2026-09-15), hence the
+// split into two plainer cards below.
 export const EventProgressOverview = ({
   performers,
   acts,
   staffRows,
   sponsorRows,
-  vipEntries,
   onSelectTab,
 }: EventProgressOverviewProps) => {
   const { t } = useLanguage()
+
+  // One entry per distinct person, not one per event_staff_volunteers row — see
+  // groupStaffRowsByPerson's comment. The Mat card below counts people, not role rows.
+  const groupedStaff = groupStaffRowsByPerson(staffRows)
 
   // Showplanering — every confirmed artist always has at least one act (created by the
   // booking flow itself), so the only real gap left to flag is missing stage notes.
@@ -75,37 +81,32 @@ export const EventProgressOverview = ({
             `${actsMissingNotes} without stage notes`
           )
 
-  // Bemanning
+  // Nyckelroller — just the must-fill roles (photographer/technician); a plain role list
+  // when something's missing, not a sentence.
   const missingRoles = FIXED_STAFF_ROLES.filter((role) => !staffRows.some((r) => r.role === role))
-  const staffOk = missingRoles.length === 0
-  // Distinct people, not rows — same reasoning as StaffingCoverageStrip's own count: a
-  // volunteer on two shifts is still one volunteer.
+  const keyRolesOk = missingRoles.length === 0
+  const keyRolesValue = keyRolesOk
+    ? t('Klara', 'Ready')
+    : missingRoles.map((role) => staffRoleLabel(t, role)).join(', ')
+
+  // Volontärer — no fixed target ("take anyone who wants to help"), so this is a plain
+  // headcount, never a warning. Distinct people, not rows — a volunteer on two shifts is
+  // still one volunteer.
   const volunteerCount = new Set(
     staffRows.filter((r) => r.role === 'volunteer').map((r) => r.staff.id)
   ).size
-  const staffValue = staffOk
-    ? t(`Nyckelroller klara, ${volunteerCount} volontärer`, `Key roles filled, ${volunteerCount} volunteers`)
-    : t(`Saknas: ${missingRoles.length} roll(er)`, `Missing: ${missingRoles.length} role(s)`)
 
   // Sponsorer
   const prizeCount = sponsorRows.filter((r) => r.role === 'prize').length
   const sponsorsOk = prizeCount >= PRIZE_SLOT_COUNT
   const sponsorsValue = `${prizeCount}/${PRIZE_SLOT_COUNT}`
 
-  // VIP-lista — a plain count, always "in progress" by nature, no done/not-done state
-  const vipTotal =
-    STANDING_ORGANIZERS.length +
-    performers.length +
-    staffRows.length +
-    performers.filter((p) => p.plus_one_name).length +
-    vipEntries.length
-  const vipValue = t(`${vipTotal} personer`, `${vipTotal} people`)
-
-  // Mat — needs every confirmed performer + every food-flagged staff row categorized
-  // before it can compute a real headcount summary
+  // Mat — needs every confirmed performer + every food-flagged staff person categorized
+  // before it can compute a real headcount summary. Full detail (allergies, per-category
+  // contact lists) lives on the dedicated Mat tab; this card is just the at-a-glance state.
   const foodPeople: (DietaryCategory | null)[] = [
     ...performers.map((p) => p.dietary_category),
-    ...staffRows.filter((r) => r.needs_food).map((r) => r.dietary_category),
+    ...groupedStaff.filter((p) => p.needs_food).map((p) => p.dietary_category),
   ]
   const needsCategorizing = foodPeople.some((c) => !c)
   const foodOk = foodPeople.length > 0 && !needsCategorizing
@@ -133,10 +134,17 @@ export const EventProgressOverview = ({
         onClick={() => onSelectTab('show')}
       />
       <StatusCard
-        label={t('Bemanning', 'Staffing')}
-        value={staffValue}
-        ok={staffOk}
+        label={t('Nyckelroller', 'Key roles')}
+        value={keyRolesValue}
+        ok={keyRolesOk}
         icon={<Users className="h-3.5 w-3.5 shrink-0" />}
+        onClick={() => onSelectTab('staff')}
+      />
+      <StatusCard
+        label={t('Volontärer', 'Volunteers')}
+        value={String(volunteerCount)}
+        ok={null}
+        icon={<UserPlus className="h-3.5 w-3.5 shrink-0" />}
         onClick={() => onSelectTab('staff')}
       />
       <StatusCard
@@ -147,18 +155,11 @@ export const EventProgressOverview = ({
         onClick={() => onSelectTab('sponsors')}
       />
       <StatusCard
-        label={t('VIP-lista', 'VIP list')}
-        value={vipValue}
-        ok={null}
-        icon={<Crown className="h-3.5 w-3.5 shrink-0" />}
-        onClick={() => onSelectTab('vip')}
-      />
-      <StatusCard
         label={t('Mat', 'Food')}
         value={foodValue}
         ok={foodPeople.length === 0 ? null : foodOk}
         icon={<UtensilsCrossed className="h-3.5 w-3.5 shrink-0" />}
-        onClick={() => onSelectTab('vip')}
+        onClick={() => onSelectTab('food')}
       />
     </div>
   )

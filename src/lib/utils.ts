@@ -390,6 +390,20 @@ export const formatSocialDateLine = (dateString: string, lang: 'sv' | 'eng'): st
   return `${month} ${day}${suffix} ${year}`
 }
 
+// The recurring "date + venue" closing line used by most social templates — centralized so
+// the marker emoji (or the whole line's shape) can be reskinned for a future event's theme
+// in one place instead of hunting through every template file. 📆/📍 are deliberately
+// generic (not tied to any one event's theme) so they read fine regardless of what a given
+// event is actually about.
+export const formatEventDateVenueLine = (
+  eventStart: string | null | undefined,
+  location: string | null | undefined,
+  lang: 'sv' | 'eng'
+): string => {
+  if (!eventStart) return ''
+  return `📆 ${formatSocialDateLine(eventStart, lang)}\n📍 ${location ?? ''}`
+}
+
 export const formatDateTime = (language: string, dateStr: string | null) => {
   if (!dateStr) return 'TBA'
   const date = new Date(dateStr)

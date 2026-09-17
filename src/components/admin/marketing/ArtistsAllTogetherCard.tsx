@@ -1,4 +1,4 @@
-import { toHashtag } from '@/lib/utils'
+import { toHashtag, formatEventDateVenueLine } from '@/lib/utils'
 import type { EventMarketingData, AdminEventPerformerRow } from '@/services/eventService'
 
 // The "everyone's confirmed" post — text only, no image slot (no group graphic exists to
@@ -15,9 +15,16 @@ export const buildArtistsAllTogetherText = (
   const eventTags = event.hashtags?.trim() ? event.hashtags.trim().split(/\s+/) : []
   const hashtags = [...artistTags, ...eventTags].join(' ')
 
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const ticketsLine = event.ticketUrl ? `🎟️ Biljetter/Tickets: ${event.ticketUrl}` : ''
+  const infoBlock = [dateVenue, ticketsLine].filter(Boolean).join('\n')
+
   return [
     `🇸🇪 Och här är alla fantastiska artister som kommer uppträda på ${event.title}: ${nameListSv}`,
     `🇬🇧 And here are all the fabulous artists who will perform at ${event.title}: ${nameListEng}`,
+    infoBlock,
     hashtags,
-  ].join('\n\n')
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }

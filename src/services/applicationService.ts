@@ -316,7 +316,13 @@ export const updatePerformerBioViaToken = async (
 
 export interface EventPerformerDetailsInput {
   dietary_requirements?: string
-  dietary_category?: DietaryCategory
+  // null (not undefined) when no category is picked — JSON.stringify drops undefined-valued
+  // keys entirely, which used to make the RPC call omit p_dietary_category altogether and
+  // trip PGRST203 ("could not choose the best candidate function") against an old, now-
+  // obsolete overload of update_event_performer_via_token that predates this parameter.
+  // Sending an explicit null keeps the key in the request body so PostgREST can only match
+  // the current overload.
+  dietary_category?: DietaryCategory | null
   travel_receipts?: ReceiptItem[]
   travel_covered?: number
   notes?: string

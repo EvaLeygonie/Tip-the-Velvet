@@ -1,4 +1,4 @@
-import { toBoldSerif } from '@/lib/utils'
+import { toBoldSerif, formatEventDateVenueLine } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 const SITE_URL = 'https://tipthevelvet.nu'
@@ -26,12 +26,10 @@ export const buildVolunteersNeededText = (event: EventMarketingData): string => 
     '✦ Volunteers get free entrance and are not required to work more than a couple of hours so they can enjoy the event!',
   ].join('\n')
 
-  const links = [
-    `🥰 ${toBoldSerif('Join:')} ${SITE_URL}/join`,
-    event.ticketUrl ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}` : null,
-  ]
-    .filter(Boolean)
-    .join('\n')
+  const joinLine = `🥰 ${toBoldSerif('Join:')} ${SITE_URL}/join`
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const ticketsLine = event.ticketUrl ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}` : ''
+  const closing = [dateVenue, ticketsLine].filter(Boolean).join('\n')
 
-  return [sv, eng, links].join('\n\n')
+  return [sv, eng, joinLine, closing].filter(Boolean).join('\n\n')
 }

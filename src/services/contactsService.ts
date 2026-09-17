@@ -229,9 +229,30 @@ export const confirmStaffForEvent = async (
       .eq('id', existing.id)
     if (error) throw error
   } else {
-    const { error } = await supabase
+    // A brand-new role/shift row for this person at this event — if they already hold any
+    // other row here, carry their food/dietary info onto the new row too, so a second (or
+    // third) role never starts back at "needs food: no" and forces the board to re-enter the
+    // same answer per role. See updateStaffFoodInfoForPerson for the write-time twin of this.
+    const { data: otherRow, error: otherRowError } = await supabase
       .from('event_staff_volunteers')
-      .insert({ event_id: eventId, staff_id: staffId, role, role_details: roleDetails, shift })
+      .select('needs_food, dietary_category, dietary_notes')
+      .eq('event_id', eventId)
+      .eq('staff_id', staffId)
+      .eq('needs_food', true)
+      .limit(1)
+      .maybeSingle()
+    if (otherRowError) throw otherRowError
+
+    const { error } = await supabase.from('event_staff_volunteers').insert({
+      event_id: eventId,
+      staff_id: staffId,
+      role,
+      role_details: roleDetails,
+      shift,
+      needs_food: otherRow?.needs_food ?? false,
+      dietary_category: otherRow?.dietary_category ?? null,
+      dietary_notes: otherRow?.dietary_notes ?? null,
+    })
     if (error) throw error
   }
 
@@ -493,6 +514,29 @@ export const updateStaffFoodInfo = async (
   }
 ): Promise<void> => {
   const { error } = await supabase.from('event_staff_volunteers').update(patch).eq('id', id)
+
+  if (error) throw error
+}
+
+// Food/dietary is asked about the *person* attending, not each role they happen to hold —
+// someone confirmed as both "stage help" and "setup" for the same event eats one dinner, not
+// two. Writing to every event_staff_volunteers row for this person+event (instead of just the
+// one row's id, like updateStaffFoodInfo) keeps them all in agreement, so the Event Plan page
+// only has to show/edit this once per person rather than once per role.
+export const updateStaffFoodInfoForPerson = async (
+  eventId: string,
+  staffId: string,
+  patch: {
+    needs_food?: boolean
+    dietary_category?: DietaryCategory | null
+    dietary_notes?: string | null
+  }
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_volunteers')
+    .update(patch)
+    .eq('event_id', eventId)
+    .eq('staff_id', staffId)
 
   if (error) throw error
 }

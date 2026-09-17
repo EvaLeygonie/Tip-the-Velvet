@@ -4,30 +4,43 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 
+export interface MailRecipient {
+  name: string
+  email: string
+  // Only set for the staff/volunteer email path — see AdminContacts.tsx's onSent handler.
+  staffId?: string
+}
+
 interface ContactMailModalProps {
   isOpen: boolean
   onClose: () => void
-  recipientName: string
-  recipientEmail: string
+  recipients: MailRecipient[]
   defaultSubject: string
+  // The visible email greeting (e.g. "Hej Anna!") — a field of its own rather than baked
+  // into defaultBody, so it renders exactly once (as the edge function's own greeting
+  // header) instead of twice, and so it's trivially editable if a particular email needs to
+  // go out in English instead of Swedish.
+  defaultGreeting: string
   defaultBody: string
-  // Fired after a real successful send (HTTP 200 from the edge function), not just on
-  // clicking Send — lets the caller record "this person was actually contacted" without
-  // this modal needing to know what that means for any particular contact type.
-  onSent?: () => void
+  // Fired once the whole send batch settles (not per-recipient) — a bulk send emails each
+  // recipient individually (Resend's `to` only takes one address per call), so callers doing
+  // something per success (e.g. markStaffContacted) get one batch to work through instead of
+  // being called once per recipient.
+  onSent?: (results: { recipient: MailRecipient; ok: boolean }[]) => void
 }
 
 export const ContactMailModal = ({
   isOpen,
   onClose,
-  recipientName,
-  recipientEmail,
+  recipients,
   defaultSubject,
+  defaultGreeting,
   defaultBody,
   onSent,
 }: ContactMailModalProps) => {
   const { t } = useLanguage()
   const [subject, setSubject] = useState(defaultSubject)
+  const [greeting, setGreeting] = useState(defaultGreeting)
   const [body, setBody] = useState(defaultBody)
   const [isSending, setIsSending] = useState(false)
 
@@ -35,6 +48,7 @@ export const ContactMailModal = ({
     const resetDraft = () => {
       if (isOpen) {
         setSubject(defaultSubject)
+        setGreeting(defaultGreeting)
         setBody(defaultBody)
       }
     }
@@ -45,22 +59,41 @@ export const ContactMailModal = ({
   const handleSend = async () => {
     setIsSending(true)
     try {
-      const response = await fetch('/api/send-casting-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: recipientEmail,
-          name: recipientName,
-          subject,
-          bodyText: body,
-          language: 'sv',
-          fromName: 'Tip the Velvet',
-        }),
-      })
-      if (!response.ok) throw new Error('Failed to send')
-      toast.success(t('Mail skickat!', 'Email sent!'))
-      onSent?.()
-      onClose()
+      const oks = await Promise.all(
+        recipients.map((r) =>
+          fetch('/api/send-casting-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: r.email,
+              name: r.name,
+              subject,
+              bodyText: body,
+              language: 'sv',
+              fromName: 'Tip the Velvet',
+              greeting,
+            }),
+          }).then((res) => res.ok)
+        )
+      )
+      const results = recipients.map((recipient, i) => ({ recipient, ok: oks[i] }))
+      const successCount = oks.filter(Boolean).length
+      onSent?.(results)
+      if (successCount === recipients.length) {
+        toast.success(
+          recipients.length === 1
+            ? t('Mail skickat!', 'Email sent!')
+            : t(`Mail skickat till ${successCount}.`, `Email sent to ${successCount}.`)
+        )
+        onClose()
+      } else {
+        toast.error(
+          t(
+            `Skickat till ${successCount}/${recipients.length} — resten misslyckades.`,
+            `Sent to ${successCount}/${recipients.length} — the rest failed.`
+          )
+        )
+      }
     } catch (err) {
       console.error('Kunde inte skicka mail:', err)
       toast.error(t('Kunde inte skicka mail.', 'Could not send email.'))
@@ -70,6 +103,11 @@ export const ContactMailModal = ({
   }
 
   if (!isOpen || typeof window === 'undefined') return null
+
+  const recipientSummary =
+    recipients.length === 1
+      ? `${recipients[0].name} (${recipients[0].email})`
+      : t(`${recipients.length} mottagare`, `${recipients.length} recipients`)
 
   return createPortal(
     <div
@@ -86,7 +124,7 @@ export const ContactMailModal = ({
             {t('Skicka mail', 'Send email')}
           </h4>
           <p className="text-xs text-muted-foreground text-center">
-            {t('Till', 'To')}: {recipientName} ({recipientEmail})
+            {t('Till', 'To')}: {recipientSummary}
           </p>
         </div>
 
@@ -98,6 +136,17 @@ export const ContactMailModal = ({
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
+            className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono block">
+            {t('Hälsning', 'Greeting')}
+          </label>
+          <input
+            type="text"
+            value={greeting}
+            onChange={(e) => setGreeting(e.target.value)}
             className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
           />
         </div>
@@ -124,7 +173,7 @@ export const ContactMailModal = ({
           <button
             type="button"
             onClick={handleSend}
-            disabled={isSending}
+            disabled={isSending || recipients.length === 0}
             className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5"
           >
             {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}

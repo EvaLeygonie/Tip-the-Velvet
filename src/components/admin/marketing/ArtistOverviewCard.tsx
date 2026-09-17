@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { Download, Copy, ExternalLink, Mic2, Crown, Loader2, AtSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { getImageSrc, toBoldSerif, toDoubleStruck, toHashtag, extractInstagramHandle } from '@/lib/utils'
+import {
+  getImageSrc,
+  toBoldSerif,
+  toDoubleStruck,
+  toHashtag,
+  extractInstagramHandle,
+  formatEventDateVenueLine,
+} from '@/lib/utils'
 import { togglePerformerVisibility } from '@/services/performerService'
 import {
   setPerformerRevealed,
@@ -22,7 +29,14 @@ const ROLE_LABEL: Record<AdminEventPerformerRow['lineup_role'], string> = {
 
 interface ArtistOverviewCardProps {
   row: AdminEventPerformerRow
-  event: { id: string; title: string; ticketUrl: string | null; hashtags: string | null }
+  event: {
+    id: string
+    title: string
+    ticketUrl: string | null
+    hashtags: string | null
+    eventStart: string | null
+    location: string | null
+  }
   onChanged: (performerId: string, patch: Partial<AdminEventPerformerRow>) => void
 }
 
@@ -83,6 +97,8 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
       sections.push(`📷 ${toDoubleStruck('Photographer:')} ${row.eventPhotographer}`)
     }
     sections.push(`🔗 ${toDoubleStruck('Profil/Profile:')} ${SITE_URL}/performers/${performer.slug}`)
+    const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+    if (dateVenue) sections.push(dateVenue)
     if (event.ticketUrl) {
       sections.push(`🎟️${toDoubleStruck('Biljetter/Tickets:')} ${event.ticketUrl}`)
     }

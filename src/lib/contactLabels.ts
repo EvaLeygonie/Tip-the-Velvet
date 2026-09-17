@@ -5,8 +5,9 @@ import type {
   DietaryCategory,
   VolunteerShift,
 } from '@/types/types'
+import type { AdminEventStaffRow } from '@/services/eventService'
 
-type Translate = (sv: string, en: string) => string
+export type Translate = (sv: string, en: string) => string
 
 export const staffRoleLabel = (t: Translate, role: StaffVolunteerType): string => {
   switch (role) {
@@ -85,4 +86,16 @@ export const volunteerShiftLabel = (t: Translate, shift: VolunteerShift): string
     case 'takedown':
       return t('Städ', 'Takedown')
   }
+}
+
+// Combines every role/shift one person holds at one event into a single readable subtitle —
+// e.g. "Stage kitten, Volontär (Setup)" — for the VIP list and any other person-level summary,
+// instead of showing just one of their rows' roles as if that were their only assignment.
+export const staffPersonRoleSummary = (t: Translate, rows: AdminEventStaffRow[]): string => {
+  const labels = rows.map((row) =>
+    row.role === 'volunteer' && row.shift
+      ? `${staffRoleLabel(t, row.role)} (${volunteerShiftLabel(t, row.shift)})`
+      : staffRoleLabel(t, row.role)
+  )
+  return Array.from(new Set(labels)).join(', ')
 }

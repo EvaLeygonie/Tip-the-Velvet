@@ -1,4 +1,4 @@
-import { toBoldSerif, formatSocialDateLine } from '@/lib/utils'
+import { toBoldSerif, formatSocialDateLine, formatEventDateVenueLine } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 export const buildCastingCallOpenText = (event: EventMarketingData): string => {
@@ -8,10 +8,14 @@ export const buildCastingCallOpenText = (event: EventMarketingData): string => {
   const deadlineEng = event.castingCallDeadline
     ? `deadline is on ${formatSocialDateLine(event.castingCallDeadline, 'eng')}!`
     : 'deadline to be announced!'
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
 
   return [
     `🇸🇪 ${toBoldSerif('Casting call!')}🌟\n\nVill ni uppträda på vårt nästa event kan ni skicka er ansökning via formuläret i länken nedan, ${deadlineSv}`,
     `🇬🇧 ${toBoldSerif('Casting call!')} 🌟\n\nIf you want to perform at our next event, send us your application via the form in the link below, ${deadlineEng}`,
+    dateVenue,
     `🔗 http://tipthevelvet.nu\n🔥 ${toBoldSerif('Casting:')} http://tipthevelvet.nu/casting-call`,
-  ].join('\n\n')
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }

@@ -468,7 +468,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       if (actualEventId && application.performer_id) {
         const logisticsData: EventPerformerDetailsInput = {
           dietary_requirements: formData.dietary_requirements,
-          dietary_category: formData.dietary_category || undefined,
+          dietary_category: formData.dietary_category || null,
           travel_receipts: receiptFiles,
           plus_one_name: formData.plus_one_name,
           plus_one_email: formData.plus_one_email,
