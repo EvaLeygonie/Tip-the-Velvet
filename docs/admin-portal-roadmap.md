@@ -1691,3 +1691,94 @@ pages — no fix needed there.
 
 Verified with `tsc -b`, `npm run lint`, and `npm run build` after the admin-side changes —
 all clean.
+
+### Dashboard 2-column layout — built 2026-09-21, then refined same day
+
+Implemented the side-by-side layout floated earlier: "New applications" became one
+vertical card (Casting → Staff & volunteers → Sponsors stacked, each divided by a thin
+border) instead of a 3-column grid, placed next to "To-do" in a `grid grid-cols-1
+lg:grid-cols-2` (stacks on mobile). After a live look, three follow-up fixes:
+
+- **Column order swapped** — To-do is now the left column, New applications the right,
+  per direct feedback.
+- **Header misalignment fixed** — "Nya ansökningar"/"New applications" and "Att göra"/"To-
+  do" didn't start at the same height. Both headers share the exact same classes, so the
+  most likely cause was the longer heading wrapping onto 2 lines under the base `h2`
+  style's `uppercase tracking-widest` (which widens text) while the shorter one stayed on
+  1 line — added `whitespace-nowrap` to both so they're always exactly one line regardless
+  of exact column width.
+- **Redundant "Kommande event"/"Upcoming events" heading removed** — direct feedback: each
+  event's own highlight-card block already has its own `<h3>` with that event's real title
+  right above its cards, so the generic umbrella label above the whole list was pure
+  duplication. Now the first event's cards are headed by its own name, the second event's
+  (if any) by its own, and so on — nothing generic in between.
+
+### Event highlight cards enlarged + mail icon alignment fixed — 2026-09-21
+
+Direct feedback: cards could be bigger, and the mail icon on the Stage notes/Food cards
+looked misaligned.
+
+- **Root cause of the mail icon issue**: it was `absolute`-positioned at a fixed
+  `top-1.5 right-1.5` offset relative to the whole card, while the label row it was meant
+  to sit beside lived in normal flex flow above the value row — two independent
+  positioning systems trying to line up by coincidence rather than by relationship.
+  **Fixed** by restructuring the card so the label and the mail button are true flex
+  siblings in one `flex items-center justify-between` header row — they now vertically
+  center against each other for free via `items-center`, the same way `EventSponsorRow`'s
+  own expand-row buttons already do. This also means the icon will stay correctly
+  positioned automatically if the card's size changes again later, instead of needing its
+  offset re-tuned by hand each time.
+- Card padding, icon sizes (`h-3.5`→`h-4` throughout `AdminDashboard.tsx`'s card
+  definitions), label text, and the value text (bumped to `text-lg`) were all sized up,
+  and the width bounds grew from `min-w-[9rem] max-w-[11rem]` to `min-w-[12rem]
+  max-w-[15rem]`.
+- Since the card is no longer a nested `<button>` (couldn't nest the mail `<button>` inside
+  it), the whole `<div>` now carries `onClick` directly (`cursor-pointer` added for the
+  affordance), and the mail button calls `e.stopPropagation()` so clicking it doesn't also
+  trigger the card's own navigation — same pattern `EventSponsorRow.tsx` already uses for
+  its own expand-vs-action-button split.
+
+**How many cards can show at once, and are they mutually exclusive?** All 8 possible cards
+(3 casting-stage + stage notes + food + music + key roles + sponsors) are computed
+completely independently from different slices of data — nothing in the code makes any of
+them mutually exclusive. A single event could in principle show all 8 simultaneously: an
+open casting call with pending reviews AND unconfirmed "yes"s AND a headcount below
+target, missing stage notes, missing food info, missing playlists, an unfilled key role,
+and a missing prize-sponsor slot, all at once. The reason casting cards and the key-roles
+card aren't showing right now is purely about the *current* events' data (no open casting
+call on them right now; their fixed roles happen to be filled), not anything in the logic
+preventing them from appearing together.
+
+### Casting cards collapsed to one, plus event-title and to-do row cleanup — 2026-09-21
+
+After seeing the 3-casting-card breakdown live, direct feedback: collapse it to one
+generic "something needs attention on Casting" flag rather than surfacing which specific
+thing — the admin can see the specifics on the Casting page itself.
+
+- **The 3 casting cards (`castingReview`/`castingConfirm`/`castingTarget`) became one**
+  (`key: 'casting'`, label "Casting", value "Kräver uppmärksamhet"/"Needs attention"),
+  shown whenever `hasCastingCall` is true AND (some application is still
+  `review_status: 'pending'` OR some `review_status: 'yes'` application's `booking_status`
+  is neither `confirmed` nor `declined`). This also **drops the headcount-vs-target signal
+  entirely** (the old `ARTIST_TARGET_COUNT` card) — the new condition, as specified
+  directly, only covers "has everyone been reviewed and has every yes been resolved,"
+  not "do we have enough artists," so `ARTIST_TARGET_COUNT` was removed from
+  `constants.ts` as dead code rather than left unused. If a headcount signal turns out to
+  still be wanted later, it'd need to be reintroduced deliberately, not assumed.
+- **Per-event heading upgraded** — `ov.eventTitle`'s `<h3>` (small, `text-foreground/90`)
+  became an `<h2>` matching the "Nya ansökningar"/"Att göra" gold section-title style
+  (`text-2xl text-accent`, plus `whitespace-nowrap` for the same wrapping reason as
+  those two). Now that the generic "Kommande event" umbrella heading is gone (previous
+  entry), each event's own name reads as the actual section title, so it needed the same
+  visual weight.
+- **To-do row cleanup** (`TodoListCard.tsx`): removed the decorative `Calendar` icon that
+  sat to the left of each row's date input — the native `<input type="date">` already
+  renders its own calendar icon, so it was a duplicate eating into the title's space,
+  which matters more now that a to-do card is only half the page width. Also reordered the
+  row so the edit/delete icon buttons (invisible until hover, but always reserving their
+  width) come *before* the date input instead of after it — previously their reserved
+  space sat to the date field's right, so the date never actually reached the card's right
+  edge even though it looked close on hover. The date field is now the true rightmost
+  element, flush under the card header's "+" button regardless of hover state.
+
+Verified with `tsc -b`, `npm run lint`, and `npm run build` — all clean.

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, X, Pencil, Calendar, ChevronsUp, ChevronsDown } from 'lucide-react'
+import { Plus, X, Pencil, ChevronsUp, ChevronsDown } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { TodoModal } from './TodoModal'
 import type { Todo } from '@/types/types'
@@ -102,20 +102,15 @@ const TodoRow = ({
         <div className="text-[11px] text-accent/80 italic truncate">{todo.details}</div>
       )}
     </div>
+    {/* Edit/delete come before the date field, not after — they're invisible until hover
+        (opacity-0) but still reserve their width, so if they trailed the date field it
+        would never actually sit flush against the card's right edge (under the header's
+        "+" button) even though it looks that way on hover. Direct feedback 2026-09-21: the
+        date field itself should be the rightmost thing, not the icons after it. The
+        separate decorative Calendar icon that used to sit to the left of the input was
+        dropped too — the native date input already renders its own calendar icon, so it
+        was a duplicate that just ate into the title's space. */}
     <div className="flex items-center gap-1 shrink-0 ml-auto">
-      <Calendar
-        className={`h-3 w-3 shrink-0 ${
-          todo.is_done ? 'text-foreground/20' : dueDateClass(todo.due_date ?? '9999-99-99')
-        }`}
-      />
-      <input
-        type="date"
-        value={todo.due_date ?? ''}
-        onChange={(e) => onSetDueDate(todo.id, e.target.value || null)}
-        className={`${DATE_INPUT_SIZE} shrink-0 h-6 text-[11px] bg-black/40 border border-accent/20 rounded px-1 focus:border-accent ${
-          todo.is_done ? 'text-foreground/20' : dueDateClass(todo.due_date ?? '9999-99-99')
-        }`}
-      />
       <button
         type="button"
         onClick={() => onEditClick(todo)}
@@ -132,6 +127,14 @@ const TodoRow = ({
       >
         <X className="h-3.5 w-3.5" />
       </button>
+      <input
+        type="date"
+        value={todo.due_date ?? ''}
+        onChange={(e) => onSetDueDate(todo.id, e.target.value || null)}
+        className={`${DATE_INPUT_SIZE} shrink-0 h-6 text-[11px] bg-black/40 border border-accent/20 rounded px-1 focus:border-accent ${
+          todo.is_done ? 'text-foreground/20' : dueDateClass(todo.due_date ?? '9999-99-99')
+        }`}
+      />
     </div>
   </div>
 )

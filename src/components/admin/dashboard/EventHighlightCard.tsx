@@ -19,6 +19,12 @@ interface EventHighlightCardProps {
 // shown is inherently a "needs attention" card and doesn't need its own icon saying so.
 // Compact/content-width by design (not `w-full`) so the dashboard can center any number of
 // these in a wrapping row. Direct feedback 2026-09-21.
+//
+// The whole card (minus the mail button) is clickable via onClick on the outer div rather
+// than a nested <button>, so the mail button can sit as a true flex sibling next to the
+// label — vertically centered against it for free via `items-center`, instead of an
+// absolutely-positioned icon guessing its own offset (which looked misaligned once the
+// label row's own height changed). Same pattern as EventSponsorRow's expand-on-click row.
 export const EventHighlightCard = ({
   label,
   value,
@@ -27,23 +33,29 @@ export const EventHighlightCard = ({
   onEmailAll,
   emailTitle,
 }: EventHighlightCardProps) => (
-  <div className="relative admin-panel velvet-surface p-2.5 flex flex-col gap-1 border border-amber-500/30 transition-colors hover:border-amber-500/50 w-fit min-w-[9rem] max-w-[11rem]">
-    <button type="button" onClick={onClick} className="flex flex-col gap-1 text-left w-full">
-      <div className={`flex items-center gap-1.5 text-xs font-heading text-foreground/60 ${onEmailAll ? 'pr-5' : ''}`}>
+  <div
+    className="admin-panel velvet-surface p-4 flex flex-col gap-2 border border-amber-500/30 transition-colors hover:border-amber-500/50 cursor-pointer w-fit min-w-[12rem] max-w-[15rem]"
+    onClick={onClick}
+  >
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-sm font-heading text-foreground/60 min-w-0">
         {icon}
         <span className="truncate">{label}</span>
       </div>
-      <div className="text-sm text-foreground truncate">{value}</div>
-    </button>
-    {onEmailAll && (
-      <button
-        type="button"
-        onClick={onEmailAll}
-        title={emailTitle}
-        className="absolute top-1.5 right-1.5 text-accent/50 hover:text-accent transition-colors"
-      >
-        <Mail className="h-3.5 w-3.5" />
-      </button>
-    )}
+      {onEmailAll && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onEmailAll()
+          }}
+          title={emailTitle}
+          className="text-accent/50 hover:text-accent transition-colors shrink-0"
+        >
+          <Mail className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+    <div className="text-lg text-foreground truncate">{value}</div>
   </div>
 )

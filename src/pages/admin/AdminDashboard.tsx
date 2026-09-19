@@ -8,9 +8,6 @@ import {
   UtensilsCrossed,
   Music2,
   CheckCircle2,
-  ClipboardList,
-  MessageCircleQuestion,
-  UserCheck,
 } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
@@ -46,7 +43,7 @@ import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
 import { ContactMailModal, type MailRecipient } from '@/components/admin/contacts/ContactMailModal'
 import { missingMusicItems } from '@/components/admin/event-plan/musicCoverage'
-import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT, ARTIST_TARGET_COUNT } from '@/components/admin/event-plan/constants'
+import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from '@/components/admin/event-plan/constants'
 import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { staffRoleLabel, sponsorTypeLabel } from '@/lib/contactLabels'
@@ -394,9 +391,6 @@ export const AdminDashboard = () => {
 
       {!eventOverviewsLoading && eventOverviews.length > 0 && (
         <div className="max-w-5xl mx-auto mt-8 space-y-6">
-          <h2 className="font-decorative text-2xl text-accent text-center">
-            {t('Kommande event', 'Upcoming events')}
-          </h2>
           {eventOverviews.map((ov) => {
             const missingNotesCount = new Set(
               ov.acts
@@ -422,21 +416,22 @@ export const AdminDashboard = () => {
               0,
               PRIZE_SLOT_COUNT - ov.sponsorRows.filter((r) => r.role === 'prize').length
             )
-            // Casting's 3 signals are tracked separately rather than collapsed into one
-            // "casting complete?" flag — pending review, confirmed-but-unbooked "yes"s, and
-            // headcount-vs-target all matter independently and can each still be true/false
-            // in any combination. Only shown at all for events actually running an open
-            // casting call (hasCastingCall) — nothing to review otherwise.
-            const pendingReviewCount = ov.applications.filter(
-              (a) => a.review_status === 'pending'
-            ).length
-            const unconfirmedYesCount = ov.applications.filter(
-              (a) =>
-                a.review_status === 'yes' &&
-                a.booking_status !== 'confirmed' &&
-                a.booking_status !== 'declined'
-            ).length
-            const confirmedArtistCount = ov.performers.length
+            // One generic "unfinished casting business" flag rather than a breakdown —
+            // direct feedback 2026-09-21: the specific reason doesn't need to show on the
+            // Dashboard, just that the Casting page has something to look at. True while
+            // either some applications still haven't been reviewed, or some "yes"
+            // applications haven't been resolved to confirmed/declined yet. Only checked at
+            // all for events actually running an open casting call (hasCastingCall) —
+            // nothing to review otherwise.
+            const needsCastingAttention =
+              ov.hasCastingCall &&
+              (ov.applications.some((a) => a.review_status === 'pending') ||
+                ov.applications.some(
+                  (a) =>
+                    a.review_status === 'yes' &&
+                    a.booking_status !== 'confirmed' &&
+                    a.booking_status !== 'declined'
+                ))
 
             // Only ever cards for something actually missing — an event with nothing
             // outstanding shows one plain confirmation line instead of a wall of green
@@ -450,33 +445,12 @@ export const AdminDashboard = () => {
               onEmailAll?: () => void
               emailTitle?: string
             }[] = []
-            if (ov.hasCastingCall && pendingReviewCount > 0) {
+            if (needsCastingAttention) {
               cards.push({
-                key: 'castingReview',
-                label: t('Att granska', 'To review'),
-                value: t(`Saknas: ${pendingReviewCount}`, `Missing: ${pendingReviewCount}`),
-                icon: <ClipboardList className="h-3.5 w-3.5 shrink-0" />,
-                onClick: () => goToCasting(ov.eventId),
-              })
-            }
-            if (ov.hasCastingCall && unconfirmedYesCount > 0) {
-              cards.push({
-                key: 'castingConfirm',
-                label: t('Obekräftade artister', 'Unconfirmed artists'),
-                value: t(`Saknas: ${unconfirmedYesCount}`, `Missing: ${unconfirmedYesCount}`),
-                icon: <MessageCircleQuestion className="h-3.5 w-3.5 shrink-0" />,
-                onClick: () => goToCasting(ov.eventId),
-              })
-            }
-            if (ov.hasCastingCall && confirmedArtistCount < ARTIST_TARGET_COUNT) {
-              cards.push({
-                key: 'castingTarget',
-                label: t('Artister', 'Artists'),
-                value: t(
-                  `${confirmedArtistCount}/${ARTIST_TARGET_COUNT} bokade`,
-                  `${confirmedArtistCount}/${ARTIST_TARGET_COUNT} booked`
-                ),
-                icon: <UserCheck className="h-3.5 w-3.5 shrink-0" />,
+                key: 'casting',
+                label: t('Casting', 'Casting'),
+                value: t('Kräver uppmärksamhet', 'Needs attention'),
+                icon: <Drama className="h-4 w-4 shrink-0" />,
                 onClick: () => goToCasting(ov.eventId),
               })
             }
@@ -485,7 +459,7 @@ export const AdminDashboard = () => {
                 key: 'notes',
                 label: t('Scenanteckningar', 'Stage notes'),
                 value: t(`Saknas: ${missingNotesCount} artister`, `Missing: ${missingNotesCount} artists`),
-                icon: <Drama className="h-3.5 w-3.5 shrink-0" />,
+                icon: <Drama className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'show'),
                 onEmailAll: () => handleEmailMissingNotes(ov),
                 emailTitle: t('Mejla berörda artister', 'Email affected artists'),
@@ -496,7 +470,7 @@ export const AdminDashboard = () => {
                 key: 'food',
                 label: t('Matpreferenser', 'Food preferences'),
                 value: t(`Saknas: ${missingFoodCount} personer`, `Missing: ${missingFoodCount} people`),
-                icon: <UtensilsCrossed className="h-3.5 w-3.5 shrink-0" />,
+                icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'food'),
                 onEmailAll: () => handleEmailMissingFood(ov),
                 emailTitle: t('Mejla berörda personer', 'Email affected people'),
@@ -507,7 +481,7 @@ export const AdminDashboard = () => {
                 key: 'music',
                 label: t('Musik', 'Music'),
                 value: t(`Saknas: ${missingMusic.length}`, `Missing: ${missingMusic.length}`),
-                icon: <Music2 className="h-3.5 w-3.5 shrink-0" />,
+                icon: <Music2 className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'staff'),
               })
             }
@@ -516,7 +490,7 @@ export const AdminDashboard = () => {
                 key: 'roles',
                 label: t('Nyckelroller', 'Key roles'),
                 value: t(`Saknas: ${missingRoles.length}`, `Missing: ${missingRoles.length}`),
-                icon: <Users className="h-3.5 w-3.5 shrink-0" />,
+                icon: <Users className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'staff'),
               })
             }
@@ -525,16 +499,16 @@ export const AdminDashboard = () => {
                 key: 'sponsors',
                 label: t('Sponsorer', 'Sponsors'),
                 value: t(`Saknas: ${missingSponsorSlots}`, `Missing: ${missingSponsorSlots}`),
-                icon: <Gift className="h-3.5 w-3.5 shrink-0" />,
+                icon: <Gift className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'sponsors'),
               })
             }
 
             return (
               <div key={ov.eventId} className="space-y-2">
-                <h3 className="font-decorative text-lg text-foreground/90 text-center">
+                <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
                   {ov.eventTitle}
-                </h3>
+                </h2>
                 {cards.length === 0 ? (
                   <div className="admin-panel velvet-surface p-3 flex items-center justify-center gap-2 text-sm text-emerald-400">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -554,112 +528,163 @@ export const AdminDashboard = () => {
       )}
 
       {!loading && (
-        <div className="max-w-5xl mx-auto mt-8 space-y-2">
-          <h2 className="font-decorative text-2xl text-accent text-center">
-            {t('Nya ansökningar', 'New applications')}
-          </h2>
+        <div className="max-w-5xl mx-auto mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="space-y-3">
+            <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
+              {t('Att göra', 'To-do')}
+            </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-1.5 text-sm text-foreground/70">
-                <Drama className="h-4 w-4 text-accent/60" />
-                {t('Casting', 'Casting')}
-                <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-                  {newCastingApplications.length}
-                </span>
-              </div>
-              {newCastingApplications.length === 0 ? (
-                <p className="text-sm text-foreground/40 italic text-center">
-                  {t('Inga nya ännu.', 'None yet.')}
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {newCastingApplications.map((row) => (
-                    <div
-                      key={row.id}
-                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
-                    >
-                      <span className="flex-1 min-w-0 truncate text-foreground">
-                        {row.performer_name}
-                      </span>
-                      {row.event && (
-                        <span className="text-accent italic text-xs shrink-0 truncate max-w-[100px]">
-                          {row.event.title}
+            {upcomingEvents.map((evt) => {
+              const listTodos = todos.filter((td) => td.event_id === evt.id)
+              return (
+                <TodoListCard
+                  key={evt.id}
+                  title={evt.title}
+                  todos={listTodos}
+                  onAdd={(title, dueDate, details) =>
+                    handleAddTodo(listTodos, title, evt.id, dueDate, details)
+                  }
+                  onEdit={(id, title, dueDate, details) =>
+                    handleEditTodo(listTodos, id, title, dueDate, details)
+                  }
+                  onToggle={handleToggleTodo}
+                  onSetDueDate={(id, dueDate) => handleSetTodoDueDate(listTodos, id, dueDate)}
+                  onMoveUp={(id) => handleMoveTodo(listTodos, id, -1)}
+                  onMoveDown={(id) => handleMoveTodo(listTodos, id, 1)}
+                  onDelete={handleDeleteTodo}
+                />
+              )
+            })}
+
+            {(() => {
+              const orgTodos = todos.filter((td) => !td.event_id)
+              return (
+                <TodoListCard
+                  title={t('Organisationen', 'Organization')}
+                  todos={orgTodos}
+                  onAdd={(title, dueDate, details) =>
+                    handleAddTodo(orgTodos, title, null, dueDate, details)
+                  }
+                  onEdit={(id, title, dueDate, details) =>
+                    handleEditTodo(orgTodos, id, title, dueDate, details)
+                  }
+                  onToggle={handleToggleTodo}
+                  onSetDueDate={(id, dueDate) => handleSetTodoDueDate(orgTodos, id, dueDate)}
+                  onMoveUp={(id) => handleMoveTodo(orgTodos, id, -1)}
+                  onMoveDown={(id) => handleMoveTodo(orgTodos, id, 1)}
+                  onDelete={handleDeleteTodo}
+                />
+              )
+            })()}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
+              {t('Nya ansökningar', 'New applications')}
+            </h2>
+
+            <div className="admin-panel velvet-surface p-4 space-y-5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-sm text-foreground/70">
+                  <Drama className="h-4 w-4 text-accent/60" />
+                  {t('Casting', 'Casting')}
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
+                    {newCastingApplications.length}
+                  </span>
+                </div>
+                {newCastingApplications.length === 0 ? (
+                  <p className="text-sm text-foreground/40 italic text-left">
+                    {t('Inga nya ännu.', 'None yet.')}
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {newCastingApplications.map((row) => (
+                      <div
+                        key={row.id}
+                        className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                      >
+                        <span className="flex-1 min-w-0 truncate text-foreground">
+                          {row.performer_name}
                         </span>
-                      )}
-                      <span className="text-foreground/40 text-xs shrink-0">
-                        {formatDate(language, row.created_at)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-1.5 text-sm text-foreground/70">
-                <Users className="h-4 w-4 text-accent/60" />
-                {t('Personal & volontärer', 'Staff & volunteers')}
-                <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-                  {newStaff.length}
-                </span>
+                        {row.event && (
+                          <span className="text-accent italic text-xs shrink-0 truncate max-w-[100px]">
+                            {row.event.title}
+                          </span>
+                        )}
+                        <span className="text-foreground/40 text-xs shrink-0">
+                          {formatDate(language, row.created_at)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              {newStaff.length === 0 ? (
-                <p className="text-sm text-foreground/40 italic text-center">
-                  {t('Inga nya ännu.', 'None yet.')}
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {newStaff.map((row) => (
-                    <div
-                      key={row.id}
-                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
-                    >
-                      <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
-                      <span className="text-accent italic text-xs shrink-0">
-                        {staffRoleLabel(t, row.role)}
-                      </span>
-                      <span className="text-foreground/40 text-xs shrink-0">
-                        {formatDate(language, row.created_at)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-1.5 text-sm text-foreground/70">
-                <Gift className="h-4 w-4 text-accent/60" />
-                {t('Sponsorer', 'Sponsors')}
-                <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-                  {newSponsors.length}
-                </span>
-              </div>
-              {newSponsors.length === 0 ? (
-                <p className="text-sm text-foreground/40 italic text-center">
-                  {t('Inga nya ännu.', 'None yet.')}
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {newSponsors.map((row) => (
-                    <div
-                      key={row.id}
-                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
-                    >
-                      <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
-                      {row.sponsor_type && (
+              <div className="space-y-2 pt-3 border-t border-accent/10">
+                <div className="flex items-center gap-1.5 text-sm text-foreground/70">
+                  <Users className="h-4 w-4 text-accent/60" />
+                  {t('Personal & volontärer', 'Staff & volunteers')}
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
+                    {newStaff.length}
+                  </span>
+                </div>
+                {newStaff.length === 0 ? (
+                  <p className="text-sm text-foreground/40 italic text-left">
+                    {t('Inga nya ännu.', 'None yet.')}
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {newStaff.map((row) => (
+                      <div
+                        key={row.id}
+                        className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                      >
+                        <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
                         <span className="text-accent italic text-xs shrink-0">
-                          {sponsorTypeLabel(t, row.sponsor_type)}
+                          {staffRoleLabel(t, row.role)}
                         </span>
-                      )}
-                      <span className="text-foreground/40 text-xs shrink-0">
-                        {formatDate(language, row.created_at)}
-                      </span>
-                    </div>
-                  ))}
+                        <span className="text-foreground/40 text-xs shrink-0">
+                          {formatDate(language, row.created_at)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-accent/10">
+                <div className="flex items-center gap-1.5 text-sm text-foreground/70">
+                  <Gift className="h-4 w-4 text-accent/60" />
+                  {t('Sponsorer', 'Sponsors')}
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
+                    {newSponsors.length}
+                  </span>
                 </div>
-              )}
+                {newSponsors.length === 0 ? (
+                  <p className="text-sm text-foreground/40 italic text-left">
+                    {t('Inga nya ännu.', 'None yet.')}
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {newSponsors.map((row) => (
+                      <div
+                        key={row.id}
+                        className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                      >
+                        <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
+                        {row.sponsor_type && (
+                          <span className="text-accent italic text-xs shrink-0">
+                            {sponsorTypeLabel(t, row.sponsor_type)}
+                          </span>
+                        )}
+                        <span className="text-foreground/40 text-xs shrink-0">
+                          {formatDate(language, row.created_at)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -673,57 +698,6 @@ export const AdminDashboard = () => {
         defaultGreeting={emailTarget?.defaultGreeting ?? ''}
         defaultBody={emailTarget?.defaultBody ?? ''}
       />
-
-      {!loading && (
-        <div className="max-w-5xl mx-auto mt-8 space-y-3">
-          <h2 className="font-decorative text-2xl text-accent text-center">
-            {t('Att göra', 'To-do')}
-          </h2>
-
-          {upcomingEvents.map((evt) => {
-            const listTodos = todos.filter((td) => td.event_id === evt.id)
-            return (
-              <TodoListCard
-                key={evt.id}
-                title={evt.title}
-                todos={listTodos}
-                onAdd={(title, dueDate, details) =>
-                  handleAddTodo(listTodos, title, evt.id, dueDate, details)
-                }
-                onEdit={(id, title, dueDate, details) =>
-                  handleEditTodo(listTodos, id, title, dueDate, details)
-                }
-                onToggle={handleToggleTodo}
-                onSetDueDate={(id, dueDate) => handleSetTodoDueDate(listTodos, id, dueDate)}
-                onMoveUp={(id) => handleMoveTodo(listTodos, id, -1)}
-                onMoveDown={(id) => handleMoveTodo(listTodos, id, 1)}
-                onDelete={handleDeleteTodo}
-              />
-            )
-          })}
-
-          {(() => {
-            const orgTodos = todos.filter((td) => !td.event_id)
-            return (
-              <TodoListCard
-                title={t('Organisationen', 'Organization')}
-                todos={orgTodos}
-                onAdd={(title, dueDate, details) =>
-                  handleAddTodo(orgTodos, title, null, dueDate, details)
-                }
-                onEdit={(id, title, dueDate, details) =>
-                  handleEditTodo(orgTodos, id, title, dueDate, details)
-                }
-                onToggle={handleToggleTodo}
-                onSetDueDate={(id, dueDate) => handleSetTodoDueDate(orgTodos, id, dueDate)}
-                onMoveUp={(id) => handleMoveTodo(orgTodos, id, -1)}
-                onMoveDown={(id) => handleMoveTodo(orgTodos, id, 1)}
-                onDelete={handleDeleteTodo}
-              />
-            )
-          })()}
-        </div>
-      )}
     </div>
   )
 }
