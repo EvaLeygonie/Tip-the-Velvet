@@ -38,6 +38,25 @@ export const getApplicationsFromEvent = async (
   return data || []
 }
 
+export type CastingApplicationWithEvent = CastingApplication & {
+  event: Pick<Event, 'id' | 'title'> | null
+}
+
+// Dashboard's "new applications" overview needs casting applications across every event, not
+// one at a time like getApplicationsFromEvent above (which AdminCasting.tsx uses per
+// currently-selected event) — a separate function rather than an optional-eventId parameter
+// on that one, since the two callers want genuinely different shapes (acts joined in vs. the
+// event's own title joined in).
+export const getRecentCastingApplications = async (): Promise<CastingApplicationWithEvent[]> => {
+  const { data, error } = await supabase
+    .from('casting_applications')
+    .select('*, event:events(id, title)')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data || []) as unknown as CastingApplicationWithEvent[]
+}
+
 export const getCastingApplicationByToken = async (id: string, token: string | null) => {
   if (!token) {
     throw new Error('Access token saknas i URL:en.')
@@ -341,7 +360,10 @@ export const updateEventPerformerDetails = async (
     p_performer_id: performerId,
     p_access_token: token,
     p_dietary_requirements: details.dietary_requirements,
-    p_dietary_category: details.dietary_category,
+    // The old overload without this parameter is gone now (dropped from the database), so
+    // there's only one signature left to match — no longer need an explicit null to force
+    // PostgREST's hand the way updateEventPerformerDetails' own comment used to require.
+    p_dietary_category: details.dietary_category ?? undefined,
     p_travel_receipts: details.travel_receipts as unknown as Json,
     p_travel_covered: details.travel_covered,
     p_notes: details.notes,

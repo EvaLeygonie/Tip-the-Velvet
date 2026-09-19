@@ -7,10 +7,13 @@ import type { StaffVolunteerType } from '@/types/types'
 
 interface StaffingCoverageStripProps {
   staffRows: AdminEventStaffRow[]
-  // Whether the event has a stored playlist (events.afterparty_playlist) — either an
-  // assigned DJ or a playlist covers the music need, per direct feedback, so this feeds
-  // the DJ card's own status below.
-  hasPlaylist: boolean
+  // The before-show and intermission slots only ever have one way to be covered — an actual
+  // saved playlist, there's no "or a person" option for those the way afterparty has a DJ.
+  hasBeforePlaylist: boolean
+  hasIntermissionPlaylist: boolean
+  // Afterparty is the one slot a DJ can cover instead of a playlist — feeds the "dj"/"Musik"
+  // card's status below, direct feedback 2026-09-02.
+  hasAfterpartyPlaylist: boolean
 }
 
 // Needs at least 2 people, not just 1 — per direct feedback (2026-09-02).
@@ -18,10 +21,13 @@ const STAGE_KITTEN_MIN = 2
 
 // Shorter labels for this strip specifically (not staffRoleLabel itself, which stays full
 // everywhere else — section headers, the Contacts role dropdown, etc.) — these two cards
-// were the widest, and space here is at a premium per feedback.
+// were the widest, and space here is at a premium per feedback. "dj" specifically is
+// relabeled "Musik"/"Music" here since that card now covers all three playlist slots, not
+// just whether a DJ is booked — see the "dj" branch below.
 const shortLabel = (t: (sv: string, en: string) => string, role: StaffVolunteerType): string => {
   if (role === 'doorman') return t('Värd', 'Host')
   if (role === 'stage_kitten') return t('Stage', 'Stage')
+  if (role === 'dj') return t('Musik', 'Music')
   return staffRoleLabel(t, role)
 }
 
@@ -35,7 +41,12 @@ const COVERAGE_CARD_ROLES = ROLE_ORDER.filter((role) => role !== 'other')
 // warning icon lives on the count row (not the label row) to save horizontal space. Most
 // roles have no stored target ("take anyone who wants to help") and just show a plain
 // number; photographer/technician/stage_kitten/doorman/dj each get a bespoke rule below.
-export const StaffingCoverageStrip = ({ staffRows, hasPlaylist }: StaffingCoverageStripProps) => {
+export const StaffingCoverageStrip = ({
+  staffRows,
+  hasBeforePlaylist,
+  hasIntermissionPlaylist,
+  hasAfterpartyPlaylist,
+}: StaffingCoverageStripProps) => {
   const { t } = useLanguage()
 
   return (
@@ -49,13 +60,17 @@ export const StaffingCoverageStrip = ({ staffRows, hasPlaylist }: StaffingCovera
 
         let filled = false
         let missing = false
-        // DJ-only: the music need is covered by a playlist even with 0 DJ staff — shown
-        // as a music icon instead of the usual checkmark so it's clear *how* it's covered.
+        // DJ/"Musik" card only: the afterparty slot is covered by a playlist even with 0 DJ
+        // staff — shown as a music icon instead of the usual checkmark so it's clear *how*
+        // it's covered. But before/intermission have no such substitute — both need their
+        // own saved playlist regardless of DJ staffing, so the card overall is only "filled"
+        // once all three are actually covered. Direct feedback 2026-09-19.
         let coveredByPlaylist = false
 
         if (role === 'dj') {
-          coveredByPlaylist = count === 0 && hasPlaylist
-          filled = count > 0 || hasPlaylist
+          const afterpartyCovered = count > 0 || hasAfterpartyPlaylist
+          coveredByPlaylist = count === 0 && hasAfterpartyPlaylist
+          filled = afterpartyCovered && hasBeforePlaylist && hasIntermissionPlaylist
           missing = !filled
         } else if (role === 'doorman') {
           // Voluntary position — worth a checkmark when filled, but never a warning.

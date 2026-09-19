@@ -412,17 +412,28 @@ export const getEventVenueId = async (eventId: string): Promise<string | null> =
   return data?.venue_id ?? null
 }
 
-// Same reasoning as getEventVenueId above — Event Planning's Afterparty section needs
-// afterparty_playlist, which CurrentEventContext's shared query doesn't carry.
-export const getEventAfterpartyPlaylist = async (eventId: string): Promise<string | null> => {
+export interface EventPlaylists {
+  before_playlist: string | null
+  intermission_playlist: string | null
+  afterparty_playlist: string | null
+}
+
+// Same reasoning as getEventVenueId above — Event Planning's Music section needs all three
+// playlist fields, which CurrentEventContext's shared query doesn't carry. One row, all three
+// columns, rather than three separate round trips.
+export const getEventPlaylists = async (eventId: string): Promise<EventPlaylists> => {
   const { data, error } = await supabase
     .from('events')
-    .select('afterparty_playlist')
+    .select('before_playlist, intermission_playlist, afterparty_playlist')
     .eq('id', eventId)
     .maybeSingle()
 
   if (error) throw error
-  return data?.afterparty_playlist ?? null
+  return {
+    before_playlist: data?.before_playlist ?? null,
+    intermission_playlist: data?.intermission_playlist ?? null,
+    afterparty_playlist: data?.afterparty_playlist ?? null,
+  }
 }
 
 // Marketing's asset panel is the only place hashtags get edited now (removed from

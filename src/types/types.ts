@@ -62,6 +62,7 @@ export type Club = Tables<'clubs'>
 export type VipManualEntry = Tables<'vip_manual_entries'>
 export type EventStaffInvitation = Tables<'event_staff_invitations'>
 export type PerformerAct = Tables<'performer_acts'>
+export type Todo = Tables<'todos'>
 
 //=== INSERTS ===//
 export type CreateEventInput = TablesInsert<'events'>
@@ -73,6 +74,7 @@ export type CreateVenueInput = TablesInsert<'venues'>
 export type CreateClubInput = TablesInsert<'clubs'>
 export type CreateVipManualEntryInput = TablesInsert<'vip_manual_entries'>
 export type CreateEventStaffInvitationInput = TablesInsert<'event_staff_invitations'>
+export type CreateTodoInput = TablesInsert<'todos'>
 
 // One act within a casting application submission — matches submit_casting_application's
 // p_acts array shape.

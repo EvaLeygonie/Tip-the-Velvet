@@ -574,6 +574,7 @@ export type Database = {
         Row: {
           afterparty_playlist: string | null
           available_tickets: number | null
+          before_playlist: string | null
           casting_call_deadline: string | null
           casting_call_start: string | null
           casting_info_eng: string | null
@@ -590,6 +591,7 @@ export type Database = {
           hashtags: string | null
           id: string
           image_id: string | null
+          intermission_playlist: string | null
           location: string | null
           photobooth_url: string | null
           photographer: string | null
@@ -611,6 +613,7 @@ export type Database = {
         Insert: {
           afterparty_playlist?: string | null
           available_tickets?: number | null
+          before_playlist?: string | null
           casting_call_deadline?: string | null
           casting_call_start?: string | null
           casting_info_eng?: string | null
@@ -627,6 +630,7 @@ export type Database = {
           hashtags?: string | null
           id?: string
           image_id?: string | null
+          intermission_playlist?: string | null
           location?: string | null
           photobooth_url?: string | null
           photographer?: string | null
@@ -648,6 +652,7 @@ export type Database = {
         Update: {
           afterparty_playlist?: string | null
           available_tickets?: number | null
+          before_playlist?: string | null
           casting_call_deadline?: string | null
           casting_call_start?: string | null
           casting_info_eng?: string | null
@@ -664,6 +669,7 @@ export type Database = {
           hashtags?: string | null
           id?: string
           image_id?: string | null
+          intermission_playlist?: string | null
           location?: string | null
           photobooth_url?: string | null
           photographer?: string | null
@@ -1067,6 +1073,47 @@ export type Database = {
         }
         Relationships: []
       }
+      todos: {
+        Row: {
+          created_at: string
+          details: string | null
+          display_order: number
+          due_date: string | null
+          event_id: string | null
+          id: string
+          is_done: boolean
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          display_order?: number
+          due_date?: string | null
+          event_id?: string | null
+          id?: string
+          is_done?: boolean
+          title: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          display_order?: number
+          due_date?: string | null
+          event_id?: string | null
+          id?: string
+          is_done?: boolean
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           contact_person: string | null
@@ -1266,36 +1313,21 @@ export type Database = {
         Returns: string
       }
       unaccent: { Args: { "": string }; Returns: string }
-      update_event_performer_via_token:
-        | {
-            Args: {
-              p_access_token: string
-              p_dietary_category?: Database["public"]["Enums"]["dietary_category"]
-              p_dietary_requirements?: string
-              p_event_id: string
-              p_notes?: string
-              p_performer_id: string
-              p_plus_one_email?: string
-              p_plus_one_name?: string
-              p_travel_covered?: number
-              p_travel_receipts?: Json
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_access_token: string
-              p_dietary_requirements?: string
-              p_event_id: string
-              p_notes?: string
-              p_performer_id: string
-              p_plus_one_email?: string
-              p_plus_one_name?: string
-              p_travel_covered?: number
-              p_travel_receipts?: Json
-            }
-            Returns: undefined
-          }
+      update_event_performer_via_token: {
+        Args: {
+          p_access_token: string
+          p_dietary_category?: Database["public"]["Enums"]["dietary_category"]
+          p_dietary_requirements?: string
+          p_event_id: string
+          p_notes?: string
+          p_performer_id: string
+          p_plus_one_email?: string
+          p_plus_one_name?: string
+          p_travel_covered?: number
+          p_travel_receipts?: Json
+        }
+        Returns: undefined
+      }
       update_performer_act_via_token: {
         Args: {
           p_access_token: string
