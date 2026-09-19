@@ -815,15 +815,13 @@ export const AdminEventPlan = () => {
           ) : (
             <div className="max-w-5xl mx-auto space-y-4">
               {activeTab === 'food' && (
-                <div className="max-w-3xl mx-auto">
-                  <FoodTab
-                    eventTitle={eventTitle}
-                    performers={performers}
-                    groupedStaff={groupedStaff}
-                    onUpdatePerformerDietary={handleUpdatePerformerDietary}
-                    onStaffFoodUpdated={handleStaffFoodUpdated}
-                  />
-                </div>
+                <FoodTab
+                  eventTitle={eventTitle}
+                  performers={performers}
+                  groupedStaff={groupedStaff}
+                  onUpdatePerformerDietary={handleUpdatePerformerDietary}
+                  onStaffFoodUpdated={handleStaffFoodUpdated}
+                />
               )}
 
               {activeTab === 'show' &&
@@ -835,7 +833,7 @@ export const AdminEventPlan = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="max-w-3xl mx-auto space-y-4">
+                  <div className="space-y-4">
                     <div className="flex justify-center gap-2">
                       <button
                         type="button"
@@ -882,7 +880,7 @@ export const AdminEventPlan = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="max-w-3xl mx-auto space-y-4">
+                  <div className="space-y-4">
                     <StaffingCoverageStrip
                       staffRows={staffRows}
                       hasBeforePlaylist={Boolean(playlists.before_playlist?.trim())}
@@ -964,36 +962,34 @@ export const AdminEventPlan = () => {
                 ))}
 
               {activeTab === 'sponsors' && (
-                <div className="max-w-3xl mx-auto">
-                  <SponsorSlotGrid
-                    sponsorRows={sponsorRows}
-                    eventId={selectedEventId}
-                    onRemoved={(sponsorId) =>
-                      setSponsorRows((prev) => prev.filter((r) => r.sponsor_id !== sponsorId))
-                    }
-                    onUpdated={(sponsorId, details) =>
-                      setSponsorRows((prev) =>
-                        prev.map((r) => (r.sponsor_id === sponsorId ? { ...r, details } : r))
+                <SponsorSlotGrid
+                  sponsorRows={sponsorRows}
+                  eventId={selectedEventId}
+                  onRemoved={(sponsorId) =>
+                    setSponsorRows((prev) => prev.filter((r) => r.sponsor_id !== sponsorId))
+                  }
+                  onUpdated={(sponsorId, details) =>
+                    setSponsorRows((prev) =>
+                      prev.map((r) => (r.sponsor_id === sponsorId ? { ...r, details } : r))
+                    )
+                  }
+                  onMerchToggled={(sponsorId, value) =>
+                    setSponsorRows((prev) =>
+                      prev.map((r) =>
+                        r.sponsor_id === sponsorId ? { ...r, has_merch_table: value } : r
                       )
-                    }
-                    onMerchToggled={(sponsorId, value) =>
-                      setSponsorRows((prev) =>
-                        prev.map((r) =>
-                          r.sponsor_id === sponsorId ? { ...r, has_merch_table: value } : r
-                        )
-                      )
-                    }
-                    fetchPrizeCandidates={fetchPrizeCandidates}
-                    onAddPrizeSponsor={handleAddPrizeSponsor}
-                    fetchSalesCandidates={fetchSalesCandidates}
-                    onAddSalesSponsor={handleAddSalesSponsor}
-                    onRequestVipForSalesperson={handleRequestVipForSalesperson}
-                  />
-                </div>
+                    )
+                  }
+                  fetchPrizeCandidates={fetchPrizeCandidates}
+                  onAddPrizeSponsor={handleAddPrizeSponsor}
+                  fetchSalesCandidates={fetchSalesCandidates}
+                  onAddSalesSponsor={handleAddSalesSponsor}
+                  onRequestVipForSalesperson={handleRequestVipForSalesperson}
+                />
               )}
 
               {activeTab === 'vip' && (
-                <div className="max-w-3xl mx-auto space-y-4">
+                <div className="space-y-4">
                   <div className="flex justify-center gap-2">
                     <button
                       type="button"

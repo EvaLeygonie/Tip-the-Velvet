@@ -356,7 +356,7 @@ export const AdminDashboard = () => {
       <div className="gold-divider" />
 
       {!loading && upcomingDeadlines.length > 0 && (
-        <div className="max-w-3xl mx-auto mt-8 space-y-2">
+        <div className="max-w-5xl mx-auto mt-8 space-y-2">
           <h3 className="font-decorative text-2xl text-amber-400 flex items-center justify-center gap-2">
             <CalendarClock className="h-5 w-5 shrink-0" />
             {t('Deadlines inom en vecka', 'Deadlines within a week')}
@@ -554,7 +554,7 @@ export const AdminDashboard = () => {
       )}
 
       {!loading && (
-        <div className="max-w-3xl mx-auto mt-8 space-y-2">
+        <div className="max-w-5xl mx-auto mt-8 space-y-2">
           <h2 className="font-decorative text-2xl text-accent text-center">
             {t('Nya ansökningar', 'New applications')}
           </h2>
@@ -675,7 +675,7 @@ export const AdminDashboard = () => {
       />
 
       {!loading && (
-        <div className="max-w-3xl mx-auto mt-8 space-y-3">
+        <div className="max-w-5xl mx-auto mt-8 space-y-3">
           <h2 className="font-decorative text-2xl text-accent text-center">
             {t('Att göra', 'To-do')}
           </h2>

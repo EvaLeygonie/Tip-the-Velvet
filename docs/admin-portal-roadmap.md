@@ -1640,3 +1640,54 @@ independently. **Fix**: added the same `min-h-[52px]` to `EventSponsorRow.tsx`'s
 line (`src/components/admin/event-plan/EventSponsorRow.tsx`), so every card — real or
 placeholder — has the same height floor and every row comes out the same regardless of
 which combination of real/empty cards lands in it.
+
+### Page-width normalization — 2026-09-21
+
+Direct feedback: Contacts/Casting/Marketing felt noticeably wider than Dashboard/Event
+Planning, and public pages felt wider than admin ones overall — an inconsistency worth
+fixing, not a deliberate design choice anyone remembers making.
+
+**What was actually going on**: every page shares the same outer shell (`page-shell` →
+`max-w-[1600px]`), but each page separately nests its own inner content width, and those
+had drifted. Contacts/Casting/Marketing already committed to `max-w-5xl` (1024px)
+throughout. Dashboard mixed `max-w-3xl` (768px, deadlines/applications/to-do) with
+`max-w-5xl` (event highlight cards) *on the same page*. Event Planning nested `max-w-5xl`
+at the top but then re-narrowed to `max-w-3xl` inside almost every individual tab
+(food/show/staff/sponsors/vip) — so its actual working area was the narrowest of all the
+admin pages, which lines up exactly with what got flagged.
+
+**Fix**: standardized every admin page on `max-w-5xl`, since that was already the majority
+convention (least churn, not an arbitrary new number):
+- `AdminDashboard.tsx` — all three `max-w-3xl` sections (deadline banner, new applications,
+  to-do lists) widened to `max-w-5xl`, matching the event highlight cards above them.
+- `AdminEventPlan.tsx` — removed the redundant inner `max-w-3xl` wrapper from every tab
+  (food, show, staffing, sponsors, VIP); they now use the full `max-w-5xl` width the page
+  already established at the top, instead of re-narrowing inside each tab. Two of these
+  wrappers had no other purpose (`<div className="max-w-3xl mx-auto"><FoodTab .../></div>`,
+  same for `SponsorSlotGrid`) so those were simplified away entirely rather than just
+  widened.
+
+**Public side turned out better than expected**: the browsing/listing pages (Performers,
+Events, Dresscode, About) were already consistent with each other via a shared
+`.container-wide` class (`max-w-[1400px]`, defined in `index.css`) — this wasn't visible
+from a plain `max-w-` grep since it's a semantic class name, which is why the initial
+audit undercounted it. So the "public pages are wider than admin" feeling is real (1400px
+vs. the admin's new 1024px standard) but it's not itself inconsistent among those four
+pages — no fix needed there.
+
+**Left alone, deliberately, not part of this fix**:
+- `EventDetail.tsx` (public) and `EventEditor.tsx` (admin) share an `.editor-container`
+  class (`max-w-6xl`) on purpose, so the admin editor's width matches the live public page
+  it's producing — WYSIWYG parity. Narrowing `EventEditor` to the new 5xl admin standard
+  would break that parity, so this pair is an intentional exception to the two-tier split.
+- `JoinUs.tsx` (public, `max-w-6xl`, a 2-column text+form layout) and `PerformerDetail.tsx`
+  (public, several bespoke widths including a deliberate full-bleed hero) weren't part of
+  the original complaint and don't fit the "browsing/list page" shape the `.container-wide`
+  pages share — forcing them to 1400px risked spreading their tuned column layouts oddly
+  without being able to see the live result. Flagged here rather than changed blind.
+- Forms stay narrow everywhere on purpose (`CastingCall.tsx`, `AddPerformer.tsx` at
+  `max-w-3xl`; `RegisterAdmin.tsx` at `max-w-md`) — this was already consistent and matches
+  normal form-readability practice, not the inconsistency that was reported.
+
+Verified with `tsc -b`, `npm run lint`, and `npm run build` after the admin-side changes —
+all clean.
