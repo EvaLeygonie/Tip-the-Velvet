@@ -161,9 +161,23 @@ export const TodoListCard = ({
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
 
   const pending = todos.filter((td) => !td.is_done)
-  const datedPending = [...pending.filter((td) => td.due_date)].sort((a, b) =>
-    (a.due_date as string).localeCompare(b.due_date as string)
-  )
+  // Sorted by (date, display_order) — different dates never compete with each other, but
+  // tasks sharing the exact same date (e.g. several tasks for the same event) use
+  // display_order as a tiebreak, which the arrows below can move within that one date's
+  // group. Direct feedback 2026-09-21.
+  const datedPending = [...pending.filter((td) => td.due_date)].sort((a, b) => {
+    const dateCompare = (a.due_date as string).localeCompare(b.due_date as string)
+    return dateCompare !== 0 ? dateCompare : a.display_order - b.display_order
+  })
+  const datedGroups: Todo[][] = []
+  for (const todo of datedPending) {
+    const lastGroup = datedGroups[datedGroups.length - 1]
+    if (lastGroup && lastGroup[0].due_date === todo.due_date) {
+      lastGroup.push(todo)
+    } else {
+      datedGroups.push([todo])
+    }
+  }
   const datelessPending = [...pending.filter((td) => !td.due_date)].sort(
     (a, b) => a.display_order - b.display_order
   )
@@ -199,21 +213,23 @@ export const TodoListCard = ({
         <div className="space-y-2">
           {datedPending.length > 0 && (
             <div className="space-y-1.5">
-              {datedPending.map((todo) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  showArrows={false}
-                  isFirst
-                  isLast
-                  onToggle={onToggle}
-                  onSetDueDate={onSetDueDate}
-                  onMoveUp={onMoveUp}
-                  onMoveDown={onMoveDown}
-                  onDelete={onDelete}
-                  onEditClick={setEditingTodo}
-                />
-              ))}
+              {datedGroups.map((group) =>
+                group.map((todo, index) => (
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
+                    showArrows={group.length > 1}
+                    isFirst={index === 0}
+                    isLast={index === group.length - 1}
+                    onToggle={onToggle}
+                    onSetDueDate={onSetDueDate}
+                    onMoveUp={onMoveUp}
+                    onMoveDown={onMoveDown}
+                    onDelete={onDelete}
+                    onEditClick={setEditingTodo}
+                  />
+                ))
+              )}
             </div>
           )}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { UtensilsCrossed, Download, FileText, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { jsPDF } from 'jspdf'
@@ -89,7 +90,13 @@ const escapeHtml = (value: string): string =>
 export const AdminEventPlan = () => {
   const { t } = useLanguage()
   const { selectedEventId, upcomingEvents } = useCurrentEvent()
-  const [activeTab, setActiveTab] = useState<EventPlanTab>('staff')
+  // Lets the Dashboard's highlight cards deep-link straight to a specific tab (e.g. "show"
+  // for the stage-notes card) via navigate(path, { state: { tab } }) instead of always
+  // landing on the default Bemanning tab.
+  const location = useLocation()
+  const [activeTab, setActiveTab] = useState<EventPlanTab>(
+    (location.state as { tab?: EventPlanTab } | null)?.tab ?? 'staff'
+  )
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [acts, setActs] = useState<AdminEventActRow[]>([])
   const [staffRows, setStaffRows] = useState<AdminEventStaffRow[]>([])
@@ -751,6 +758,9 @@ export const AdminEventPlan = () => {
                 acts={acts}
                 staffRows={staffRows}
                 sponsorRows={sponsorRows}
+                hasBeforePlaylist={Boolean(playlists.before_playlist?.trim())}
+                hasIntermissionPlaylist={Boolean(playlists.intermission_playlist?.trim())}
+                hasAfterpartyPlaylist={Boolean(playlists.afterparty_playlist?.trim())}
                 onSelectTab={setActiveTab}
               />
             </div>

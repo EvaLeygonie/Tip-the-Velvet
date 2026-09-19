@@ -19,6 +19,11 @@ export const VIP_CATEGORY_ORDER: VipEntryCategory[] = ['ticket_winner', 'contest
 // direct feedback (2026-09-02) that some events do have extra prize sponsors.
 export const PRIZE_SLOT_COUNT = 4
 
+// A rough sufficiency target for the Dashboard's "do we have a show yet" casting card — not
+// a hard rule (nothing stops publishing with fewer or more), just the rough headcount the
+// org has mentioned as a normal full lineup. Adjust freely if that number is off.
+export const ARTIST_TARGET_COUNT = 8
+
 // The 2 roles that historically need exactly one person, per the org's real event
 // checklist and admin-portal-roadmap.md's 2026-08-19 decision — no stored requirement
 // system, just a computed presence check. Doorman was dropped from this list 2026-09-02:

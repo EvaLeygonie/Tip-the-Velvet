@@ -2,6 +2,7 @@ import { CheckCircle2, AlertTriangle, Music2 } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { staffRoleLabel } from '@/lib/contactLabels'
 import { ROLE_ORDER, FIXED_STAFF_ROLES } from './constants'
+import { missingMusicItems } from './musicCoverage'
 import type { AdminEventStaffRow } from '@/services/eventService'
 import type { StaffVolunteerType } from '@/types/types'
 
@@ -68,9 +69,13 @@ export const StaffingCoverageStrip = ({
         let coveredByPlaylist = false
 
         if (role === 'dj') {
-          const afterpartyCovered = count > 0 || hasAfterpartyPlaylist
+          const missingMusic = missingMusicItems(t, staffRows, {
+            hasBeforePlaylist,
+            hasIntermissionPlaylist,
+            hasAfterpartyPlaylist,
+          })
           coveredByPlaylist = count === 0 && hasAfterpartyPlaylist
-          filled = afterpartyCovered && hasBeforePlaylist && hasIntermissionPlaylist
+          filled = missingMusic.length === 0
           missing = !filled
         } else if (role === 'doorman') {
           // Voluntary position — worth a checkmark when filled, but never a warning.

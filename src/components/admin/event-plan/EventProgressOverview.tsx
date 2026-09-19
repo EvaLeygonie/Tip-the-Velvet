@@ -1,5 +1,14 @@
 import type { ReactNode } from 'react'
-import { CheckCircle2, AlertTriangle, Drama, Users, UserPlus, Gift, UtensilsCrossed } from 'lucide-react'
+import {
+  CheckCircle2,
+  AlertTriangle,
+  Drama,
+  Users,
+  UserPlus,
+  Gift,
+  UtensilsCrossed,
+  Music2,
+} from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type {
   AdminEventPerformerRow,
@@ -11,6 +20,7 @@ import type { DietaryCategory } from '@/types/types'
 import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from './constants'
 import { dietaryCategoryLabel, staffRoleLabel } from '@/lib/contactLabels'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
+import { missingMusicItems } from './musicCoverage'
 
 export type EventPlanTab = 'show' | 'staff' | 'sponsors' | 'food' | 'vip'
 
@@ -19,6 +29,9 @@ interface EventProgressOverviewProps {
   acts: AdminEventActRow[]
   staffRows: AdminEventStaffRow[]
   sponsorRows: AdminEventSponsorRow[]
+  hasBeforePlaylist: boolean
+  hasIntermissionPlaylist: boolean
+  hasAfterpartyPlaylist: boolean
   onSelectTab: (tab: EventPlanTab) => void
 }
 
@@ -59,6 +72,9 @@ export const EventProgressOverview = ({
   acts,
   staffRows,
   sponsorRows,
+  hasBeforePlaylist,
+  hasIntermissionPlaylist,
+  hasAfterpartyPlaylist,
   onSelectTab,
 }: EventProgressOverviewProps) => {
   const { t } = useLanguage()
@@ -101,6 +117,17 @@ export const EventProgressOverview = ({
   const sponsorsOk = prizeCount >= PRIZE_SLOT_COUNT
   const sponsorsValue = `${prizeCount}/${PRIZE_SLOT_COUNT}`
 
+  // Musik — same rule as StaffingCoverageStrip's "Musik" card (shared via missingMusicItems),
+  // so the two can't disagree about what's covered. Lists which slot(s) are missing rather
+  // than just a checkmark, e.g. "Före showen, Mellanakt".
+  const missingMusic = missingMusicItems(t, staffRows, {
+    hasBeforePlaylist,
+    hasIntermissionPlaylist,
+    hasAfterpartyPlaylist,
+  })
+  const musicOk = missingMusic.length === 0
+  const musicValue = musicOk ? t('Klar', 'Ready') : missingMusic.join(', ')
+
   // Mat — needs every confirmed performer + every food-flagged staff person categorized
   // before it can compute a real headcount summary. Full detail (allergies, per-category
   // contact lists) lives on the dedicated Mat tab; this card is just the at-a-glance state.
@@ -125,7 +152,7 @@ export const EventProgressOverview = ({
             .join(', ')
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
       <StatusCard
         label={t('Showplanering', 'Show planning')}
         value={showValue}
@@ -160,6 +187,13 @@ export const EventProgressOverview = ({
         ok={foodPeople.length === 0 ? null : foodOk}
         icon={<UtensilsCrossed className="h-3.5 w-3.5 shrink-0" />}
         onClick={() => onSelectTab('food')}
+      />
+      <StatusCard
+        label={t('Musik', 'Music')}
+        value={musicValue}
+        ok={musicOk}
+        icon={<Music2 className="h-3.5 w-3.5 shrink-0" />}
+        onClick={() => onSelectTab('staff')}
       />
     </div>
   )

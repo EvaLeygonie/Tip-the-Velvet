@@ -1,16 +1,38 @@
-import { useState, useEffect } from 'react'
-import { Users, Gift, Drama, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Users,
+  Gift,
+  Drama,
+  CalendarClock,
+  UtensilsCrossed,
+  Music2,
+  CheckCircle2,
+  ClipboardList,
+  MessageCircleQuestion,
+  UserCheck,
+} from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import { getStaffVolunteers, getSponsors } from '@/services/contactsService'
 import {
   getRecentCastingApplications,
+  getApplicationsFromEvent,
   type CastingApplicationWithEvent,
 } from '@/services/applicationService'
 import {
   getEventStaffForAdmin,
   getEventActsForAdmin,
   getEventPerformersForAdmin,
+  getEventPlaylists,
+  getEventSponsorsForAdmin,
+} from '@/services/eventService'
+import type {
+  AdminEventPerformerRow,
+  AdminEventActRow,
+  AdminEventStaffRow,
+  AdminEventSponsorRow,
+  EventPlaylists,
 } from '@/services/eventService'
 import {
   getTodos,
@@ -21,17 +43,37 @@ import {
   deleteTodo,
 } from '@/services/todoService'
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
+import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
+import { ContactMailModal, type MailRecipient } from '@/components/admin/contacts/ContactMailModal'
+import { missingMusicItems } from '@/components/admin/event-plan/musicCoverage'
+import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT, ARTIST_TARGET_COUNT } from '@/components/admin/event-plan/constants'
+import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
+import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { staffRoleLabel, sponsorTypeLabel } from '@/lib/contactLabels'
-import { FIXED_STAFF_ROLES } from '@/components/admin/event-plan/constants'
 import { formatDate } from '@/lib/utils'
-import type { StaffVolunteers, Sponsors, StaffVolunteerType, Todo } from '@/types/types'
+import type { StaffVolunteers, Sponsors, Todo, CastingApplicationWithActs } from '@/types/types'
 
-interface EventGap {
+// Just what the Dashboard's own highlight cards need per event — deliberately narrower than
+// the Event Plan page's own full status strip (which this used to reuse wholesale). Direct
+// feedback 2026-09-21: showing the exact same cards twice was redundant; the Dashboard's job
+// is to flag that something needs attention, not restate the whole breakdown.
+interface EventOverviewData {
   eventId: string
   eventTitle: string
-  missingRoles: StaffVolunteerType[]
-  actsMissingNotes: number
-  performersMissingDiet: number
+  hasCastingCall: boolean
+  performers: AdminEventPerformerRow[]
+  acts: AdminEventActRow[]
+  staffRows: AdminEventStaffRow[]
+  sponsorRows: AdminEventSponsorRow[]
+  playlists: EventPlaylists
+  applications: CastingApplicationWithActs[]
+}
+
+interface EmailTarget {
+  recipients: MailRecipient[]
+  defaultSubject: string
+  defaultGreeting: string
+  defaultBody: string
 }
 
 const NEW_WINDOW_DAYS = 7
@@ -53,14 +95,16 @@ const isDueSoon = (dueDate: string): boolean => {
 
 export const AdminDashboard = () => {
   const { t, language } = useLanguage()
-  const { upcomingEvents } = useCurrentEvent()
+  const navigate = useNavigate()
+  const { upcomingEvents, setSelectedEventId } = useCurrentEvent()
   const [staffVolunteers, setStaffVolunteers] = useState<StaffVolunteers[]>([])
   const [sponsors, setSponsors] = useState<Sponsors[]>([])
   const [castingApplications, setCastingApplications] = useState<CastingApplicationWithEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [eventGaps, setEventGaps] = useState<EventGap[]>([])
-  const [gapsLoading, setGapsLoading] = useState(true)
+  const [eventOverviews, setEventOverviews] = useState<EventOverviewData[]>([])
+  const [eventOverviewsLoading, setEventOverviewsLoading] = useState(true)
   const [todos, setTodos] = useState<Todo[]>([])
+  const [emailTarget, setEmailTarget] = useState<EmailTarget | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -84,11 +128,14 @@ export const AdminDashboard = () => {
     load()
   }, [])
 
-  // display_order only matters for tasks with no due_date (see todoService.ts) — appended to
-  // the end of that list's existing dateless tasks, so a brand-new (or newly-undated) one
-  // doesn't unexpectedly jump to the top of the manual order.
-  const nextDatelessOrder = (listTodos: Todo[]): number => {
-    const existing = listTodos.filter((td) => !td.due_date).map((td) => td.display_order)
+  // display_order only breaks ties within tasks that share the same due_date (including
+  // "no date" as its own shared value) — appended to the end of that specific group's
+  // existing tasks, so a brand-new (or newly-moved) one doesn't unexpectedly jump to the
+  // front. Tasks on different dates never compete for order at all; the date itself decides
+  // that. Direct feedback 2026-09-21: event-related tasks that all share the event's date
+  // needed a way to be manually ordered against each other too, not just dateless ones.
+  const nextOrderInGroup = (listTodos: Todo[], dueDate: string | null): number => {
+    const existing = listTodos.filter((td) => td.due_date === dueDate).map((td) => td.display_order)
     return existing.length > 0 ? Math.max(...existing) + 1 : 0
   }
 
@@ -99,7 +146,7 @@ export const AdminDashboard = () => {
     dueDate: string | null,
     details: string | null
   ) => {
-    const display_order = dueDate ? 0 : nextDatelessOrder(listTodos)
+    const display_order = nextOrderInGroup(listTodos, dueDate)
     const created = await createTodo({
       title,
       event_id: eventId,
@@ -116,13 +163,17 @@ export const AdminDashboard = () => {
     dueDate: string | null,
     details: string | null
   ) => {
+    const original = listTodos.find((td) => td.id === id)
+    const others = listTodos.filter((td) => td.id !== id)
     const patch = {
       title,
       due_date: dueDate,
       details,
-      ...(dueDate
-        ? {}
-        : { display_order: nextDatelessOrder(listTodos.filter((td) => td.id !== id)) }),
+      // Only re-slotted when the date itself actually changed — editing just the title/
+      // details of a task you've already manually positioned shouldn't silently move it.
+      ...(original?.due_date !== dueDate
+        ? { display_order: nextOrderInGroup(others, dueDate) }
+        : {}),
     }
     await updateTodo(id, patch)
     setTodos((prev) => prev.map((td) => (td.id === id ? { ...td, ...patch } : td)))
@@ -134,9 +185,10 @@ export const AdminDashboard = () => {
   const handleSetTodoDueDate = async (listTodos: Todo[], id: string, dueDate: string | null) => {
     const patch = {
       due_date: dueDate,
-      ...(dueDate
-        ? {}
-        : { display_order: nextDatelessOrder(listTodos.filter((td) => td.id !== id)) }),
+      display_order: nextOrderInGroup(
+        listTodos.filter((td) => td.id !== id),
+        dueDate
+      ),
     }
     await updateTodo(id, patch)
     setTodos((prev) => prev.map((td) => (td.id === id ? { ...td, ...patch } : td)))
@@ -149,10 +201,13 @@ export const AdminDashboard = () => {
   // Scoped to whichever list (one event's tasks, or the org-wide ones) the arrow was clicked
   // in — the caller passes that list's own already-filtered todos, same idea as
   // handleMoveAct on the Show Planning tab swapping two adjacent display_order values. Only
-  // ever operates on the dateless group — dated tasks don't show arrows at all.
+  // ever swaps within tasks sharing the same due_date as the one being moved (dated tasks on
+  // different dates never show arrows toward each other at all — see TodoListCard).
   const handleMoveTodo = async (listTodos: Todo[], id: string, direction: -1 | 1) => {
+    const target = listTodos.find((td) => td.id === id)
+    if (!target) return
     const sorted = listTodos
-      .filter((td) => !td.is_done && !td.due_date)
+      .filter((td) => !td.is_done && td.due_date === target.due_date)
       .sort((a, b) => a.display_order - b.display_order)
     const index = sorted.findIndex((td) => td.id === id)
     const otherIndex = index + direction
@@ -188,53 +243,101 @@ export const AdminDashboard = () => {
   const upcomingEventIdsKey = upcomingEvents.map((e) => e.id).join(',')
 
   useEffect(() => {
-    const loadGaps = async () => {
+    const loadOverviews = async () => {
       if (!upcomingEventIdsKey) {
-        setGapsLoading(false)
-        setEventGaps([])
+        setEventOverviewsLoading(false)
+        setEventOverviews([])
         return
       }
-      setGapsLoading(true)
+      setEventOverviewsLoading(true)
       try {
-        const gaps = await Promise.all(
-          upcomingEvents.map(async (evt): Promise<EventGap> => {
-            const [staff, acts, performersData] = await Promise.all([
-              getEventStaffForAdmin(evt.id),
-              getEventActsForAdmin(evt.id),
-              getEventPerformersForAdmin(evt.id),
-            ])
-            const missingRoles = FIXED_STAFF_ROLES.filter(
-              (role) => !staff.some((r) => r.role === role)
-            )
-            const actsMissingNotes = acts.filter(
-              (a) => !a.stage_preparations && !a.pick_up_cleaning
-            ).length
-            const performersMissingDiet = performersData.performers.filter(
-              (p) => !p.dietary_category
-            ).length
+        const overviews = await Promise.all(
+          upcomingEvents.map(async (evt): Promise<EventOverviewData> => {
+            const [performersData, acts, staffRows, playlists, sponsorRows, applications] =
+              await Promise.all([
+                getEventPerformersForAdmin(evt.id),
+                getEventActsForAdmin(evt.id),
+                getEventStaffForAdmin(evt.id),
+                getEventPlaylists(evt.id),
+                getEventSponsorsForAdmin(evt.id),
+                evt.has_casting_call ? getApplicationsFromEvent(evt.id) : Promise.resolve([]),
+              ])
             return {
               eventId: evt.id,
               eventTitle: evt.title,
-              missingRoles,
-              actsMissingNotes,
-              performersMissingDiet,
+              hasCastingCall: evt.has_casting_call,
+              performers: performersData.performers,
+              acts,
+              staffRows,
+              sponsorRows,
+              playlists,
+              applications,
             }
           })
         )
-        setEventGaps(
-          gaps.filter(
-            (g) => g.missingRoles.length > 0 || g.actsMissingNotes > 0 || g.performersMissingDiet > 0
-          )
-        )
+        setEventOverviews(overviews)
       } catch (err) {
-        console.error('Kunde inte hämta eventstatus:', err)
+        console.error('Kunde inte hämta eventöversikt:', err)
       } finally {
-        setGapsLoading(false)
+        setEventOverviewsLoading(false)
       }
     }
-    loadGaps()
+    loadOverviews()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcomingEventIdsKey])
+
+  // Deep-links straight to the tab that actually shows the detail behind a highlight card,
+  // rather than always landing on the default Bemanning tab — see AdminEventPlan.tsx's own
+  // useLocation read of this state.
+  const goToEventPlan = (eventId: string, tab: EventPlanTab) => {
+    setSelectedEventId(eventId)
+    navigate('/admin/event-plan', { state: { tab } })
+  }
+  const goToCasting = (eventId: string) => {
+    setSelectedEventId(eventId)
+    navigate('/admin/casting')
+  }
+
+  // The stage-notes reminder goes out to performers only — no one else fills those in. Bulk-
+  // sent individually to each recipient via ContactMailModal, same as everywhere else in the
+  // app.
+  const handleEmailMissingNotes = (ov: EventOverviewData) => {
+    const performerIdsMissingNotes = new Set(
+      ov.acts.filter((a) => !a.stage_preparations && !a.pick_up_cleaning).map((a) => a.performer_id)
+    )
+    const recipients: MailRecipient[] = ov.performers
+      .filter((p) => performerIdsMissingNotes.has(p.performer_id) && p.performer.email)
+      .map((p) => ({ name: p.performer.performer_name, email: p.performer.email as string }))
+    setEmailTarget({
+      recipients,
+      defaultSubject: t(`Scenanteckningar — ${ov.eventTitle}`, `Stage notes — ${ov.eventTitle}`),
+      defaultGreeting: t('Hej!', 'Hi!'),
+      defaultBody: t(
+        'Vi saknar fortfarande dina scenanteckningar (ljud, ljus & scenkrav) inför showen — kan du fylla i dem så snart som möjligt via din bokningslänk?\n\nVarma hälsningar,\nTip the Velvet',
+        "We're still missing your stage notes (sound, lighting & stage requirements) for the show — could you fill them in as soon as possible via your booking link?\n\nWarmly,\nTip the Velvet"
+      ),
+    })
+  }
+  // Now covers staff/volunteers needing food as well as performers — direct feedback
+  // 2026-09-21 that the count already did, but the email target didn't.
+  const handleEmailMissingFood = (ov: EventOverviewData) => {
+    const performerRecipients: MailRecipient[] = ov.performers
+      .filter((p) => !p.dietary_category && p.performer.email)
+      .map((p) => ({ name: p.performer.performer_name, email: p.performer.email as string }))
+    const staffRecipients: MailRecipient[] = groupStaffRowsByPerson(ov.staffRows)
+      .filter((p) => p.needs_food && !p.dietary_category && p.staff.email)
+      .map((p) => ({ name: p.staff.name, email: p.staff.email as string }))
+    const recipients = [...performerRecipients, ...staffRecipients]
+    setEmailTarget({
+      recipients,
+      defaultSubject: t(`Matpreferenser — ${ov.eventTitle}`, `Food preferences — ${ov.eventTitle}`),
+      defaultGreeting: t('Hej!', 'Hi!'),
+      defaultBody: t(
+        'Vi saknar fortfarande din matpreferens inför showen — kan du fylla i den så snart som möjligt via din bokningslänk?\n\nVarma hälsningar,\nTip the Velvet',
+        "We're still missing your food preference for the show — could you fill it in as soon as possible via your booking link?\n\nWarmly,\nTip the Velvet"
+      ),
+    })
+  }
 
   const newStaff = staffVolunteers
     .filter((row) => isRecent(row.created_at))
@@ -404,58 +507,172 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {!gapsLoading && (
-        <div className="max-w-3xl mx-auto mt-8 space-y-2">
-          <h3 className="font-decorative text-lg text-foreground/90 text-center">
-            {t('Vad som återstår för kommande event', "What's left for upcoming events")}
-          </h3>
+      {!eventOverviewsLoading && eventOverviews.length > 0 && (
+        <div className="max-w-5xl mx-auto mt-8 space-y-6">
+          {eventOverviews.map((ov) => {
+            const missingNotesCount = new Set(
+              ov.acts
+                .filter((a) => !a.stage_preparations && !a.pick_up_cleaning)
+                .map((a) => a.performer_id)
+            ).size
+            // Performers plus staff/volunteers who need food but have no dietary category yet
+            // — same headcount EventProgressOverview's own "Mat" card uses. Direct feedback
+            // 2026-09-21: this card only ever counted artists, not the staff side too.
+            const groupedStaff = groupStaffRowsByPerson(ov.staffRows)
+            const missingFoodCount =
+              ov.performers.filter((p) => !p.dietary_category).length +
+              groupedStaff.filter((p) => p.needs_food && !p.dietary_category).length
+            const missingMusic = missingMusicItems(t, ov.staffRows, {
+              hasBeforePlaylist: Boolean(ov.playlists.before_playlist?.trim()),
+              hasIntermissionPlaylist: Boolean(ov.playlists.intermission_playlist?.trim()),
+              hasAfterpartyPlaylist: Boolean(ov.playlists.afterparty_playlist?.trim()),
+            })
+            const missingRoles = FIXED_STAFF_ROLES.filter(
+              (role) => !ov.staffRows.some((r) => r.role === role)
+            )
+            const missingSponsorSlots = Math.max(
+              0,
+              PRIZE_SLOT_COUNT - ov.sponsorRows.filter((r) => r.role === 'prize').length
+            )
+            // Casting's 3 signals are tracked separately rather than collapsed into one
+            // "casting complete?" flag — pending review, confirmed-but-unbooked "yes"s, and
+            // headcount-vs-target all matter independently and can each still be true/false
+            // in any combination. Only shown at all for events actually running an open
+            // casting call (hasCastingCall) — nothing to review otherwise.
+            const pendingReviewCount = ov.applications.filter(
+              (a) => a.review_status === 'pending'
+            ).length
+            const unconfirmedYesCount = ov.applications.filter(
+              (a) =>
+                a.review_status === 'yes' &&
+                a.booking_status !== 'confirmed' &&
+                a.booking_status !== 'declined'
+            ).length
+            const confirmedArtistCount = ov.performers.length
 
-          {eventGaps.length === 0 ? (
-            <div className="admin-panel velvet-surface p-3 flex items-center gap-2 text-sm text-emerald-400">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              {t(
-                'Allt klart för kommande event!',
-                'Everything is in order for upcoming events!'
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {eventGaps.map((gap) => (
-                <div key={gap.eventId} className="admin-panel velvet-surface p-3 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-sm text-foreground font-decorative">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                    {gap.eventTitle}
+            // Only ever cards for something actually missing — an event with nothing
+            // outstanding shows one plain confirmation line instead of a wall of green
+            // checkmarks. Direct feedback 2026-09-21.
+            const cards: {
+              key: string
+              label: string
+              value: string
+              icon: ReactNode
+              onClick: () => void
+              onEmailAll?: () => void
+              emailTitle?: string
+            }[] = []
+            if (ov.hasCastingCall && pendingReviewCount > 0) {
+              cards.push({
+                key: 'castingReview',
+                label: t('Att granska', 'To review'),
+                value: t(`Saknas: ${pendingReviewCount}`, `Missing: ${pendingReviewCount}`),
+                icon: <ClipboardList className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToCasting(ov.eventId),
+              })
+            }
+            if (ov.hasCastingCall && unconfirmedYesCount > 0) {
+              cards.push({
+                key: 'castingConfirm',
+                label: t('Obekräftade artister', 'Unconfirmed artists'),
+                value: t(`Saknas: ${unconfirmedYesCount}`, `Missing: ${unconfirmedYesCount}`),
+                icon: <MessageCircleQuestion className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToCasting(ov.eventId),
+              })
+            }
+            if (ov.hasCastingCall && confirmedArtistCount < ARTIST_TARGET_COUNT) {
+              cards.push({
+                key: 'castingTarget',
+                label: t('Artister', 'Artists'),
+                value: t(
+                  `${confirmedArtistCount}/${ARTIST_TARGET_COUNT} bokade`,
+                  `${confirmedArtistCount}/${ARTIST_TARGET_COUNT} booked`
+                ),
+                icon: <UserCheck className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToCasting(ov.eventId),
+              })
+            }
+            if (missingNotesCount > 0) {
+              cards.push({
+                key: 'notes',
+                label: t('Scenanteckningar', 'Stage notes'),
+                value: t(`Saknas: ${missingNotesCount} artister`, `Missing: ${missingNotesCount} artists`),
+                icon: <Drama className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'show'),
+                onEmailAll: () => handleEmailMissingNotes(ov),
+                emailTitle: t('Mejla berörda artister', 'Email affected artists'),
+              })
+            }
+            if (missingFoodCount > 0) {
+              cards.push({
+                key: 'food',
+                label: t('Matpreferenser', 'Food preferences'),
+                value: t(`Saknas: ${missingFoodCount} personer`, `Missing: ${missingFoodCount} people`),
+                icon: <UtensilsCrossed className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'food'),
+                onEmailAll: () => handleEmailMissingFood(ov),
+                emailTitle: t('Mejla berörda personer', 'Email affected people'),
+              })
+            }
+            if (missingMusic.length > 0) {
+              cards.push({
+                key: 'music',
+                label: t('Musik', 'Music'),
+                value: t(`Saknas: ${missingMusic.length}`, `Missing: ${missingMusic.length}`),
+                icon: <Music2 className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'staff'),
+              })
+            }
+            if (missingRoles.length > 0) {
+              cards.push({
+                key: 'roles',
+                label: t('Nyckelroller', 'Key roles'),
+                value: t(`Saknas: ${missingRoles.length}`, `Missing: ${missingRoles.length}`),
+                icon: <Users className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'staff'),
+              })
+            }
+            if (missingSponsorSlots > 0) {
+              cards.push({
+                key: 'sponsors',
+                label: t('Sponsorer', 'Sponsors'),
+                value: t(`Saknas: ${missingSponsorSlots}`, `Missing: ${missingSponsorSlots}`),
+                icon: <Gift className="h-3.5 w-3.5 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'sponsors'),
+              })
+            }
+
+            return (
+              <div key={ov.eventId} className="space-y-2">
+                <h3 className="font-decorative text-lg text-foreground/90 text-center">
+                  {ov.eventTitle}
+                </h3>
+                {cards.length === 0 ? (
+                  <div className="admin-panel velvet-surface p-3 flex items-center justify-center gap-2 text-sm text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    {t('Allt klart!', 'All set!')}
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/60 pl-5">
-                    {gap.missingRoles.length > 0 && (
-                      <span>
-                        {t('Saknas:', 'Missing:')}{' '}
-                        {gap.missingRoles.map((role) => staffRoleLabel(t, role)).join(', ')}
-                      </span>
-                    )}
-                    {gap.actsMissingNotes > 0 && (
-                      <span>
-                        {t(
-                          `${gap.actsMissingNotes} akter utan scenanteckningar`,
-                          `${gap.actsMissingNotes} acts without stage notes`
-                        )}
-                      </span>
-                    )}
-                    {gap.performersMissingDiet > 0 && (
-                      <span>
-                        {t(
-                          `${gap.performersMissingDiet} artister utan matkategori`,
-                          `${gap.performersMissingDiet} artists without a food category`
-                        )}
-                      </span>
-                    )}
+                ) : (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {cards.map(({ key, ...card }) => (
+                      <EventHighlightCard key={key} {...card} />
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
+
+      <ContactMailModal
+        isOpen={emailTarget !== null}
+        onClose={() => setEmailTarget(null)}
+        recipients={emailTarget?.recipients ?? []}
+        defaultSubject={emailTarget?.defaultSubject ?? ''}
+        defaultGreeting={emailTarget?.defaultGreeting ?? ''}
+        defaultBody={emailTarget?.defaultBody ?? ''}
+      />
 
       {!loading && (
         <div className="max-w-3xl mx-auto mt-8 space-y-3">
