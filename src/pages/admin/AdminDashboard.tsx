@@ -299,8 +299,12 @@ export const AdminDashboard = () => {
   // sent individually to each recipient via ContactMailModal, same as everywhere else in the
   // app.
   const handleEmailMissingNotes = (ov: EventOverviewData) => {
+    // Manual/constant show-program segments (performer_id: null) never count as "missing" —
+    // most genuinely need no prep, direct feedback 2026-09-21. Real acts only here.
     const performerIdsMissingNotes = new Set(
-      ov.acts.filter((a) => !a.stage_preparations && !a.pick_up_cleaning).map((a) => a.performer_id)
+      ov.acts
+        .filter((a) => a.performer_id && !a.stage_preparations && !a.pick_up_cleaning)
+        .map((a) => a.performer_id)
     )
     const recipients: MailRecipient[] = ov.performers
       .filter((p) => performerIdsMissingNotes.has(p.performer_id) && p.performer.email)
@@ -392,9 +396,11 @@ export const AdminDashboard = () => {
       {!eventOverviewsLoading && eventOverviews.length > 0 && (
         <div className="max-w-5xl mx-auto mt-8 space-y-6">
           {eventOverviews.map((ov) => {
+            // Manual/constant segments (performer_id: null) are excluded — see
+            // handleEmailMissingNotes above for the same carve-out.
             const missingNotesCount = new Set(
               ov.acts
-                .filter((a) => !a.stage_preparations && !a.pick_up_cleaning)
+                .filter((a) => a.performer_id && !a.stage_preparations && !a.pick_up_cleaning)
                 .map((a) => a.performer_id)
             ).size
             // Performers plus staff/volunteers who need food but have no dietary category yet
@@ -458,7 +464,10 @@ export const AdminDashboard = () => {
               cards.push({
                 key: 'notes',
                 label: t('Scenanteckningar', 'Stage notes'),
-                value: t(`Saknas: ${missingNotesCount} artister`, `Missing: ${missingNotesCount} artists`),
+                value: t(
+                  `Saknas: ${missingNotesCount} artister`,
+                  `Missing: ${missingNotesCount} artists`
+                ),
                 icon: <Drama className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'show'),
                 onEmailAll: () => handleEmailMissingNotes(ov),
@@ -469,7 +478,10 @@ export const AdminDashboard = () => {
               cards.push({
                 key: 'food',
                 label: t('Matpreferenser', 'Food preferences'),
-                value: t(`Saknas: ${missingFoodCount} personer`, `Missing: ${missingFoodCount} people`),
+                value: t(
+                  `Saknas: ${missingFoodCount} personer`,
+                  `Missing: ${missingFoodCount} people`
+                ),
                 icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'food'),
                 onEmailAll: () => handleEmailMissingFood(ov),

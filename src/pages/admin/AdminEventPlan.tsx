@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { UtensilsCrossed, Download, FileText, Plus } from 'lucide-react'
+import { UtensilsCrossed, Download, FileText, Plus, SplitSquareVertical } from 'lucide-react'
 import { toast } from 'sonner'
 import { jsPDF } from 'jspdf'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -13,9 +13,9 @@ import {
   getEventActsForAdmin,
   getEventPlaylists,
   getEventOrganizerFood,
-  updatePerformerActOrder,
   updateEventPerformerDietary,
   updateEvent,
+  reorderShowProgram,
 } from '@/services/eventService'
 import type {
   AdminEventPerformerRow,
@@ -54,7 +54,7 @@ import {
 import { VipManualEntryRow } from '@/components/admin/event-plan/VipManualEntryRow'
 import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
 import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
-import { ShowPlanningActRow } from '@/components/admin/event-plan/ShowPlanningActRow'
+import { ShowProgramBoard } from '@/components/admin/event-plan/ShowProgramBoard'
 import { FoodTab } from '@/components/admin/event-plan/FoodTab'
 import {
   STANDING_ORGANIZERS,
@@ -320,26 +320,57 @@ export const AdminEventPlan = () => {
     setActiveTab('vip')
   }
 
-  const handleMoveAct = async (index: number, direction: -1 | 1) => {
-    const otherIndex = index + direction
-    if (otherIndex < 0 || otherIndex >= acts.length) return
-    const a = acts[index]
-    const b = acts[otherIndex]
-    try {
-      await Promise.all([
-        updatePerformerActOrder(a.id, b.display_order),
-        updatePerformerActOrder(b.id, a.display_order),
-      ])
-      setActs((prev) => {
-        const next = [...prev]
-        next[index] = { ...a, display_order: b.display_order }
-        next[otherIndex] = { ...b, display_order: a.display_order }
-        return next.sort((x, y) => x.display_order - y.display_order)
+  const handleActUpdated = (id: string, patch: Partial<AdminEventActRow>) => {
+    setActs((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+  }
+  const handleActRemoved = (id: string) => {
+    setActs((prev) => prev.filter((a) => a.id !== id))
+  }
+  const handleActAdded = (row: AdminEventActRow) => {
+    setActs((prev) => [...prev, row])
+  }
+  const handleActsReordered = (next: AdminEventActRow[]) => {
+    setActs(next)
+  }
+
+  // Dragging every act across the Set 1/2 divide by hand turned out to be fiddly — direct
+  // feedback 2026-09-21. This gives a one-click sane starting point (real acts only, split
+  // by their CURRENT running order — first half to Set 1, the rest to Set 2; manual/constant
+  // segments keep whatever set they're already in) that the board can then fine-tune with
+  // the arrows or drag-and-drop, rather than having to build the whole split by hand. Because
+  // it splits on the order the board has already arranged (not a fixed position), getting
+  // the order right first and then splitting already gives full control over exactly where
+  // the cut lands.
+  const handleAutoSplit = () => {
+    const confirmed = window.confirm(
+      t(
+        'Dela upp alla akter jämnt mellan Set 1 och Set 2? Detta skriver över akternas nuvarande set-placering (egna och fasta moment påverkas inte).',
+        "Split all acts evenly between Set 1 and Set 2? This overwrites acts' current set assignment (manual and constant segments are left untouched)."
+      )
+    )
+    if (!confirmed) return
+
+    const realActs = acts
+      .filter((a) => a.performer !== null)
+      .sort((a, b) => a.display_order - b.display_order)
+    const splitPoint = Math.ceil(realActs.length / 2)
+    const setByActId = new Map<string, 1 | 2>(
+      realActs.map((a, index) => [a.id, index < splitPoint ? 1 : 2])
+    )
+
+    setActs((prev) =>
+      prev.map((a) => {
+        const setNumber = setByActId.get(a.id)
+        return setNumber && setNumber !== a.set_number ? { ...a, set_number: setNumber } : a
       })
-    } catch (err) {
-      toast.error(t('Kunde inte ändra ordning.', 'Could not reorder.'))
-      console.error(err)
-    }
+    )
+    reorderShowProgram(
+      realActs.map((a) => ({
+        id: a.id,
+        display_order: a.display_order,
+        set_number: setByActId.get(a.id) as 1 | 2,
+      }))
+    ).catch((err) => console.error('Kunde inte spara uppdelningen:', err))
   }
 
   const handleUpdatePerformerDietary = async (performerId: string, category: DietaryCategory) => {
@@ -632,110 +663,32 @@ export const AdminEventPlan = () => {
   // Acts are already in running order via getEventActsForAdmin's query — no separate
   // "sections" builder needed like the VIP list's (there's only ever one list here), but
   // both export formats below still read from this one spot so they can't drift apart.
-  const buildSetListActs = () => acts
+  // Two separate documents now (direct feedback 2026-09-21) — one for stage kittens (running
+  // order + prep/pickup + a blank line to hand-write on), one for the technician (light/sound
+  // notes only). Both walk the acts in the same Set 1 / break / Set 2 grouping the Show tab
+  // itself uses, with one continuous position count spanning both sets.
+  const buildSetListSections = () => [
+    { label: t('Set 1', 'Set 1'), rows: acts.filter((a) => a.set_number === 1), offset: 0 },
+    {
+      label: t('Set 2', 'Set 2'),
+      rows: acts.filter((a) => a.set_number === 2),
+      offset: acts.filter((a) => a.set_number === 1).length,
+    },
+  ]
 
-  // Same A4-printable-HTML approach as the VIP list — act_notes (labelled "Sound, Lighting &
-  // General Notes" on the artist's own booking form) gets its own highlighted box so it reads
-  // at a glance for whoever's running lights/sound, distinct from the stage prep/pick-up
-  // logistics lines underneath it.
-  const handleDownloadSetList = () => {
-    const actBlock = (row: AdminEventActRow, index: number) => `
-        <div class="act">
-          <div class="act-header">
-            <span class="position">${index + 1}</span>
-            <div class="names">
-              <div class="act-name">${escapeHtml(row.act_name)}</div>
-              <div class="performer-name">${escapeHtml(row.performer.performer_name)}</div>
-            </div>
-          </div>
-          ${
-            row.act_notes
-              ? `<div class="notes-box">
-                   <div class="notes-label">${escapeHtml(t('Ljud & Ljus / Scenkrav', 'Sound & Light / Stage requirements'))}</div>
-                   <div class="notes-text">${escapeHtml(row.act_notes)}</div>
-                 </div>`
-              : ''
-          }
-          ${
-            row.stage_preparations
-              ? `<div class="sub-note"><span class="sub-label">${escapeHtml(t('Scenförberedelser', 'Stage prep'))}:</span> ${escapeHtml(row.stage_preparations)}</div>`
-              : ''
-          }
-          ${
-            row.pick_up_cleaning
-              ? `<div class="sub-note"><span class="sub-label">${escapeHtml(t('Plockning/städning', 'Pick up / cleaning'))}:</span> ${escapeHtml(row.pick_up_cleaning)}</div>`
-              : ''
-          }
-        </div>`
-
-    const html = `<!DOCTYPE html>
-<html lang="sv">
-<head>
-<meta charset="UTF-8" />
-<title>${escapeHtml(t('Set List', 'Set List'))} — ${escapeHtml(eventTitle)}</title>
-<style>
-  @page { size: A4; margin: 15mm; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a;
-    margin: 0; padding: 32px 20px 64px; background: #faf9f7;
-  }
-  .page { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 2px; }
-  .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
-  .act { padding: 12px 0; border-bottom: 1px dotted #ccc; break-inside: avoid; }
-  .act-header { display: flex; align-items: baseline; gap: 10px; }
-  .position { font-weight: 700; font-size: 15px; color: #a67c00; width: 20px; flex-shrink: 0; }
-  .act-name { font-weight: 700; font-size: 15px; }
-  .performer-name { color: #666; font-size: 12px; font-style: italic; }
-  .notes-box {
-    margin: 8px 0 4px 30px; padding: 8px 10px; background: #fff6dc;
-    border-left: 3px solid #a67c00; font-size: 12.5px;
-  }
-  .notes-label {
-    text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px;
-    color: #a67c00; font-weight: 700; margin-bottom: 2px;
-  }
-  .notes-text { white-space: pre-wrap; }
-  .sub-note { margin: 3px 0 0 30px; font-size: 12px; color: #444; }
-  .sub-label { font-weight: 600; }
-  @media print {
-    body { padding: 0; background: none; }
-    .page { max-width: none; margin: 0; }
-  }
-</style>
-</head>
-<body>
-  <div class="page">
-    <h1>${escapeHtml(t('Set List', 'Set List'))}</h1>
-    <div class="subtitle">${escapeHtml(eventTitle)}</div>
-    ${buildSetListActs()
-      .map((row, index) => actBlock(row, index))
-      .join('')}
-  </div>
-</body>
-</html>`
-
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${eventTitle}-set-list.html`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
-  // Same hand-drawn jsPDF approach as the VIP PDF — the light/sound notes box is a filled
-  // rect drawn behind wrapped text (splitTextToSize) rather than anything fancier, matching
-  // the rest of this codebase's "simple enough to lay out by hand" PDF style.
-  const handleDownloadSetListPdf = () => {
+  // Hand-drawn jsPDF table layout, matching the structure of the org's own historical set
+  // list documents (each act as a bordered 2-column table: an Artist/Act header row, then a
+  // label/value row each for stage prep, pick-up/cleaning, and a blank Anteckningar row for
+  // stage kittens to hand-write on) — direct feedback 2026-09-21, replacing the previous
+  // plain-text layout.
+  const handleDownloadStageKittenPdf = () => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' })
     const margin = 18
     const pageWidth = 210
     const contentWidth = pageWidth - margin * 2
     const pageBottom = 280
+    const lineHeight = 4.3
+    const cellPad = 2.2
     let y = margin
 
     doc.setFont('helvetica', 'bold')
@@ -756,67 +709,182 @@ export const AdminEventPlan = () => {
       }
     }
 
-    buildSetListActs().forEach((row, index) => {
-      ensureSpace(14)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.setTextColor(20)
-      doc.text(`${index + 1}. ${row.act_name}`, margin, y)
-      y += 5.5
-      doc.setFont('helvetica', 'italic')
+    // One bordered two-column row — sized to whichever cell needs more wrapped lines, so a
+    // long note doesn't overflow its box.
+    const drawRow = (
+      leftText: string,
+      rightText: string,
+      leftWidth: number,
+      opts: { bold?: boolean; italicLeft?: boolean; minHeight?: number } = {}
+    ) => {
+      const rightWidth = contentWidth - leftWidth
+      const leftLines = doc.splitTextToSize(leftText, leftWidth - cellPad * 2) as string[]
+      const rightLines = rightText
+        ? (doc.splitTextToSize(rightText, rightWidth - cellPad * 2) as string[])
+        : []
+      const linesNeeded = Math.max(leftLines.length, rightLines.length, 1)
+      const rowHeight = Math.max(linesNeeded * lineHeight + cellPad * 2, opts.minHeight ?? 0)
+      ensureSpace(rowHeight)
+
+      doc.setDrawColor(180)
+      doc.rect(margin, y, leftWidth, rowHeight)
+      doc.rect(margin + leftWidth, y, rightWidth, rowHeight)
+
+      doc.setFont('helvetica', opts.bold ? 'bold' : opts.italicLeft ? 'italic' : 'normal')
       doc.setFontSize(9.5)
-      doc.setTextColor(120)
-      doc.text(row.performer.performer_name, margin + 6, y)
-      y += 5
+      doc.setTextColor(20)
+      doc.text(leftLines, margin + cellPad, y + cellPad + 3)
 
-      if (row.act_notes) {
-        const lines = doc.splitTextToSize(row.act_notes, contentWidth - 12) as string[]
-        const boxHeight = lines.length * 4.2 + 7
-        ensureSpace(boxHeight + 2)
-        doc.setFillColor(255, 246, 220)
-        doc.setDrawColor(166, 124, 0)
-        doc.rect(margin + 6, y - 3.5, contentWidth - 6, boxHeight, 'FD')
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(8)
-        doc.setTextColor(166, 124, 0)
-        doc.text(t('LJUD & LJUS / SCENKRAV', 'SOUND & LIGHT / STAGE REQUIREMENTS'), margin + 9, y)
-        y += 4.5
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
+      if (rightLines.length > 0) {
+        doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
         doc.setTextColor(40)
-        doc.text(lines, margin + 9, y)
-        y += lines.length * 4.2 + 4
+        doc.text(rightLines, margin + leftWidth + cellPad, y + cellPad + 3)
       }
 
-      if (row.stage_preparations) {
-        const lines = doc.splitTextToSize(
-          `${t('Scenförberedelser', 'Stage prep')}: ${row.stage_preparations}`,
-          contentWidth - 6
-        ) as string[]
-        ensureSpace(lines.length * 4.2 + 2)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-        doc.setTextColor(60)
-        doc.text(lines, margin + 6, y)
-        y += lines.length * 4.2 + 2
-      }
-      if (row.pick_up_cleaning) {
-        const lines = doc.splitTextToSize(
-          `${t('Plockning/städning', 'Pick up / cleaning')}: ${row.pick_up_cleaning}`,
-          contentWidth - 6
-        ) as string[]
-        ensureSpace(lines.length * 4.2 + 2)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-        doc.setTextColor(60)
-        doc.text(lines, margin + 6, y)
-        y += lines.length * 4.2 + 2
-      }
+      y += rowHeight
+    }
 
-      y += 4
+    buildSetListSections().forEach((section, sectionIndex) => {
+      if (section.rows.length === 0) return
+      if (sectionIndex > 0) {
+        ensureSpace(12)
+        doc.setFont('helvetica', 'bolditalic')
+        doc.setFontSize(11)
+        doc.setTextColor(166, 124, 0)
+        doc.text(t('— PAUS —', '— BREAK —'), pageWidth / 2, y, { align: 'center' })
+        y += 9
+      }
+      ensureSpace(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.setTextColor(20)
+      doc.text(section.label, margin, y)
+      y += 7
+
+      const headerLeftWidth = contentWidth / 2
+      const labelWidth = 46
+
+      section.rows.forEach((row, index) => {
+        ensureSpace(6)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(166, 124, 0)
+        doc.text(`${section.offset + index + 1}.`, margin, y)
+        y += 5
+
+        if (row.performer) {
+          drawRow(
+            `${t('Artist', 'Artist')}: ${row.performer.performer_name}`,
+            `${t('Akt', 'Act')}: ${row.act_name}`,
+            headerLeftWidth,
+            { bold: true }
+          )
+        } else {
+          drawRow(
+            t('Moment', 'Segment'),
+            row.act_name || t('(Namnlöst)', '(Untitled)'),
+            headerLeftWidth,
+            { bold: true }
+          )
+        }
+
+        drawRow(
+          t('Scenförberedelser:', 'Stage preparations:'),
+          row.stage_preparations ?? '',
+          labelWidth,
+          { italicLeft: true }
+        )
+        drawRow(
+          t('Plockning/städning:', 'Pick up/cleaning:'),
+          row.pick_up_cleaning ?? '',
+          labelWidth,
+          { italicLeft: true }
+        )
+        drawRow(t('Anteckningar:', 'Notes:'), '', labelWidth, { italicLeft: true, minHeight: 16 })
+
+        y += 6
+      })
     })
 
     doc.save(`${eventTitle}-set-list.pdf`)
+  }
+
+  // The technician's own document — only the light/sound content (act_notes, labelled
+  // "Sound, Lighting & General Notes" on the artist's own booking form), pulled out of the
+  // stage kittens' set list entirely rather than mixed into it.
+  const handleDownloadTechNotesPdf = () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+    const margin = 18
+    const pageWidth = 210
+    const contentWidth = pageWidth - margin * 2
+    const pageBottom = 280
+    let y = margin
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.setTextColor(20)
+    doc.text(t('Ljud & Ljus', 'Sound & Light'), margin, y)
+    y += 7
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.setTextColor(120)
+    doc.text(eventTitle, margin, y)
+    y += 10
+
+    const ensureSpace = (needed: number) => {
+      if (y + needed > pageBottom) {
+        doc.addPage()
+        y = margin
+      }
+    }
+
+    buildSetListSections().forEach((section, sectionIndex) => {
+      if (section.rows.length === 0) return
+      if (sectionIndex > 0) {
+        ensureSpace(12)
+        doc.setFont('helvetica', 'bolditalic')
+        doc.setFontSize(11)
+        doc.setTextColor(166, 124, 0)
+        doc.text(t('— PAUS —', '— BREAK —'), pageWidth / 2, y, { align: 'center' })
+        y += 9
+      }
+      ensureSpace(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.setTextColor(20)
+      doc.text(section.label, margin, y)
+      y += 7
+
+      section.rows.forEach((row, index) => {
+        ensureSpace(10)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.setTextColor(20)
+        const title = row.performer
+          ? `${section.offset + index + 1}. ${row.act_name} — ${row.performer.performer_name}`
+          : `${section.offset + index + 1}. ${row.act_name}`
+        doc.text(title, margin, y)
+        y += 5.5
+
+        if (row.act_notes) {
+          const lines = doc.splitTextToSize(row.act_notes, contentWidth - 12) as string[]
+          const boxHeight = lines.length * 4.2 + 7
+          ensureSpace(boxHeight + 2)
+          doc.setFillColor(255, 246, 220)
+          doc.setDrawColor(166, 124, 0)
+          doc.rect(margin + 6, y - 3.5, contentWidth - 6, boxHeight, 'FD')
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(9)
+          doc.setTextColor(40)
+          doc.text(lines, margin + 9, y + 1)
+          y += lines.length * 4.2 + 5
+        }
+
+        y += 3
+      })
+    })
+
+    doc.save(`${eventTitle}-ljud-ljus.pdf`)
   }
 
   const eventTitle = upcomingEvents.find((e) => e.id === selectedEventId)?.title ?? 'Event'
@@ -917,42 +985,40 @@ export const AdminEventPlan = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex justify-center gap-2">
+                    <div className="flex justify-center gap-2 flex-wrap">
                       <button
                         type="button"
-                        onClick={handleDownloadSetList}
+                        onClick={handleDownloadStageKittenPdf}
                         className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
                       >
                         <Download className="h-3.5 w-3.5" />
-                        {t('Ladda ner set list (A4)', 'Download set list (A4)')}
+                        {t('Ladda ner set list', 'Download set list')}
                       </button>
                       <button
                         type="button"
-                        onClick={handleDownloadSetListPdf}
+                        onClick={handleDownloadTechNotesPdf}
                         className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
                       >
                         <FileText className="h-3.5 w-3.5" />
-                        {t('Ladda ner som PDF', 'Download as PDF')}
+                        {t('Ladda ner ljud & ljus', 'Download sound & light')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAutoSplit}
+                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                      >
+                        <SplitSquareVertical className="h-3.5 w-3.5" />
+                        {t('Dela upp jämnt i Set 1 & 2', 'Split evenly into Set 1 & 2')}
                       </button>
                     </div>
-                    <div className="space-y-2">
-                      {acts.map((row, index) => (
-                        <ShowPlanningActRow
-                          key={row.id}
-                          row={row}
-                          position={index + 1}
-                          isFirst={index === 0}
-                          isLast={index === acts.length - 1}
-                          onMoveUp={() => handleMoveAct(index, -1)}
-                          onMoveDown={() => handleMoveAct(index, 1)}
-                          onUpdated={(id, patch) =>
-                            setActs((prev) =>
-                              prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
-                            )
-                          }
-                        />
-                      ))}
-                    </div>
+                    <ShowProgramBoard
+                      acts={acts}
+                      eventId={selectedEventId}
+                      onUpdated={handleActUpdated}
+                      onRemoved={handleActRemoved}
+                      onAdded={handleActAdded}
+                      onReordered={handleActsReordered}
+                    />
                   </div>
                 ))}
 

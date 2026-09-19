@@ -2011,3 +2011,111 @@ and split the rest of the tab into two columns.
   function so both columns call the same code rather than duplicating it.
 
 Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Show Planning overhaul: two sets, manual/constant segments, split PDFs — 2026-09-21
+
+The show producer compared the admin's Show tab against the org's real historical "Set
+list" documents and asked for several things together: a blank hand-writeable
+"Anteckningar" line per act, light/sound notes split into their own document for the
+technician, the show organized into two sets with a break (with drag-and-drop to move acts
+between them), and the ability to insert one-off manual segments plus 3 constants that
+belong on every show (the closing thank-you bow, and the board's two costume-competition
+appearances). Planned via Plan Mode first (schema/UI/PDF tradeoffs were significant enough
+to warrant it) — see the approved plan for full reasoning.
+
+- **Schema**: extended `performer_acts` rather than adding a second table — `performer_id`
+  is now nullable (a manual/constant segment is just a row with no performer), plus new
+  `set_number` (1/2), `is_constant`, and `constant_key` columns. A partial unique index on
+  `(event_id, constant_key)` keeps both the app-side seeding (new events) and a one-off SQL
+  backfill (existing events) idempotent. Hit the same "SQL editor runs a whole script as one
+  transaction" issue as this session's earlier gage-change migration: the first attempt's
+  `ON CONFLICT (event_id, constant_key) DO NOTHING` didn't match the partial index (Postgres
+  requires the same `WHERE` clause repeated in the `ON CONFLICT` target for a partial index
+  to qualify as an arbiter) and the whole script rolled back silently. Fixed and re-verified
+  via read-only queries afterward — real acts untouched, exactly 3 constants seeded once
+  each on the one non-archived event.
+- **`database.types.ts` regenerated via the Supabase CLI** (`supabase gen types typescript
+  --project-id ...`) rather than hand-edited — turns out the read-only access token this
+  session already had (Database:Read + Project Settings:Read) is sufficient for type
+  generation, since it's a read operation against the management API.
+- **Service layer** (`eventService.ts`): `createManualShowSegment`, `updateShowSegmentTitle`,
+  `deleteManualShowSegment`, `reorderShowProgram` (batch `display_order`/`set_number`
+  persist after a drag). `createEvent` now also seeds the 3 constants
+  (`SHOW_CONSTANT_SEGMENTS` in `constants.ts`) on every new event, same best-effort pattern
+  as the organizer food seeding.
+- **`ShowPlanningActRow.tsx` replaced by `ShowProgramRow.tsx` + `ShowProgramBoard.tsx`**: the
+  up/down arrows are gone, replaced by real drag-and-drop (`@dnd-kit/core` +
+  `@dnd-kit/sortable`, new dependency — nothing like it existed in this repo before) that
+  lets any segment move within or across the Set 1/Set 2 divide in one gesture. A real act's
+  `act_name` stays read-only (artist-submitted); a manual/constant segment's title is
+  board-editable. Manual (non-constant) segments get a delete button; constants don't.
+- **Both PDFs now split** (`AdminEventPlan.tsx`): the old single set-list document (HTML
+  preview + jsPDF, both mixing stage prep/pickup with light-sound notes) is gone, replaced
+  by two clean jsPDF downloads — a stage-kitten set list (prep/pickup + a genuinely blank
+  ruled "Anteckningar" line, not tied to any stored data) and a technician document (light/
+  sound notes only), both grouped by Set 1 / a "PAUS" marker / Set 2 with one continuous
+  position count across both.
+- **Dashboard's "missing stage notes" indicator** (`AdminDashboard.tsx`) and the per-row "No
+  stage notes" badge now both exclude manual/constant segments — direct feedback mid-build
+  that these normally need no prep and shouldn't count as incomplete just because their
+  notes are blank.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean. Manual
+verification (dragging across sets, adding/deleting a manual segment, downloading both
+PDFs) still to be done in the running app.
+
+### Show Planning follow-up: drag-and-drop bug fix, arrows back, table-format set list — 2026-09-21
+
+Direct feedback after trying the above: the stage-kitten set list still didn't match the
+producer's actual reference document (a new screenshot of the org's own historical set
+list showed each act as a bordered 2-column table, not plain text), and drag-and-drop
+"didn't stick" where dropped.
+
+- **Found and fixed the real drag-and-drop bug** in `ShowProgramBoard.tsx`'s `handleDragEnd`:
+  for a same-set reorder, `containers[activeSet]` and `containers[overSet]` were the *same
+  array reference*, so splicing the active item out (to compute the destination array) also
+  mutated the array `overIndex` was about to be computed against — silently shifting every
+  index after the removed item by one. This is exactly why drops landed one row off from
+  where the cursor was. Fixed by branching: same-set moves now use `arrayMove` (dnd-kit's own
+  correct helper) on that one list; cross-set moves keep the splice-and-insert approach,
+  which was never buggy since those two lists really are distinct arrays.
+- Also swapped the collision detection from plain `closestCenter` to `pointerWithin` (falling
+  back to `closestCenter` only when the pointer isn't over anything) — `closestCenter` alone
+  was resolving drops by nearest-center distance even across the visual gap between Set 1 and
+  Set 2, which felt arbitrary; `pointerWithin` matches wherever the cursor actually is.
+- **Up/down arrows are back** (`ShowPlanningActRow.tsx`'s old `ChevronsUp`/`ChevronsDown`
+  pattern, re-added to `ShowProgramRow.tsx` next to the drag handle) as a same-set-only
+  reliable fallback — `ShowProgramBoard.tsx` gained `handleMoveWithinSet`, swapping
+  `display_order` with the adjacent item in that set, same swap logic the original
+  single-list `handleMoveAct` used. The drag handle remains the only way to move a segment
+  across the Set 1/2 divide (the "Split evenly" button and manual drag both still work for
+  that).
+- **Stage-kitten PDF rebuilt as real bordered tables** (`handleDownloadStageKittenPdf` in
+  `AdminEventPlan.tsx`) matching the org's own historical set-list documents: each
+  segment is a 2-column table — an "Artist: X / Act: Y" header row (or "Moment / title" for
+  manual/constant segments), then a label/value row each for Scenförberedelser and
+  Plockning/städning, then a blank-value Anteckningar row sized tall enough to write in. All
+  hand-drawn with jsPDF's own `rect`/`text`/`splitTextToSize` (no table plugin added — row
+  height is computed from whichever cell needs more wrapped lines), consistent with this
+  codebase's existing "simple enough to lay out by hand" PDF style. The technician's
+  light/sound PDF was already correct and is unchanged.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Show Planning follow-up 2: arrows now cross sets, split button relocated — 2026-09-21
+
+- **`ShowProgramBoard.tsx`'s up/down arrows can now cross the Set 1/2 divide**: previously
+  they were disabled at each set's own edges (`isFirst`/`isLast` per set); now only the
+  global first row (Set 1's first) and global last row (Set 2's last) are true dead ends —
+  every other edge (Set 1's last row going down, Set 2's first row going up) moves the row
+  into the other set, landing at the near edge, instead of doing nothing. `handleMove`
+  replaces the old set-scoped `handleMoveWithinSet`; drag-and-drop's `handleDragEnd` and the
+  arrows now share one `commitSets` helper for applying + persisting the result.
+- **"Dela upp jämnt i Set 1 & 2" moved** off its own row above the board and onto the same
+  row as the two PDF download buttons, and the "(stage kittens)"/"(tekniker)" qualifiers were
+  dropped from those two buttons' labels. The split logic itself moved from
+  `ShowProgramBoard.tsx` up to `AdminEventPlan.tsx` (it only ever needed `acts` state and
+  `reorderShowProgram`, both already there) so the trigger button could live in the page's
+  own button row without prop-drilling a toolbar slot through the board component.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.

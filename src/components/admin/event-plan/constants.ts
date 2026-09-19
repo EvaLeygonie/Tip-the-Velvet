@@ -54,3 +54,17 @@ export const ROLE_ORDER: StaffVolunteerType[] = [
 // in AddToEventPopover.tsx — driving/setup/guestlist/takedown, per the org's real shift
 // order for running a show.
 export const VOLUNTEER_SHIFT_ORDER: VolunteerShift[] = ['driving', 'setup', 'guestlist', 'takedown']
+
+// The 3 show-program segments that exist on every single show, regardless of lineup — the
+// board's own two costume-competition appearances and the closing all-artists thank-you
+// bow. Stored as performer_acts rows with performer_id: null and constant_key set to one of
+// these keys (is_constant: true), same table real acts live in — see the Show Planning
+// overhaul plan, 2026-09-21. Seeded on every new event by createEvent (below) and, for
+// events that already existed, via a one-off SQL backfill instead of this code path — same
+// split as STANDING_ORGANIZERS' food seeding above. setNumber is just the sensible default
+// position; the board can freely drag any of these to the other set afterward.
+export const SHOW_CONSTANT_SEGMENTS: { key: string; title: string; setNumber: 1 | 2 }[] = [
+  { key: 'costume_intro', title: 'Board: Presentera kostymtävlingen', setNumber: 1 },
+  { key: 'costume_winners', title: 'Board: Presentera kostymtävlingens vinnare', setNumber: 2 },
+  { key: 'thank_you', title: 'Alla artister upp på scen för att tacka', setNumber: 2 },
+]

@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       casting_application_acts: {
@@ -857,14 +882,17 @@ export type Database = {
           act_name: string
           act_notes: string | null
           audio_files: Json | null
+          constant_key: string | null
           created_at: string
           description_eng: string | null
           description_sv: string | null
           display_order: number
           event_id: string | null
           id: string
-          performer_id: string
+          is_constant: boolean
+          performer_id: string | null
           pick_up_cleaning: string | null
+          set_number: number
           stage_preparations: string | null
           video_url: string | null
         }
@@ -872,14 +900,17 @@ export type Database = {
           act_name: string
           act_notes?: string | null
           audio_files?: Json | null
+          constant_key?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
           display_order?: number
           event_id?: string | null
           id?: string
-          performer_id: string
+          is_constant?: boolean
+          performer_id?: string | null
           pick_up_cleaning?: string | null
+          set_number?: number
           stage_preparations?: string | null
           video_url?: string | null
         }
@@ -887,14 +918,17 @@ export type Database = {
           act_name?: string
           act_notes?: string | null
           audio_files?: Json | null
+          constant_key?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
           display_order?: number
           event_id?: string | null
           id?: string
-          performer_id?: string
+          is_constant?: boolean
+          performer_id?: string | null
           pick_up_cleaning?: string | null
+          set_number?: number
           stage_preparations?: string | null
           video_url?: string | null
         }
@@ -1552,6 +1586,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       booking_status_type: [

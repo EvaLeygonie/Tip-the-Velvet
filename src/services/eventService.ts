@@ -13,8 +13,11 @@ import type {
   VolunteerShift,
 } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
-import { updateRow } from './databaseService'
-import { STANDING_ORGANIZERS } from '@/components/admin/event-plan/constants'
+import { updateRow, deleteRow } from './databaseService'
+import {
+  STANDING_ORGANIZERS,
+  SHOW_CONSTANT_SEGMENTS,
+} from '@/components/admin/event-plan/constants'
 
 export interface EventPerformerRow {
   display_order: number
@@ -338,12 +341,15 @@ export const getEventSponsorsForAdmin = async (
 }
 
 export interface AdminEventActRow extends PerformerAct {
-  performer: Pick<Performer, 'id' | 'performer_name'>
+  // null for a manual/constant segment (performer_id is null on that row) — see
+  // SHOW_CONSTANT_SEGMENTS and createManualShowSegment below.
+  performer: Pick<Performer, 'id' | 'performer_name'> | null
 }
 
 // Show Planning's data source — performer_acts already collects everything a real running
 // order needs (stage_preparations/pick_up_cleaning/act_notes, per the org's own "Set list"
-// documents), it just never had an admin-facing view before.
+// documents), it just never had an admin-facing view before. Also holds manual/constant
+// segments now (performer_id: null) — see the 2026-09-21 Show Planning overhaul.
 export const getEventActsForAdmin = async (eventId: string): Promise<AdminEventActRow[]> => {
   const { data, error } = await supabase
     .from('performer_acts')
@@ -362,6 +368,63 @@ export const updatePerformerActNotes = (
   id: string,
   patch: Partial<Pick<PerformerAct, 'stage_preparations' | 'pick_up_cleaning' | 'act_notes'>>
 ) => updateRow('performer_acts', id, patch)
+
+// Manual/constant segments only — a real act's act_name is artist-submitted and stays
+// read-only in the admin UI, unlike a manual segment's title which the board writes itself.
+export const updateShowSegmentTitle = (id: string, actName: string) =>
+  updateRow('performer_acts', id, { act_name: actName })
+
+// One-off host bits, board appearances, etc. that aren't a submitted act — a performer_acts
+// row with no performer. Added at the end of its set; the board repositions it via drag and
+// drop afterward like any other segment.
+export const createManualShowSegment = async (
+  eventId: string,
+  setNumber: 1 | 2
+): Promise<AdminEventActRow> => {
+  const { data: existing, error: existingError } = await supabase
+    .from('performer_acts')
+    .select('display_order')
+    .eq('event_id', eventId)
+    .order('display_order', { ascending: false })
+    .limit(1)
+  if (existingError) throw existingError
+  const nextOrder = (existing?.[0]?.display_order ?? -1) + 1
+
+  const { data, error } = await supabase
+    .from('performer_acts')
+    .insert([
+      {
+        event_id: eventId,
+        performer_id: null,
+        act_name: '',
+        set_number: setNumber,
+        display_order: nextOrder,
+      },
+    ])
+    .select('*, performer:performers(id, performer_name)')
+    .single()
+  if (error) throw error
+  return data as unknown as AdminEventActRow
+}
+
+export const deleteManualShowSegment = (id: string) => deleteRow('performer_acts', id)
+
+// Persists a drag-and-drop result — the moved item's new set plus every row's recomputed
+// display_order (kept as one global sequence spanning both sets, same as before this
+// feature; set_number is purely a grouping tag layered on top of it). Same "no bulk RPC,
+// just Promise.all the row updates" pattern as the rest of this file.
+export const reorderShowProgram = async (
+  rows: { id: string; display_order: number; set_number: number }[]
+): Promise<void> => {
+  await Promise.all(
+    rows.map((r) =>
+      updateRow('performer_acts', r.id, {
+        display_order: r.display_order,
+        set_number: r.set_number,
+      })
+    )
+  )
+}
 
 export const updateEventPerformerDietary = async (
   eventId: string,
@@ -573,6 +636,25 @@ export const createEvent = async (eventData: CreateEventInput): Promise<Event> =
     }
   } catch (err) {
     console.error('Kunde inte förifylla mat för arrangörer:', err)
+  }
+
+  // Seed the 3 show-program constants (see SHOW_CONSTANT_SEGMENTS) on this brand-new event
+  // too — same best-effort, never-fail-event-creation approach as the organizer food
+  // seeding above. Existing events got these via a one-off SQL backfill instead.
+  try {
+    const constantRows = SHOW_CONSTANT_SEGMENTS.map((segment, index) => ({
+      event_id: data.id,
+      performer_id: null,
+      act_name: segment.title,
+      set_number: segment.setNumber,
+      is_constant: true,
+      constant_key: segment.key,
+      display_order: index,
+    }))
+    const { error: segmentsError } = await supabase.from('performer_acts').insert(constantRows)
+    if (segmentsError) throw segmentsError
+  } catch (err) {
+    console.error('Kunde inte förifylla showens fasta moment:', err)
   }
 
   return data
