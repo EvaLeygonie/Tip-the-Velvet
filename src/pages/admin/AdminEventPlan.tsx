@@ -49,7 +49,6 @@ import {
   type InlineAddPickerItem,
 } from '@/components/admin/event-plan/InlineAddPicker'
 import { VipManualEntryRow } from '@/components/admin/event-plan/VipManualEntryRow'
-import { EventProgressOverview } from '@/components/admin/event-plan/EventProgressOverview'
 import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
 import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
 import { ShowPlanningActRow } from '@/components/admin/event-plan/ShowPlanningActRow'
@@ -751,22 +750,7 @@ export const AdminEventPlan = () => {
 
       {selectedEventId && (
         <>
-          {!loading && (
-            <div className="max-w-5xl mx-auto mt-6">
-              <EventProgressOverview
-                performers={performers}
-                acts={acts}
-                staffRows={staffRows}
-                sponsorRows={sponsorRows}
-                hasBeforePlaylist={Boolean(playlists.before_playlist?.trim())}
-                hasIntermissionPlaylist={Boolean(playlists.intermission_playlist?.trim())}
-                hasAfterpartyPlaylist={Boolean(playlists.afterparty_playlist?.trim())}
-                onSelectTab={setActiveTab}
-              />
-            </div>
-          )}
-
-          <div className="flex gap-2 justify-center mb-6 flex-wrap">
+          <div className="flex gap-2 justify-center mb-6 flex-wrap mt-6">
             <button
               type="button"
               onClick={() => setActiveTab('staff')}

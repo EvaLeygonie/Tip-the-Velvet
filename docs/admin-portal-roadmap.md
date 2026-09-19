@@ -1524,3 +1524,119 @@ added later if a fixed window turns out to miss things.
 
 Otherwise as originally scoped: what's left to do, unfilled staffing positions, missing
 booking-form info from artists, etc. — no new schema expected for that part specifically.
+
+### Per-event "what's missing" highlight cards — built 2026-09-21, casting cards untested
+
+Delivers the "what's left, per upcoming event" piece of the scope above, but deliberately
+**not** as a reuse of the Event Planning page's own status strip
+(`EventProgressOverview.tsx`/`StatusCard`). Direct feedback: showing the same cards twice
+(including the ones that are already fine) was redundant — the Dashboard's job is only to
+flag that something needs attention and link to where an admin can see the actual detail
+and fix it. So there's a separate, purpose-built `EventHighlightCard.tsx`
+(`src/components/admin/dashboard/`) that:
+
+- Is only ever rendered for something that IS missing (the caller filters first) — no "ok"
+  state of its own, no attention icon needed since every card shown already means "problem."
+- Is compact/content-width (`w-fit`, capped ~9–11rem), not a stretched grid cell, so any
+  number of cards can sit in one `flex flex-wrap justify-center` row per event and stay
+  centered regardless of count.
+- Optionally takes an `onEmailAll` handler, rendered as a small mail icon top-right — bulk-
+  emails the relevant people via the shared `ContactMailModal`, one send per recipient.
+- Shows a generic label + short count only, never the actual list of who/what — the card's
+  `onClick` navigates to the exact tab (Event Planning) or page (Casting) with the details.
+
+**No stored "event stage" field.** Each card independently computes its own relevance from
+live data every render — nothing to keep in sync, no migration needed as an event moves
+through its lifecycle. A brand-new event with no casting call yet simply doesn't render the
+casting cards or the stage-notes card (empty acts list ⇒ 0 missing ⇒ card doesn't push);
+an event that's fully sorted just shows fewer cards, down to the single green "Allt
+klart!"/"All set!" fallback line when none apply. This was an explicit design brainstorm
+with the user (not just an implementation detail) — the alternative (a manually-set stage
+enum) was rejected because it's one more thing to remember to update.
+
+**All cards, in the order they can appear** (per event, in `AdminDashboard.tsx`):
+
+1. **Att granska / To review** (casting) — count of that event's `casting_applications`
+   rows with `review_status === 'pending'`. Only rendered when the event's own
+   `has_casting_call` is `true`. Links to `/admin/casting` (via `setSelectedEventId` +
+   navigate, same pattern as the Event Planning deep-link below).
+2. **Obekräftade artister / Unconfirmed artists** (casting) — count of applications with
+   `review_status === 'yes'` AND `booking_status` is neither `'confirmed'` nor `'declined'`
+   (i.e. still sitting in `not_contacted`/`negotiating`/`pending_confirmation`). Same
+   `has_casting_call` gate, same link.
+3. **Artister / Artists** (casting) — `confirmedArtistCount/ARTIST_TARGET_COUNT`, where
+   `confirmedArtistCount` is simply `ov.performers.length` (the event's actual booked
+   lineup, from `getEventPerformersForAdmin`, i.e. rows already migrated into
+   `event_performers` by `confirm_and_migrate_artist`) and `ARTIST_TARGET_COUNT = 8` is a
+   new constant in `event-plan/constants.ts` — a rough sufficiency target, not a hard rule
+   (nothing stops publishing with more or fewer). Only shown while below target, same
+   `has_casting_call` gate.
+4. **Scenanteckningar / Stage notes** — unchanged from before: count of distinct performers
+   with an act missing both `stage_preparations` and `pick_up_cleaning`. Has an
+   "email all" button (performers only).
+5. **Matpreferenser / Food preferences** — **changed today**: now counts performers AND
+   staff/volunteers who need food but have no `dietary_category` set (previously performers
+   only), via the same `groupStaffRowsByPerson` helper the Event Planning page's own "Mat"
+   card uses, so the two can't silently disagree. Wording changed to "Saknas: X
+   personer"/"Missing: X people" (was "artister"/"artists") since it's no longer
+   artist-only. The "email all" button now also includes staff who need food and have an
+   email on file, not just performers.
+6. **Musik / Music** — unchanged: before/intermission always need a saved playlist,
+   afterparty is covered by either a booked DJ or its own playlist (`musicCoverage.ts`).
+7. **Nyckelroller / Key roles** — unchanged: missing `photographer`/`technician` role
+   assignment.
+8. **Sponsorer / Sponsors** — **new today**: `PRIZE_SLOT_COUNT (4) minus` confirmed
+   `event_sponsors` rows with `role === 'prize'`, only shown when that's > 0. Links to the
+   Event Planning page's Sponsors tab.
+
+**Not yet verified against a real event** — cards 1–3 (the casting ones) were built and
+type-checked/linted/built successfully, but there's no live event with a mix of pending/
+yes/confirmed applications and a `has_casting_call: true` flag to click through and confirm
+against right now. Next time there's a real event moving through casting, worth specifically
+checking: the pending/unconfirmed counts match what the Casting tab itself shows for that
+event, the cards disappear as applications move to `confirmed`/`declined`/get reviewed, and
+the artist-count card's `/8` disappears once 8 are booked (or stays if the org wants a
+different real target — `ARTIST_TARGET_COUNT` in `constants.ts` is a one-line change).
+
+### Dashboard layout + Event Planning status strip removed — 2026-09-21, after first demo
+
+Feedback from demoing the above to a fellow board member: too much of the same information
+in too many places risked becoming overwhelming instead of helpful.
+
+- **`EventProgressOverview` (the status-card strip) removed from the Event Planning page
+  entirely** — it was rendered at the top of every event's Event Planning tab
+  (`AdminEventPlan.tsx`), showing Bemanning/Sponsors/Mat/Musik/VIP status cards. Now that
+  the Dashboard's highlight cards cover food, stage notes, music, key roles and sponsors
+  with a direct link into the relevant tab, that strip was pure duplication — the actual
+  detail lives one click away either way, so showing it twice (once as a summary, once as
+  the actual working tab underneath it) added scanning cost without adding information. The
+  component file (`EventProgressOverview.tsx`) and its `missingMusicItems`-based "Musik"
+  card logic are left in place (still exported for `EventPlanTab` and reused by
+  `StaffingCoverageStrip.tsx`'s own inline coverage checks) — only the page-level render
+  call and its now-unused import were removed, in case a future page wants a full-detail
+  strip again.
+- **Dashboard section order swapped**: "What's missing" (the per-event highlight cards) now
+  renders above "New applications," not below — the highlight cards are the thing an admin
+  most needs to see first on login, especially since they were just moved toward the top of
+  the page. "New applications" dropped its rolling-window wording ("Nya ansökningar (senaste
+  7 dagarna)" → "Nya ansökningar") since the fixed 7-day filter itself didn't need
+  restating in the heading; the underlying `NEW_WINDOW_DAYS = 7` filter is unchanged, only
+  the visible heading text changed.
+
+### Sponsor card height mismatch — reported 2026-09-21, fixed same day via screenshot
+
+On the Event Planning → Sponsors tab, the "Pris-sponsorer" (prize sponsors) grid
+(`SponsorSlotGrid.tsx`, a 2-column `grid grid-cols-1 sm:grid-cols-2` of `EventSponsorRow`
+cards) showed the second row visibly taller than the first (row 2: "Mshop" + an empty
+slot; row 1: two real sponsors). A screenshot confirmed it wasn't the two earlier guesses
+(not an expanded note panel, not an odd-count lone card) — **actual root cause**: the
+empty-slot placeholder div in `SponsorSlotGrid.tsx` has an explicit `min-h-[52px]`, but a
+real `EventSponsorRow`'s collapsed summary line had no matching minimum (its natural height
+from padding+line-height alone, ~44px, is shorter). CSS Grid's `align-items: stretch`
+sizes an entire row to its tallest item — so a row pairing a real card with an empty slot
+got stretched to the placeholder's 52px, while an all-real row stayed at its shorter
+natural height, and rows never reconcile against each other since each row track sizes
+independently. **Fix**: added the same `min-h-[52px]` to `EventSponsorRow.tsx`'s summary
+line (`src/components/admin/event-plan/EventSponsorRow.tsx`), so every card — real or
+placeholder — has the same height floor and every row comes out the same regardless of
+which combination of real/empty cards lands in it.

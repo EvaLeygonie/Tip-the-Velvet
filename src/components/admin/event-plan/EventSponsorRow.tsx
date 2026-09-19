@@ -90,7 +90,11 @@ export const EventSponsorRow = ({
       style={{ padding: 0 }}
       onClick={() => setIsExpanded(!isExpanded)}
     >
-      <div className="p-3 flex items-center gap-3">
+      {/* min-h matches SponsorSlotGrid's empty-slot placeholder exactly — otherwise a real
+          card sharing a grid row with an empty slot gets stretched taller than a row of two
+          real cards (CSS Grid stretches the whole row to its tallest item), which looked
+          like an arbitrary height mismatch between rows. Direct feedback 2026-09-21. */}
+      <div className="p-3 flex items-center gap-3 min-h-[52px]">
         <div className="text-accent/50 shrink-0">
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
