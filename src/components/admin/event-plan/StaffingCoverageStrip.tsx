@@ -51,13 +51,22 @@ export const StaffingCoverageStrip = ({
   const { t } = useLanguage()
 
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+    // auto-fit/minmax instead of a fixed column count — every card is at least wide enough
+    // for the longest label ("Underhållning"/"Entertainment") to sit comfortably, and they
+    // all stay the same width as each other per row (minmax's 1fr) rather than each hugging
+    // its own short content, which left them feeling small/empty against how much row width
+    // a rigid 7-column grid actually gave them. Bigger and closer to square, direct
+    // feedback 2026-09-21.
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2">
       {COVERAGE_CARD_ROLES.map((role) => {
         // Distinct people, not rows — a volunteer holding two shifts is still one person,
         // not two, for headcount purposes (only role: 'volunteer' can actually produce more
         // than one row per person, but deduping unconditionally is a harmless no-op for
         // every other role).
         const count = new Set(staffRows.filter((r) => r.role === role).map((r) => r.staff.id)).size
+        // What the card actually displays — a plain headcount for every role except
+        // "dj"/Musik, which shows a 0–3 coverage count instead (see below).
+        let displayCount = count
 
         let filled = false
         let missing = false
@@ -69,11 +78,17 @@ export const StaffingCoverageStrip = ({
         let coveredByPlaylist = false
 
         if (role === 'dj') {
+          // Showing the DJ headcount here was misleading — a fully-covered event with 0 DJs
+          // (both playlists saved, afterparty covered by its own playlist too) displayed
+          // "0" despite being green. Shows 0–3 instead: one point per music "moment"
+          // (before/intermission/afterparty), matching missingMusicItems' own 3 possible
+          // gaps — 3/3 is what actually makes the card green. Direct feedback 2026-09-21.
           const missingMusic = missingMusicItems(t, staffRows, {
             hasBeforePlaylist,
             hasIntermissionPlaylist,
             hasAfterpartyPlaylist,
           })
+          displayCount = 3 - missingMusic.length
           coveredByPlaylist = count === 0 && hasAfterpartyPlaylist
           filled = missingMusic.length === 0
           missing = !filled
@@ -91,20 +106,25 @@ export const StaffingCoverageStrip = ({
         return (
           <div
             key={role}
-            className={`admin-panel velvet-surface p-2 flex flex-col gap-0.5 border ${
-              filled ? 'border-emerald-500/20' : missing ? 'border-amber-500/30' : 'border-accent/10'
+            className={`admin-panel velvet-surface p-4 flex flex-col items-center justify-center gap-1.5 text-center border ${
+              filled
+                ? 'border-emerald-500/20'
+                : missing
+                  ? 'border-amber-500/30'
+                  : 'border-accent/10'
             }`}
           >
-            <div className="text-[11px] font-heading text-foreground/60 truncate">
+            <div className="text-sm font-heading text-foreground/60 truncate w-full">
               {shortLabel(t, role)}
             </div>
-            <div className="flex items-center gap-1">
-              {coveredByPlaylist && <Music2 className="h-3 w-3 text-emerald-400 shrink-0" />}
-              {filled && !coveredByPlaylist && (
-                <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
-              )}
-              {missing && <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />}
-              <span className="text-sm text-foreground">{count}</span>
+            <div className="flex items-center justify-center gap-1.5">
+              {/* Checkmark/warning always leads, same as every other card — the music note
+                  is a trailing annotation on top of that (not a replacement for it), noting
+                  *how* it's covered rather than *whether* it is. Direct feedback 2026-09-21. */}
+              {filled && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />}
+              {missing && <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />}
+              <span className="text-xl text-foreground">{displayCount}</span>
+              {coveredByPlaylist && <Music2 className="h-4 w-4 text-emerald-400 shrink-0" />}
             </div>
           </div>
         )

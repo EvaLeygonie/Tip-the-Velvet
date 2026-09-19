@@ -1782,3 +1782,232 @@ thing — the admin can see the specifics on the Casting page itself.
   element, flush under the card header's "+" button regardless of hover state.
 
 Verified with `tsc -b`, `npm run lint`, and `npm run build` — all clean.
+
+### Standing organizers' food, and a "worked with us" Contacts filter — 2026-09-21
+
+Two independent pieces of direct feedback from the same message.
+
+**Organizer food.** The 4 show producers (`STANDING_ORGANIZERS` in `constants.ts` —
+already used for the VIP list) are physically present and eating at every event, but had
+no way to be tracked on the Food tab at all: they're a hardcoded name/email constant, not
+real people with a role assignment on any given event, so they never showed up anywhere
+`event_staff_volunteers`-based food logic looks. Rather than inventing something new, this
+finally puts `event_staff_food` to use — a table that already existed in the schema
+(correct columns, RLS already set to "authenticated can do everything") but had never been
+read or written by any application code, discovered while investigating this. It's keyed
+on `(event_id, staff_id)` with **no role at all**, which is exactly the shape organizers
+need (unlike `event_staff_volunteers`, which requires a role).
+
+- `STANDING_ORGANIZERS` gained a `defaultDiet` per person (`vegetarian` for Andrea,
+  `all_eater` for the other 3) — one source of truth for both the one-off backfill and new
+  events going forward.
+- `getEventOrganizerFood`/`updateOrganizerFoodInfo` (`eventService.ts`/`contactsService.ts`)
+  read/write `event_staff_food`, upserting on write since a row should always already exist
+  but this stays correct even if one doesn't.
+- `createEvent` now best-effort seeds all 4 organizers' food rows (via their email) the
+  moment a new event is created — wrapped in try/catch so a seeding hiccup can never fail
+  event creation itself.
+- `foodRoster.ts`'s `FoodPerson` gained a third `kind: 'organizer'`, merged into the same
+  roster/category/notes UI as performers and staff in `FoodTab.tsx` — same dropdown, same
+  editable notes field, same "doesn't need food" escape hatch, dispatched to the right
+  write function (`onStaffFoodUpdated` vs `onOrganizerFoodUpdated`) based on kind.
+- **One-time SQL required** (given to the user to run in the Supabase SQL editor, following
+  this project's usual read-only-access workflow): insert the 4 organizers into
+  `staff_volunteers` (they didn't exist as real rows before — confirmed via read-only query
+  before writing any code), then seed `event_staff_food` for every row in the *current*
+  `events` table (not `old_events` — archived shows don't need editable food tracking, and
+  `event_staff_food`'s FK only points at `events` anyway).
+- **Known side effect, not a bug**: since these 4 are now real `staff_volunteers` rows,
+  they'll also appear in the Contacts "Staff & volunteers" roster tab with role "Other" —
+  reasonable (they are staff), but flagged in case a nicer dedicated role label is wanted
+  later (would need a `staff_volunteer_type` enum addition, not done here to keep this
+  change schema-migration-free).
+- **Not extended to the Dashboard's food-missing card** — that still only counts performers
+  + regular staff. Since organizers are seeded with a default category immediately, they'd
+  essentially never show as "missing" anyway; revisit only if that assumption turns out
+  wrong in practice.
+
+**Contacts "worked with us" filter.** `staff_volunteers.worked_with` already existed
+(editable checkbox, badge display, auto-set on event archive) but had no way to filter by
+it. `ContactsToolbar.tsx` gained a generic optional on/off toggle slot
+(`toggleValue`/`onToggleChange`/`toggleLabel`) — neutral naming so any tab can reuse it
+later — wired up on the Staff & Volunteers tab only, filtering `filteredStaff` down to
+`worked_with: true` when active.
+
+Verified with `tsc -b`, `npm run lint`, and `npm run build` — all clean.
+
+### Food count bug fix + summary panel redesign — 2026-09-21
+
+Reported the day after the above shipped: the Food tab's "X people need food" count
+suddenly jumped to 35 for Pandaemonium (should have been ~21 — 9 performers + 11 staff +
+the 4 organizers, minus the ones marked "doesn't need food").
+
+**Root cause**: `event_staff_food` was not the clean, unused table it appeared to be —
+read-only introspection turned up **14 pre-existing rows, all for Pandaemonium**, mirroring
+real staff/volunteers (Arabela Youlten, Sam O Cleirigh, etc.) with dietary data that
+matched their real `event_staff_volunteers` rows almost exactly. This is leftover, stale
+data from the 2026-08-31 "Food/dietary redesign" — it looks like that work started
+migrating food onto this table before the app-code cutover was finished, then the app
+reverted to writing `event_staff_volunteers` directly, but the already-written
+`event_staff_food` rows for Pandaemonium were never cleaned up. `getEventOrganizerFood`
+queried "every row in `event_staff_food` for this event," which — now that the table
+actually holds data — pulled in those 14 stale rows as if they were organizers, on top of
+the real organizer/staff/performer counts.
+
+**Fixed** by scoping `getEventOrganizerFood` (`eventService.ts`) to the 4
+`STANDING_ORGANIZERS`' `staff_id`s specifically (an extra lookup query by email first, then
+filtering `event_staff_food` by those ids) instead of trusting the whole table to only
+ever contain organizer rows. The 14 stale Pandaemonium rows are still sitting in the table,
+untouched — they're harmless now that the query ignores them, but flagged here in case a
+future feature ever queries `event_staff_food` broadly again without knowing about them;
+deleting them wasn't done unprompted since it's a data change, not a code fix.
+
+**Also redesigned** the Food tab's top summary panel (`FoodTab.tsx`) — direct feedback that
+it looked "clumsy": the headline count and the per-category breakdown row are now centered
+(`text-center`/`justify-center`) instead of left-aligned with an indented second line, and
+the allergy/notes list below the divider is centered as a block (`max-w-md mx-auto`) while
+staying left-aligned internally for actual sentence readability.
+
+**Confirmed unaffected**: the VIP list (`STANDING_ORGANIZERS` rendered directly in
+`AdminEventPlan.tsx`'s VIP tab) reads the hardcoded constant, never `staff_volunteers` —
+adding the 4 organizers as real rows there has no effect on it. **One real, low-risk side
+effect worth knowing**: since they're now genuine `staff_volunteers` rows, they'll also
+appear as selectable candidates in the Staffing tab's "add someone to a role" search picker
+(role "Other") — not a bug, just a newly-reachable path that didn't exist before.
+
+**Repeats automatically for future events** — this was already built into the original
+feature and didn't need anything new: `createEvent` (`eventService.ts`) seeds all 4
+organizers' food rows the moment any new event is created via the app, so no manual
+re-insertion is needed going forward. Only existing events needed the one-off SQL backfill.
+
+Verified with `tsc -b`, `npm run lint`, and `npm run build` — all clean.
+
+### Stale row cleanup, Food tab notes made anonymous + 2-column, coverage cards enlarged — 2026-09-21
+
+Follow-up to the food count bug above, same day.
+
+- **The 14 stale `event_staff_food` rows were deleted** — confirmed redundant (matched
+  their real `event_staff_volunteers` data closely) and given a scoped delete (anyone
+  *not* one of the 4 `STANDING_ORGANIZERS`) to run, rather than doing it unprompted, since
+  it's a data change, not a code fix. `event_staff_food` is now organizer-only, as
+  intended.
+- **Food tab's allergy/notes list is anonymous now** — direct feedback: the board orders a
+  batch of pizzas balanced across diets, they don't need to know *who* specifically needs
+  gluten-free, just that a gluten-free pizza is needed. Names dropped entirely; each note
+  renders as its own small pill/badge (`rounded-full` chip) rather than a "Name: note" list
+  item — reads as a set of markers to plan around, not a roster.
+- **Summary panel split into 2 columns** (`grid grid-cols-1 sm:grid-cols-2`, stacks on
+  mobile) — left is the headcount/diet-breakdown stats (unchanged data, just relocated),
+  right is the allergy/notes markers. Direct feedback that the single wide stacked block
+  from the earlier centering pass still felt awkward/empty at the page's new (wider) width.
+- **Staffing tab's coverage cards enlarged** (`StaffingCoverageStrip.tsx`) — changed from a
+  rigid `grid-cols-4 sm:grid-cols-7` (equal columns regardless of content, leaving visibly
+  empty padding in short-label cards like "Musik"/"DJ") to `grid-cols-[repeat(auto-fit,
+  minmax(7.5rem,1fr))]`: every card is at least wide enough for the longest label
+  ("Underhållning"/"Entertainment") to sit comfortably, cards in the same row stay equal
+  width to each other via the `1fr`, and the row wraps to as many columns as actually fit
+  rather than forcing a fixed count. Padding/font/icon sizes bumped up and content
+  centered, for a squarer, more substantial tile look instead of the previous flat strip.
+
+Verified with `tsc -b`, `npm run lint`, and `npm run build` — all clean.
+
+### Music card's displayed number fixed + Food tab column headers matched — 2026-09-21
+
+Two more rounds of feedback after seeing the SQL cleanup and the resized cards live.
+
+**Music/"dj" card showed the wrong number.** It displayed the DJ headcount (`count`), which
+was misleading: an event with 0 booked DJs but both playlists saved (and the afterparty
+slot covered by its own playlist too) is *fully* covered — `missingMusicItems` already
+correctly marked it green — but the card still showed "0", since headcount and coverage
+are different things for this one card. Per direct feedback, it now shows a 0–3 **coverage
+count** instead — one point each for before/intermission/afterparty being covered, reusing
+`missingMusicItems`'s own list of gaps (`3 - missingMusic.length`) rather than introducing
+a second, possibly-drifting way to count the same 3 slots. 3/3 is what makes it green. This
+only changes what number is *displayed* for the `dj` role specifically
+(`StaffingCoverageStrip.tsx`'s new `displayCount`, separate from `count`) — every other
+role's card still shows a plain headcount as before.
+
+**Food tab's 2 columns didn't read as a matching pair.** The left column had an icon +
+`text-sm` headline ("X people need food"); the right had only a small uppercase mono
+label ("ALLERGIES & SPECIAL DIETS") with nothing else at that size — direct feedback that
+the two "didn't match" and felt misaligned. Gave the right column the same icon + `text-sm`
+header treatment as the left (a `TriangleAlert` icon, matching size/weight/centering) so
+both columns now read as two parallel headed sections instead of one column looking more
+"finished" than the other.
+
+Verified with `tsc -b`, `npm run lint`, and `npm run build` — all clean.
+
+### Default artist gage moved from 1000kr to 999kr — 2026-09-21
+
+Real-world discovery from the board: paying artists exactly 999kr (instead of 1000kr)
+lets it be paid out directly to them as a private person, once per person per year,
+instead of routing through an external billing/invoicing company that takes a large cut
+for service rendered — most artists represent only themselves and don't have their own
+company. Everyone on the board agreed to move the standard rate down to 999kr.
+Host/headliner fees are unaffected either way (already paid above 1000kr).
+
+- `CastingForm.tsx` (the public casting application): the pre-filled `requested_fee`
+  default is 999 now (was 1000) in all 3 places it's set, and the explanatory line above
+  the fee field now spells out *why* 999 specifically (paid out directly, once per person
+  per year, no invoicing company cut) instead of just stating the number.
+- The admin-side negotiation UI (`CastingApplicationRow.tsx`) needed no change — it
+  derives its starting offer from the applicant's own `requested_fee` rather than a second
+  hardcoded default, so it follows through automatically as new applications come in at 999.
+- **Existing data updated via SQL** (read-only access means the user runs it, not me):
+  `casting_applications.requested_fee`/`proposed_fee` and `event_performers.final_fee`,
+  scoped to `lineup_role = 'performer'` (excludes host/headliner by role, not just by
+  their already-higher fee value) **and** the exact current value of 1000 — never a blind
+  "set everyone to 999," so any already-custom-negotiated fee is left alone. Verified via
+  read-only query beforehand: exactly 40 confirmed performers and 25 pending casting
+  applications at exactly 1000kr, host at 3000kr, headliner at 2000kr — matched the
+  board's own description exactly before writing the update.
+
+### Casting form polish — 2026-09-21
+
+Three more small fixes to `CastingForm.tsx` from the same conversation.
+
+- **Phone number field looked broken** — root cause: the shared input-styling rule in
+  `index.css` (the one giving every text/email/date/etc. input its border, background and
+  focus glow) listed every input type *except* `input[type='tel']`, so the phone field
+  silently fell back to the unstyled browser default this whole time. Added `'tel'` to both
+  the base and `:focus` selector lists — a genuine pre-existing bug, not something this
+  session's work caused, and (checked) the only `type="tel"` input in the whole app, so the
+  fix is exactly scoped to the field that was actually broken.
+- **"Compensation & Logistics" title wasn't actually gold** — it used a `text-gold` class
+  that doesn't exist anywhere: not in `tailwind.config.js`'s color palette, not as a custom
+  CSS class. It was silently a no-op, always rendering as plain default text. Fixed by
+  switching to `text-accent` (this app's real gold token). **Not fixed everywhere** — a
+  broader grep turned up `text-gold` used in ~30 places across the codebase (JoinUsForm,
+  SponsorForm, etc.), all presumably suffering the same silent no-op. Left alone here since
+  it's a much bigger sweep than what was asked; worth a dedicated pass later if those other
+  spots turn out to have the same "not actually gold" problem.
+- **Title + explanation centered**, and the artist-name field moved back up next to the
+  language selector (their own `form-row-2-tight` row, replacing language's old
+  standalone row and the name field's old standalone spot further down the form).
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Event Planning layout: music grid + two-column Bemanning — 2026-09-21
+
+Now that the admin pages are wider (see the page-width normalization above), the
+Bemanning tab's single-column-of-long-rows layout looked clumsy — lots of empty
+horizontal space per row. Direct feedback: rework the Music section into a tighter grid,
+and split the rest of the tab into two columns.
+
+- **`EventMusicSection.tsx`** rearranged into a 2x2 grid: before-show and intermission
+  playlists side by side on row 1; afterparty playlist and a single DJ slot side by side
+  on row 2. The DJ slot dropped its header count badge + small "+" `InlineAddPicker`
+  button in favor of a sponsor-slot-style dashed placeholder ("Tom plats — lägg till DJ")
+  that opens the same picker when clicked — one visual pattern for "an empty slot you can
+  click to fill" shared with `SponsorSlotGrid.tsx`'s prize slots, instead of a second one.
+- **`InlineAddPicker.tsx`** gained an optional `renderTrigger` prop so a caller can swap
+  the default "+" circle for a custom trigger element while reusing all of the component's
+  existing open/search/select state and modal — used by the new DJ placeholder above.
+- **`AdminEventPlan.tsx`**'s Bemanning tab: the flat `ROLE_ORDER.map(...)` list is now
+  split into two columns (`grid-cols-1 lg:grid-cols-2`) — left is Volunteers (with their
+  shift subgroups via `VolunteerShiftGroups`), right is every other still-open role
+  (photographer/technician/doorman/stage kitten/entertainment/other) stacked. The shared
+  per-role header+picker+rows JSX was pulled out into one `renderStaffRoleSection`
+  function so both columns call the same code rather than duplicating it.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.

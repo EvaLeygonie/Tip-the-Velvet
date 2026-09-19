@@ -1,13 +1,16 @@
-import type { AdminEventPerformerRow } from '@/services/eventService'
+import type { AdminEventPerformerRow, AdminEventOrganizerFoodRow } from '@/services/eventService'
 import type { GroupedStaffPerson } from '@/lib/staffRowGrouping'
 import type { DietaryCategory } from '@/types/types'
 import { staffPersonRoleSummary, type Translate } from '@/lib/contactLabels'
 
-// One shared shape for "someone who might need feeding at this event," merging two tables
+// One shared shape for "someone who might need feeding at this event," merging three tables
 // that don't otherwise agree on field names: performers always eat (event_performers has no
 // needs_food flag — they're simply always counted) and their own submitted dietary_requirements
 // text is read-only here; staff/volunteers opt in via needs_food and their dietary_notes is
-// something the board writes themselves, so it's editable.
+// something the board writes themselves, so it's editable; standing organizers (the 4 show
+// producers, always present) are their own kind since they're written to a different table
+// (event_staff_food, not event_staff_volunteers — see getEventOrganizerFood's comment) but
+// are otherwise editable exactly like staff.
 export interface FoodPerson {
   key: string
   name: string
@@ -16,7 +19,7 @@ export interface FoodPerson {
   category: DietaryCategory | null
   notes: string | null
   notesEditable: boolean
-  kind: 'performer' | 'staff'
+  kind: 'performer' | 'staff' | 'organizer'
   performerId?: string
   staffId?: string
 }
@@ -24,7 +27,8 @@ export interface FoodPerson {
 export const buildFoodRoster = (
   t: Translate,
   performers: AdminEventPerformerRow[],
-  groupedStaff: GroupedStaffPerson[]
+  groupedStaff: GroupedStaffPerson[],
+  organizers: AdminEventOrganizerFoodRow[]
 ): FoodPerson[] => [
   ...performers.map(
     (p): FoodPerson => ({
@@ -52,6 +56,21 @@ export const buildFoodRoster = (
         notesEditable: true,
         kind: 'staff',
         staffId: p.staff.id,
+      })
+    ),
+  ...organizers
+    .filter((o) => o.needs_food)
+    .map(
+      (o): FoodPerson => ({
+        key: `organizer:${o.staff_id}`,
+        name: o.staff.name,
+        email: o.staff.email,
+        subtitle: t('Arrangör', 'Organizer'),
+        category: o.dietary_category,
+        notes: o.dietary_notes,
+        notesEditable: true,
+        kind: 'organizer',
+        staffId: o.staff_id,
       })
     ),
 ]

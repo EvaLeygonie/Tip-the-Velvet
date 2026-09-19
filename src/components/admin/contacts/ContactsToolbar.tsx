@@ -8,6 +8,12 @@ interface ContactsToolbarProps {
   onFilterChange?: (value: string) => void
   filterOptions?: { value: string; label: string }[]
   filterAllLabel?: string
+  // A single generic on/off filter slot — e.g. Staff & Volunteers' "already worked with us"
+  // toggle — kept optional and neutrally named so other tabs can reuse it later instead of
+  // each growing their own bespoke toggle button. Direct feedback 2026-09-21.
+  toggleValue?: boolean
+  onToggleChange?: (value: boolean) => void
+  toggleLabel?: string
   onAdd: () => void
   addLabel: string
 }
@@ -20,6 +26,9 @@ export const ContactsToolbar = ({
   onFilterChange,
   filterOptions,
   filterAllLabel,
+  toggleValue,
+  onToggleChange,
+  toggleLabel,
   onAdd,
   addLabel,
 }: ContactsToolbarProps) => {
@@ -46,6 +55,19 @@ export const ContactsToolbar = ({
               </option>
             ))}
           </select>
+        )}
+        {onToggleChange && (
+          <button
+            type="button"
+            onClick={() => onToggleChange(!toggleValue)}
+            className={
+              toggleValue
+                ? 'text-xs py-2 px-3 rounded border border-accent bg-accent text-black transition-colors shrink-0'
+                : 'text-xs py-2 px-3 rounded border border-accent/20 text-accent/70 hover:border-accent/50 hover:text-accent transition-colors shrink-0'
+            }
+          >
+            {toggleLabel}
+          </button>
         )}
       </div>
       <button type="button" onClick={onAdd} className="btn-gold text-xs py-2 px-4 shrink-0">

@@ -126,9 +126,7 @@ export const AdminContacts = () => {
   // Defaults to the shared selection once it's loaded (CurrentEventContext fetches
   // independently of this page's own data, so it may not be ready on first render).
   const [statusEventId, setStatusEventId] = useState('')
-  const [staffEventStatuses, setStaffEventStatuses] = useState<Record<string, StaffEventStatus>>(
-    {}
-  )
+  const [staffEventStatuses, setStaffEventStatuses] = useState<Record<string, StaffEventStatus>>({})
   const [confirmedSponsorIds, setConfirmedSponsorIds] = useState<Set<string>>(new Set())
   const [statusEventVenueId, setStatusEventVenueId] = useState<string | null>(null)
 
@@ -171,6 +169,7 @@ export const AdminContacts = () => {
 
   const [staffSearch, setStaffSearch] = useState('')
   const [staffRoleFilter, setStaffRoleFilter] = useState('')
+  const [staffWorkedWithOnly, setStaffWorkedWithOnly] = useState(false)
   const [sponsorSearch, setSponsorSearch] = useState('')
   const [sponsorTypeFilter, setSponsorTypeFilter] = useState('')
   const [venueSearch, setVenueSearch] = useState('')
@@ -292,6 +291,7 @@ export const AdminContacts = () => {
 
   const filteredStaff = staffRows.filter((r) => {
     if (staffRoleFilter && r.role !== staffRoleFilter) return false
+    if (staffWorkedWithOnly && !r.worked_with) return false
     if (!staffSearch) return true
     const q = staffSearch.toLowerCase()
     return [r.name, r.email, r.role_details].some((f) => f?.toLowerCase().includes(q))
@@ -310,7 +310,9 @@ export const AdminContacts = () => {
     return [r.name, r.location, r.contact_person, r.email].some((f) => f?.toLowerCase().includes(q))
   })
 
-  const clubRegionOptions = [...new Set(clubRows.map((r) => r.region).filter((r): r is string => !!r))]
+  const clubRegionOptions = [
+    ...new Set(clubRows.map((r) => r.region).filter((r): r is string => !!r)),
+  ]
     .sort()
     .map((region) => ({ value: region, label: region }))
 
@@ -424,7 +426,9 @@ export const AdminContacts = () => {
     if (!row.email) return
     setMailTarget({
       recipients: [{ name: row.name, email: row.email }],
-      defaultSubject: buildMailSubject(row.sponsor_type ? sponsorTypeLabel(row.sponsor_type) : null),
+      defaultSubject: buildMailSubject(
+        row.sponsor_type ? sponsorTypeLabel(row.sponsor_type) : null
+      ),
       defaultGreeting: `Hej ${row.name}!`,
       defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
     })
@@ -475,9 +479,7 @@ export const AdminContacts = () => {
   // Always safe to call regardless of current status: markStaffContacted only ever touches
   // invited_at, never status, so this can never downgrade a real interested/declined/
   // not_needed/confirmed answer.
-  const handleMailSent = async (
-    results: { recipient: { staffId?: string }; ok: boolean }[]
-  ) => {
+  const handleMailSent = async (results: { recipient: { staffId?: string }; ok: boolean }[]) => {
     setSelectedStaffIds(new Set())
     const staffIds = results
       .filter((r) => r.ok && r.recipient.staffId)
@@ -618,6 +620,9 @@ export const AdminContacts = () => {
                 onFilterChange={setStaffRoleFilter}
                 filterOptions={roleOptions}
                 filterAllLabel={t('Alla roller', 'All roles')}
+                toggleValue={staffWorkedWithOnly}
+                onToggleChange={setStaffWorkedWithOnly}
+                toggleLabel={t('Har jobbat med oss', 'Worked with us before')}
                 onAdd={() => setStaffDrafts((prev) => [blankStaff(), ...prev])}
                 addLabel={t('Lägg till', 'Add')}
               />
@@ -865,9 +870,7 @@ export const AdminContacts = () => {
                     isNew
                     onSave={handleSaveClub}
                     onDelete={handleDeleteClub}
-                    onCancelNew={(id) =>
-                      setClubDrafts((prev) => prev.filter((d2) => d2.id !== id))
-                    }
+                    onCancelNew={(id) => setClubDrafts((prev) => prev.filter((d2) => d2.id !== id))}
                   />
                 ))}
                 {filteredClubs.length === 0 && clubDrafts.length === 0 ? (

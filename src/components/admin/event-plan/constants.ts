@@ -1,15 +1,25 @@
-import type { VipEntryCategory, StaffVolunteerType, VolunteerShift } from '@/types/types'
+import type {
+  VipEntryCategory,
+  StaffVolunteerType,
+  VolunteerShift,
+  DietaryCategory,
+} from '@/types/types'
 
 // The 4 standing organizers — a fixed, rarely-changing set of real people, not worth a
 // table for (confirmed against the org's own real VIP list sheets, which list the same 4
-// people/emails every time). Shared between the VIP & Mat tab and the progress overview's
-// VIP count.
-export const STANDING_ORGANIZERS: { name: string; email: string }[] = [
-  { name: 'Andrea Jensen', email: 'andrealuciajensen@gmail.com' },
-  { name: 'Krister Johansson', email: 'lillqrill@gmail.com' },
-  { name: 'Eva Leygonie', email: 'eva.leygonie@hotmail.fr' },
-  { name: 'Pontus Lindhé', email: 'pontus.lioh@gmail.com' },
-]
+// people/emails every time). Shared between the VIP & Mat tab, the progress overview's VIP
+// count, and (2026-09-21) as the default dietary category seeded for each of them on every
+// event's Food tab — see getEventOrganizerFood/createEvent in eventService.ts. Real
+// staff_volunteers rows for these 4 people (same name/email as here) must exist in the DB
+// for the food-seeding join to find them; they were added via a one-off SQL script rather
+// than through the app, since the app has no "add a staff member with no event role" flow.
+export const STANDING_ORGANIZERS: { name: string; email: string; defaultDiet: DietaryCategory }[] =
+  [
+    { name: 'Andrea Jensen', email: 'andrealuciajensen@gmail.com', defaultDiet: 'vegetarian' },
+    { name: 'Krister Johansson', email: 'lillqrill@gmail.com', defaultDiet: 'all_eater' },
+    { name: 'Eva Leygonie', email: 'eva.leygonie@hotmail.fr', defaultDiet: 'all_eater' },
+    { name: 'Pontus Lindhé', email: 'pontus.lioh@gmail.com', defaultDiet: 'all_eater' },
+  ]
 
 export const VIP_CATEGORY_ORDER: VipEntryCategory[] = ['ticket_winner', 'contest_winner', 'other']
 
@@ -32,9 +42,9 @@ export const FIXED_STAFF_ROLES: StaffVolunteerType[] = ['photographer', 'technic
 export const ROLE_ORDER: StaffVolunteerType[] = [
   'photographer',
   'technician',
-  'doorman',
   'dj',
   'stage_kitten',
+  'doorman',
   'entertainment',
   'volunteer',
   'other',

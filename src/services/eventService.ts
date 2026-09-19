@@ -14,6 +14,7 @@ import type {
 } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow } from './databaseService'
+import { STANDING_ORGANIZERS } from '@/components/admin/event-plan/constants'
 
 export interface EventPerformerRow {
   display_order: number
@@ -49,9 +50,10 @@ export async function fetchEventsForAdmin(): Promise<Event[]> {
 // Used by the public Join Us form to decide what to show about volunteer recruitment —
 // returns the event regardless of staff_recruitment_open so the form can distinguish
 // "open" from "closed but still worth mentioning" rather than seeing nothing either way.
-export const getNearestUpcomingEvent = async (): Promise<
-  Pick<Event, 'id' | 'title' | 'event_start' | 'staff_recruitment_open'> | null
-> => {
+export const getNearestUpcomingEvent = async (): Promise<Pick<
+  Event,
+  'id' | 'title' | 'event_start' | 'staff_recruitment_open'
+> | null> => {
   const { data, error } = await supabase
     .from('events')
     .select('id, title, event_start, staff_recruitment_open')
@@ -147,7 +149,9 @@ export interface EventMarketingData {
 // The event-level half of the Marketing tab (AdminMarketing.tsx) — the templated posts'
 // content/image, plus event_start (for computing every post's suggested date) and each
 // fixed post type's own relevant date, in one light read.
-export const getEventMarketingData = async (eventId: string): Promise<EventMarketingData | null> => {
+export const getEventMarketingData = async (
+  eventId: string
+): Promise<EventMarketingData | null> => {
   const { data, error } = await supabase
     .from('events')
     .select(
@@ -266,6 +270,51 @@ export const getEventStaffForAdmin = async (eventId: string): Promise<AdminEvent
   return (data || []) as unknown as AdminEventStaffRow[]
 }
 
+export interface AdminEventOrganizerFoodRow {
+  staff_id: string
+  needs_food: boolean
+  dietary_category: DietaryCategory | null
+  dietary_notes: string | null
+  staff: StaffVolunteers
+}
+
+// The 4 standing organizers' food/dietary for one event — a separate table from
+// event_staff_volunteers (event_staff_food, keyed on event_id+staff_id with no role at
+// all) since organizers don't hold an event-specific staffing role the way everyone else
+// on the Food tab does; they're just always there. Rows are seeded automatically by
+// createEvent below and by the one-off backfill for events that already existed, so this
+// should normally never come back empty for an event created after 2026-09-21.
+//
+// Explicitly scoped to STANDING_ORGANIZERS' staff_ids rather than "every row in
+// event_staff_food for this event" — turns out that table already held 14 leftover rows
+// for Pandaemonium's real staff/volunteers (a stale mirror of their event_staff_volunteers
+// dietary data from an earlier, abandoned migration attempt, discovered 2026-09-21 while
+// chasing a food-count bug). Without this filter, those rows got counted as if they were
+// organizers, inflating "X people need food" well past reality.
+export const getEventOrganizerFood = async (
+  eventId: string
+): Promise<AdminEventOrganizerFoodRow[]> => {
+  const { data: organizerStaff, error: organizerError } = await supabase
+    .from('staff_volunteers')
+    .select('id')
+    .in(
+      'email',
+      STANDING_ORGANIZERS.map((o) => o.email)
+    )
+  if (organizerError) throw organizerError
+  const organizerIds = organizerStaff.map((sv) => sv.id)
+  if (organizerIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('event_staff_food')
+    .select('staff_id, needs_food, dietary_category, dietary_notes, staff:staff_volunteers(*)')
+    .eq('event_id', eventId)
+    .in('staff_id', organizerIds)
+
+  if (error) throw error
+  return (data || []) as unknown as AdminEventOrganizerFoodRow[]
+}
+
 export interface AdminEventSponsorRow {
   sponsor_id: string
   role: Sponsors['sponsor_type']
@@ -276,7 +325,9 @@ export interface AdminEventSponsorRow {
 
 // Confirmed sponsors for one event, joined with their roster contact info — same shape/
 // reasoning as getEventStaffForAdmin above.
-export const getEventSponsorsForAdmin = async (eventId: string): Promise<AdminEventSponsorRow[]> => {
+export const getEventSponsorsForAdmin = async (
+  eventId: string
+): Promise<AdminEventSponsorRow[]> => {
   const { data, error } = await supabase
     .from('event_sponsors')
     .select('sponsor_id, role, details, has_merch_table, sponsor:sponsors(*)')
@@ -487,9 +538,43 @@ export const setEventPhotographer = async (
 //=== CREATE ===//
 
 export const createEvent = async (eventData: CreateEventInput): Promise<Event> => {
-  const { data, error } = await supabase.from('events').insert([eventData]).single()
+  const { data: insertedRow, error } = await supabase.from('events').insert([eventData]).single()
 
   if (error) throw error
+  // supabase-js's array-literal insert() form loses the Row generic (typed as `never`) even
+  // once `error` is ruled out above — cast once here instead of on every field access below.
+  const data = insertedRow as Event
+
+  // Seed each standing organizer's food row on this brand-new event, so the Food tab has
+  // something to show/edit right away instead of starting empty for them every time —
+  // direct feedback 2026-09-21 that the 4 show producers eat at every event too. Looked up
+  // by email since staff_volunteers has no other link to STANDING_ORGANIZERS; best-effort
+  // only — a hiccup here shouldn't fail event creation itself, and existing events got the
+  // same seeding via a one-off SQL backfill instead of this code path.
+  try {
+    const { data: organizers, error: organizersError } = await supabase
+      .from('staff_volunteers')
+      .select('id, email')
+      .in(
+        'email',
+        STANDING_ORGANIZERS.map((o) => o.email)
+      )
+    if (organizersError) throw organizersError
+    if (organizers.length > 0) {
+      const foodRows = organizers.map((sv) => ({
+        event_id: data.id,
+        staff_id: sv.id,
+        needs_food: true,
+        dietary_category:
+          STANDING_ORGANIZERS.find((o) => o.email === sv.email)?.defaultDiet ?? 'all_eater',
+      }))
+      const { error: foodError } = await supabase.from('event_staff_food').insert(foodRows)
+      if (foodError) throw foodError
+    }
+  } catch (err) {
+    console.error('Kunde inte förifylla mat för arrangörer:', err)
+  }
+
   return data
 }
 

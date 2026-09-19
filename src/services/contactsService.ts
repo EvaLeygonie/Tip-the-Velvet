@@ -104,7 +104,9 @@ export const getStaffEventStatuses = async (
 export const getStaffRolesForEvent = async (
   eventId: string,
   staffId: string
-): Promise<{ role: StaffVolunteerType; roleDetails: string | null; shift: VolunteerShift | null }[]> => {
+): Promise<
+  { role: StaffVolunteerType; roleDetails: string | null; shift: VolunteerShift | null }[]
+> => {
   const { data, error } = await supabase
     .from('event_staff_volunteers')
     .select('role, role_details, shift')
@@ -216,7 +218,8 @@ export const confirmStaffForEvent = async (
   // PostgREST rejects .eq(col, null) outright (it tries to cast the literal "null" to the
   // column's type) — .is() is the only correct way to filter for an actual null.
   if (role === 'volunteer') {
-    existingQuery = shift === null ? existingQuery.is('shift', null) : existingQuery.eq('shift', shift)
+    existingQuery =
+      shift === null ? existingQuery.is('shift', null) : existingQuery.eq('shift', shift)
   }
 
   const { data: existing, error: selectError } = await existingQuery.maybeSingle()
@@ -537,6 +540,27 @@ export const updateStaffFoodInfoForPerson = async (
     .update(patch)
     .eq('event_id', eventId)
     .eq('staff_id', staffId)
+
+  if (error) throw error
+}
+
+// Standing organizers' write path — a separate table from event_staff_volunteers (see
+// getEventOrganizerFood's comment in eventService.ts), keyed on (event_id, staff_id) with
+// no role at all. Upserted rather than a plain update since every event *should* already
+// have a seeded row (createEvent seeds new events; the rest got a one-off SQL backfill),
+// but this stays correct even if one's somehow missing instead of silently no-op'ing.
+export const updateOrganizerFoodInfo = async (
+  eventId: string,
+  staffId: string,
+  patch: {
+    needs_food?: boolean
+    dietary_category?: DietaryCategory | null
+    dietary_notes?: string | null
+  }
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_staff_food')
+    .upsert({ event_id: eventId, staff_id: staffId, ...patch }, { onConflict: 'event_id,staff_id' })
 
   if (error) throw error
 }

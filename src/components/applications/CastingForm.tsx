@@ -62,7 +62,8 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
     phone: '',
     promo_image_id: null,
     photographer: '',
-    requested_fee: 1000,
+    // 999kr, not 1000 — see the explanatory text near the fee field for why.
+    requested_fee: 999,
     needs_travel_costs: false,
     needs_accommodation: false,
     accommodation_notes: '',
@@ -212,7 +213,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         instagram_link: formattedInstagram,
         other_link: formattedOther,
         agreed_to_terms: true,
-        requested_fee: formData.requested_fee || 1000,
+        requested_fee: formData.requested_fee || 999,
         needs_travel_costs: formData.needs_travel_costs || false,
         needs_accommodation: formData.needs_accommodation || false,
         accommodation_notes: formData.accommodation_notes,
@@ -253,7 +254,7 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         email: '',
         phone: '',
         promo_image_id: null,
-        requested_fee: 1000,
+        requested_fee: 999,
         needs_travel_costs: false,
         needs_accommodation: false,
         accommodation_notes: '',
@@ -333,34 +334,48 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
       <div className="gold-divider" />
 
       <form onSubmit={handleSubmit} className="form-stack">
-        {/* LANGUAGE */}
-        <fieldset className="form-field">
-          <label className="form-label-block">
-            {t('Kommunikationsspråk', 'Preferred Language')}
-          </label>
-          <div className="gap-6 h-[46px] flex items-center">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                name="preferred_lang"
-                checked={preferredLang === 'sv'}
-                onChange={() => handleLanguageChange('sv')}
-                className="accent-accent"
-              />
-              <span>Svenska</span>
+        {/* LANGUAGE & ARTIST NAME */}
+        <div className="form-row-2-tight">
+          <fieldset className="form-field">
+            <label className="form-label-block">
+              {t('Kommunikationsspråk', 'Preferred Language')}
             </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                name="preferred_lang"
-                checked={preferredLang === 'eng'}
-                onChange={() => handleLanguageChange('eng')}
-                className="accent-accent"
-              />
-              <span>English</span>
-            </label>
+            <div className="gap-6 h-[46px] flex items-center">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="preferred_lang"
+                  checked={preferredLang === 'sv'}
+                  onChange={() => handleLanguageChange('sv')}
+                  className="accent-accent"
+                />
+                <span>Svenska</span>
+              </label>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="preferred_lang"
+                  checked={preferredLang === 'eng'}
+                  onChange={() => handleLanguageChange('eng')}
+                  className="accent-accent"
+                />
+                <span>English</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div className="form-field">
+            <label className="form-label-block">{t('Artistnamn *', 'Artist Name *')}</label>
+            <input
+              type="text"
+              name="performer_name"
+              placeholder={t('Ditt artist namn', 'Your artist / stage name')}
+              value={formData.performer_name}
+              onChange={handleChange}
+              required
+            />
           </div>
-        </fieldset>
+        </div>
 
         {/* EMAIL & PHONE */}
         <div className="form-row-2-tight">
@@ -418,19 +433,6 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
         </div>
 
         <div className="gold-divider" />
-
-        {/* ARTIST INFO */}
-        <div className="form-field">
-          <label className="form-label-block">{t('Artistnamn *', 'Artist Name *')}</label>
-          <input
-            type="text"
-            name="performer_name"
-            placeholder={t('Ditt artist namn', 'Your artist / stage name')}
-            value={formData.performer_name}
-            onChange={handleChange}
-            required
-          />
-        </div>
 
         {/* PROMO IMAGE & TEXT */}
         <div className="form-row-2 items-stretch">
@@ -617,16 +619,16 @@ export const ApplicationCard = ({ event }: { event: Event }) => {
 
         <div className="gold-divider" />
 
-        <div className="flex flex-wrap items-baseline gap-2 mb-1">
-          <span className="text-sm font-semibold tracking-wide uppercase text-gold">
+        <div className="space-y-1.5 text-center">
+          <span className="block text-sm font-semibold tracking-wide uppercase text-accent">
             {t('Ekonomi & Logistik:', 'Compensation & Logistics:')}
           </span>
-          <span className="text-sm text-foreground/90 italic font-medium">
+          <div className="text-sm text-foreground/90 italic font-medium max-w-2xl mx-auto">
             {t(
-              'Vår standardersättning är 1000kr per akt.',
-              'Our standard compensation is 1000kr per act.'
+              'Vår standardersättning är 999kr per akt — vi lägger oss precis under 1000kr så att vi kan betala ut arvodet direkt till dig som privatperson (max en gång per person och år), utan att du behöver fakturera via egen firma eller en faktureringstjänst som annars tar en stor del av ersättningen.',
+              'Our standard compensation is 999kr per act — kept just under 1000kr so we can pay it out to you directly as a private person (once per person per year), without you needing to invoice through your own company or a billing service that would otherwise take a large cut.'
             )}
-          </span>
+          </div>
         </div>
 
         <div className="form-row-2 items-center mt-4">

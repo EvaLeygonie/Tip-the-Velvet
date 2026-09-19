@@ -60,15 +60,18 @@ const PlaylistField = ({ label, value, onSave }: PlaylistFieldProps) => {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t('Länk till spellista...', 'Link to playlist...')}
-          className="flex-1 h-10 text-sm bg-black/40 border border-accent/20 rounded px-2 text-foreground focus:border-accent"
+          className="flex-1 h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 text-foreground focus:border-accent"
         />
+        {/* A plain small icon button, not btn-gold — that class's min-h-[44px]/glow/hover-
+            scale is built for standalone actions and looked oversized and clumsy stacked
+            next to a compact playlist input. Direct feedback 2026-09-21. */}
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="btn-gold !w-10 h-10 aspect-square p-0 flex items-center justify-center shrink-0"
+          className="h-9 w-9 shrink-0 rounded border border-accent/20 bg-accent/10 text-accent flex items-center justify-center transition-colors hover:bg-accent hover:text-black disabled:opacity-50"
           title={t('Spara spellista', 'Save playlist')}
         >
-          <Save className="h-4 w-4" />
+          <Save className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>
@@ -76,13 +79,16 @@ const PlaylistField = ({ label, value, onSave }: PlaylistFieldProps) => {
 }
 
 // Music for the whole evening in one place — before doors, the intermission between acts, and
-// the afterparty — rather than scattered across tabs. The afterparty slot keeps its DJ roster
-// grouped underneath it specifically, since that's the one slot a human DJ can also cover (see
+// the afterparty — rather than scattered across tabs. The afterparty slot sits next to a
+// single DJ slot, since that's the one moment a human DJ can also cover (see
 // StaffingCoverageStrip's "DJ" card, which treats either a booked DJ or a saved playlist here
 // as coverage). Pulled out of the regular role-grouped list (which only renders a section when
 // it has confirmed rows) into its own always-visible section, since the playlist fields need
 // to be reachable even with 0 DJs assigned. Originally "Afterparty"-only, direct request
-// 2026-09-02; widened to all three slots per direct request 2026-09-19.
+// 2026-09-02; widened to all three slots per direct request 2026-09-19; laid out as 2x2 (two
+// playlists per row) with the DJ as a single sponsor-style slot instead of a header "+" picker,
+// direct feedback 2026-09-21 — the wide single-column layout wasted the extra page width the
+// admin pages just gained.
 export const EventMusicSection = ({
   djRows,
   eventId,
@@ -105,57 +111,61 @@ export const EventMusicSection = ({
         {t('Musik', 'Music')}
       </h5>
 
-      <PlaylistField
-        label={t('Före showen', 'Before the show')}
-        value={beforePlaylist}
-        onSave={onSaveBeforePlaylist}
-      />
-      <PlaylistField
-        label={t('Mellanakt', 'Intermission')}
-        value={intermissionPlaylist}
-        onSave={onSaveIntermissionPlaylist}
-      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <PlaylistField
+          label={t('Före showen', 'Before the show')}
+          value={beforePlaylist}
+          onSave={onSaveBeforePlaylist}
+        />
+        <PlaylistField
+          label={t('Mellanakt', 'Intermission')}
+          value={intermissionPlaylist}
+          onSave={onSaveIntermissionPlaylist}
+        />
+      </div>
 
-      <div className="space-y-1.5 pt-1">
-        <div className="flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <PlaylistField
+          label={t('Efterfest', 'Afterparty')}
+          value={afterpartyPlaylist}
+          onSave={onSaveAfterpartyPlaylist}
+        />
+
+        <div className="space-y-1.5">
           <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold">
-            {t('Efterfest (länk eller "DJ")', 'Afterparty (link or "DJ")')}
+            {t('DJ', 'DJ')}
           </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-              {djRows.length}
-            </span>
+          {djRows.length > 0 ? (
+            <div className="space-y-2">
+              {djRows.map((row) => (
+                <EventStaffRow
+                  key={row.id}
+                  row={row}
+                  eventId={eventId}
+                  onRemoved={onRemoved}
+                  onUpdated={onUpdated}
+                />
+              ))}
+            </div>
+          ) : (
             <InlineAddPicker
               fetchItems={fetchDjCandidates}
               onSelect={onAddDj}
               placeholder={t('Sök kontakt...', 'Search contacts...')}
               emptyMessage={t('Inga fler kontakter att lägga till.', 'No more contacts to add.')}
+              renderTrigger={(onOpen) => (
+                <button
+                  type="button"
+                  onClick={onOpen}
+                  className="w-full h-9 border border-dashed border-accent/15 rounded flex items-center justify-center text-xs text-foreground/30 italic hover:border-accent/40 hover:text-accent/60 transition-colors"
+                >
+                  {t('Tom plats — lägg till DJ', 'Empty slot — add DJ')}
+                </button>
+              )}
             />
-          </div>
-        </div>
-        <PlaylistField value={afterpartyPlaylist} onSave={onSaveAfterpartyPlaylist} />
-      </div>
-
-      {djRows.length > 0 ? (
-        <div className="space-y-2">
-          {djRows.map((row) => (
-            <EventStaffRow
-              key={row.id}
-              row={row}
-              eventId={eventId}
-              onRemoved={onRemoved}
-              onUpdated={onUpdated}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-foreground/40 italic pt-1">
-          {t(
-            'Ingen DJ tillagd — lägg till via Kontakter om en behövs.',
-            'No DJ added — add one via Contacts if one is needed.'
           )}
-        </p>
-      )}
+        </div>
+      </div>
     </div>
   )
 }

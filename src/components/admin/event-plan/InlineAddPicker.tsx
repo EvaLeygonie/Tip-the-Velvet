@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, Loader2, X } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -26,6 +26,11 @@ interface InlineAddPickerProps {
   onSelect: (item: InlineAddPickerItem) => Promise<void>
   placeholder: string
   emptyMessage: string
+  // Swaps the default small "+" circle for a caller-supplied trigger (e.g. a dashed
+  // placeholder slot matching SponsorSlotGrid's empty-slot look) while keeping this
+  // component's open/search/select state and modal untouched. Used by the Music section's
+  // DJ slot, direct feedback 2026-09-21.
+  renderTrigger?: (onOpen: () => void) => ReactNode
 }
 
 // A small "+" button that expands into a searchable list of existing contacts/sponsors —
@@ -44,6 +49,7 @@ export const InlineAddPicker = ({
   onSelect,
   placeholder,
   emptyMessage,
+  renderTrigger,
 }: InlineAddPickerProps) => {
   const { t } = useLanguage()
   const [isOpen, setIsOpen] = useState(false)
@@ -96,6 +102,7 @@ export const InlineAddPicker = ({
   )
 
   if (!isOpen) {
+    if (renderTrigger) return <>{renderTrigger(handleOpen)}</>
     return (
       <button
         type="button"

@@ -12,6 +12,7 @@ import {
   getEventSponsorsForAdmin,
   getEventActsForAdmin,
   getEventPlaylists,
+  getEventOrganizerFood,
   updatePerformerActOrder,
   updateEventPerformerDietary,
   updateEvent,
@@ -21,6 +22,7 @@ import type {
   AdminEventStaffRow,
   AdminEventSponsorRow,
   AdminEventActRow,
+  AdminEventOrganizerFoodRow,
   EventPlaylists,
 } from '@/services/eventService'
 import { getVipManualEntries, createVipManualEntry } from '@/services/vipListService'
@@ -32,6 +34,7 @@ import {
   confirmSponsorForEvent,
   setSponsorMerchTable,
   updateStaffFoodInfoForPerson,
+  updateOrganizerFoodInfo,
 } from '@/services/contactsService'
 import {
   staffRoleLabel,
@@ -99,6 +102,7 @@ export const AdminEventPlan = () => {
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [acts, setActs] = useState<AdminEventActRow[]>([])
   const [staffRows, setStaffRows] = useState<AdminEventStaffRow[]>([])
+  const [organizerFood, setOrganizerFood] = useState<AdminEventOrganizerFoodRow[]>([])
   const [sponsorRows, setSponsorRows] = useState<AdminEventSponsorRow[]>([])
   const [vipEntries, setVipEntries] = useState<VipManualEntry[]>([])
   const [vipDrafts, setVipDrafts] = useState<VipManualEntry[]>([])
@@ -126,20 +130,23 @@ export const AdminEventPlan = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const [performersData, actsData, staff, sponsors, vip, playlistData] = await Promise.all([
-          getEventPerformersForAdmin(selectedEventId),
-          getEventActsForAdmin(selectedEventId),
-          getEventStaffForAdmin(selectedEventId),
-          getEventSponsorsForAdmin(selectedEventId),
-          getVipManualEntries(selectedEventId),
-          getEventPlaylists(selectedEventId),
-        ])
+        const [performersData, actsData, staff, sponsors, vip, playlistData, organizers] =
+          await Promise.all([
+            getEventPerformersForAdmin(selectedEventId),
+            getEventActsForAdmin(selectedEventId),
+            getEventStaffForAdmin(selectedEventId),
+            getEventSponsorsForAdmin(selectedEventId),
+            getVipManualEntries(selectedEventId),
+            getEventPlaylists(selectedEventId),
+            getEventOrganizerFood(selectedEventId),
+          ])
         setPerformers(performersData.performers)
         setActs(actsData)
         setStaffRows(staff)
         setSponsorRows(sponsors)
         setVipEntries(vip)
         setPlaylists(playlistData)
+        setOrganizerFood(organizers)
       } catch (err) {
         console.error('Kunde inte hämta eventplan:', err)
       } finally {
@@ -201,6 +208,62 @@ export const AdminEventPlan = () => {
     }
   const fetchDjCandidates = fetchStaffCandidatesForRole('dj')
   const handleAddDj = handleAddStaffToRole('dj')
+
+  // One role section (header + count + add-picker + rows), shared by both columns of the
+  // Bemanning tab's split layout below — kept as a plain function rather than a component so
+  // it can close over staffRows/selectedEventId directly, same as the rest of this page.
+  const renderStaffRoleSection = (role: StaffVolunteerType) => {
+    const rows = staffRows.filter((r) => r.role === role)
+    // Distinct people for the badge count — a volunteer on 2 shifts produces 2 rows here but
+    // is still 1 person (same reasoning as StaffingCoverageStrip/EventProgressOverview);
+    // every other role can only ever hold 1 row per person already, so this is a no-op there.
+    const distinctCount = new Set(rows.map((r) => r.staff.id)).size
+
+    return (
+      <div key={role} className="space-y-2">
+        <div className="flex items-center justify-between border-b border-accent/10 pb-2">
+          <h5 className="font-decorative text-base text-foreground/80">
+            {staffRoleLabel(t, role)}
+          </h5>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
+              {distinctCount}
+            </span>
+            <InlineAddPicker
+              fetchItems={fetchStaffCandidatesForRole(role)}
+              onSelect={handleAddStaffToRole(role)}
+              placeholder={t('Sök kontakt...', 'Search contacts...')}
+              emptyMessage={t('Inga fler kontakter att lägga till.', 'No more contacts to add.')}
+            />
+          </div>
+        </div>
+        {rows.length === 0 ? (
+          <p className="text-xs text-foreground/40 italic pt-1">
+            {t('Ingen tillagd ännu.', 'Nobody added yet.')}
+          </p>
+        ) : role === 'volunteer' ? (
+          <VolunteerShiftGroups
+            rows={rows}
+            eventId={selectedEventId}
+            onRemoved={handleStaffRowRemoved}
+            onUpdated={handleStaffRowUpdated}
+          />
+        ) : (
+          <div className="space-y-2">
+            {rows.map((row) => (
+              <EventStaffRow
+                key={row.id}
+                row={row}
+                eventId={selectedEventId}
+                onRemoved={handleStaffRowRemoved}
+                onUpdated={handleStaffRowUpdated}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // Sponsors tab's equivalents — Pris-sponsorer confirms straight into role: 'prize'.
   // Sales is independent of role (see SponsorSlotGrid.tsx's own comment): picking someone
@@ -315,6 +378,25 @@ export const AdminEventPlan = () => {
     }
   }
 
+  // Standing organizers' write path — event_staff_food instead of event_staff_volunteers
+  // (see getEventOrganizerFood's comment), so it patches its own separate bit of state.
+  const handleOrganizerFoodUpdated = async (
+    staffId: string,
+    patch: {
+      needs_food?: boolean
+      dietary_category?: DietaryCategory | null
+      dietary_notes?: string | null
+    }
+  ) => {
+    try {
+      await updateOrganizerFoodInfo(selectedEventId, staffId, patch)
+      setOrganizerFood((prev) => prev.map((o) => (o.staff_id === staffId ? { ...o, ...patch } : o)))
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
+  }
+
   const handleSaveVipEntry = async (id: string, patch: Partial<VipManualEntry>, isNew: boolean) => {
     if (isNew) {
       const created = await createVipManualEntry({
@@ -391,7 +473,6 @@ export const AdminEventPlan = () => {
   // printing, so without this the file looks fine on paper but edge-to-edge and cramped
   // when just opened and viewed in a browser (e.g. on an iPad at the door).
   const handleDownloadVipList = () => {
-
     const section = (title: string, items: VipListItem[]) => {
       if (items.length === 0) return ''
       return `
@@ -819,8 +900,10 @@ export const AdminEventPlan = () => {
                   eventTitle={eventTitle}
                   performers={performers}
                   groupedStaff={groupedStaff}
+                  organizers={organizerFood}
                   onUpdatePerformerDietary={handleUpdatePerformerDietary}
                   onStaffFoodUpdated={handleStaffFoodUpdated}
+                  onOrganizerFoodUpdated={handleOrganizerFoodUpdated}
                 />
               )}
 
@@ -863,7 +946,9 @@ export const AdminEventPlan = () => {
                           onMoveUp={() => handleMoveAct(index, -1)}
                           onMoveDown={() => handleMoveAct(index, 1)}
                           onUpdated={(id, patch) =>
-                            setActs((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+                            setActs((prev) =>
+                              prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+                            )
                           }
                         />
                       ))}
@@ -902,62 +987,19 @@ export const AdminEventPlan = () => {
                       fetchDjCandidates={fetchDjCandidates}
                       onAddDj={handleAddDj}
                     />
-                    {ROLE_ORDER.filter((role) => role !== 'dj').map((role) => {
-                      const rows = staffRows.filter((r) => r.role === role)
-                      // Distinct people for the badge count — a volunteer on 2 shifts
-                      // produces 2 rows here but is still 1 person (same reasoning as
-                      // StaffingCoverageStrip/EventProgressOverview); every other role can
-                      // only ever hold 1 row per person already, so this is a no-op there.
-                      const distinctCount = new Set(rows.map((r) => r.staff.id)).size
-
-                      return (
-                        <div key={role} className="space-y-2 pt-2">
-                          <div className="flex items-center justify-between border-b border-accent/10 pb-2">
-                            <h5 className="font-decorative text-base text-foreground/80">
-                              {staffRoleLabel(t, role)}
-                            </h5>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-                                {distinctCount}
-                              </span>
-                              <InlineAddPicker
-                                fetchItems={fetchStaffCandidatesForRole(role)}
-                                onSelect={handleAddStaffToRole(role)}
-                                placeholder={t('Sök kontakt...', 'Search contacts...')}
-                                emptyMessage={t(
-                                  'Inga fler kontakter att lägga till.',
-                                  'No more contacts to add.'
-                                )}
-                              />
-                            </div>
-                          </div>
-                          {rows.length === 0 ? (
-                            <p className="text-xs text-foreground/40 italic pt-1">
-                              {t('Ingen tillagd ännu.', 'Nobody added yet.')}
-                            </p>
-                          ) : role === 'volunteer' ? (
-                            <VolunteerShiftGroups
-                              rows={rows}
-                              eventId={selectedEventId}
-                              onRemoved={handleStaffRowRemoved}
-                              onUpdated={handleStaffRowUpdated}
-                            />
-                          ) : (
-                            <div className="space-y-2">
-                              {rows.map((row) => (
-                                <EventStaffRow
-                                  key={row.id}
-                                  row={row}
-                                  eventId={selectedEventId}
-                                  onRemoved={handleStaffRowRemoved}
-                                  onUpdated={handleStaffRowUpdated}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
+                    {/* Volunteers (with their shifts) get their own column, split out from
+                        every other role that just needs filling — the two lists have very
+                        different shapes (shift subgroups vs. a flat headcount) and were
+                        wasting the page's new width stacked in one long column. Direct
+                        feedback 2026-09-21. */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6 items-start mt-6 pt-6 border-t border-accent/10">
+                      <div className="space-y-4">{renderStaffRoleSection('volunteer')}</div>
+                      <div className="space-y-4">
+                        {ROLE_ORDER.filter((role) => role !== 'dj' && role !== 'volunteer').map(
+                          renderStaffRoleSection
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
 
