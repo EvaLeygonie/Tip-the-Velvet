@@ -2195,3 +2195,50 @@ a sponsor to a category ("Övriga sponsorer") that didn't really exist as its ow
   purely decorative.
 
 Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Marketing tab: two columns, artist posts grouped together — 2026-09-22
+
+Direct feedback: split the Marketing tab into two columns (`grid-cols-1 lg:grid-cols-2`,
+same pattern as the Bemanning tab's split earlier this session). Left column keeps the
+chronological "Standardinlägg" checklist, minus the two artist-reveal post types. Right
+column groups everything artist-related — the "Artister släpps snart!" post, the artist
+overview cards, then "Artisterna, alla tillsammans" — followed by "Egna inlägg" and
+"Säsongsidéer" underneath.
+
+- `AdminMarketing.tsx`: pulled the per-item `<StandardPostRow>` lookup/render logic (which
+  used to live inline inside one big `.map()` over `POST_SCHEDULE`) out into a standalone
+  `renderPostRow(item)` function, so both columns can render individual rows by type without
+  duplicating the suggested-date/generateText/record lookup. The left column maps over
+  `POST_SCHEDULE` filtered to exclude `artists_soon`/`artists_all_together`; the right column
+  calls `renderPostRow` directly for those two specific items around the artist cards.
+- `renderArtistsSection`'s own "Artister" heading was removed (it would have duplicated the
+  new column's own heading now wrapping it) — just the "Postat på sociala medier" badge and
+  the card list remain.
+- `EventAssetPanel` stays full-width above the two-column split, same as `StaffingCoverageStrip`/
+  `EventMusicSection` sitting above the Bemanning tab's own two-column split.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Marketing tab follow-up: shared checkbox label, artist row overflow fix — 2026-09-22
+
+- **"Postat på sociala medier"/"Posted on social media"** moved off its one-off spot above
+  the artist cards and onto both columns' own header row (next to "Standardinlägg" and next
+  to "Artister"), since every row in both columns — `StandardPostRow`, `ArtistOverviewCard`,
+  `CustomPostRow` — ends in the same kind of "posted" checkbox; one label per column now
+  covers all of them instead of describing just the artist section.
+- **Fixed artist rows overflowing their column** (`ArtistOverviewCard.tsx`): the name element
+  was `shrink-0 max-w-[160px]` — a fixed width sized for the old full-width single-column
+  layout — while every action icon after it was also `shrink-0`, so the row's total content
+  width no longer fit inside the narrower half-column and overflowed. Changed the name to
+  `flex-1 min-w-0` with `truncate`, the standard "one flexible truncating item, everything
+  else fixed" pattern already used elsewhere in this codebase (`ShowProgramRow`,
+  `EventStaffRow`) — it now genuinely ellipsizes at whatever width the column actually gives
+  it, not a fixed pixel count.
+- **Removed the "Reveal now" button** (direct feedback, explicitly "for starters" — more of
+  this row is expected to change) — the date input for scheduling a reveal stays, since
+  `sortArtistsForReveal` still reads it for ordering the list, but the manual instant-reveal
+  action and its now-dead `handleRevealNow` function (and the `togglePerformerVisibility`
+  import it alone used) are gone. Note: this was the only way to flip `is_revealed` on from
+  this card — until a replacement lands, revealing an artist has no UI path here.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.

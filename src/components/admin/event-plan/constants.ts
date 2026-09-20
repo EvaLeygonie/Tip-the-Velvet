@@ -63,8 +63,12 @@ export const VOLUNTEER_SHIFT_ORDER: VolunteerShift[] = ['driving', 'setup', 'gue
 // events that already existed, via a one-off SQL backfill instead of this code path — same
 // split as STANDING_ORGANIZERS' food seeding above. setNumber is just the sensible default
 // position; the board can freely drag any of these to the other set afterward.
+// "Board" used to be baked into costume_intro/costume_winners' own title text
+// ("Board: Presentera kostymtävlingen") — moved down into ShowProgramRow.tsx's subtitle
+// instead (next to "Fast moment"/"Constant segment"), so the title itself reads clean.
+// Direct feedback 2026-09-22.
 export const SHOW_CONSTANT_SEGMENTS: { key: string; title: string; setNumber: 1 | 2 }[] = [
-  { key: 'costume_intro', title: 'Board: Presentera kostymtävlingen', setNumber: 1 },
-  { key: 'costume_winners', title: 'Board: Presentera kostymtävlingens vinnare', setNumber: 2 },
+  { key: 'costume_intro', title: 'Presentera kostymtävlingen', setNumber: 1 },
+  { key: 'costume_winners', title: 'Presentera kostymtävlingens vinnare', setNumber: 2 },
   { key: 'thank_you', title: 'Alla artister upp på scen för att tacka', setNumber: 2 },
 ]

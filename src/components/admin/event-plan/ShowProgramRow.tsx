@@ -50,6 +50,13 @@ export const ShowProgramRow = ({
   const { t } = useLanguage()
   const isManual = row.performer === null
   const isConstant = row.is_constant
+  // The two costume-competition constants are board appearances specifically (the
+  // thank-you bow isn't) — "Board" used to be baked into the title itself
+  // ("Board: Presentera kostymtävlingen"), moved down into the subtitle instead so the
+  // title reads clean and "Board" sits next to "Fast moment"/"Constant segment" where the
+  // rest of the row's metadata already lives. Direct feedback 2026-09-22.
+  const isBoardSegment =
+    row.constant_key === 'costume_intro' || row.constant_key === 'costume_winners'
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
@@ -174,7 +181,9 @@ export const ShowProgramRow = ({
           {isManual ? (
             <div className="text-xs text-accent/50 italic truncate">
               {isConstant
-                ? t('Fast moment', 'Constant segment')
+                ? isBoardSegment
+                  ? t('Board - Fast moment', 'Board - Constant segment')
+                  : t('Fast moment', 'Constant segment')
                 : t('Eget moment', 'Custom segment')}
             </div>
           ) : (

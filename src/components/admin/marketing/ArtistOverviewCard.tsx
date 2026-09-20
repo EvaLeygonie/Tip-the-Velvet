@@ -10,7 +10,6 @@ import {
   extractInstagramHandle,
   formatEventDateVenueLine,
 } from '@/lib/utils'
-import { togglePerformerVisibility } from '@/services/performerService'
 import {
   setPerformerRevealed,
   setPerformerSocialPosted,
@@ -96,7 +95,9 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
     if (row.eventPhotographer) {
       sections.push(`📷 ${toDoubleStruck('Photographer:')} ${row.eventPhotographer}`)
     }
-    sections.push(`🔗 ${toDoubleStruck('Profil/Profile:')} ${SITE_URL}/performers/${performer.slug}`)
+    sections.push(
+      `🔗 ${toDoubleStruck('Profil/Profile:')} ${SITE_URL}/performers/${performer.slug}`
+    )
     const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
     if (dateVenue) sections.push(dateVenue)
     if (event.ticketUrl) {
@@ -110,28 +111,6 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte kopiera.', 'Could not copy.'))
-    }
-  }
-
-  // A first-time performer's public profile is gated behind performers.is_approved
-  // (defaults false from confirm_and_migrate_artist) independently of
-  // event_performers.is_revealed — flipping only the latter would leave them invisible, so
-  // both writes happen together whenever the profile isn't already approved.
-  const handleRevealNow = async () => {
-    setIsRevealing(true)
-    try {
-      const writes: Promise<unknown>[] = [setPerformerRevealed(event.id, performer.id, true)]
-      if (!performer.is_approved) {
-        writes.push(togglePerformerVisibility(performer.id, true))
-      }
-      await Promise.all(writes)
-      toast.success(t('Artisten är avslöjad!', 'Artist revealed!'))
-      onChanged(performer.id, { is_revealed: true })
-    } catch (err) {
-      console.error(err)
-      toast.error(t('Kunde inte avslöja artisten.', 'Could not reveal the artist.'))
-    } finally {
-      setIsRevealing(false)
     }
   }
 
@@ -181,15 +160,12 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
         )}
       </div>
 
-      <h4 className="font-decorative text-sm text-foreground truncate shrink-0 max-w-[160px]">
+      <h4 className="font-decorative text-sm text-foreground truncate flex-1 min-w-0">
         {performer.performer_name}
       </h4>
 
       {badgeRoleLabel && (
-        <span
-          title={badgeRoleLabel}
-          className="shrink-0 flex items-center text-accent"
-        >
+        <span title={badgeRoleLabel} className="shrink-0 flex items-center text-accent">
           <RoleIcon className="h-3.5 w-3.5" />
         </span>
       )}
@@ -226,7 +202,11 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
           type="button"
           onClick={handleCopyInstagramHandle}
           disabled={!instagramHandle}
-          title={instagramHandle ? t('Kopiera Instagram-tagg', 'Copy Instagram tag') : t('Ingen Instagram-länk', 'No Instagram link')}
+          title={
+            instagramHandle
+              ? t('Kopiera Instagram-tagg', 'Copy Instagram tag')
+              : t('Ingen Instagram-länk', 'No Instagram link')
+          }
           className="p-1.5 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
         >
           <AtSign className="h-3.5 w-3.5" />
@@ -247,23 +227,12 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
             {t('Avslöjad', 'Revealed')}
           </button>
         ) : (
-          <>
-            <input
-              type="date"
-              value={row.reveal_date ?? ''}
-              onChange={(e) => handleRevealDateChange(e.target.value)}
-              className="h-7 w-[128px] text-xs bg-black/40 border border-accent/20 rounded px-2 text-white"
-            />
-            <button
-              type="button"
-              onClick={handleRevealNow}
-              disabled={isRevealing}
-              className="btn-gold text-[11px] py-1 px-2.5 min-h-0 flex items-center gap-1.5 whitespace-nowrap"
-            >
-              {isRevealing && <Loader2 className="h-3 w-3 animate-spin" />}
-              {t('Avslöja nu', 'Reveal now')}
-            </button>
-          </>
+          <input
+            type="date"
+            value={row.reveal_date ?? ''}
+            onChange={(e) => handleRevealDateChange(e.target.value)}
+            className="h-7 w-[128px] text-xs bg-black/40 border border-accent/20 rounded px-2 text-white"
+          />
         )}
 
         <input

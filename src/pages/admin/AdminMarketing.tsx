@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -19,7 +19,12 @@ import {
   type FixedMarketingPost,
   type CustomMarketingPost,
 } from '@/services/marketingService'
-import { POST_SCHEDULE, computeSuggestedDate, toLocalIsoDate } from '@/lib/marketingSchedule'
+import {
+  POST_SCHEDULE,
+  computeSuggestedDate,
+  toLocalIsoDate,
+  type PostScheduleItem,
+} from '@/lib/marketingSchedule'
 import { EventAssetPanel } from '@/components/admin/marketing/EventAssetPanel'
 import { ArtistOverviewCard } from '@/components/admin/marketing/ArtistOverviewCard'
 import { StandardPostRow } from '@/components/admin/marketing/StandardPostRow'
@@ -38,7 +43,9 @@ import { CustomPostRow } from '@/components/admin/marketing/CustomPostRow'
 
 // artists_all_together is handled separately below (it needs the performers list, not just
 // EventMarketingData like the rest of these) — not included in this generic lookup.
-const TEMPLATE_BUILDERS: Partial<Record<FixedMarketingPostType, (event: EventMarketingData) => string>> = {
+const TEMPLATE_BUILDERS: Partial<
+  Record<FixedMarketingPostType, (event: EventMarketingData) => string>
+> = {
   save_the_date: buildSaveTheDateText,
   artists_soon: buildArtistsSoonText,
   facebook_event: buildFacebookEventText,
@@ -126,7 +133,10 @@ export const AdminMarketing = () => {
       await setMarketingPostStatus(selectedEventId, postType, isPosted)
     } catch (err) {
       console.error('Kunde inte spara status:', err)
-      setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], isPosted: !isPosted } }))
+      setPostRecords((prev) => ({
+        ...prev,
+        [postType]: { ...prev[postType], isPosted: !isPosted },
+      }))
       toast.error(t('Kunde inte spara.', 'Could not save.'))
     }
   }
@@ -135,7 +145,10 @@ export const AdminMarketing = () => {
     setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], content } }))
   }
 
-  const handlePostDateChanged = async (postType: FixedMarketingPostType, postDate: string | null) => {
+  const handlePostDateChanged = async (
+    postType: FixedMarketingPostType,
+    postDate: string | null
+  ) => {
     const previous = postRecords[postType].postDate
     setPostRecords((prev) => ({ ...prev, [postType]: { ...prev[postType], postDate } }))
     try {
@@ -152,16 +165,44 @@ export const AdminMarketing = () => {
     setEventData((prev) => (prev ? { ...prev, hashtags: newHashtags } : prev))
   }
 
+  // One schedule item's row — pulled out of the old single `.map()` so both columns of the
+  // split layout below can render individual rows by type (artists_soon/
+  // artists_all_together move into the Artists column) without duplicating this lookup
+  // logic. Direct feedback 2026-09-22.
+  const renderPostRow = (item: PostScheduleItem) => {
+    const suggestedDate = eventData?.eventStart
+      ? computeSuggestedDate(eventData.eventStart, item.offset)
+      : null
+    const builder = TEMPLATE_BUILDERS[item.type]
+    const generateText = eventData
+      ? item.type === 'artists_all_together'
+        ? () => buildArtistsAllTogetherText(eventData, sortArtistsForReveal(performers))
+        : builder
+          ? () => builder(eventData)
+          : null
+      : null
+    const record = postRecords[item.type]
+
+    return (
+      <StandardPostRow
+        key={`${selectedEventId}-${item.type}`}
+        eventId={selectedEventId}
+        postType={item.type}
+        label={language === 'sv' ? item.labelSv : item.labelEng}
+        suggestedDateIso={suggestedDate ? toLocalIsoDate(suggestedDate) : null}
+        savedPostDate={record.postDate}
+        isPosted={record.isPosted}
+        savedContent={record.content}
+        generateText={generateText}
+        onToggle={(checked) => handleTogglePost(item.type, checked)}
+        onSaved={(content) => handlePostContentSaved(item.type, content)}
+        onDateChanged={(postDate) => handlePostDateChanged(item.type, postDate)}
+      />
+    )
+  }
+
   const renderArtistsSection = () => (
     <div key="artists-section" className="space-y-2 pt-2">
-      <div className="flex items-center justify-between">
-        <h3 className="font-decorative text-lg text-foreground/90">{t('Artister', 'Artists')}</h3>
-        {performers.length > 0 && (
-          <span className="text-[11px] text-foreground/50">
-            {t('Postat på sociala medier', 'Posted on social media')}
-          </span>
-        )}
-      </div>
       {performers.length === 0 ? (
         <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
           {t(
@@ -209,105 +250,105 @@ export const AdminMarketing = () => {
             />
           )}
 
-          <div className="space-y-2">
-            <h3 className="font-decorative text-lg text-foreground/90">
-              {t('Standardinlägg', 'Standard posts')}
-            </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            {/* Everything artist-related (the two reveal posts either side of the artist
+                overview cards) plus the follow-up custom/seasonal posts get their own column,
+                separate from the chronological standard-post checklist — direct feedback
+                2026-09-22. */}
             <div className="space-y-2">
-              {POST_SCHEDULE.map((item) => {
-                const suggestedDate = eventData?.eventStart
-                  ? computeSuggestedDate(eventData.eventStart, item.offset)
-                  : null
-                const builder = TEMPLATE_BUILDERS[item.type]
-                const generateText = eventData
-                  ? item.type === 'artists_all_together'
-                    ? () => buildArtistsAllTogetherText(eventData, sortArtistsForReveal(performers))
-                    : builder
-                      ? () => builder(eventData)
-                      : null
-                  : null
-                const record = postRecords[item.type]
-
-                return (
-                  <Fragment key={item.type}>
-                    <StandardPostRow
-                      key={`${selectedEventId}-${item.type}`}
-                      eventId={selectedEventId}
-                      postType={item.type}
-                      label={language === 'sv' ? item.labelSv : item.labelEng}
-                      suggestedDateIso={suggestedDate ? toLocalIsoDate(suggestedDate) : null}
-                      savedPostDate={record.postDate}
-                      isPosted={record.isPosted}
-                      savedContent={record.content}
-                      generateText={generateText}
-                      onToggle={(checked) => handleTogglePost(item.type, checked)}
-                      onSaved={(content) => handlePostContentSaved(item.type, content)}
-                      onDateChanged={(postDate) => handlePostDateChanged(item.type, postDate)}
-                    />
-                    {item.type === 'artists_soon' && renderArtistsSection()}
-                  </Fragment>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-decorative text-lg text-foreground/90">
-                {t('Egna inlägg', 'Custom posts')}
-              </h3>
-              {!showCustomPostForm && (
-                <button
-                  type="button"
-                  onClick={() => setShowCustomPostForm(true)}
-                  className="flex items-center gap-1.5 text-[11px] py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {t('Lägg till', 'Add')}
-                </button>
-              )}
-            </div>
-
-            {showCustomPostForm && eventData && (
-              <CustomPostForm
-                event={eventData}
-                onCreated={(post) => {
-                  setCustomPosts((prev) => [...prev, post])
-                  setShowCustomPostForm(false)
-                }}
-                onCancel={() => setShowCustomPostForm(false)}
-              />
-            )}
-
-            {customPosts.length === 0 && !showCustomPostForm ? (
-              <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-6">
-                {t('Inga egna inlägg tillagda ännu.', 'No custom posts added yet.')}
+              <div className="flex items-center justify-between">
+                <h3 className="font-decorative text-lg text-foreground/90">
+                  {t('Standardinlägg', 'Standard posts')}
+                </h3>
+                <span className="text-[11px] text-foreground/50">
+                  {t('Postat på sociala medier', 'Posted on social media')}
+                </span>
               </div>
-            ) : (
               <div className="space-y-2">
-                {customPosts.map((post) => (
-                  <CustomPostRow
-                    key={post.id}
-                    post={post}
-                    onChanged={(updated) =>
-                      setCustomPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
-                    }
-                    onDeleted={(id) =>
-                      setCustomPosts((prev) => prev.filter((p) => p.id !== id))
-                    }
-                  />
-                ))}
+                {POST_SCHEDULE.filter(
+                  (item) => item.type !== 'artists_soon' && item.type !== 'artists_all_together'
+                ).map(renderPostRow)}
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="space-y-2">
-            <h3 className="font-decorative text-lg text-foreground/90">
-              {t('Säsongsidéer', 'Seasonal ideas')}
-            </h3>
-            <div className="admin-panel velvet-surface p-4 text-sm text-foreground/60 space-y-1">
-              <p>🎄 {t('Jul-inlägg', 'Christmas post')}</p>
-              <p>💝 {t('Alla hjärtans dag-inlägg', "Valentine's Day post")}</p>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-decorative text-lg text-foreground/90">
+                    {t('Artister', 'Artists')}
+                  </h3>
+                  <span className="text-[11px] text-foreground/50">
+                    {t('Postat på sociala medier', 'Posted on social media')}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {renderPostRow(POST_SCHEDULE.find((i) => i.type === 'artists_soon')!)}
+                  {renderArtistsSection()}
+                  {renderPostRow(POST_SCHEDULE.find((i) => i.type === 'artists_all_together')!)}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-decorative text-lg text-foreground/90">
+                    {t('Egna inlägg', 'Custom posts')}
+                  </h3>
+                  {!showCustomPostForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomPostForm(true)}
+                      className="flex items-center gap-1.5 text-[11px] py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {t('Lägg till', 'Add')}
+                    </button>
+                  )}
+                </div>
+
+                {showCustomPostForm && eventData && (
+                  <CustomPostForm
+                    event={eventData}
+                    onCreated={(post) => {
+                      setCustomPosts((prev) => [...prev, post])
+                      setShowCustomPostForm(false)
+                    }}
+                    onCancel={() => setShowCustomPostForm(false)}
+                  />
+                )}
+
+                {customPosts.length === 0 && !showCustomPostForm ? (
+                  <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-6">
+                    {t('Inga egna inlägg tillagda ännu.', 'No custom posts added yet.')}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {customPosts.map((post) => (
+                      <CustomPostRow
+                        key={post.id}
+                        post={post}
+                        onChanged={(updated) =>
+                          setCustomPosts((prev) =>
+                            prev.map((p) => (p.id === updated.id ? updated : p))
+                          )
+                        }
+                        onDeleted={(id) =>
+                          setCustomPosts((prev) => prev.filter((p) => p.id !== id))
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-decorative text-lg text-foreground/90">
+                  {t('Säsongsidéer', 'Seasonal ideas')}
+                </h3>
+                <div className="admin-panel velvet-surface p-4 text-sm text-foreground/60 space-y-1">
+                  <p>🎄 {t('Jul-inlägg', 'Christmas post')}</p>
+                  <p>💝 {t('Alla hjärtans dag-inlägg', "Valentine's Day post")}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
