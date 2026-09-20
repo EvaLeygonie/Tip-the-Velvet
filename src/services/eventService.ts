@@ -323,6 +323,16 @@ export interface AdminEventSponsorRow {
   role: Sponsors['sponsor_type']
   details: string | null
   has_merch_table: boolean
+  // Whether this prize sponsor has actually handed over their competition prize yet — only
+  // meaningful for role: 'prize', but stored on every row same as has_merch_table. Drives
+  // the Dashboard's 2-state "Sponsorer" card: red/orange while slots are unfilled, then a
+  // second orange state once all 4 are filled but not all have this set. 2026-09-22.
+  has_gotten_price: boolean
+  // Separate from `details` (which is the prize note) — a merch table's own practical
+  // logistics note (space needed, etc.), independent of what prize a sponsor is providing.
+  // Direct feedback 2026-09-22: the two were sharing one field, which didn't make sense for
+  // a sponsor who's both a prize sponsor and running a table.
+  merch_table_notes: string | null
   sponsor: Sponsors
 }
 
@@ -333,7 +343,9 @@ export const getEventSponsorsForAdmin = async (
 ): Promise<AdminEventSponsorRow[]> => {
   const { data, error } = await supabase
     .from('event_sponsors')
-    .select('sponsor_id, role, details, has_merch_table, sponsor:sponsors(*)')
+    .select(
+      'sponsor_id, role, details, has_merch_table, has_gotten_price, merch_table_notes, sponsor:sponsors(*)'
+    )
     .eq('event_id', eventId)
 
   if (error) throw error

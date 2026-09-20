@@ -5,8 +5,10 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { sponsorTypeLabel } from '@/lib/contactLabels'
 import {
   updateEventSponsorDetails,
+  updateEventSponsorMerchNotes,
   removeSponsorFromEvent,
   setSponsorMerchTable,
+  setSponsorGotPrice,
 } from '@/services/contactsService'
 import type { AdminEventSponsorRow } from '@/services/eventService'
 
@@ -14,12 +16,12 @@ interface EventSponsorRowProps {
   row: AdminEventSponsorRow
   eventId: string
   onRemoved: (sponsorId: string) => void
-  onUpdated: (sponsorId: string, details: string | null) => void
+  onUpdated: (sponsorId: string, patch: Partial<AdminEventSponsorRow>) => void
   onMerchToggled: (sponsorId: string, value: boolean) => void
 }
 
 // Mirrors EventStaffRow.tsx — Event Planning's operational view of one confirmed
-// sponsorship, editing the logistics note and removing them from this event. Everything
+// sponsorship, editing the logistics notes and removing them from this event. Everything
 // else about the contact is still only editable via Contacts.
 export const EventSponsorRow = ({
   row,
@@ -29,10 +31,15 @@ export const EventSponsorRow = ({
   onMerchToggled,
 }: EventSponsorRowProps) => {
   const { t } = useLanguage()
+  const isPrizeSponsor = row.role === 'prize'
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isTogglingMerch, setIsTogglingMerch] = useState(false)
-  const [draft, setDraft] = useState(row.details ?? '')
+  const [isTogglingPrice, setIsTogglingPrice] = useState(false)
+  const [draft, setDraft] = useState({
+    details: row.details ?? '',
+    merchTableNotes: row.merch_table_notes ?? '',
+  })
 
   const handleToggleMerch = async () => {
     setIsTogglingMerch(true)
@@ -53,12 +60,39 @@ export const EventSponsorRow = ({
     }
   }
 
+  // Whether this prize sponsor has actually handed over their competition prize yet — we
+  // need all 4 at the latest on the event day, so this is what lets the Dashboard's
+  // "Sponsorer" card tell "slots filled" apart from "prizes actually in hand". Direct
+  // feedback 2026-09-22.
+  const handleToggleGotPrice = async () => {
+    setIsTogglingPrice(true)
+    try {
+      const next = !row.has_gotten_price
+      await setSponsorGotPrice(eventId, row.sponsor_id, next)
+      onUpdated(row.sponsor_id, { has_gotten_price: next })
+      toast.success(
+        next
+          ? t('Markerad som mottaget pris.', 'Marked as prize received.')
+          : t('Pris ej längre markerat som mottaget.', 'Prize no longer marked as received.')
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    } finally {
+      setIsTogglingPrice(false)
+    }
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const value = draft.trim() || null
-      await updateEventSponsorDetails(eventId, row.sponsor_id, value)
-      onUpdated(row.sponsor_id, value)
+      const details = draft.details.trim() || null
+      const merchTableNotes = draft.merchTableNotes.trim() || null
+      await Promise.all([
+        updateEventSponsorDetails(eventId, row.sponsor_id, details),
+        updateEventSponsorMerchNotes(eventId, row.sponsor_id, merchTableNotes),
+      ])
+      onUpdated(row.sponsor_id, { details, merch_table_notes: merchTableNotes })
       toast.success(t('Sparat!', 'Saved!'))
       setIsExpanded(false)
     } catch (err) {
@@ -106,6 +140,19 @@ export const EventSponsorRow = ({
             {sponsorTypeLabel(t, row.role)}
           </span>
         )}
+        {isPrizeSponsor && (
+          <span
+            className={`text-[10px] border rounded-full px-2 py-0.5 shrink-0 ${
+              row.has_gotten_price
+                ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+            }`}
+          >
+            {row.has_gotten_price
+              ? t('Pris mottaget', 'Prize received')
+              : t('Väntar på pris', 'Awaiting prize')}
+          </span>
+        )}
         {row.has_merch_table && (
           <span className="text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-2 py-0.5 shrink-0">
             {t('Säljbord', 'Merch table')}
@@ -123,24 +170,57 @@ export const EventSponsorRow = ({
           className="border-t border-accent/10 bg-black/20 p-4 space-y-3 cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
-          <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={row.has_merch_table}
-              onChange={handleToggleMerch}
-              disabled={isTogglingMerch}
-              className="h-4 w-4 accent-accent"
-            />
-            {t('Sätter upp säljbord på eventet', 'Setting up a merch table at the event')}
-          </label>
+          <div className="flex items-center gap-6 flex-wrap">
+            <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={row.has_merch_table}
+                onChange={handleToggleMerch}
+                disabled={isTogglingMerch}
+                className="h-4 w-4 accent-accent"
+              />
+              {t('Har säljbord', 'Has merch table')}
+            </label>
+            {isPrizeSponsor && (
+              <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={row.has_gotten_price}
+                  onChange={handleToggleGotPrice}
+                  disabled={isTogglingPrice}
+                  className="h-4 w-4 accent-accent"
+                />
+                {t('Pris hämtat', 'Price acquired')}
+              </label>
+            )}
+          </div>
           <div className="space-y-1">
-            <label className="form-label-gold block">{t('Anteckning', 'Note')}</label>
+            <label className="form-label-gold block">
+              {isPrizeSponsor
+                ? t('Anteckning om priset', 'Note about the prize')
+                : t('Anteckning', 'Note')}
+            </label>
             <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              value={draft.details}
+              onChange={(e) => setDraft({ ...draft, details: e.target.value })}
               className="w-full min-h-[70px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
             />
           </div>
+          {row.has_merch_table && (
+            <div className="space-y-1">
+              <label className="form-label-gold block">
+                {t(
+                  'Anteckning om säljbordet (t.ex. platsbehov)',
+                  'Merch table note (e.g. space needed)'
+                )}
+              </label>
+              <textarea
+                value={draft.merchTableNotes}
+                onChange={(e) => setDraft({ ...draft, merchTableNotes: e.target.value })}
+                className="w-full min-h-[70px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
+              />
+            </div>
+          )}
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
             <button type="button" onClick={handleRemove} className="btn-red text-xs py-2 px-4">
               {t('Ta bort från event', 'Remove from event')}

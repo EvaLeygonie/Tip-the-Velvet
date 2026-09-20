@@ -268,8 +268,8 @@ export const AdminEventPlan = () => {
   // Sponsors tab's equivalents — Pris-sponsorer confirms straight into role: 'prize'.
   // Sales is independent of role (see SponsorSlotGrid.tsx's own comment): picking someone
   // already confirmed under some other role just flips has_merch_table, without touching
-  // their role; picking someone brand new to the event confirms them with role: 'sales'
-  // (their most likely actual relationship) and sets the flag in the same action.
+  // their role; picking someone brand new to the event confirms them with role: null and
+  // sets the flag in the same action (see handleAddSalesSponsor below for why not 'sales').
   const fetchPrizeCandidates = async (): Promise<InlineAddPickerItem[]> => {
     const all = await getSponsors()
     const alreadyIds = new Set(
@@ -295,12 +295,26 @@ export const AdminEventPlan = () => {
   }
   const handleAddSalesSponsor = async (item: InlineAddPickerItem): Promise<void> => {
     const alreadyConfirmed = sponsorRows.some((r) => r.sponsor_id === item.id)
-    if (alreadyConfirmed) {
-      await setSponsorMerchTable(selectedEventId, item.id, true)
-    } else {
-      await confirmSponsorForEvent(selectedEventId, item.id, 'sales', null)
-      await setSponsorMerchTable(selectedEventId, item.id, true)
+    if (!alreadyConfirmed) {
+      // Sales-table status is independent of role (see SponsorSlotGrid.tsx's own comment)
+      // — role is left untouched (null) rather than tagged 'sales', so unchecking the
+      // table later just leaves them in "Övriga sponsorer" (a real column of its own) instead
+      // of stuck under a 'sales' role with no column to show in. Direct feedback 2026-09-22.
+      await confirmSponsorForEvent(selectedEventId, item.id, null, null)
     }
+    await setSponsorMerchTable(selectedEventId, item.id, true)
+    setSponsorRows(await getEventSponsorsForAdmin(selectedEventId))
+    toast.success(t('Tillagd!', 'Added!'))
+  }
+  const fetchOtherCandidates = async (): Promise<InlineAddPickerItem[]> => {
+    const all = await getSponsors()
+    const alreadyIds = new Set(sponsorRows.map((r) => r.sponsor_id))
+    return all
+      .filter((s) => !alreadyIds.has(s.id))
+      .map((s) => ({ id: s.id, label: s.name, sublabel: s.email }))
+  }
+  const handleAddOtherSponsor = async (item: InlineAddPickerItem): Promise<void> => {
+    await confirmSponsorForEvent(selectedEventId, item.id, 'other', null)
     setSponsorRows(await getEventSponsorsForAdmin(selectedEventId))
     toast.success(t('Tillagd!', 'Added!'))
   }
@@ -1076,9 +1090,9 @@ export const AdminEventPlan = () => {
                   onRemoved={(sponsorId) =>
                     setSponsorRows((prev) => prev.filter((r) => r.sponsor_id !== sponsorId))
                   }
-                  onUpdated={(sponsorId, details) =>
+                  onUpdated={(sponsorId, patch) =>
                     setSponsorRows((prev) =>
-                      prev.map((r) => (r.sponsor_id === sponsorId ? { ...r, details } : r))
+                      prev.map((r) => (r.sponsor_id === sponsorId ? { ...r, ...patch } : r))
                     )
                   }
                   onMerchToggled={(sponsorId, value) =>
@@ -1092,6 +1106,8 @@ export const AdminEventPlan = () => {
                   onAddPrizeSponsor={handleAddPrizeSponsor}
                   fetchSalesCandidates={fetchSalesCandidates}
                   onAddSalesSponsor={handleAddSalesSponsor}
+                  fetchOtherCandidates={fetchOtherCandidates}
+                  onAddOtherSponsor={handleAddOtherSponsor}
                   onRequestVipForSalesperson={handleRequestVipForSalesperson}
                 />
               )}

@@ -95,7 +95,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const [submitting, setSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
-  // Save bar visibility logic — if the user has scrolled to the bottom of the form, hide the save bar so it doesn't cover the submit button.
   const [reachedFormEnd, setReachedFormEnd] = useState(false)
   const [saveBarHeight, setSaveBarHeight] = useState(80)
   const saveBarRef = useRef<HTMLDivElement | null>(null)
@@ -507,8 +506,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
       <p className="subtitle">
         {t(
-          'Här kan du se och uppdatera information inför eventet, såsom din artist promo, låtar för din akt och logistik. Du kan komma tillbaka till denna länk när som helst.',
-          'Here you can see and update your information for the event, like your promo, tracks for your act and logistics. You can return to this link anytime.'
+          'Här kan du se och uppdatera information inför eventet. Du kan komma tillbaka till denna länk när som helst.',
+          'Here you can see and update your information for the event. You can return to this link anytime.'
         )}
       </p>
 
@@ -872,7 +871,9 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-field">
-              <label className="form-label-block text-xs">{t('Matpreferens', 'Food preference')}</label>
+              <label className="form-label-block text-xs">
+                {t('Matpreferens', 'Food preference')}
+              </label>
               <select
                 name="dietary_category"
                 value={formData.dietary_category}

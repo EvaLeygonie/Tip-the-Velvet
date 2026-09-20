@@ -381,7 +381,9 @@ export type Database = {
           created_at: string
           details: string | null
           event_id: string
+          has_gotten_price: boolean
           has_merch_table: boolean
+          merch_table_notes: string | null
           role: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id: string
         }
@@ -389,7 +391,9 @@ export type Database = {
           created_at?: string
           details?: string | null
           event_id?: string
+          has_gotten_price?: boolean
           has_merch_table?: boolean
+          merch_table_notes?: string | null
           role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
         }
@@ -397,7 +401,9 @@ export type Database = {
           created_at?: string
           details?: string | null
           event_id?: string
+          has_gotten_price?: boolean
           has_merch_table?: boolean
+          merch_table_notes?: string | null
           role?: Database["public"]["Enums"]["sponsor_type"] | null
           sponsor_id?: string
         }

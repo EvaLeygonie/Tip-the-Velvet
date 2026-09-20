@@ -418,10 +418,13 @@ export const AdminDashboard = () => {
             const missingRoles = FIXED_STAFF_ROLES.filter(
               (role) => !ov.staffRows.some((r) => r.role === role)
             )
-            const missingSponsorSlots = Math.max(
-              0,
-              PRIZE_SLOT_COUNT - ov.sponsorRows.filter((r) => r.role === 'prize').length
-            )
+            // Two-state "Sponsorer" card, 2026-09-22: red/orange while the 4 prize slots
+            // aren't all filled, then a second orange state once they are but not everyone
+            // has actually handed over their prize yet (needed at the latest on the event
+            // day) — only turning green once both are true.
+            const prizeSponsors = ov.sponsorRows.filter((r) => r.role === 'prize')
+            const missingSponsorSlots = Math.max(0, PRIZE_SLOT_COUNT - prizeSponsors.length)
+            const missingSponsorPrices = prizeSponsors.filter((r) => !r.has_gotten_price).length
             // One generic "unfinished casting business" flag rather than a breakdown —
             // direct feedback 2026-09-21: the specific reason doesn't need to show on the
             // Dashboard, just that the Casting page has something to look at. True while
@@ -511,6 +514,17 @@ export const AdminDashboard = () => {
                 key: 'sponsors',
                 label: t('Sponsorer', 'Sponsors'),
                 value: t(`Saknas: ${missingSponsorSlots}`, `Missing: ${missingSponsorSlots}`),
+                icon: <Gift className="h-4 w-4 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'sponsors'),
+              })
+            } else if (missingSponsorPrices > 0) {
+              cards.push({
+                key: 'sponsors',
+                label: t('Sponsorer', 'Sponsors'),
+                value: t(
+                  `Väntar på pris: ${missingSponsorPrices}`,
+                  `Awaiting prize: ${missingSponsorPrices}`
+                ),
                 icon: <Gift className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'sponsors'),
               })

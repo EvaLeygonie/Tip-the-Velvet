@@ -134,7 +134,7 @@ export const ArtistBookingPortal = () => {
           label={t('Tillbaka till Casting', 'Back to Casting')}
         />
       )}
-      <div className="max-w-2xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight mt-4">{application.performer_name}</h1>

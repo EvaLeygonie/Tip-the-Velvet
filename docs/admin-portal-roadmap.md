@@ -2119,3 +2119,79 @@ Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all cl
   own button row without prop-drilling a toolbar slot through the board component.
 
 Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Four unrelated fixes: language persistence, form widths, a real crash — 2026-09-20
+
+Batch of small, independent fixes from direct feedback, none touching the Show Planning
+work above.
+
+- **Language reset on refresh (and any hard navigation)** — `LanguageContext.tsx` held the
+  chosen language in plain `useState`, never persisted anywhere, so a page reload (or any
+  link that isn't client-side React Router navigation — e.g. opening a casting/booking
+  portal link straight from an email) silently reset it to Swedish. Now read from/written to
+  `localStorage` (key `ttv-language`), guarded with try/catch for private-browsing/blocked
+  storage. Client-side navigation was never actually the bug — `LanguageProvider` already
+  wraps `BrowserRouter` in `App.tsx` — the "sometimes navigation" symptom was just a hard
+  reload in disguise.
+- **A real crash, not a regression from this session's other work**: selecting "Performance"
+  in `GalleryEditor.tsx`'s image-upload type dropdown threw `can't access property
+  "performer_name", row.performer is null` and blanked the whole page. Root cause: the
+  `public_performers` view (`getEventPerformers` reads from it) filters
+  `WHERE is_approved = true`, so a booked performer who isn't yet marked approved comes back
+  as `performer: null` in the join — confirmed via read-only query that 3 of Pandaemonium's
+  9 booked performers are `is_approved: false`. `EventLineup.tsx` already guards this exact
+  case (`if (!artist) return null`) on the public lineup; `GalleryEditor.tsx`'s artist
+  dropdown was the one place that didn't. Fixed by filtering out null-performer rows before
+  rendering the dropdown, same as EventLineup already does.
+- **Narrow forms widened to match the rest of the site**: `CastingCall.tsx` (the public
+  casting application) and `ArtistBookingPortal.tsx` (the artist's post-confirmation
+  logistics form) were stuck at `max-w-3xl`/`max-w-2xl` respectively, well under this site's
+  usual `max-w-4xl` content width (`About.tsx`, `Dresscode.tsx`, `HomePage.tsx`) — both bumped
+  to `max-w-4xl`. `AddPerformer.tsx` ("Lägg till artist"/"Add performer", at
+  `/hall-of-fame-form`) is an admin-only page in practice (`ProtectedRoute`-gated) despite its
+  legacy public-looking URL, so it was bumped to `max-w-5xl` to match the admin-page width
+  tier established earlier this session (`AdminContacts`/`AdminCasting`/`AdminEventPlan`/
+  `AdminDashboard`) instead of the public site's `max-w-4xl`. (`AddPerformer.tsx` was later
+  reverted back to `max-w-3xl` on its own follow-up feedback — its single-column form looked
+  sparse at `max-w-5xl`.)
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Sponsor tab overhaul: prize-price tracking, split notes, real Övriga column — 2026-09-22
+
+Direct feedback after reviewing the Sponsors tab: the board needs all 4 prize sponsors to
+actually hand over their competition prize (not just be confirmed) by the event day, sales-
+table sign-up was conflating two different kinds of notes, and unchecking a sales table sent
+a sponsor to a category ("Övriga sponsorer") that didn't really exist as its own thing.
+
+- **Schema**: `event_sponsors` gained `has_gotten_price boolean not null default false` and
+  `merch_table_notes text`. Regenerated `database.types.ts` via the Supabase CLI, same
+  read-only-token workflow established earlier this session.
+- **Dashboard's "Sponsorer" card is now two states**: red/orange with a missing-slot count
+  while any of the 4 prize slots are unfilled, then a second orange state ("Väntar på
+  pris: N"/"Awaiting prize: N") once all 4 are filled but not everyone has handed their prize
+  over yet — only disappearing (green "Allt klart!") once both are true.
+  `EventSponsorRow.tsx` gained a "Har lämnat pris till kostymtävlingen"/"Has provided the
+  costume competition prize" checkbox, shown only for `role: 'prize'` rows, plus a small
+  status pill next to the sponsor's name so it's visible without expanding the row.
+- **Split the notes field**: `details` (the existing field) stays as the prize note; new
+  `merch_table_notes` is a separate field for a sales table's own practical logistics (space
+  needed, etc.), shown only when `has_merch_table` is true. A sponsor who's both a prize
+  sponsor and running a table now gets two independent, correctly-labeled fields instead of
+  one shared "Anteckning" box.
+- **Fixed the "jumps to a nonexistent category" bug**: adding a brand-new sponsor via the
+  sales-table picker previously tagged them `role: 'sales'` (`handleAddSalesSponsor` in
+  `AdminEventPlan.tsx`) — has_merch_table is supposed to be independent of role (same "one
+  can be in several spots" pattern as prize sponsors), so unchecking the table later left
+  them stranded under a role with no column of its own. Now leaves `role: null` untouched
+  for a fresh sales-only sponsor, and **"Övriga sponsorer" is a real, always-visible column**
+  (`SponsorSlotGrid.tsx`) with its own header/count/"+" picker (new
+  `fetchOtherCandidates`/`handleAddOtherSponsor`, confirming with `role: 'other'`), sitting
+  next to Säljbord as two side-by-side columns — not a leftover bucket only rendered when
+  non-empty.
+- **Empty prize slots are now clickable**: reused `InlineAddPicker`'s `renderTrigger` prop
+  (built earlier this session for the Music section's DJ slot) so each dashed "Tom plats"
+  placeholder opens the same add-sponsor picker as the header's own "+", instead of being
+  purely decorative.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.

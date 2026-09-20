@@ -252,11 +252,18 @@ export const GalleryEditor = ({
                   className="admin-select !w-full h-[46px]"
                 >
                   <option value="">-- {t('Välj artist...', 'Select artist...')} --</option>
-                  {eventPerformers.map((row) => (
-                    <option key={row.performer.id} value={row.performer.performer_name}>
-                      {row.performer.performer_name}
-                    </option>
-                  ))}
+                  {eventPerformers
+                    // performer is null for a lineup row whose performer isn't approved yet
+                    // (public_performers, which this list is built from, only includes
+                    // is_approved: true rows) — same null case EventLineup.tsx already
+                    // guards against on the public side; this dropdown just skips them too
+                    // rather than crashing on row.performer.performer_name.
+                    .filter((row) => row.performer)
+                    .map((row) => (
+                      <option key={row.performer!.id} value={row.performer!.performer_name}>
+                        {row.performer!.performer_name}
+                      </option>
+                    ))}
                 </select>
               </div>
 

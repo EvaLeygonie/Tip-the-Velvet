@@ -448,6 +448,23 @@ export const setSponsorMerchTable = async (
   if (error) throw error
 }
 
+// Marks whether a prize sponsor has actually handed over their competition prize — needed
+// at the latest on the event day, and independent of has_merch_table's "in several spots"
+// pattern above, but the same "flip one column on the existing row" shape.
+export const setSponsorGotPrice = async (
+  eventId: string,
+  sponsorId: string,
+  hasGottenPrice: boolean
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_sponsors')
+    .update({ has_gotten_price: hasGottenPrice })
+    .eq('event_id', eventId)
+    .eq('sponsor_id', sponsorId)
+
+  if (error) throw error
+}
+
 export const getConfirmedSponsorIds = async (eventId: string): Promise<Set<string>> => {
   const { data, error } = await supabase
     .from('event_sponsors')
@@ -573,6 +590,23 @@ export const updateEventSponsorDetails = async (
   const { error } = await supabase
     .from('event_sponsors')
     .update({ details })
+    .eq('event_id', eventId)
+    .eq('sponsor_id', sponsorId)
+
+  if (error) throw error
+}
+
+// The merch table's own note (space needed, etc.) — separate from updateEventSponsorDetails
+// above, which is the prize note. A sponsor who's both a prize sponsor and running a table
+// needs both, independently.
+export const updateEventSponsorMerchNotes = async (
+  eventId: string,
+  sponsorId: string,
+  notes: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_sponsors')
+    .update({ merch_table_notes: notes })
     .eq('event_id', eventId)
     .eq('sponsor_id', sponsorId)
 

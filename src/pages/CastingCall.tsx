@@ -73,7 +73,7 @@ export const CastingCall = () => {
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-8 md:space-y-10">
+            <div className="max-w-4xl mx-auto space-y-8 md:space-y-10">
               {castingEvents.map((event: Event) => (
                 <ApplicationCard key={event.id} event={event} />
               ))}
