@@ -88,8 +88,8 @@ export const POST_SCHEDULE: PostScheduleItem[] = [
   {
     type: 'sponsors_sales_table',
     offset: { unit: 'weeks', amount: -3 },
-    labelSv: 'Sponsorer & säljbord',
-    labelEng: 'Sponsors & sales table',
+    labelSv: 'Sponsorer',
+    labelEng: 'Sponsors',
     hasTemplate: false,
   },
   {

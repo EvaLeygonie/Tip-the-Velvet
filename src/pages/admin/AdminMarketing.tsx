@@ -7,7 +7,9 @@ import { EventPicker } from '@/components/admin/EventPicker'
 import {
   getEventPerformersForAdmin,
   getEventMarketingData,
+  getEventSponsorsForAdmin,
   type AdminEventPerformerRow,
+  type AdminEventSponsorRow,
   type EventMarketingData,
 } from '@/services/eventService'
 import {
@@ -38,11 +40,24 @@ import { buildTicketReleaseText } from '@/components/admin/marketing/TicketRelea
 import { buildArtistsAllTogetherText } from '@/components/admin/marketing/ArtistsAllTogetherCard'
 import { buildVolunteersNeededText } from '@/components/admin/marketing/VolunteersNeededCard'
 import { buildPinterestBoardText } from '@/components/admin/marketing/PinterestBoardCard'
+import { buildSponsorsSalesTableText } from '@/components/admin/marketing/SponsorsSalesTableCard'
+import { buildContestText } from '@/components/admin/marketing/ContestCard'
+import { buildPhotoCornerText } from '@/components/admin/marketing/PhotoCornerCard'
+import { buildVenueRulesText } from '@/components/admin/marketing/VenueRulesCard'
+import { buildEveningScheduleText } from '@/components/admin/marketing/EveningScheduleCard'
+import { buildOneWeekLeftText } from '@/components/admin/marketing/OneWeekLeftCard'
+import { buildShareLikeInviteText } from '@/components/admin/marketing/ShareLikeInviteCard'
+import { buildEveningScheduleReminderText } from '@/components/admin/marketing/EveningScheduleReminderCard'
+import { buildLetsGoText } from '@/components/admin/marketing/LetsGoCard'
+import { buildThankYouText } from '@/components/admin/marketing/ThankYouCard'
+import { buildEvaluationText } from '@/components/admin/marketing/EvaluationCard'
 import { CustomPostForm } from '@/components/admin/marketing/CustomPostForm'
 import { CustomPostRow } from '@/components/admin/marketing/CustomPostRow'
 
-// artists_all_together is handled separately below (it needs the performers list, not just
-// EventMarketingData like the rest of these) — not included in this generic lookup.
+// Post types whose template only needs plain EventMarketingData. artists_all_together,
+// contest, sponsors_sales_table, one_week_left, and lets_go all need more (performers
+// and/or sponsorRows) — handled in buildGenerateTextFor below instead of this generic
+// lookup.
 const TEMPLATE_BUILDERS: Partial<
   Record<FixedMarketingPostType, (event: EventMarketingData) => string>
 > = {
@@ -55,6 +70,13 @@ const TEMPLATE_BUILDERS: Partial<
   ticket_release: buildTicketReleaseText,
   volunteers_needed: buildVolunteersNeededText,
   pinterest_board: buildPinterestBoardText,
+  photo_corner: buildPhotoCornerText,
+  venue_rules: buildVenueRulesText,
+  evening_schedule: buildEveningScheduleText,
+  share_like_invite: buildShareLikeInviteText,
+  evening_schedule_reminder: buildEveningScheduleReminderText,
+  thank_you: buildThankYouText,
+  evaluation: buildEvaluationText,
 }
 
 const ROLE_REVEAL_PRIORITY: Record<AdminEventPerformerRow['lineup_role'], number> = {
@@ -85,6 +107,7 @@ export const AdminMarketing = () => {
   const { t, language } = useLanguage()
   const { selectedEventId } = useCurrentEvent()
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
+  const [sponsorRows, setSponsorRows] = useState<AdminEventSponsorRow[]>([])
   const [ticketUrl, setTicketUrl] = useState<string | null>(null)
   const [hashtags, setHashtags] = useState<string | null>(null)
   const [eventData, setEventData] = useState<EventMarketingData | null>(null)
@@ -100,13 +123,15 @@ export const AdminMarketing = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const [performersData, marketingData, records, customs] = await Promise.all([
+        const [performersData, sponsors, marketingData, records, customs] = await Promise.all([
           getEventPerformersForAdmin(selectedEventId),
+          getEventSponsorsForAdmin(selectedEventId),
           getEventMarketingData(selectedEventId),
           getMarketingPosts(selectedEventId),
           getCustomPosts(selectedEventId),
         ])
         setPerformers(performersData.performers)
+        setSponsorRows(sponsors)
         setTicketUrl(performersData.ticketUrl)
         setHashtags(performersData.hashtags)
         setEventData(marketingData)
@@ -165,6 +190,31 @@ export const AdminMarketing = () => {
     setEventData((prev) => (prev ? { ...prev, hashtags: newHashtags } : prev))
   }
 
+  // Post types needing more than plain EventMarketingData (performers and/or sponsorRows) —
+  // a switch instead of nested ternaries once there were enough of these to make the
+  // ternary chain hard to follow. Direct feedback 2026-09-22.
+  const buildGenerateTextFor = (
+    item: PostScheduleItem,
+    event: EventMarketingData
+  ): (() => string) | null => {
+    switch (item.type) {
+      case 'artists_all_together':
+        return () => buildArtistsAllTogetherText(event, sortArtistsForReveal(performers))
+      case 'sponsors_sales_table':
+        return () => buildSponsorsSalesTableText(event, sponsorRows)
+      case 'contest':
+        return () => buildContestText(event, sponsorRows)
+      case 'one_week_left':
+        return () => buildOneWeekLeftText(event, sortArtistsForReveal(performers))
+      case 'lets_go':
+        return () => buildLetsGoText(event, sortArtistsForReveal(performers), sponsorRows)
+      default: {
+        const builder = TEMPLATE_BUILDERS[item.type]
+        return builder ? () => builder(event) : null
+      }
+    }
+  }
+
   // One schedule item's row — pulled out of the old single `.map()` so both columns of the
   // split layout below can render individual rows by type (artists_soon/
   // artists_all_together move into the Artists column) without duplicating this lookup
@@ -173,14 +223,7 @@ export const AdminMarketing = () => {
     const suggestedDate = eventData?.eventStart
       ? computeSuggestedDate(eventData.eventStart, item.offset)
       : null
-    const builder = TEMPLATE_BUILDERS[item.type]
-    const generateText = eventData
-      ? item.type === 'artists_all_together'
-        ? () => buildArtistsAllTogetherText(eventData, sortArtistsForReveal(performers))
-        : builder
-          ? () => builder(eventData)
-          : null
-      : null
+    const generateText = eventData ? buildGenerateTextFor(item, eventData) : null
     const record = postRecords[item.type]
 
     return (
@@ -246,6 +289,7 @@ export const AdminMarketing = () => {
             <EventAssetPanel
               event={eventData}
               performers={performers}
+              sponsorRows={sponsorRows}
               onHashtagsSaved={handleHashtagsSaved}
             />
           )}

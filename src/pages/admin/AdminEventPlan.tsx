@@ -33,6 +33,7 @@ import {
   confirmStaffForEvent,
   confirmSponsorForEvent,
   setSponsorMerchTable,
+  setSponsorExhibitionTable,
   updateStaffFoodInfoForPerson,
   updateOrganizerFoodInfo,
 } from '@/services/contactsService'
@@ -306,6 +307,25 @@ export const AdminEventPlan = () => {
     setSponsorRows(await getEventSponsorsForAdmin(selectedEventId))
     toast.success(t('Tillagd!', 'Added!'))
   }
+  // Exhibition is the same "independent flag, not a role" shape as sales — a sponsor
+  // showing/hanging their own work at the event (e.g. art on the walls) rather than selling
+  // from a table. Direct feedback 2026-09-22.
+  const fetchExhibitionCandidates = async (): Promise<InlineAddPickerItem[]> => {
+    const all = await getSponsors()
+    const alreadyIds = new Set(sponsorRows.filter((r) => r.has_exhibition).map((r) => r.sponsor_id))
+    return all
+      .filter((s) => !alreadyIds.has(s.id))
+      .map((s) => ({ id: s.id, label: s.name, sublabel: s.email }))
+  }
+  const handleAddExhibitionSponsor = async (item: InlineAddPickerItem): Promise<void> => {
+    const alreadyConfirmed = sponsorRows.some((r) => r.sponsor_id === item.id)
+    if (!alreadyConfirmed) {
+      await confirmSponsorForEvent(selectedEventId, item.id, null, null)
+    }
+    await setSponsorExhibitionTable(selectedEventId, item.id, true)
+    setSponsorRows(await getEventSponsorsForAdmin(selectedEventId))
+    toast.success(t('Tillagd!', 'Added!'))
+  }
   const fetchOtherCandidates = async (): Promise<InlineAddPickerItem[]> => {
     const all = await getSponsors()
     const alreadyIds = new Set(sponsorRows.map((r) => r.sponsor_id))
@@ -319,20 +339,24 @@ export const AdminEventPlan = () => {
     toast.success(t('Tillagd!', 'Added!'))
   }
 
-  // A merch table means salespeople on-site — nudges the board toward the VIP list rather
-  // than enforcing it, matching this app's "no stored requirement system" philosophy.
-  // Switches to the VIP tab and drops in a pre-noted blank draft; the admin still fills in
-  // the actual name(s).
-  const handleRequestVipForSalesperson = (sponsorName: string) => {
+  // A merch table or exhibition both mean the sponsor's own person on-site — nudges the
+  // board toward the VIP list rather than enforcing it, matching this app's "no stored
+  // requirement system" philosophy. Switches to the VIP tab and drops in a pre-noted blank
+  // draft; the admin still fills in the actual name(s).
+  const handleRequestVipForVendor = (sponsorName: string, roleLabel: string) => {
     setVipDrafts((prev) => [
       ...prev,
       {
         ...blankVipEntry(selectedEventId),
-        note: t(`Säljare — ${sponsorName}`, `Salesperson — ${sponsorName}`),
+        note: `${roleLabel} — ${sponsorName}`,
       },
     ])
     setActiveTab('vip')
   }
+  const handleRequestVipForSalesperson = (sponsorName: string) =>
+    handleRequestVipForVendor(sponsorName, t('Säljare', 'Salesperson'))
+  const handleRequestVipForExhibitor = (sponsorName: string) =>
+    handleRequestVipForVendor(sponsorName, t('Utställare', 'Exhibitor'))
 
   const handleActUpdated = (id: string, patch: Partial<AdminEventActRow>) => {
     setActs((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)))
@@ -1102,13 +1126,23 @@ export const AdminEventPlan = () => {
                       )
                     )
                   }
+                  onExhibitionToggled={(sponsorId, value) =>
+                    setSponsorRows((prev) =>
+                      prev.map((r) =>
+                        r.sponsor_id === sponsorId ? { ...r, has_exhibition: value } : r
+                      )
+                    )
+                  }
                   fetchPrizeCandidates={fetchPrizeCandidates}
                   onAddPrizeSponsor={handleAddPrizeSponsor}
                   fetchSalesCandidates={fetchSalesCandidates}
                   onAddSalesSponsor={handleAddSalesSponsor}
+                  fetchExhibitionCandidates={fetchExhibitionCandidates}
+                  onAddExhibitionSponsor={handleAddExhibitionSponsor}
                   fetchOtherCandidates={fetchOtherCandidates}
                   onAddOtherSponsor={handleAddOtherSponsor}
                   onRequestVipForSalesperson={handleRequestVipForSalesperson}
+                  onRequestVipForExhibitor={handleRequestVipForExhibitor}
                 />
               )}
 

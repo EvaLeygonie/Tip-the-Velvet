@@ -2242,3 +2242,280 @@ Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all cl
   this card — until a replacement lands, revealing an artist has no UI path here.
 
 Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### New "board" staff role + Styrelse/Board tab — 2026-09-22
+
+The 4 standing organizers (`STANDING_ORGANIZERS`, added to `staff_volunteers` earlier this
+session so the food-seeding join could find them) had `role: 'other'`, which meant they
+surfaced in Contacts' generic "Övrigt" bucket — not ideal for 4 people who aren't really
+"other," they're the board. Discussed the options (a real separate `board_members` table vs.
+reusing `staff_volunteers` with its own role) and went with reuse: a separate table would
+need its own event-linkage mechanism duplicating what `staff_volunteers` already has (the
+food join, RLS, add/remove plumbing), for board members who are still fundamentally people
+in that same roster.
+
+- **Schema**: added `'board'` to the `staff_volunteer_type` enum, then migrated the 4
+  standing organizers' `role` from `'other'` to `'board'`. Two separate SQL steps, not one
+  script — Postgres won't let a new enum value be used in the same transaction it's added
+  in, so this needed sequencing (add value → confirm it exists → migrate the rows), same
+  general "don't assume a multi-statement script is safe to combine" caution as this
+  session's earlier migrations, just a hard Postgres rule this time rather than a
+  Supabase-SQL-editor quirk. Regenerated `database.types.ts` via the Supabase CLI after step
+  1 (needed before writing any code comparing against `'board'`, or the build would break).
+- **`contactLabels.ts`**: added the `'board'` case to `staffRoleLabel`'s switch (required —
+  no `default`, so TS would have failed the build once the enum type gained the new member).
+- **New "Styrelse"/"Board" tab** in `AdminContacts.tsx`, next to "Personal & Volontärer" —
+  `boardMembers` is `staffRows.filter(r => r.role === 'board')`, and `filteredStaff` (the
+  Staff & Volunteers tab's own dataset) now explicitly excludes `role: 'board'` so board
+  members don't also show up there under any role grouping.
+- **`BoardMemberRow.tsx`**: a trimmed-down `StaffVolunteerRow.tsx` — same open-to-edit shape,
+  same underlying table and `handleSaveStaff`/`handleDeleteStaff` handlers, but only
+  name/email/phone/fee (board members get a yearly bonus, so fee stays) and `role_details`
+  repurposed as a free notes field. No role picker (always `'board'`), no link field, no
+  "has worked with us before" toggle (that's about vetting new volunteers), and no per-event
+  confirmation status/`AddToEventPopover` — board members aren't booked onto individual shows
+  the way staff/volunteers are. Explicitly no "add new board member" flow yet — direct
+  feedback that this should come with an invite-to-admin-account step, held off until that's
+  actually needed (no new admins pending). Kept the STANDING_ORGANIZERS hardcoded array
+  in `eventService.ts`'s food-seeding untouched for now — it already works by email lookup
+  regardless of role, and swapping it for a live `role: 'board'` query is a nice-to-have
+  worth doing once the add/remove flow exists, not a requirement for this round.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Recurring todos (e.g. "Do our taxes") — 2026-09-22
+
+Direct feedback: some org-wide todos repeat every year on roughly the same date (taxes,
+reports to various organizations), and should reappear on their own rather than needing to
+be manually re-added each year.
+
+- **Schema**: `todos` gained `is_recurring boolean not null default false`. Deliberately
+  **no second date column** for the recurrence anchor — `due_date` already carries the
+  month/day to reuse, so a separate field would just be a second thing to keep in sync with
+  the first.
+- **No cron job either** — `todoService.ts`'s `getTodos()` now resolves recurrence lazily on
+  every fetch: `rollRecurringTodoForward` checks each recurring todo's `due_date` against
+  today, and if it's in the past, advances it by whole years (`rollDateForward`) until it's
+  current, resetting `is_done` to `false` and persisting the update. So a recurring todo
+  "pops up" again exactly when a board member next opens the Dashboard after its date has
+  passed — consistent with this app having no server-side scheduled jobs anywhere else.
+- **UI**: `TodoModal.tsx` gained a "Recurs every year on this date" checkbox next to the
+  deadline field, disabled (and force-cleared on save) whenever there's no due date set,
+  since recurrence has nothing to anchor to without one. `TodoListCard.tsx`'s row shows a
+  small `Repeat` icon next to a recurring todo's title so it's visible at a glance without
+  opening the edit modal.
+- `onAdd`/`onEdit` threaded the new `isRecurring` boolean through `TodoModal` →
+  `TodoListCard` → `AdminDashboard.tsx`'s `handleAddTodo`/`handleEditTodo`, both call sites
+  (the per-event lists and the org-wide list) updated identically.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Recurring todos follow-up: renew on completion, hide until approaching — 2026-09-22
+
+Direct feedback right after the above landed: rolling a recurring todo's due date forward
+the moment the *old* date passed reactivated it as a live pending item up to a year before
+it was actually relevant again — "Do our taxes" would sit visible right after being
+finished, not just once a year around its real deadline. Redesigned the mechanism:
+
+- **Renew on completion, not on a timer** — `todoService.ts`'s lazy `getTodos()` rollover
+  is gone entirely. Instead, checking off a recurring todo now calls the new
+  `renewRecurringTodo(id, dueDate)`, which advances `due_date` by exactly one year and
+  resets `is_done` right away (`AdminDashboard.tsx`'s `handleToggleTodo` checks
+  `todo.is_recurring` before deciding whether to call this or the normal `setTodoDone`). A
+  recurring todo the board never got to (still overdue, never checked) is deliberately left
+  alone — it stays visibly overdue until someone actually completes it, rather than quietly
+  disappearing a year into the future just because time passed.
+- **Hidden until actually approaching** — `TodoListCard.tsx`'s `isRecurringDormant` filters
+  a recurring todo out of the pending list entirely whenever its `due_date` is more than
+  `RECURRING_LEAD_DAYS` (30) days out, so it spends most of the year invisible rather than
+  sitting in the list as a stale reminder. Combined with the renew-on-completion behavior
+  above, the whole lifecycle is: complete it → it jumps a year out and vanishes → it quietly
+  reappears ~30 days before its next deadline.
+- Added a distinct empty-state message ("No current tasks — recurring tasks reappear closer
+  to their date") for the case where a list has todos but all of them are currently dormant
+  recurring ones — otherwise that state would render as a blank card with no explanation,
+  since the existing empty-state check only looked at raw todo count, not what's actually
+  visible after the dormancy filter.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Marketing templates: hashtags everywhere — 2026-09-22
+
+Direct feedback: copying the "Save the Date" template left the hashtags out entirely.
+Audited every standard post type's template builder in
+`src/components/admin/marketing/`.
+
+- **7 existing builders were missing a hashtag line outright** — `SaveTheDateCard`,
+  `CastingCallOpenCard`, `CastingCallClosedCard`, `TicketCountdownCard`,
+  `TicketReleaseCard`, `PinterestBoardCard`, `VolunteersNeededCard`. Each now appends
+  `['#ItsOwnTag', event.hashtags?.trim()].filter(Boolean).join(' ')` as the final paragraph,
+  the same pattern `ArtistsSoonCard`/`ArtistsAllTogetherCard` already used correctly.
+  `FacebookEventCard` deliberately left untouched — direct instruction to skip it.
+- **11 post types had no template at all** (`POST_SCHEDULE`'s `hasTemplate: false` ones:
+  `sponsors_sales_table`, `contest`, `photo_corner`, `venue_rules`, `evening_schedule`,
+  `one_week_left`, `share_like_invite`, `evening_schedule_reminder`, `lets_go`, `thank_you`,
+  `evaluation`) — no real historical post text exists to reproduce for these (unlike every
+  other builder here, which matches or approximates a confirmed real post), so rather than
+  fabricate full bodies, each got a new minimal builder file that seeds **only** the hashtag
+  line (its own tag + `event.hashtags`), leaving the body to be written from scratch same as
+  before. `hasTemplate` in `marketingSchedule.ts` was left as `false` for these — it's purely
+  documentary (only read in a code comment, not by any actual logic), and `false` still
+  honestly reflects "no real template, just a hashtag seed."
+- Per-type tags used: `#SaveTheDate`+`#ThemeReveal`, `#CastingCallOpen`,
+  `#CastingCallClosed`, `#TicketReleaseCountdown`, `#TicketRelease`, `#PinterestBoard`,
+  `#VolunteersNeeded`, `#Sponsors`, `#CostumeCompetition`, `#PhotoBooth`, `#VenueRules`,
+  `#EveningSchedule` (shared by both the evening-schedule post and its later reminder),
+  `#OneWeekLeft`, `#ShareLikeInvite`, `#TimeToShine`, `#ThankYou`, `#Feedback` — direct
+  spec. `artists_soon`/`artists_all_together` already had their own hashtag schemes
+  (performer names + `#PerformerReveal`) and weren't touched.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Marketing templates: extrapolated from the org's real historical posts — 2026-09-22
+
+Follow-up to the hashtag pass above: the user pointed at
+`docs/old-work-documents/Social Media & Emails/` (four past events' real posted copy —
+Dark Carnival, Creatures of the Night, Desserted Island, Once Upon a Time — plus a
+"Marknadsföringsmodell" planning doc) and asked to rebuild the 11 hashtag-only stub
+templates from Sunday's pass into real drafts extrapolated from what was actually posted,
+matching this codebase's established "match a real post, don't invent one" standard
+(`SaveTheDateCard`/`FacebookEventCard`/etc.'s own comments).
+
+- Cross-referenced all four event docs' actual section headings against `POST_SCHEDULE`'s
+  21 types to find real examples of each of the 11 previously-templateless ones. Coverage
+  varied a lot by event (the org's format visibly matured over time — the earliest event,
+  Once Upon a Time, had barely half the post types the later ones did), so no single event
+  had a complete set; each template pulls from whichever event's version of that post was
+  clearest (mostly Desserted Island, the most complete/recent doc).
+- **`sponsors_sales_table`, `contest`, `photo_corner`, `venue_rules`, `evening_schedule`,
+  `share_like_invite`, `thank_you`, `evaluation`** rewritten with real structure/wording
+  (contest's 4-category jury/audience-choice breakdown, the venue checklist, etc.).
+  `photo_corner` bakes in "HardisPhoto" as the default vendor — it was the actual photo
+  booth partner in every single doc read, same "real recurring fact" reasoning as
+  `postBoilerplate.ts`'s legal/dresscode text, editable if a future event uses someone else.
+  Anything not derivable from `EventMarketingData` (sponsor names, specific run-of-show
+  times, a survey link) is left as a bracketed placeholder rather than fabricated.
+- **`evening_schedule_reminder`** now imports a shared `buildScheduleBlock()` from
+  `EveningScheduleCard.tsx` instead of duplicating the whole bracketed schedule — the real
+  posts reposted the identical schedule verbatim closer to the date.
+- **`one_week_left` and `lets_go`** turned out to name every confirmed artist by name in
+  every real example (not just a plain ticket reminder like their sibling
+  `TicketCountdownCard`/`TicketReleaseCard`) — both now take a `performers` argument and
+  reuse the same name-listing approach as `buildArtistsAllTogetherText`. Wired into
+  `AdminMarketing.tsx` via a new `PERFORMER_LIST_BUILDERS` map, parallel to how
+  `artists_all_together` was already special-cased outside the generic `TEMPLATE_BUILDERS`
+  lookup for the same reason.
+- **Backfilled the 4 archived events' `marketing_posts` checkboxes** (SQL handed to the
+  user, not run directly — read-only DB access) based on the same documents: `is_posted =
+  true` for every post type each event's doc clearly showed happening. Deliberately scoped
+  to the checkbox only, not a full transcription of each event's exact real text into
+  `content` — that would be a much larger pass, flagged to the user as available on request
+  rather than attempted here. `facebook_event`, `casting_call_closed`, and
+  `ticket_countdown` were left unmarked for all 4 events — no clear evidence of any of them
+  in the docs, better to leave unchecked than guess.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Marketing templates follow-up: real photographer, real sponsors, fixed schedule — 2026-09-22
+
+The backfill SQL landed (verified via read-only query: 48 rows across the 4 archived
+events, matching the plan exactly). Direct feedback replaced three of the remaining
+placeholders in the new templates with real data:
+
+- **`PhotoCornerCard.tsx`** no longer hardcodes "HardisPhoto" — `EventMarketingData` gained
+  a `photographer: { name, instagramHandle } | null` field (`getEventMarketingData` now
+  joins `events.photographer_id → public_photographers(name, link)`, reusing
+  `extractInstagramHandle` on the `link` field the same way `ArtistOverviewCard.tsx` already
+  does for performers' Instagram links). The credit is name + handle when both exist, name
+  alone otherwise, `[fotograf]` only when no photographer is assigned yet.
+- **`SponsorsSalesTableCard.tsx`** now takes `sponsorRows: AdminEventSponsorRow[]` (fetched
+  via the same `getEventSponsorsForAdmin` the Sponsors tab uses — `AdminMarketing.tsx` now
+  loads sponsor data, which it never did before). The prize-sponsor paragraph always
+  generates (names every `role: 'prize'` sponsor, since the costume competition is a
+  fixture of every event); a second paragraph naming `has_merch_table` sponsors only
+  appears when at least one exists this event. Hashtags are generated per sponsor name via
+  the existing `toHashtag` helper (same one `ArtistOverviewCard.tsx` uses for artist tags),
+  deduped in case a sponsor is both a prize sponsor and running a table. Wired into
+  `AdminMarketing.tsx` as its own special case in `renderPostRow`, parallel to how
+  `artists_all_together`/`one_week_left`/`lets_go` already needed data beyond plain
+  `EventMarketingData`.
+- **`EveningScheduleCard.tsx`**'s bracketed `[tid]` placeholders are now Dark Carnival's
+  real times (19:00 doors, 21:00 Act I, ~22:00 break, ~22:30 Act II, 01:20 bar closes,
+  02:00 venue closes) — direct feedback that these are the actual hours the current venue
+  runs on now, not a one-off from that specific event. Still just a starting point in a
+  plain-text template (no per-event run-of-show data model exists), so it's freely
+  hand-editable per event same as before.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Marketing templates follow-up 2: grammatical sponsor lists, Contest fully wired — 2026-09-22
+
+- **`joinWithConjunction(items, conjunction)`** added to `lib/utils.ts` — "A" / "A och B" /
+  "A, B och C" instead of a flat `.join(', ')`, which read as broken grammar in a sponsor
+  list. Used for both the prize-sponsor and sales-table name lists in
+  `SponsorsSalesTableCard.tsx`, `ContestCard.tsx`, and `LetsGoCard.tsx` (Swedish "och",
+  English "and" — scoped to sponsor lists specifically, per what was asked; the artist-name
+  lists in `OneWeekLeftCard.tsx`/`LetsGoCard.tsx`/`ArtistsAllTogetherCard.tsx` still use a
+  plain comma join and weren't touched).
+- **`ContestCard.tsx`** now takes `sponsorRows` (prize sponsors, same source as
+  `SponsorsSalesTableCard.tsx`) instead of a `[sponsorer]` placeholder, and its sign-up
+  window (19:00–20:45) matches `EveningScheduleCard.tsx`'s now-fixed venue times (doors at
+  19:00, Act I at 21:00 — 20:45 is the same 15-minute-before-curtain cutoff Desserted
+  Island's real post used).
+- **`LetsGoCard.tsx`** also picked up `sponsorRows` — its real historical text thanks the
+  prize sponsors too, which the previous version had missed (still a `[sponsorer]`
+  placeholder). Its signature is now `(event, performers, sponsorRows)`.
+- Refactored `AdminMarketing.tsx`'s per-row template lookup: the growing nested-ternary
+  chain in `renderPostRow` (needed once `contest` and `lets_go` also needed data beyond
+  `EventMarketingData`) became a `buildGenerateTextFor(item, event)` switch statement
+  instead — same behavior, easier to follow than one more level of ternary nesting.
+- **Remaining un-derivable placeholders, left as-is on purpose**: `EvaluationCard.tsx`'s
+  survey link (no such field exists anywhere in the data model), and the `[sponsorer]`/
+  `[fotograf]`/`[lokalen]` fallbacks that only ever show when that event genuinely has no
+  prize sponsors/assigned photographer/location yet — once real data exists they're
+  replaced automatically.
+
+**On when templates pick up real data** (asked directly): a post's text is generated fresh
+from whatever data exists at the moment `StandardPostRow` first mounts (its `draft` state's
+lazy `useState` initializer calls `generateText()` once, on mount) — so loading the
+Marketing tab for an event *after* artists/sponsors/photographer are assigned already shows
+the accurate version, no action needed. What it does *not* do is live-refresh a row that's
+already mounted and open if you assign data elsewhere without navigating away — in that
+case (or once a post has ever been explicitly saved, since saved `content` always wins over
+the live template from then on) "Reset to template" is the way to pull in the current data,
+exactly as it already worked for `artists_all_together` before this session's changes. Not
+something introduced now — an existing, pre-established behavior, just newly relevant since
+more templates now depend on data that changes over an event's planning lifecycle.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Sponsor tab: Exhibition category, sponsor-post rename, download-all-logos — 2026-09-22
+
+- **`event_sponsors.has_exhibition`** (bool, default `false`) — a sponsor showing/hanging
+  their own work at the event (e.g. art on the walls), same "independent flag, not a
+  `sponsor_type`, one sponsor can be in several spots at once" pattern already established
+  by `has_merch_table`. Direct feedback: user explicitly ruled out a heavier alternative
+  (a separate table + tab for tracking outbound sponsorships we give to other clubs/events)
+  — that's staying a manual todo-list item for now, not built.
+- **`EventSponsorRow.tsx`**: new "Utställning"/"Exhibition" checkbox next to the merch-table
+  one; shortened "Har säljbord"/"Has merch table" → "Säljbord"/"Merch table" to keep the row
+  from getting too wide now that there are more checkboxes sharing it.
+- **`SponsorSlotGrid.tsx`**: Säljbord and Utställning now render side-by-side
+  (`grid-cols-2`) above "Övriga sponsorer", sharing a new `renderVendorSection` helper (same
+  "+" picker and "add to VIP list" button pattern for both, generalized to "exhibitor"
+  wording for the new section).
+- **`SponsorsSalesTableCard.tsx`**: added a third conditional paragraph naming exhibition
+  sponsors (only appears if any exist for the event, same pattern as the sales-table
+  paragraph), and folded their names into the post's hashtag set.
+- **Marketing tab**: renamed the `sponsors_sales_table` post's label from "Sponsorer &
+  säljbord"/"Sponsors & sales table" to just "Sponsorer"/"Sponsors"
+  (`lib/marketingSchedule.ts`) — the "other" sponsor category was already excluded from this
+  post's template and needed no change.
+- **Download all sponsor logos**: new header button on the Sponsors post row
+  (`StandardPostRow.tsx` gained an optional `headerAction` slot for this), zipping every
+  sponsor's `logo_id` via the same `fl_attachment` + JSZip approach as
+  `EventAssetPanel.tsx`'s "download all performer images" (a plain per-image
+  `window.open`/anchor click gets blocked or silently dropped past the first one — see that
+  function's comment). Deduped by `sponsor_id` before fetching.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.

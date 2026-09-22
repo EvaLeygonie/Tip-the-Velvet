@@ -7,12 +7,14 @@ import type { EventMarketingData } from '@/services/eventService'
 export const buildPinterestBoardText = (event: EventMarketingData): string => {
   const titleSmallCaps = toSmallCaps(event.title)
   const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const hashtagsSection = ['#PinterestBoard', event.hashtags?.trim()].filter(Boolean).join(' ')
 
   return [
     `🇸🇪 I väntan på vårt nästa event, ${titleSmallCaps}, så finns ju gott om tid att planera en fängslande outfit!\n\nVad inspirerar dig? Musik, färger, ädelstenar, böcker, filmer, en specifik accessoar…? Kommentera nedan! Vill vill veta vad som inspirerar er! ✨`,
     `🇬🇧 As we wait for our next event, ${titleSmallCaps}, there's plenty of time to plan a captivating outfit!\n\nWhat inspires you? Music, colours, gemstones, books, movies, a specific accessory…? Comment below! We want to know what inspires you! ✨`,
     `${titleSmallCaps}\n${dateVenue}`,
     event.pinterestLink ? `✨ Pinterest inspiration: ${event.pinterestLink}` : null,
+    hashtagsSection,
   ]
     .filter(Boolean)
     .join('\n\n')

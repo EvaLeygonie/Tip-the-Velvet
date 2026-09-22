@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, X, Pencil, ChevronsUp, ChevronsDown } from 'lucide-react'
+import { Plus, X, Pencil, Repeat, ChevronsUp, ChevronsDown } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { TodoModal } from './TodoModal'
 import type { Todo } from '@/types/types'
@@ -7,8 +7,19 @@ import type { Todo } from '@/types/types'
 interface TodoListCardProps {
   title: string
   todos: Todo[]
-  onAdd: (title: string, dueDate: string | null, details: string | null) => Promise<void>
-  onEdit: (id: string, title: string, dueDate: string | null, details: string | null) => Promise<void>
+  onAdd: (
+    title: string,
+    dueDate: string | null,
+    details: string | null,
+    isRecurring: boolean
+  ) => Promise<void>
+  onEdit: (
+    id: string,
+    title: string,
+    dueDate: string | null,
+    details: string | null,
+    isRecurring: boolean
+  ) => Promise<void>
   onToggle: (id: string, isDone: boolean) => Promise<void>
   onSetDueDate: (id: string, dueDate: string | null) => Promise<void>
   onMoveUp: (id: string) => void
@@ -27,6 +38,19 @@ const dueDateClass = (dueDate: string): string => {
   const weekOut = isoDate(new Date(Date.now() + 7 * DAY_MS))
   if (dueDate <= weekOut) return 'text-amber-400'
   return 'text-foreground/40'
+}
+
+// A recurring todo (e.g. "Do our taxes") shouldn't sit visible in the list all year round —
+// it's only relevant for a stretch of time around its own due date. Hidden entirely (not
+// just visually muted) until it's within this many days of coming due; completing it renews
+// it a year out (see AdminDashboard.tsx's handleToggleTodo), which is exactly when it should
+// go quiet again. Direct feedback 2026-09-22, following up on the first version of this
+// feature reactivating a just-finished task up to a year before it was actually relevant.
+const RECURRING_LEAD_DAYS = 30
+const isRecurringDormant = (todo: Todo): boolean => {
+  if (!todo.is_recurring || !todo.due_date) return false
+  const leadDate = isoDate(new Date(Date.now() + RECURRING_LEAD_DAYS * DAY_MS))
+  return todo.due_date > leadDate
 }
 
 // Fixed box size for the date field regardless of whether it's empty or filled — a plain
@@ -94,9 +118,14 @@ const TodoRow = ({
         the title alone when it isn't. Contacts-row style, direct feedback 2026-09-20. */}
     <div className="flex-1 min-w-[100px]">
       <div
-        className={`truncate ${todo.is_done ? 'line-through text-foreground/30' : 'text-foreground'}`}
+        className={`truncate flex items-center gap-1.5 ${todo.is_done ? 'line-through text-foreground/30' : 'text-foreground'}`}
       >
-        {todo.title}
+        <span className="truncate">{todo.title}</span>
+        {todo.is_recurring && (
+          <span title="Återkommer varje år" className="shrink-0 text-accent/60">
+            <Repeat className="h-3 w-3" />
+          </span>
+        )}
       </div>
       {todo.details && (
         <div className="text-[11px] text-accent/80 italic truncate">{todo.details}</div>
@@ -163,7 +192,7 @@ export const TodoListCard = ({
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
 
-  const pending = todos.filter((td) => !td.is_done)
+  const pending = todos.filter((td) => !td.is_done && !isRecurringDormant(td))
   // Sorted by (date, display_order) — different dates never compete with each other, but
   // tasks sharing the exact same date (e.g. several tasks for the same event) use
   // display_order as a tiebreak, which the arrows below can move within that one date's
@@ -184,13 +213,20 @@ export const TodoListCard = ({
   const datelessPending = [...pending.filter((td) => !td.due_date)].sort(
     (a, b) => a.display_order - b.display_order
   )
-  const done = [...todos.filter((td) => td.is_done)].sort((a, b) => a.display_order - b.display_order)
+  const done = [...todos.filter((td) => td.is_done)].sort(
+    (a, b) => a.display_order - b.display_order
+  )
 
-  const handleSave = async (todoTitle: string, dueDate: string | null, details: string | null) => {
+  const handleSave = async (
+    todoTitle: string,
+    dueDate: string | null,
+    details: string | null,
+    isRecurring: boolean
+  ) => {
     if (editingTodo) {
-      await onEdit(editingTodo.id, todoTitle, dueDate, details)
+      await onEdit(editingTodo.id, todoTitle, dueDate, details, isRecurring)
     } else {
-      await onAdd(todoTitle, dueDate, details)
+      await onAdd(todoTitle, dueDate, details, isRecurring)
     }
   }
 
@@ -211,6 +247,16 @@ export const TodoListCard = ({
       {todos.length === 0 ? (
         <p className="text-xs text-foreground/40 italic text-left">
           {t('Inga uppgifter ännu.', 'No tasks yet.')}
+        </p>
+      ) : datedPending.length === 0 && datelessPending.length === 0 && done.length === 0 ? (
+        // Every task here is a dormant recurring one, not due for a while — same
+        // "nothing to show" shape as the empty state above, but a distinct message so it
+        // doesn't read as if the tasks vanished.
+        <p className="text-xs text-foreground/40 italic text-left">
+          {t(
+            'Inga aktuella uppgifter — återkommande uppgifter dyker upp igen närmare sitt datum.',
+            'No current tasks — recurring tasks reappear closer to their date.'
+          )}
         </p>
       ) : (
         <div className="space-y-2">
@@ -237,7 +283,9 @@ export const TodoListCard = ({
           )}
 
           {datelessPending.length > 0 && (
-            <div className={`space-y-1.5 ${datedPending.length > 0 ? 'pt-1.5 border-t border-accent/10' : ''}`}>
+            <div
+              className={`space-y-1.5 ${datedPending.length > 0 ? 'pt-1.5 border-t border-accent/10' : ''}`}
+            >
               {datelessPending.map((todo, index) => (
                 <TodoRow
                   key={todo.id}

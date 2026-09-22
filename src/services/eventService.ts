@@ -14,6 +14,7 @@ import type {
 } from '@/types/types'
 import { deleteFromCloudinary } from './cloudinaryService'
 import { updateRow, deleteRow } from './databaseService'
+import { extractInstagramHandle } from '@/lib/utils'
 import {
   STANDING_ORGANIZERS,
   SHOW_CONSTANT_SEGMENTS,
@@ -147,6 +148,10 @@ export interface EventMarketingData {
   castingCallStart: string | null
   ticketReleaseDate: string | null
   pinterestLink: string | null
+  // The event's own assigned photographer (events.photographer_id) — used by
+  // PhotoCornerCard.tsx to credit whoever's actually shooting this event instead of a
+  // hardcoded default. null when no photographer is assigned yet.
+  photographer: { name: string; instagramHandle: string | null } | null
 }
 
 // The event-level half of the Marketing tab (AdminMarketing.tsx) — the templated posts'
@@ -158,13 +163,15 @@ export const getEventMarketingData = async (
   const { data, error } = await supabase
     .from('events')
     .select(
-      'id, title, subtitle, slug, image_id, description_sv, description_eng, ticket_url, hashtags, location, event_start, reveal_date, casting_call_deadline, casting_call_start, ticket_release_date, pinterest_link'
+      'id, title, subtitle, slug, image_id, description_sv, description_eng, ticket_url, hashtags, location, event_start, reveal_date, casting_call_deadline, casting_call_start, ticket_release_date, pinterest_link, photographer:public_photographers!events_photographer_id_fkey(name, link)'
     )
     .eq('id', eventId)
     .maybeSingle()
 
   if (error) throw error
   if (!data) return null
+
+  const photographer = data.photographer as { name: string | null; link: string | null } | null
 
   return {
     id: data.id,
@@ -183,6 +190,9 @@ export const getEventMarketingData = async (
     castingCallDeadline: data.casting_call_deadline,
     castingCallStart: data.casting_call_start,
     ticketReleaseDate: data.ticket_release_date,
+    photographer: photographer?.name
+      ? { name: photographer.name, instagramHandle: extractInstagramHandle(photographer.link) }
+      : null,
   }
 }
 
@@ -323,6 +333,10 @@ export interface AdminEventSponsorRow {
   role: Sponsors['sponsor_type']
   details: string | null
   has_merch_table: boolean
+  // A sponsor showing/hanging their own work at the event (e.g. art on the walls) — same
+  // "independent flag, not a role, one can be in several spots" pattern as has_merch_table.
+  // Direct feedback 2026-09-22.
+  has_exhibition: boolean
   // Whether this prize sponsor has actually handed over their competition prize yet — only
   // meaningful for role: 'prize', but stored on every row same as has_merch_table. Drives
   // the Dashboard's 2-state "Sponsorer" card: red/orange while slots are unfilled, then a
@@ -344,7 +358,7 @@ export const getEventSponsorsForAdmin = async (
   const { data, error } = await supabase
     .from('event_sponsors')
     .select(
-      'sponsor_id, role, details, has_merch_table, has_gotten_price, merch_table_notes, sponsor:sponsors(*)'
+      'sponsor_id, role, details, has_merch_table, has_exhibition, has_gotten_price, merch_table_notes, sponsor:sponsors(*)'
     )
     .eq('event_id', eventId)
 

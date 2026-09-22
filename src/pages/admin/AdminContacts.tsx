@@ -34,6 +34,7 @@ import { staffRoleLabel, sponsorTypeLabel as contactSponsorTypeLabel } from '@/l
 import { ContactsToolbar } from '@/components/admin/contacts/ContactsToolbar'
 import { ContactMailModal } from '@/components/admin/contacts/ContactMailModal'
 import { StaffVolunteerRow } from '@/components/admin/contacts/StaffVolunteerRow'
+import { BoardMemberRow } from '@/components/admin/contacts/BoardMemberRow'
 import { SponsorRow } from '@/components/admin/contacts/SponsorRow'
 import { VenueRow } from '@/components/admin/contacts/VenueRow'
 import { ClubRow } from '@/components/admin/contacts/ClubRow'
@@ -118,7 +119,9 @@ const blankClub = (): Club => ({
 export const AdminContacts = () => {
   const { t } = useLanguage()
   const { upcomingEvents, selectedEventId } = useCurrentEvent()
-  const [activeTab, setActiveTab] = useState<'staff' | 'sponsors' | 'venues' | 'clubs'>('staff')
+  const [activeTab, setActiveTab] = useState<'staff' | 'board' | 'sponsors' | 'venues' | 'clubs'>(
+    'staff'
+  )
   const [loading, setLoading] = useState(true)
 
   // Local, not written back to CurrentEventContext — switching which event's status is
@@ -289,13 +292,20 @@ export const AdminContacts = () => {
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((club) => ({ value: club.id, label: club.name }))
 
+  // Board members get their own tab (see boardMembers below) — excluded here so they don't
+  // also show up filed under a role in Staff & Volunteers. Direct feedback 2026-09-22.
   const filteredStaff = staffRows.filter((r) => {
+    if (r.role === 'board') return false
     if (staffRoleFilter && r.role !== staffRoleFilter) return false
     if (staffWorkedWithOnly && !r.worked_with) return false
     if (!staffSearch) return true
     const q = staffSearch.toLowerCase()
     return [r.name, r.email, r.role_details].some((f) => f?.toLowerCase().includes(q))
   })
+
+  const boardMembers = [...staffRows]
+    .filter((r) => r.role === 'board')
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   const filteredSponsors = sponsorRows.filter((r) => {
     if (sponsorTypeFilter && r.sponsor_type !== sponsorTypeFilter) return false
@@ -599,6 +609,17 @@ export const AdminContacts = () => {
         >
           {t('Klubbar', 'Clubs')}
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('board')}
+          className={
+            activeTab === 'board'
+              ? 'btn-gold text-xs py-2 px-4'
+              : 'btn-gold-outline text-xs py-2 px-4'
+          }
+        >
+          {t('Styrelse', 'Board')}
+        </button>
       </div>
 
       {loading ? (
@@ -719,6 +740,26 @@ export const AdminContacts = () => {
                 )
               )}
             </>
+          )}
+
+          {activeTab === 'board' && (
+            <div className="space-y-2">
+              {boardMembers.length === 0 ? (
+                <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
+                  {t('Inga styrelsemedlemmar hittades.', 'No board members found.')}
+                </div>
+              ) : (
+                boardMembers.map((row) => (
+                  <BoardMemberRow
+                    key={row.id}
+                    row={row}
+                    onSave={(id, patch) => handleSaveStaff(id, patch, false)}
+                    onDelete={handleDeleteStaff}
+                    onEmail={openMailModalForVolunteer}
+                  />
+                ))
+              )}
+            </div>
           )}
 
           {activeTab === 'sponsors' && (

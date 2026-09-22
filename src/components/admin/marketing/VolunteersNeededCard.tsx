@@ -28,8 +28,11 @@ export const buildVolunteersNeededText = (event: EventMarketingData): string => 
 
   const joinLine = `🥰 ${toBoldSerif('Join:')} ${SITE_URL}/join`
   const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
-  const ticketsLine = event.ticketUrl ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}` : ''
+  const ticketsLine = event.ticketUrl
+    ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}`
+    : ''
   const closing = [dateVenue, ticketsLine].filter(Boolean).join('\n')
+  const hashtagsSection = ['#VolunteersNeeded', event.hashtags?.trim()].filter(Boolean).join(' ')
 
-  return [sv, eng, joinLine, closing].filter(Boolean).join('\n\n')
+  return [sv, eng, joinLine, closing, hashtagsSection].filter(Boolean).join('\n\n')
 }

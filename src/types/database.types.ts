@@ -381,6 +381,7 @@ export type Database = {
           created_at: string
           details: string | null
           event_id: string
+          has_exhibition: boolean
           has_gotten_price: boolean
           has_merch_table: boolean
           merch_table_notes: string | null
@@ -391,6 +392,7 @@ export type Database = {
           created_at?: string
           details?: string | null
           event_id?: string
+          has_exhibition?: boolean
           has_gotten_price?: boolean
           has_merch_table?: boolean
           merch_table_notes?: string | null
@@ -401,6 +403,7 @@ export type Database = {
           created_at?: string
           details?: string | null
           event_id?: string
+          has_exhibition?: boolean
           has_gotten_price?: boolean
           has_merch_table?: boolean
           merch_table_notes?: string | null
@@ -1122,6 +1125,7 @@ export type Database = {
           event_id: string | null
           id: string
           is_done: boolean
+          is_recurring: boolean
           title: string
         }
         Insert: {
@@ -1132,6 +1136,7 @@ export type Database = {
           event_id?: string | null
           id?: string
           is_done?: boolean
+          is_recurring?: boolean
           title: string
         }
         Update: {
@@ -1142,6 +1147,7 @@ export type Database = {
           event_id?: string | null
           id?: string
           is_done?: boolean
+          is_recurring?: boolean
           title?: string
         }
         Relationships: [
@@ -1465,6 +1471,7 @@ export type Database = {
         | "volunteer"
         | "doorman"
         | "other"
+        | "board"
       vip_entry_category: "ticket_winner" | "contest_winner" | "other"
       volunteer_shift: "driving" | "setup" | "guestlist" | "takedown"
     }
@@ -1651,6 +1658,7 @@ export const Constants = {
         "volunteer",
         "doorman",
         "other",
+        "board",
       ],
       vip_entry_category: ["ticket_winner", "contest_winner", "other"],
       volunteer_shift: ["driving", "setup", "guestlist", "takedown"],

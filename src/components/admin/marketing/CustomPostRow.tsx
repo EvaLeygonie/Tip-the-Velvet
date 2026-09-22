@@ -91,7 +91,10 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
   }
 
   return (
-    <div className="admin-panel velvet-surface transition-all duration-300 overflow-hidden" style={{ padding: 0 }}>
+    <div
+      className="admin-panel velvet-surface transition-all duration-300 overflow-hidden"
+      style={{ padding: 0 }}
+    >
       <div
         className="p-3 flex items-center gap-3 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -99,10 +102,11 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
         <div className="text-accent/50 shrink-0">
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
-        <span className="font-decorative text-sm text-foreground flex-1 truncate">{post.title}</span>
-        <span className="text-xs text-foreground/50 font-mono shrink-0">
-          {post.postDate || t('Inget datum', 'No date')}
+        <span className="font-decorative text-sm text-foreground flex-1 truncate">
+          {post.title}
         </span>
+        {/* Copy button left of the date, date right next to the checkbox — matches
+            StandardPostRow.tsx's order, direct feedback 2026-09-22. */}
         <button
           type="button"
           onClick={(e) => {
@@ -114,6 +118,9 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
         >
           <Copy className="h-3.5 w-3.5" />
         </button>
+        <span className="text-xs text-foreground/50 font-mono shrink-0">
+          {post.postDate || t('Inget datum', 'No date')}
+        </span>
         <input
           type="checkbox"
           checked={post.isPosted}
@@ -157,7 +164,11 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
             />
           </div>
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
-            <button type="button" onClick={handleDelete} className="btn-red text-xs py-2 px-4 min-h-0">
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="btn-red text-xs py-2 px-4 min-h-0"
+            >
               {t('Radera', 'Delete')}
             </button>
             <button

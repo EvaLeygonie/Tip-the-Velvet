@@ -1,10 +1,10 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
   Gift,
   Drama,
-  CalendarClock,
+  AlertTriangle,
   UtensilsCrossed,
   Music2,
   CheckCircle2,
@@ -38,6 +38,7 @@ import {
   updateTodo,
   setTodoOrder,
   deleteTodo,
+  renewRecurringTodo,
 } from '@/services/todoService'
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
@@ -102,6 +103,11 @@ export const AdminDashboard = () => {
   const [eventOverviewsLoading, setEventOverviewsLoading] = useState(true)
   const [todos, setTodos] = useState<Todo[]>([])
   const [emailTarget, setEmailTarget] = useState<EmailTarget | null>(null)
+  // Scroll target for the warning icon below — jumps straight to the to-do lists instead of
+  // making the admin hunt for whichever list the due-soon item actually lives in. Direct
+  // feedback 2026-09-22: the old "Deadlines inom en vecka" banner (a full heading + card per
+  // item at the very top of the page) felt too aggressive next to the rest of the dashboard.
+  const todoSectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -141,7 +147,8 @@ export const AdminDashboard = () => {
     title: string,
     eventId: string | null,
     dueDate: string | null,
-    details: string | null
+    details: string | null,
+    isRecurring: boolean
   ) => {
     const display_order = nextOrderInGroup(listTodos, dueDate)
     const created = await createTodo({
@@ -150,6 +157,7 @@ export const AdminDashboard = () => {
       due_date: dueDate,
       details,
       display_order,
+      is_recurring: isRecurring,
     })
     setTodos((prev) => [...prev, created])
   }
@@ -158,7 +166,8 @@ export const AdminDashboard = () => {
     id: string,
     title: string,
     dueDate: string | null,
-    details: string | null
+    details: string | null,
+    isRecurring: boolean
   ) => {
     const original = listTodos.find((td) => td.id === id)
     const others = listTodos.filter((td) => td.id !== id)
@@ -166,6 +175,7 @@ export const AdminDashboard = () => {
       title,
       due_date: dueDate,
       details,
+      is_recurring: isRecurring,
       // Only re-slotted when the date itself actually changed — editing just the title/
       // details of a task you've already manually positioned shouldn't silently move it.
       ...(original?.due_date !== dueDate
@@ -176,6 +186,16 @@ export const AdminDashboard = () => {
     setTodos((prev) => prev.map((td) => (td.id === id ? { ...td, ...patch } : td)))
   }
   const handleToggleTodo = async (id: string, isDone: boolean) => {
+    const todo = todos.find((td) => td.id === id)
+    // Completing a recurring todo renews it for next year right away instead of leaving it
+    // sitting "done" in the list — see renewRecurringTodo's own comment.
+    if (isDone && todo?.is_recurring && todo.due_date) {
+      const due_date = await renewRecurringTodo(id, todo.due_date)
+      setTodos((prev) =>
+        prev.map((td) => (td.id === id ? { ...td, due_date, is_done: false } : td))
+      )
+      return
+    }
     await setTodoDone(id, isDone)
     setTodos((prev) => prev.map((td) => (td.id === id ? { ...td, is_done: isDone } : td)))
   }
@@ -226,9 +246,11 @@ export const AdminDashboard = () => {
   }
 
   // Overdue or due within a week — the same threshold TodoListCard's own per-item coloring
-  // uses — surfaced together at the very top of the page regardless of which list (org-wide
-  // or a specific event) a task belongs to, per direct feedback: an admin shouldn't have to
-  // open the dashboard and separately scan every list to notice something's due soon.
+  // uses. Drives the small warning icon at the top of the page (red if anything's actually
+  // overdue, amber otherwise) that scrolls straight to the to-do lists — a full banner
+  // listing every item here at the very top felt too aggressive next to the rest of the
+  // dashboard (direct feedback 2026-09-22, replacing the original "surface it all up top"
+  // version from the same feedback thread).
   const upcomingDeadlines = todos
     .filter((td) => !td.is_done && td.due_date)
     .filter((td) => isDueSoon(td.due_date as string))
@@ -357,39 +379,25 @@ export const AdminDashboard = () => {
       <div className="gold-divider" />
 
       {!loading && upcomingDeadlines.length > 0 && (
-        <div className="max-w-5xl mx-auto mt-8 space-y-2">
-          <h3 className="font-decorative text-2xl text-amber-400 flex items-center justify-center gap-2">
-            <CalendarClock className="h-5 w-5 shrink-0" />
-            {t('Deadlines inom en vecka', 'Deadlines within a week')}
-          </h3>
-          <div className="space-y-1.5">
-            {upcomingDeadlines.map((todo) => {
-              const eventTitle = todo.event_id
-                ? (upcomingEvents.find((e) => e.id === todo.event_id)?.title ?? null)
-                : null
-              const overdue = isOverdue(todo.due_date as string)
-              return (
-                <div
-                  key={todo.id}
-                  className={`admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm border ${
-                    overdue ? 'border-red-500/40' : 'border-amber-500/30'
-                  }`}
-                >
-                  <span className="flex-1 min-w-0 truncate text-foreground">{todo.title}</span>
-                  <span className="text-accent italic text-xs shrink-0 truncate max-w-[100px]">
-                    {eventTitle ?? t('Organisationen', 'Organization')}
-                  </span>
-                  <span
-                    className={`text-xs font-mono shrink-0 ${
-                      overdue ? 'text-red-400' : 'text-amber-400'
-                    }`}
-                  >
-                    {formatDate(language, todo.due_date)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+        <div className="flex justify-center mt-4 mb-2">
+          <button
+            type="button"
+            onClick={() =>
+              todoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+            title={t(
+              `${upcomingDeadlines.length} deadline(ar) inom en vecka — klicka för att gå till att-göra-listan`,
+              `${upcomingDeadlines.length} deadline(s) within a week — click to go to the to-do list`
+            )}
+            className={`flex items-center gap-1.5 py-1.5 px-3 rounded-full border text-sm transition-colors ${
+              upcomingDeadlines.some((td) => isOverdue(td.due_date as string))
+                ? 'text-red-500 border-red-500/40 hover:bg-red-500/10'
+                : 'text-amber-400 border-amber-500/40 hover:bg-amber-500/10'
+            }`}
+          >
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            {t('Deadlines', 'Deadlines')}
+          </button>
         </div>
       )}
 
@@ -555,7 +563,7 @@ export const AdminDashboard = () => {
 
       {!loading && (
         <div className="max-w-5xl mx-auto mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <div className="space-y-3">
+          <div ref={todoSectionRef} className="space-y-3 scroll-mt-6">
             <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
               {t('Att göra', 'To-do')}
             </h2>
@@ -567,11 +575,11 @@ export const AdminDashboard = () => {
                   key={evt.id}
                   title={evt.title}
                   todos={listTodos}
-                  onAdd={(title, dueDate, details) =>
-                    handleAddTodo(listTodos, title, evt.id, dueDate, details)
+                  onAdd={(title, dueDate, details, isRecurring) =>
+                    handleAddTodo(listTodos, title, evt.id, dueDate, details, isRecurring)
                   }
-                  onEdit={(id, title, dueDate, details) =>
-                    handleEditTodo(listTodos, id, title, dueDate, details)
+                  onEdit={(id, title, dueDate, details, isRecurring) =>
+                    handleEditTodo(listTodos, id, title, dueDate, details, isRecurring)
                   }
                   onToggle={handleToggleTodo}
                   onSetDueDate={(id, dueDate) => handleSetTodoDueDate(listTodos, id, dueDate)}
@@ -588,11 +596,11 @@ export const AdminDashboard = () => {
                 <TodoListCard
                   title={t('Organisationen', 'Organization')}
                   todos={orgTodos}
-                  onAdd={(title, dueDate, details) =>
-                    handleAddTodo(orgTodos, title, null, dueDate, details)
+                  onAdd={(title, dueDate, details, isRecurring) =>
+                    handleAddTodo(orgTodos, title, null, dueDate, details, isRecurring)
                   }
-                  onEdit={(id, title, dueDate, details) =>
-                    handleEditTodo(orgTodos, id, title, dueDate, details)
+                  onEdit={(id, title, dueDate, details, isRecurring) =>
+                    handleEditTodo(orgTodos, id, title, dueDate, details, isRecurring)
                   }
                   onToggle={handleToggleTodo}
                   onSetDueDate={(id, dueDate) => handleSetTodoDueDate(orgTodos, id, dueDate)}

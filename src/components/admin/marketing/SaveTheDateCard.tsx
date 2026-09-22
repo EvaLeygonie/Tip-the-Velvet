@@ -8,9 +8,15 @@ import type { EventMarketingData } from '@/services/eventService'
 export const buildSaveTheDateText = (event: EventMarketingData): string => {
   const dateVenueSv = formatEventDateVenueLine(event.eventStart, event.location, 'sv')
   const dateVenueEng = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const hashtagsSection = ['#SaveTheDate', '#ThemeReveal', event.hashtags?.trim()]
+    .filter(Boolean)
+    .join(' ')
 
   return [
     `🇸🇪 🔥 SAVE THE DATE 🔥\n\n${toSmallCaps(event.title)}\n${event.descriptionSv ?? ''}\n${dateVenueSv}`,
     `🇬🇧 🔥 SAVE THE DATE 🔥\n\n${toSmallCaps(event.title)}\n${event.descriptionEng ?? ''}\n${dateVenueEng}`,
-  ].join('\n\n')
+    hashtagsSection,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }

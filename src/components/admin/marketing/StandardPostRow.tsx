@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp, Copy, RotateCcw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -20,6 +20,9 @@ interface StandardPostRowProps {
   onToggle: (checked: boolean) => void
   onSaved: (content: string) => void
   onDateChanged: (postDate: string | null) => void
+  // Extra header button only a specific post type needs (e.g. the Sponsors post's "download
+  // all sponsor logos") — rendered right before the copy button. Direct feedback 2026-09-22.
+  headerAction?: ReactNode
 }
 
 // Mirrors CustomPostRow.tsx's collapse-to-summary/expand-to-edit shape. The saved `content`
@@ -38,6 +41,7 @@ export const StandardPostRow = ({
   onToggle,
   onSaved,
   onDateChanged,
+  headerAction,
 }: StandardPostRowProps) => {
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -74,7 +78,10 @@ export const StandardPostRow = ({
   }
 
   return (
-    <div className="admin-panel velvet-surface transition-all duration-300 overflow-hidden" style={{ padding: 0 }}>
+    <div
+      className="admin-panel velvet-surface transition-all duration-300 overflow-hidden"
+      style={{ padding: 0 }}
+    >
       <div
         className="p-3 flex items-center gap-3 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -82,7 +89,29 @@ export const StandardPostRow = ({
         <div className="text-accent/50 shrink-0">
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
-        <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">{label}</span>
+        <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">
+          {label}
+        </span>
+        {/* Buttons cluster left of the date, date sits right next to the checkbox — matches
+            ArtistOverviewCard's (buttons, then date-or-revealed, then checkbox) order, so
+            the date/checkbox pair lines up the same way on every row regardless of whether
+            a given row has an extra headerAction button. Direct feedback 2026-09-22. */}
+        {headerAction && (
+          <span onClick={(e) => e.stopPropagation()} className="shrink-0">
+            {headerAction}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleCopyText()
+          }}
+          title={t('Kopiera text', 'Copy text')}
+          className="p-1.5 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors shrink-0"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </button>
         <input
           type="date"
           value={savedPostDate ?? suggestedDateIso ?? ''}
@@ -96,23 +125,12 @@ export const StandardPostRow = ({
           // Inline width, not a w-[…] utility class — index.css's global
           // input[type='date'] { width: 100% } rule (needed elsewhere for full-width form
           // fields) otherwise wins the cascade here and stretches the input to fill the
-          // row, shoving the copy button and checkbox out of view. An inline style always
-          // beats an external stylesheet rule, so it's the reliable way to override it
-          // locally without touching the global rule.
+          // row, shoving the checkbox out of view. An inline style always beats an external
+          // stylesheet rule, so it's the reliable way to override it locally without
+          // touching the global rule.
           style={{ width: '150px' }}
           className="h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 text-white shrink-0"
         />
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleCopyText()
-          }}
-          title={t('Kopiera text', 'Copy text')}
-          className="p-1.5 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors shrink-0"
-        >
-          <Copy className="h-3.5 w-3.5" />
-        </button>
         <input
           type="checkbox"
           checked={isPosted}
@@ -133,7 +151,10 @@ export const StandardPostRow = ({
             placeholder={
               generateText
                 ? undefined
-                : t('Ingen mall för detta inlägg — skriv texten här.', 'No template for this post — write the text here.')
+                : t(
+                    'Ingen mall för detta inlägg — skriv texten här.',
+                    'No template for this post — write the text here.'
+                  )
             }
             className="w-full min-h-[160px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
           />

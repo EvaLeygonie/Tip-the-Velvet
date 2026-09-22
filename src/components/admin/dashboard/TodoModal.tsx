@@ -11,7 +11,12 @@ interface TodoModalProps {
   // instead of "Add") — one modal for both, since the fields are identical either way.
   editingTodo?: Todo | null
   onClose: () => void
-  onSave: (title: string, dueDate: string | null, details: string | null) => Promise<void>
+  onSave: (
+    title: string,
+    dueDate: string | null,
+    details: string | null,
+    isRecurring: boolean
+  ) => Promise<void>
 }
 
 // Portaled overlay, not an inline expansion — same reasoning as InlineAddPicker's own
@@ -21,6 +26,7 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [details, setDetails] = useState('')
+  const [isRecurring, setIsRecurring] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -29,6 +35,7 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
         setTitle(editingTodo?.title ?? '')
         setDueDate(editingTodo?.due_date ?? '')
         setDetails(editingTodo?.details ?? '')
+        setIsRecurring(editingTodo?.is_recurring ?? false)
       }
     }
     resetDraft()
@@ -39,7 +46,9 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
     if (!trimmed) return
     setIsSaving(true)
     try {
-      await onSave(trimmed, dueDate || null, details.trim() || null)
+      // No anchor date to recur from without a deadline — cleared alongside it rather than
+      // silently kept true with nothing to roll forward.
+      await onSave(trimmed, dueDate || null, details.trim() || null, dueDate ? isRecurring : false)
       onClose()
     } catch (err) {
       toast.error(t('Kunde inte spara.', 'Could not save.'))
@@ -80,7 +89,9 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
         </div>
 
         <div className="space-y-1.5">
-          <label className="form-label-gold block">{t('Deadline (valfritt)', 'Deadline (optional)')}</label>
+          <label className="form-label-gold block">
+            {t('Deadline (valfritt)', 'Deadline (optional)')}
+          </label>
           <input
             type="date"
             value={dueDate}
@@ -89,16 +100,28 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
           />
         </div>
 
+        <label
+          className={`flex items-center gap-2 text-sm text-foreground/80 ${dueDate ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+        >
+          <input
+            type="checkbox"
+            checked={isRecurring}
+            disabled={!dueDate}
+            onChange={(e) => setIsRecurring(e.target.checked)}
+            className="h-4 w-4 accent-accent"
+          />
+          {t('Återkommer varje år på detta datum', 'Recurs every year on this date')}
+        </label>
+
         <div className="space-y-1.5">
-          <label className="form-label-gold block">{t('Detaljer (valfritt)', 'Details (optional)')}</label>
+          <label className="form-label-gold block">
+            {t('Detaljer (valfritt)', 'Details (optional)')}
+          </label>
           <textarea
             value={details}
             onChange={(e) => setDetails(e.target.value)}
             rows={3}
-            placeholder={t(
-              'Mer att skriva om uppgiften...',
-              'More to write about the task...'
-            )}
+            placeholder={t('Mer att skriva om uppgiften...', 'More to write about the task...')}
             className="w-full text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
           />
         </div>

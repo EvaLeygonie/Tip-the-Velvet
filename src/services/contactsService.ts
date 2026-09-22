@@ -448,6 +448,23 @@ export const setSponsorMerchTable = async (
   if (error) throw error
 }
 
+// Same "independent flag, not a role" shape as setSponsorMerchTable — a sponsor showing/
+// hanging their own work at the event (e.g. art on the walls), separate from running a
+// sales table. Direct feedback 2026-09-22.
+export const setSponsorExhibitionTable = async (
+  eventId: string,
+  sponsorId: string,
+  hasExhibitionTable: boolean
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_sponsors')
+    .update({ has_exhibition: hasExhibitionTable })
+    .eq('event_id', eventId)
+    .eq('sponsor_id', sponsorId)
+
+  if (error) throw error
+}
+
 // Marks whether a prize sponsor has actually handed over their competition prize — needed
 // at the latest on the event day, and independent of has_merch_table's "in several spots"
 // pattern above, but the same "flip one column on the existing row" shape.

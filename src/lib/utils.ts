@@ -220,7 +220,8 @@ export const toFraktur = (text: string): string =>
     .map((ch) => {
       if (ch >= 'A' && ch <= 'Z') {
         return (
-          FRAKTUR_UPPER_EXCEPTIONS[ch] ?? String.fromCodePoint(FRAKTUR_UPPER_START + ch.codePointAt(0)!)
+          FRAKTUR_UPPER_EXCEPTIONS[ch] ??
+          String.fromCodePoint(FRAKTUR_UPPER_START + ch.codePointAt(0)!)
         )
       }
       if (ch >= 'a' && ch <= 'z') {
@@ -233,6 +234,14 @@ export const toFraktur = (text: string): string =>
 // "Dark Carnival" -> "#DarkCarnival" — strips everything but letters/digits, no word-casing
 // logic beyond what's already in the source text.
 export const toHashtag = (text: string): string => `#${text.replace(/[^\p{L}\p{N}]/gu, '')}`
+
+// "A" | "A och B" | "A, B och C" — proper grammatical list join (comma-separated, the given
+// conjunction only before the last item) rather than a flat `.join(', ')`, which read as
+// broken grammar in a real social post. Direct feedback 2026-09-22.
+export const joinWithConjunction = (items: string[], conjunction: string): string => {
+  if (items.length <= 1) return items.join('')
+  return `${items.slice(0, -1).join(', ')} ${conjunction} ${items[items.length - 1]}`
+}
 
 // Always-the-same org/city tags, kept last in every hashtag block. This is also the
 // events.hashtags column's DB-level DEFAULT, so a brand new event row starts with these
@@ -369,7 +378,8 @@ export const formatSocialDateLine = (dateString: string, lang: 'sv' | 'eng'): st
   if (lang === 'sv') {
     const lastTwo = day % 100
     const lastOne = day % 10
-    const suffix = (lastOne === 1 || lastOne === 2) && !(lastTwo === 11 || lastTwo === 12) ? 'a' : 'e'
+    const suffix =
+      (lastOne === 1 || lastOne === 2) && !(lastTwo === 11 || lastTwo === 12) ? 'a' : 'e'
     const month = date.toLocaleDateString('sv-SE', { month: 'long' })
     return `${day}${suffix} ${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`
   }

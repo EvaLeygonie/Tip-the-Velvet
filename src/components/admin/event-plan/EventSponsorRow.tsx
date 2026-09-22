@@ -8,6 +8,7 @@ import {
   updateEventSponsorMerchNotes,
   removeSponsorFromEvent,
   setSponsorMerchTable,
+  setSponsorExhibitionTable,
   setSponsorGotPrice,
 } from '@/services/contactsService'
 import type { AdminEventSponsorRow } from '@/services/eventService'
@@ -18,6 +19,7 @@ interface EventSponsorRowProps {
   onRemoved: (sponsorId: string) => void
   onUpdated: (sponsorId: string, patch: Partial<AdminEventSponsorRow>) => void
   onMerchToggled: (sponsorId: string, value: boolean) => void
+  onExhibitionToggled: (sponsorId: string, value: boolean) => void
 }
 
 // Mirrors EventStaffRow.tsx — Event Planning's operational view of one confirmed
@@ -29,12 +31,14 @@ export const EventSponsorRow = ({
   onRemoved,
   onUpdated,
   onMerchToggled,
+  onExhibitionToggled,
 }: EventSponsorRowProps) => {
   const { t } = useLanguage()
   const isPrizeSponsor = row.role === 'prize'
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isTogglingMerch, setIsTogglingMerch] = useState(false)
+  const [isTogglingExhibition, setIsTogglingExhibition] = useState(false)
   const [isTogglingPrice, setIsTogglingPrice] = useState(false)
   const [draft, setDraft] = useState({
     details: row.details ?? '',
@@ -57,6 +61,25 @@ export const EventSponsorRow = ({
       console.error(err)
     } finally {
       setIsTogglingMerch(false)
+    }
+  }
+
+  const handleToggleExhibition = async () => {
+    setIsTogglingExhibition(true)
+    try {
+      const next = !row.has_exhibition
+      await setSponsorExhibitionTable(eventId, row.sponsor_id, next)
+      onExhibitionToggled(row.sponsor_id, next)
+      toast.success(
+        next
+          ? t('Markerad med utställning.', 'Marked as exhibiting.')
+          : t('Utställning borttagen.', 'Exhibition removed.')
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    } finally {
+      setIsTogglingExhibition(false)
     }
   }
 
@@ -158,6 +181,11 @@ export const EventSponsorRow = ({
             {t('Säljbord', 'Merch table')}
           </span>
         )}
+        {row.has_exhibition && (
+          <span className="text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-2 py-0.5 shrink-0">
+            {t('Utställning', 'Exhibition')}
+          </span>
+        )}
         {row.details && !isExpanded && (
           <span className="text-xs text-foreground/50 italic truncate max-w-[180px] shrink-0 hidden sm:block">
             {row.details}
@@ -179,7 +207,17 @@ export const EventSponsorRow = ({
                 disabled={isTogglingMerch}
                 className="h-4 w-4 accent-accent"
               />
-              {t('Har säljbord', 'Has merch table')}
+              {t('Säljbord', 'Merch table')}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={row.has_exhibition}
+                onChange={handleToggleExhibition}
+                disabled={isTogglingExhibition}
+                className="h-4 w-4 accent-accent"
+              />
+              {t('Utställning', 'Exhibition')}
             </label>
             {isPrizeSponsor && (
               <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">

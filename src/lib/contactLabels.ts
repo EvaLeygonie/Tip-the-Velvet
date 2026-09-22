@@ -30,6 +30,8 @@ export const staffRoleLabel = (t: Translate, role: StaffVolunteerType): string =
       return t('Entrévärd', 'Entrance host')
     case 'other':
       return t('Övrigt', 'Other')
+    case 'board':
+      return t('Styrelse', 'Board')
   }
 }
 
