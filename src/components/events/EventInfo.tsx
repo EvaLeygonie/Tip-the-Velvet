@@ -1,4 +1,13 @@
-import { Calendar, MapPin, UserPlus, ExternalLink } from 'lucide-react'
+import { useState } from 'react'
+import {
+  Calendar,
+  MapPin,
+  UserPlus,
+  ExternalLink,
+  CalendarClock,
+  Image as ImageIcon,
+  Info,
+} from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import type { Event } from '@/types/types'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -16,6 +25,7 @@ interface EventWithVenue extends Event {
 
 export const EventInfo = ({ event }: { event: EventWithVenue }) => {
   const { language, t } = useLanguage()
+  const [isScheduleFlipped, setIsScheduleFlipped] = useState(false)
 
   if (!event) return null
 
@@ -28,37 +38,58 @@ export const EventInfo = ({ event }: { event: EventWithVenue }) => {
 
   return (
     <div className="w-full space-y-10">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 items-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
         {/* PROMO IMAGE — flips to the evening's schedule instead of adding a whole new
-            section further down an already long page. */}
-        <div className="flex justify-center w-full">
-          <EventScheduleFlipCard imageId={event.image_id} glowVars={glowVars} />
+            section further down an already long page. justify-between (+ the grid's default
+            stretch now that items-center is gone) pins this button to the bottom of the
+            column, at the same height as the ticket/casting row in the info column opposite
+            it — direct feedback 2026-09-24, the two action rows were "a little off" from each
+            other under items-center, which vertically centered each column independently
+            instead of anchoring both to a shared baseline. */}
+        <div className="flex flex-col items-center justify-between gap-6 w-full">
+          <EventScheduleFlipCard
+            imageId={event.image_id}
+            glowVars={glowVars}
+            isFlipped={isScheduleFlipped}
+          />
+          <button
+            type="button"
+            onClick={() => setIsScheduleFlipped((prev) => !prev)}
+            className="btn-gold-outline text-xs py-2 px-4 inline-flex items-center gap-1.5"
+          >
+            {isScheduleFlipped ? (
+              <>
+                <ImageIcon className="h-3.5 w-3.5" />
+                {t('Tillbaka till bild', 'Back to image')}
+              </>
+            ) : (
+              <>
+                <CalendarClock className="h-3.5 w-3.5" />
+                {t('Se kvällens upplägg', 'See schedule')}
+              </>
+            )}
+          </button>
         </div>
 
         {/* INFO */}
-        <div className="space-y-6 w-full max-w-[450px] mx-auto md:mx-0 text-center md:text-left">
-          <div className="info-panel">
+        <div className="flex flex-col w-full max-w-[450px] mx-auto md:mx-0 text-center md:text-left">
+          {/* my-auto centers this card on the image's own vertical center — the ticket/
+              casting row below stays flush at the bottom (same as before), and the auto
+              margins split whatever space is left above/below the card evenly, rather than
+              it sitting flush at the top with all the slack left as one gap underneath.
+              Direct feedback 2026-09-24. */}
+          <div className="info-panel my-auto">
             <div className="info-field-row-divided">
-              <Calendar className="icon-accent-md" strokeWidth={1.5} />
+              <Info className="icon-accent-md" strokeWidth={1.5} />
               <div>
-                <span className="label-kicker">{t('Start:', 'Starts:')}</span>
+                <span className="label-kicker">{t('Språk:', 'Language:')}</span>
                 <span className="text-foreground/90">
-                  {formatDateTime(language, event.event_start)}
+                  {event.is_english
+                    ? t('Värden kommer att tala engelska', 'The host will be speaking English')
+                    : t('Värden kommer att tala svenska', 'The host will be speaking Swedish')}
                 </span>
               </div>
             </div>
-
-            {event.event_end && (
-              <div className="info-field-row-divided">
-                <Calendar className="icon-accent-md" strokeWidth={1.5} />
-                <div>
-                  <span className="label-kicker">{t('Slut:', 'Ends:')}</span>
-                  <span className="text-foreground/80">
-                    {formatDateTime(language, event.event_end)}
-                  </span>
-                </div>
-              </div>
-            )}
 
             <div className="info-field-row-divided">
               <MapPin className="icon-accent-md" strokeWidth={1.5} />
@@ -81,6 +112,28 @@ export const EventInfo = ({ event }: { event: EventWithVenue }) => {
                 </span>
               </div>
             </div>
+
+            <div className="info-field-row-divided">
+              <Calendar className="icon-accent-md" strokeWidth={1.5} />
+              <div>
+                <span className="label-kicker">{t('Start:', 'Starts:')}</span>
+                <span className="text-foreground/90">
+                  {formatDateTime(language, event.event_start)}
+                </span>
+              </div>
+            </div>
+
+            {event.event_end && (
+              <div className="info-field-row-divided">
+                <Calendar className="icon-accent-md" strokeWidth={1.5} />
+                <div>
+                  <span className="label-kicker">{t('Slut:', 'Ends:')}</span>
+                  <span className="text-foreground/80">
+                    {formatDateTime(language, event.event_end)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* LINKS */}

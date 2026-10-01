@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Sparkles } from 'lucide-react'
+import { Calendar, MapPin, Sparkles, Info } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import type { Event } from '@/types/types'
@@ -92,6 +92,14 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
               <div className="meta-row text-foreground/90">
                 <MapPin className="icon-accent-sm" />
                 <span>{event.location || 'TBA'}</span>
+              </div>
+              <div className="meta-row text-foreground/90">
+                <Info className="icon-accent-sm" />
+                <span>
+                  {event.is_english
+                    ? t('Värden pratar engelska', 'Host speaks English')
+                    : t('Värden pratar svenska', 'Host speaks Swedish')}
+                </span>
               </div>
             </div>
 

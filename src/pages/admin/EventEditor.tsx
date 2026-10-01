@@ -7,7 +7,13 @@ import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { FloatingBackLink } from '@/components/FloatingBackLink'
 import type { Event, CreateEventInput } from '@/types/types'
-import { createSlug, getImageSrc, utcToLocal, localToUtc, DEFAULT_EVENT_HASHTAGS } from '@/lib/utils'
+import {
+  createSlug,
+  getImageSrc,
+  utcToLocal,
+  localToUtc,
+  DEFAULT_EVENT_HASHTAGS,
+} from '@/lib/utils'
 import {
   getAdminEventDetails,
   getAllVenues,
@@ -42,6 +48,7 @@ export const EventEditor = () => {
     slug: '',
     status: 'draft',
     has_casting_call: false,
+    is_english: false,
     glow_color: '#D4AF37',
     venue_id: null,
     photographer_id: null,
@@ -194,6 +201,7 @@ export const EventEditor = () => {
       slug: finalSlug,
       status: formData.status || 'draft',
       has_casting_call: formData.has_casting_call || false,
+      is_english: formData.is_english || false,
       casting_call_start: formData.casting_call_start || null,
       casting_call_deadline: formData.casting_call_deadline || null,
       staff_recruitment_open: formData.staff_recruitment_open || false,
@@ -627,18 +635,19 @@ export const EventEditor = () => {
                 onChange={handleChange}
               />
             </div>
+          </div>
 
-            {/* PRICE & TICKETS */}
+          {/* TICKETS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
             <div className="field-row">
-              <label className="form-label-gold">{t('Pris (SEK)', 'Price (SEK)')}</label>
+              <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
               <input
-                type="number"
-                name="tickets_price"
+                type="url"
+                name="ticket_url"
+                placeholder="https://..."
                 className="editor-input"
-                value={formData.tickets_price || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, tickets_price: Number(e.target.value) })
-                }
+                value={formData.ticket_url || ''}
+                onChange={handleChange}
               />
             </div>
             <div className="field-row">
@@ -653,33 +662,45 @@ export const EventEditor = () => {
                 className="editor-input"
               />
             </div>
-
             <div className="field-row">
-              <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
-              <input
-                type="url"
-                name="ticket_url"
-                placeholder="https://..."
-                className="editor-input"
-                value={formData.ticket_url || ''}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="field-row">
-              <label className="form-label-gold">
-                {t('Efterfest-spellista', 'Afterparty playlist')}
+              <label className="form-label-gold">{t('Språk', 'Language')}</label>
+              <label className="flex items-center gap-2 cursor-pointer pt-3 pb-1">
+                <input
+                  type="checkbox"
+                  name="is_english"
+                  checked={formData.is_english || false}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, is_english: e.target.checked }))
+                  }
+                  className="w-4 h-4 accent-accent"
+                />
+                <span className="text-xs text-foreground/70">
+                  {t('Värden talar engelska', 'Host speaks English')}
+                </span>
               </label>
-              <input
-                type="text"
-                name="afterparty_playlist"
-                placeholder={t('Länk eller "DJ"', 'Link or "DJ"')}
-                className="editor-input"
-                value={formData.afterparty_playlist || ''}
-                onChange={handleChange}
-              />
             </div>
 
+            <div className="field-row">
+              <label className="form-label-gold">{t('Pris (SEK)', 'Price (SEK)')}</label>
+              <input
+                type="number"
+                name="tickets_price"
+                className="editor-input"
+                value={formData.tickets_price || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, tickets_price: Number(e.target.value) })
+                }
+              />
+            </div>
+            <div className="field-row">
+              <label className="form-label-gold">{t('Sålda biljetter', 'Tickets Sold')}</label>
+              <input
+                type="number"
+                className="editor-input"
+                value={formData.tickets_sold || ''}
+                onChange={(e) => setFormData({ ...formData, tickets_sold: Number(e.target.value) })}
+              />
+            </div>
             <div className="field-row">
               <label className="form-label-gold">
                 {t('Tillgängliga biljetter', 'Available Tickets')}
@@ -691,15 +712,6 @@ export const EventEditor = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, available_tickets: Number(e.target.value) })
                 }
-              />
-            </div>
-            <div className="field-row">
-              <label className="form-label-gold">{t('Sålda biljetter', 'Tickets Sold')}</label>
-              <input
-                type="number"
-                className="editor-input"
-                value={formData.tickets_sold || ''}
-                onChange={(e) => setFormData({ ...formData, tickets_sold: Number(e.target.value) })}
               />
             </div>
           </div>

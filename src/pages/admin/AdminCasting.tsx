@@ -9,6 +9,7 @@ import {
   updateActSelection,
   cancelConfirmedBooking,
 } from '@/services/applicationService'
+import { updateEvent } from '@/services/eventService'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import type { CastingApplication, CastingApplicationWithActs } from '@/types/types'
@@ -197,6 +198,25 @@ export const AdminCasting = () => {
         setApplications((prev) => prev.map((app) => (app.id === id ? previous : app)))
       }
       throw err
+    }
+
+    // Whoever hosts sets the language for the evening — carry that onto the event
+    // automatically so the board doesn't have to remember to flip it by hand too. Only
+    // fires on a positive host assignment (not on every logistics edit, and not when a
+    // role is moved away from host), so it never fights a manual override made afterwards
+    // in EventEditor.
+    if (lineupRole === 'host' && previous) {
+      try {
+        await updateEvent(previous.event_id, { is_english: previous.language === 'eng' })
+      } catch (syncErr) {
+        console.error('Kunde inte synka eventets språk mot värdens:', syncErr)
+        toast.error(
+          t(
+            'Logistiken sparades, men eventets språkflagga kunde inte uppdateras automatiskt.',
+            "Logistics saved, but the event's language flag could not be updated automatically."
+          )
+        )
+      }
     }
   }
 

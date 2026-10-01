@@ -94,13 +94,13 @@ export const EventDetail = () => {
         <div className="section-header-triad">
           <div className="header-side-content md:justify-start" />
 
-          <div className="text-center space-y-2">
-            <h1 className="drop-shadow-[0_0_20px_currentColor]">
+          <div className="text-center space-y-1">
+            <h1 className="drop-shadow-[0_0_20px_currentColor] pb-1">
               {event?.title || t('Event hittades inte', 'Event not found')}
             </h1>
 
             {event && !isOldEvent && 'subtitle' in event && event.subtitle && (
-              <h2 className="font-heading text-foreground/70 text-sm md:text-base tracking-wide mt-1">
+              <h2 className="font-heading text-foreground/70 text-sm md:text-base tracking-wide pb-2">
                 {event.subtitle}
               </h2>
             )}

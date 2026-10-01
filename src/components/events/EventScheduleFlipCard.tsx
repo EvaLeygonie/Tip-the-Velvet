@@ -1,11 +1,14 @@
-import { useState } from 'react'
-import { CalendarClock, Image as ImageIcon, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 interface EventScheduleFlipCardProps {
   imageId: string | null
   glowVars: React.CSSProperties
+  // Controlled from EventInfo.tsx — the toggle button lives in the right-hand info column
+  // (so the two columns line up height-wise) but needs to flip this image, which sits in
+  // the left column. Direct feedback 2026-09-24.
+  isFlipped: boolean
 }
 
 interface ScheduleItem {
@@ -64,12 +67,14 @@ const SCHEDULE_ITEMS: ScheduleItem[] = [
 ]
 
 // Flips the promo image around to reveal the evening's schedule instead of adding a whole
-// new section to an already long page — "See schedule" sits right under the image the
-// schedule itself swaps into, next to the date/venue info it belongs beside. Direct feedback
-// 2026-09-24.
-export const EventScheduleFlipCard = ({ imageId, glowVars }: EventScheduleFlipCardProps) => {
+// new section to an already long page. The toggle button itself lives in EventInfo.tsx's
+// info column, not here — see isFlipped's comment above. Direct feedback 2026-09-24.
+export const EventScheduleFlipCard = ({
+  imageId,
+  glowVars,
+  isFlipped,
+}: EventScheduleFlipCardProps) => {
   const { t } = useLanguage()
-  const [isFlipped, setIsFlipped] = useState(false)
 
   return (
     // w-full + max-w here (matching promo-frame-event's own) is load-bearing, not
@@ -78,7 +83,7 @@ export const EventScheduleFlipCard = ({ imageId, glowVars }: EventScheduleFlipCa
     // 100%-wide child form a sizing loop that collapses to a tiny fraction of the intended
     // 380/420px frame — exactly the "image got really small" regression. Direct feedback
     // 2026-09-24.
-    <div className="flex flex-col items-center gap-6 w-full max-w-[380px] md:max-w-[420px]">
+    <div className="w-full max-w-[380px] md:max-w-[420px]">
       <div className="promo-flip-scene" style={glowVars}>
         <div className={`promo-flip-inner ${isFlipped ? 'promo-flip-inner-flipped' : ''}`}>
           <div className="promo-flip-face">
@@ -116,24 +121,6 @@ export const EventScheduleFlipCard = ({ imageId, glowVars }: EventScheduleFlipCa
           </div>
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={() => setIsFlipped((prev) => !prev)}
-        className="btn-gold-outline text-xs py-2 px-4 flex items-center gap-1.5"
-      >
-        {isFlipped ? (
-          <>
-            <ImageIcon className="h-3.5 w-3.5" />
-            {t('Tillbaka till bild', 'Back to image')}
-          </>
-        ) : (
-          <>
-            <CalendarClock className="h-3.5 w-3.5" />
-            {t('Se kvällens upplägg', 'See schedule')}
-          </>
-        )}
-      </button>
     </div>
   )
 }
