@@ -207,6 +207,27 @@ export interface AdminEventPerformerRow extends EventPerformer {
   // Same reasoning as eventPromoImageId — the photo credit for THAT image, not
   // performer.photographer (a different, possibly stale credit tied to their profile pic).
   eventPhotographer: string | null
+  // From this event's casting application — whether the artist asked for travel costs/
+  // accommodation to be covered at all, plus the travel estimate negotiated before
+  // confirmation (the Travel & boende tab's "preliminary" price, shown when the row's own
+  // final travel_covered is still unset). The board-facing "actual" fields (travel_covered,
+  // accommodation, notes, travel_receipts) already come through via the `...row` spread
+  // above — these two are the only pieces that tab needs from the original application.
+  // Direct feedback 2026-09-22.
+  needsTravelCosts: boolean
+  preliminaryTravelCost: number | null
+  needsAccommodation: boolean
+  // The artist's own stated accommodation needs (pet allergies, has a car, etc.) — read-only
+  // context in that tab, distinct from event_performers.accommodation (the board's own "where
+  // we're actually putting them" plan, editable there).
+  artistAccommodationNotes: string | null
+  // Lets the Travel & boende tab link an artist's name straight to their own booking portal
+  // (/casting/confirm/:id?token=...) — the same page ArtistBookingPortal/BookedArtistForm
+  // shows the artist, so the board can see every logistics detail in one place instead of
+  // this tab re-displaying all of it. null when no matching application exists (e.g. a
+  // performer added by hand). Direct feedback 2026-09-22.
+  castingApplicationId: string | null
+  castingApplicationToken: string | null
 }
 
 export interface AdminEventPlanData {
@@ -224,7 +245,9 @@ export const getEventPerformersForAdmin = async (eventId: string): Promise<Admin
       .order('display_order', { ascending: true }),
     supabase
       .from('casting_applications')
-      .select('performer_id, promo_image_id, photographer')
+      .select(
+        'id, access_token, performer_id, promo_image_id, photographer, needs_travel_costs, travel_cost_amount, needs_accommodation, accommodation_notes'
+      )
       .eq('event_id', eventId)
       .not('performer_id', 'is', null),
     supabase.from('events').select('ticket_url, hashtags').eq('id', eventId).maybeSingle(),
@@ -244,6 +267,12 @@ export const getEventPerformersForAdmin = async (eventId: string): Promise<Admin
       ...row,
       eventPromoImageId: app?.promo_image_id ?? row.performer?.promo_image_id ?? null,
       eventPhotographer: app?.photographer ?? null,
+      needsTravelCosts: app?.needs_travel_costs ?? false,
+      preliminaryTravelCost: app?.travel_cost_amount ?? null,
+      needsAccommodation: app?.needs_accommodation ?? false,
+      artistAccommodationNotes: app?.accommodation_notes ?? null,
+      castingApplicationId: app?.id ?? null,
+      castingApplicationToken: app?.access_token ?? null,
     }
   })
 
@@ -460,6 +489,61 @@ export const updateEventPerformerDietary = async (
   const { error } = await supabase
     .from('event_performers')
     .update({ dietary_category: category })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
+// event_performers.notes was already wired into update_event_performer_via_token (the
+// artist's own booking form, via applicationService's updateEventPerformerDetails) but never
+// actually surfaced in that form's UI — free to repurpose here as the board's own travel-
+// logistics note (e.g. "picking her up from the airport at 14:00") for the Travel & boende
+// tab. Safe from being clobbered by the artist re-saving their form: that RPC only ever does
+// `notes = COALESCE(p_notes, notes)`, and the artist form never sends p_notes at all.
+// Direct feedback 2026-09-22.
+export const updateEventPerformerTravelNotes = async (
+  eventId: string,
+  performerId: string,
+  notes: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ notes })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
+// The board's own "where we're actually putting them" plan — separate from the artist's
+// own stated needs (needsAccommodation/artistAccommodationNotes on AdminEventPerformerRow,
+// sourced from casting_applications and read-only in that tab). Direct feedback 2026-09-22.
+export const updateEventPerformerAccommodation = async (
+  eventId: string,
+  performerId: string,
+  accommodation: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ accommodation })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
+// A second, separate note from the "where" field above — logistics like dates matter too
+// (e.g. needing the room for extra nights for a +1), and cramming that into the same short
+// "where" field made it read as one run-on thought. Direct feedback 2026-09-22.
+export const updateEventPerformerAccommodationDetails = async (
+  eventId: string,
+  performerId: string,
+  details: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ accommodation_details: details })
     .eq('event_id', eventId)
     .eq('performer_id', performerId)
 

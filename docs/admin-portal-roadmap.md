@@ -2519,3 +2519,159 @@ Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all cl
   function's comment). Deduped by `sponsor_id` before fetching.
 
 Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### New Event Plan tab: Resa & boende (Travel & accommodation) — 2026-09-22
+
+- No schema changes needed — the user correctly guessed the DB already prepared for this.
+  `event_performers` already had `travel_covered`, `accommodation`, `notes`, and
+  `travel_receipts` (jsonb, an artist-uploaded array of `{id, name, url}` — see
+  `BookedArtistForm.tsx`'s `ReceiptItem`), and `casting_applications` already had
+  `needs_travel_costs`/`travel_cost_amount`/`needs_accommodation`/`accommodation_notes` from
+  the original casting negotiation. All of it existed but nothing surfaced it anywhere.
+- **`event_performers.notes`** in particular was already wired into
+  `update_event_performer_via_token` (the artist's own booking-form RPC) but never actually
+  exposed in that form's UI — confirmed via the RPC's definition
+  (`notes = COALESCE(p_notes, notes)`, and the artist form never sends `p_notes`) that it's
+  safe to repurpose as the board's own travel-logistics note without it ever getting
+  clobbered by the artist re-saving their form.
+- **`getEventPerformersForAdmin`** (`eventService.ts`) now also joins
+  `needs_travel_costs`/`travel_cost_amount`/`needs_accommodation`/`accommodation_notes` from
+  the matching casting application (same `appByPerformerId` map already used for
+  `eventPromoImageId`/`eventPhotographer`), exposed on `AdminEventPerformerRow` as
+  `needsTravelCosts`/`preliminaryTravelCost`/`needsAccommodation`/
+  `artistAccommodationNotes`.
+- New `updateEventPerformerTravelNotes` and `updateEventPerformerAccommodation`
+  (`eventService.ts`), same single-field-update-keyed-on-(event_id, performer_id) shape as
+  `updateEventPerformerDietary`.
+- New `TravelAccommodationTab.tsx`: two independent columns (an artist can need either, both,
+  or neither) — **Resa**: name, price (the artist's own settled `travel_covered` once they've
+  saved their form, falling back to the board's pre-confirmation `preliminaryTravelCost`
+  estimate — labeled "prel." — until then), an editable notes field, and a receipt-uploaded
+  marker (`travel_receipts.length > 0`). **Boende**: name, the artist's own stated needs as
+  read-only reference, and an editable "var vi placerar dem" field
+  (`event_performers.accommodation`). Both list only performers whose casting application
+  flagged that need.
+- Added `'travel'` to `EventPlanTab` and a new tab button between Mat and VIP. (Not added to
+  `EventProgressOverview.tsx`'s status-card strip — that component turned out to already be
+  dead code, not rendered anywhere; only its `EventPlanTab` type is still used.)
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Resa & boende follow-up: booking-page links, receipt downloads — 2026-09-22
+
+- Artist names in both columns now link (`react-router-dom`'s `Link`, new tab) to
+  `/casting/confirm/:id?token=...` — the same `ArtistBookingPortal`/`BookedArtistForm` page
+  the artist themselves uses, showing every logistics detail (acts, dietary, plus-one, etc.)
+  in one click rather than this tab re-displaying all of it. `getEventPerformersForAdmin`'s
+  casting-application join now also selects `id`/`access_token`, exposed on
+  `AdminEventPerformerRow` as `castingApplicationId`/`castingApplicationToken` (null when no
+  matching application exists, e.g. a performer added by hand — falls back to plain text).
+- Each uploaded receipt in the Resa column is now its own small download link (a performer
+  can have more than one), plus a "download all receipts" header button that zips every
+  travelRows performer's receipts into one file — same `fl_attachment`-less-but-same-idea
+  fetch+JSZip approach as `EventAssetPanel.tsx`'s other "download all" buttons (receipts are
+  plain Supabase Storage public URLs, not Cloudinary, so no `fl_attachment` param — just a
+  plain `fetch`). Filenames are prefixed with the artist's name to avoid collisions once
+  unzipped.
+- Fixed a layout issue: the price badge was a plain inline span sized to its own text, so a
+  short value (e.g. "0 kr") let the notes input next to it stretch wider than on other rows —
+  spotted by the user via Luminous Starling's row. Now a fixed-shape pill
+  (`min-w-[60px] text-center`) with color/italics (plus a tooltip) carrying the
+  final-vs-preliminary distinction instead of a variable-length "(prel.)" suffix, so the
+  badge's width — and therefore the notes input's width — stays constant across rows.
+- Confirmed for the user: every row's notes field reading empty right now is expected, not a
+  bug — `event_performers.notes` was never surfaced anywhere before this tab existed, so no
+  historical row has ever had anything written to it.
+- **Explicitly deferred, not built**: a "have we paid them back" checkbox — the user's own
+  suggestion, floated as something that might fit better on a future dedicated "economy" tab
+  rather than added here now.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Dashboard: Reskvitton/Boende highlight cards, booking-form copy split — 2026-09-22
+
+- Two new per-event Dashboard cards (`AdminDashboard.tsx`), same "only shown when something's
+  actually missing" convention as every other card there: **Reskvitton** (`missingReceipts`
+  out of every performer with `needsTravelCosts`, i.e. no uploaded `travel_receipts` yet) and
+  **Boende** (`missingHousing` out of every performer with `needsAccommodation`, i.e. no
+  `accommodation` plan written yet). Both jump to the new `'travel'` Event Plan tab; Reskvitton
+  also gets an "email all" button (`handleEmailMissingReceipts`, same bulk-email pattern as
+  the existing notes/food cards).
+- Both are gated on `!needsCastingAttention` — direct feedback: booking travel/accommodation
+  for artists who might still get bumped from the lineup during casting review is wasted
+  effort, so these only start appearing once that event's casting card has fully resolved
+  and disappeared (or immediately, for an event with no casting call at all — there's nothing
+  to resolve first in that case).
+- No data-layer changes needed — `EventOverviewData.performers` already carried
+  `needsTravelCosts`/`travel_receipts`/`needsAccommodation`/`accommodation` from the Resa &
+  boende tab work above.
+- Small copy/layout fix on the artist's own booking form (`BookedArtistForm.tsx`, Sektion 4
+  "Överenskommet Gage" summary): the "Reseersättning tillkommer (uppskattat...)" and "fyll i
+  den slutliga summan..." halves of one sentence are now two separate lines, the instruction
+  on its own row under the estimate — per the user reviewing Luminous Starling's page live.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Travel edge cases: by-car, artist note, plus-one accommodation — 2026-09-22
+
+Prompted by two real bookings: Florence Shimmermore and Morau Amour carpooling to the same
+event (only Florence should be flagged for travel reimbursement), and Luminous Starling's
+partner (+1) also needing a place to sleep.
+
+- **Florence/Morau fix needed no code** — `needs_travel_costs` is editable for a confirmed
+  application via Admin → Casting's existing logistics panel (`review_status === 'yes'` gates
+  it, not `booking_status`), and `updateApplicationLogistics` is a plain `.update()` with no
+  side effects (confirmed by reading it — no re-sent emails). Unchecking "Erbjud
+  reseersättning" there and saving is enough.
+- **Three new `event_performers` columns**, all artist-editable via `BookedArtistForm.tsx`
+  (Sektion 3, same `update_event_performer_via_token` RPC path as the existing fields):
+  - `travels_by_car` (bool) — a "Jag reser med bil..." checkbox that hides the receipt-
+    upload UI entirely (still keeps the sum field — paid out with their fee, per the user's
+    description) once checked. Reflected on the Travel tab as a "Bil" badge instead of the
+    missing-receipt warning, and excluded from the Dashboard's `missingReceipts` count and
+    `handleEmailMissingReceipts` recipients.
+  - `artist_note` (text) — a genuinely new field; the booking form had no free-text note at
+    all before this. Deliberately a separate column from the existing `notes` (the board's
+    own field, added in the Resa & boende round) rather than reusing it — the artist's form
+    already never touches `notes` specifically so the board's note can't be clobbered by a
+    re-save, and letting the artist write into the same column would have broken that.
+    Shown read-only on both Travel tab columns when present.
+  - `plus_one_needs_accommodation` (bool) — a checkbox next to the plus-one fields, only
+    rendered when `application.needs_accommodation` is true (a +1 sharing housing is
+    meaningless otherwise). Shown as a highlighted line on the Boende column
+    ("+1: {name} behöver också boende").
+- **`handleChange` in `BookedArtistForm.tsx`** generalized to read `e.target.checked` for
+  `type="checkbox"` inputs — every other field on that form was text/select until now.
+- **Migration hiccup worth remembering**: `CREATE OR REPLACE FUNCTION` does NOT replace a
+  function whose parameter list changed — Postgres treats a different signature as a new
+  overload, so `update_event_performer_via_token` briefly had both a 10-arg (old) and 13-arg
+  (new) version live at once after the first migration script, exactly the "stale overload →
+  PGRST203" trap a comment elsewhere in this file already warned about. Caught via a read-only
+  `pg_get_function_identity_arguments` query; fixed with an explicit
+  `DROP FUNCTION ...(uuid, uuid, uuid, text, dietary_category, jsonb, numeric, text, text,
+  text)` naming the old signature before regenerating types. Worth checking for on any future
+  RPC signature change, not just enum-in-same-transaction issues.
+- `get_casting_application_by_token` also needed updating (separately from the RPC above) —
+  it explicitly lists which `event_performers` columns to expose to the artist's own portal
+  fetch, not `select *`, so the 3 new columns wouldn't have reached `BookedArtistForm` at all
+  otherwise.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.
+
+### Travel tab follow-up: icon width, +1 layout, accommodation notes — 2026-09-22
+
+- The "Bil" badge (icon + text + border/background) was making the notes input next to it
+  narrower than on rows without it. Replaced with a bare `Car` icon at the same size as the
+  plain `Receipt` icon it sits alongside (amber, no pill chrome) — every row's icon slot is
+  now the same width regardless of state.
+- Boende column: "+1: {name}" now sits inline on the same line as the performer's name
+  instead of its own sentence ("... also needs accommodation") on the line below — the fact
+  that it's shown at all already implies the accommodation need.
+- New `event_performers.accommodation_details` column (text) — a second free-text field
+  under "Var placerar vi dem?" for logistics that don't fit "where", e.g. date ranges
+  (Luminous Starling's +1 needing the room Friday–Sunday, not just the one night). New
+  `updateEventPerformerAccommodationDetails` (`eventService.ts`, same shape as
+  `updateEventPerformerAccommodation`) and `onAccommodationDetailsChanged` handler
+  (`AdminEventPlan.tsx`), wired straight through — no migration surprises this time.
+
+Verified with `tsc -b`, `npm run lint`, `npm run build`, and Prettier — all clean.

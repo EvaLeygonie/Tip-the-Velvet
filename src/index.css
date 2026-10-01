@@ -234,6 +234,36 @@ body {
     @apply promo-frame aspect-square w-full max-w-[380px] md:max-w-[420px] rounded-2xl transition-all duration-500 hover:scale-[1.01];
   }
 
+  /* Flip-card trio for EventScheduleFlipCard — the scene owns perspective + the frame's
+     usual square/rounded/border look (overflow-hidden here doesn't clip the rotating inner
+     face: a flat plane rotating about its own center axis stays within its own original
+     bounding box at any angle, it's only true 3D depth that would overflow). The inner
+     element is what actually rotates; each face is absolutely positioned on top of it with
+     backface-visibility hidden so only one is ever visible at a time, and the back face is
+     pre-rotated 180° so it reads right-way-round once the flip completes. */
+  .promo-flip-scene {
+    @apply promo-frame-event;
+    perspective: 1600px;
+  }
+
+  .promo-flip-inner {
+    @apply relative w-full h-full transition-transform duration-700 ease-in-out;
+    transform-style: preserve-3d;
+  }
+
+  .promo-flip-inner-flipped {
+    transform: rotateY(180deg);
+  }
+
+  .promo-flip-face {
+    @apply absolute inset-0 w-full h-full;
+    backface-visibility: hidden;
+  }
+
+  .promo-flip-face-back {
+    transform: rotateY(180deg);
+  }
+
   .promo-frame-featured {
     @apply promo-frame aspect-square w-full max-w-[min(100%,320px)] sm:max-w-[380px] md:max-w-none rounded-xl border-2 transition-all duration-700 glow-border-strong md:group-hover:scale-[1.015];
   }

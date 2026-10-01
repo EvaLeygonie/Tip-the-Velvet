@@ -288,7 +288,9 @@ export type Database = {
       event_performers: {
         Row: {
           accommodation: string | null
+          accommodation_details: string | null
           arrival_time: string | null
+          artist_note: string | null
           created_at: string
           dietary_category:
             | Database["public"]["Enums"]["dietary_category"]
@@ -303,14 +305,18 @@ export type Database = {
           performer_id: string
           plus_one_email: string | null
           plus_one_name: string | null
+          plus_one_needs_accommodation: boolean
           reveal_date: string | null
           social_posted: boolean
           travel_covered: number | null
           travel_receipts: Json | null
+          travels_by_car: boolean
         }
         Insert: {
           accommodation?: string | null
+          accommodation_details?: string | null
           arrival_time?: string | null
+          artist_note?: string | null
           created_at?: string
           dietary_category?:
             | Database["public"]["Enums"]["dietary_category"]
@@ -325,14 +331,18 @@ export type Database = {
           performer_id: string
           plus_one_email?: string | null
           plus_one_name?: string | null
+          plus_one_needs_accommodation?: boolean
           reveal_date?: string | null
           social_posted?: boolean
           travel_covered?: number | null
           travel_receipts?: Json | null
+          travels_by_car?: boolean
         }
         Update: {
           accommodation?: string | null
+          accommodation_details?: string | null
           arrival_time?: string | null
+          artist_note?: string | null
           created_at?: string
           dietary_category?:
             | Database["public"]["Enums"]["dietary_category"]
@@ -347,10 +357,12 @@ export type Database = {
           performer_id?: string
           plus_one_email?: string | null
           plus_one_name?: string | null
+          plus_one_needs_accommodation?: boolean
           reveal_date?: string | null
           social_posted?: boolean
           travel_covered?: number | null
           travel_receipts?: Json | null
+          travels_by_car?: boolean
         }
         Relationships: [
           {
@@ -1362,6 +1374,7 @@ export type Database = {
       update_event_performer_via_token: {
         Args: {
           p_access_token: string
+          p_artist_note?: string
           p_dietary_category?: Database["public"]["Enums"]["dietary_category"]
           p_dietary_requirements?: string
           p_event_id: string
@@ -1369,8 +1382,10 @@ export type Database = {
           p_performer_id: string
           p_plus_one_email?: string
           p_plus_one_name?: string
+          p_plus_one_needs_accommodation?: boolean
           p_travel_covered?: number
           p_travel_receipts?: Json
+          p_travels_by_car?: boolean
         }
         Returns: undefined
       }

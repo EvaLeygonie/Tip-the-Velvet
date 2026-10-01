@@ -22,7 +22,7 @@ import { dietaryCategoryLabel, staffRoleLabel } from '@/lib/contactLabels'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { missingMusicItems } from './musicCoverage'
 
-export type EventPlanTab = 'show' | 'staff' | 'sponsors' | 'food' | 'vip'
+export type EventPlanTab = 'show' | 'staff' | 'sponsors' | 'food' | 'vip' | 'travel'
 
 interface EventProgressOverviewProps {
   performers: AdminEventPerformerRow[]
@@ -92,10 +92,7 @@ export const EventProgressOverview = ({
       ? t('Inga artister än', 'No artists yet')
       : showOk
         ? t(`${acts.length} akter klara`, `${acts.length} acts ready`)
-        : t(
-            `${actsMissingNotes} utan scenanteckningar`,
-            `${actsMissingNotes} without stage notes`
-          )
+        : t(`${actsMissingNotes} utan scenanteckningar`, `${actsMissingNotes} without stage notes`)
 
   // Nyckelroller — just the must-fill roles (photographer/technician); a plain role list
   // when something's missing, not a sentence.

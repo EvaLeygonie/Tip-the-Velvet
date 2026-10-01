@@ -111,10 +111,7 @@ export const submitSponsorApplication = async (application: CreateSponsorInput):
 // on the Join Us form — a bonus flag on top of the standing staff_volunteers application,
 // not core to the submission itself (see JoinUsForm.tsx's non-blocking try/catch around
 // this call).
-export const submitStaffEventInterest = async (
-  eventId: string,
-  staffId: string
-): Promise<void> => {
+export const submitStaffEventInterest = async (eventId: string, staffId: string): Promise<void> => {
   const { error } = await supabase
     .from('event_staff_invitations')
     .insert({ event_id: eventId, staff_id: staffId, status: 'interested' })
@@ -347,6 +344,19 @@ export interface EventPerformerDetailsInput {
   notes?: string
   plus_one_name?: string
   plus_one_email?: string
+  // Artist self-reports traveling by car — no receipt to upload in that case, just a sum
+  // (still travel_covered) paid out alongside their fee. Direct feedback 2026-09-22, the
+  // Florence Shimmermore/Morau Amour carpooling case.
+  travels_by_car?: boolean
+  // A free-text note the artist can leave for the board (e.g. "Travel with Florence
+  // Shimmermore") — distinct from event_performers.notes, which is the board's own note and
+  // never sent by this form (see updateEventPerformerTravelNotes's comment). Direct feedback
+  // 2026-09-22.
+  artist_note?: string
+  // Only meaningful alongside a plus-one — whether that +1 also needs a place to sleep
+  // (Luminous Starling's partner case), so the board doesn't only plan housing for the
+  // artist themselves. Direct feedback 2026-09-22.
+  plus_one_needs_accommodation?: boolean
 }
 
 export const updateEventPerformerDetails = async (
@@ -369,6 +379,9 @@ export const updateEventPerformerDetails = async (
     p_notes: details.notes,
     p_plus_one_name: details.plus_one_name,
     p_plus_one_email: details.plus_one_email,
+    p_travels_by_car: details.travels_by_car,
+    p_artist_note: details.artist_note,
+    p_plus_one_needs_accommodation: details.plus_one_needs_accommodation,
   })
 
   if (error) throw error

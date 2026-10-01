@@ -51,7 +51,10 @@ export type CastingApplicationPortalData = CastingApplication & {
     travel_receipts: Json
     plus_one_name: string | null
     plus_one_email: string | null
+    plus_one_needs_accommodation: boolean | null
     travel_covered: number | null
+    travels_by_car: boolean | null
+    artist_note: string | null
   } | null
   acts?: CastingApplicationActFull[]
 }

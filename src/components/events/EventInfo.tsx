@@ -1,10 +1,10 @@
-import { Calendar, MapPin, Sparkles, UserPlus, ExternalLink } from 'lucide-react'
-import CloudinaryImage from '@/components/CloudinaryImage'
+import { Calendar, MapPin, UserPlus, ExternalLink } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import type { Event } from '@/types/types'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Link } from 'react-router-dom'
 import { TicketButton } from './TicketButton'
+import { EventScheduleFlipCard } from './EventScheduleFlipCard'
 
 interface EventWithVenue extends Event {
   venues?: {
@@ -29,22 +29,10 @@ export const EventInfo = ({ event }: { event: EventWithVenue }) => {
   return (
     <div className="w-full space-y-10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 items-center">
-        {/* PROMO IMAGE */}
+        {/* PROMO IMAGE — flips to the evening's schedule instead of adding a whole new
+            section further down an already long page. */}
         <div className="flex justify-center w-full">
-          <div className="promo-frame-event" style={glowVars}>
-            {event.image_id ? (
-              <CloudinaryImage
-                publicId={event.image_id}
-                width={800}
-                height={800}
-                className="media-cover"
-              />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center bg-black/40">
-                <Sparkles className="w-12 h-12 text-accent/20" />
-              </div>
-            )}
-          </div>
+          <EventScheduleFlipCard imageId={event.image_id} glowVars={glowVars} />
         </div>
 
         {/* INFO */}

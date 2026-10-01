@@ -8,6 +8,8 @@ import {
   UtensilsCrossed,
   Music2,
   CheckCircle2,
+  Car,
+  Hotel,
 } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
@@ -89,6 +91,17 @@ const isOverdue = (dueDate: string): boolean => dueDate < new Date().toISOString
 const isDueSoon = (dueDate: string): boolean => {
   const weekOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   return dueDate <= weekOut
+}
+
+// Splits an event's highlight cards into rows of at most 4 — used only once there are
+// enough cards that a single flex-wrap row would break unpredictably depending on card
+// widths/viewport. Each row centers independently, so a shorter final row (e.g. 2 of 6, or
+// 3 of 7) lands centered under the row above instead of hugging the left edge. Direct
+// feedback 2026-09-22.
+const chunk = <T,>(items: T[], size: number): T[][] => {
+  const rows: T[][] = []
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size))
+  return rows
 }
 
 export const AdminDashboard = () => {
@@ -361,6 +374,30 @@ export const AdminDashboard = () => {
       ),
     })
   }
+  // Same bulk-email pattern as handleEmailMissingNotes/handleEmailMissingFood — recipients
+  // are artists who said they need travel costs covered but haven't uploaded a receipt yet.
+  // Traveling by car is excluded — that's a lump sum paid with their fee, no receipt ever
+  // expected. Direct feedback 2026-09-22.
+  const handleEmailMissingReceipts = (ov: EventOverviewData) => {
+    const recipients: MailRecipient[] = ov.performers
+      .filter(
+        (p) =>
+          p.needsTravelCosts &&
+          !p.travels_by_car &&
+          !(Array.isArray(p.travel_receipts) && p.travel_receipts.length > 0) &&
+          p.performer.email
+      )
+      .map((p) => ({ name: p.performer.performer_name, email: p.performer.email as string }))
+    setEmailTarget({
+      recipients,
+      defaultSubject: t(`Reskvitto — ${ov.eventTitle}`, `Travel receipt — ${ov.eventTitle}`),
+      defaultGreeting: t('Hej!', 'Hi!'),
+      defaultBody: t(
+        'Vi saknar fortfarande ditt reskvitto för resan till showen — kan du ladda upp det så snart som möjligt via din bokningslänk?\n\nVarma hälsningar,\nTip the Velvet',
+        "We're still missing your travel receipt for the trip to the show — could you upload it as soon as possible via your booking link?\n\nWarmly,\nTip the Velvet"
+      ),
+    })
+  }
 
   const newStaff = staffVolunteers
     .filter((row) => isRecent(row.created_at))
@@ -449,6 +486,30 @@ export const AdminDashboard = () => {
                     a.booking_status !== 'confirmed' &&
                     a.booking_status !== 'declined'
                 ))
+            // Travel & boende only becomes relevant once casting is fully resolved —
+            // chasing receipts/housing for artists who might still get bumped from the
+            // lineup is wasted effort. Gated on !needsCastingAttention below. Direct
+            // feedback 2026-09-22.
+            // travels_by_car artists get a lump sum paid with their fee instead of a
+            // receipt — never "missing" one. Direct feedback 2026-09-22.
+            const missingReceipts = ov.performers.filter(
+              (p) =>
+                p.needsTravelCosts &&
+                !p.travels_by_car &&
+                !(Array.isArray(p.travel_receipts) && p.travel_receipts.length > 0)
+            )
+            const travelNeededCount = ov.performers.filter((p) => p.needsTravelCosts).length
+            const missingHousingRows = ov.performers.filter(
+              (p) => p.needsAccommodation && !p.accommodation?.trim()
+            )
+            const accommodationNeededRows = ov.performers.filter((p) => p.needsAccommodation)
+            // Headcount, not row count — a performer traveling with a +1 who also needs
+            // accommodation counts as 2 people to house, not 1. Direct feedback 2026-09-22,
+            // the Luminous Starling case (her partner pushed a 4-person event to 5).
+            const accommodationHeadcount = (rows: AdminEventPerformerRow[]) =>
+              rows.reduce((sum, p) => sum + 1 + (p.plus_one_needs_accommodation ? 1 : 0), 0)
+            const missingHousingCount = accommodationHeadcount(missingHousingRows)
+            const accommodationNeededCount = accommodationHeadcount(accommodationNeededRows)
 
             // Only ever cards for something actually missing — an event with nothing
             // outstanding shows one plain confirmation line instead of a wall of green
@@ -499,6 +560,32 @@ export const AdminDashboard = () => {
                 emailTitle: t('Mejla berörda personer', 'Email affected people'),
               })
             }
+            if (!needsCastingAttention && missingReceipts.length > 0) {
+              cards.push({
+                key: 'travel',
+                label: t('Reskvitton', 'Travel receipts'),
+                value: t(
+                  `Saknas: ${missingReceipts.length}/${travelNeededCount}`,
+                  `Missing: ${missingReceipts.length}/${travelNeededCount}`
+                ),
+                icon: <Car className="h-4 w-4 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'travel'),
+                onEmailAll: () => handleEmailMissingReceipts(ov),
+                emailTitle: t('Mejla berörda artister', 'Email affected artists'),
+              })
+            }
+            if (!needsCastingAttention && missingHousingCount > 0) {
+              cards.push({
+                key: 'accommodation',
+                label: t('Boende', 'Accommodation'),
+                value: t(
+                  `Saknas: ${missingHousingCount}/${accommodationNeededCount}`,
+                  `Missing: ${missingHousingCount}/${accommodationNeededCount}`
+                ),
+                icon: <Hotel className="h-4 w-4 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'travel'),
+              })
+            }
             if (missingMusic.length > 0) {
               cards.push({
                 key: 'music',
@@ -547,6 +634,16 @@ export const AdminDashboard = () => {
                   <div className="admin-panel velvet-surface p-3 flex items-center justify-center gap-2 text-sm text-emerald-400">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                     {t('Allt klart!', 'All set!')}
+                  </div>
+                ) : cards.length >= 6 ? (
+                  <div className="space-y-2">
+                    {chunk(cards, 4).map((row, i) => (
+                      <div key={i} className="flex flex-wrap justify-center gap-2">
+                        {row.map(({ key, ...card }) => (
+                          <EventHighlightCard key={key} {...card} />
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="flex flex-wrap justify-center gap-2">

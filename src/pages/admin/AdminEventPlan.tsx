@@ -14,6 +14,9 @@ import {
   getEventPlaylists,
   getEventOrganizerFood,
   updateEventPerformerDietary,
+  updateEventPerformerTravelNotes,
+  updateEventPerformerAccommodation,
+  updateEventPerformerAccommodationDetails,
   updateEvent,
   reorderShowProgram,
 } from '@/services/eventService'
@@ -57,6 +60,7 @@ import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOv
 import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
 import { ShowProgramBoard } from '@/components/admin/event-plan/ShowProgramBoard'
 import { FoodTab } from '@/components/admin/event-plan/FoodTab'
+import { TravelAccommodationTab } from '@/components/admin/event-plan/TravelAccommodationTab'
 import {
   STANDING_ORGANIZERS,
   VIP_CATEGORY_ORDER,
@@ -417,6 +421,50 @@ export const AdminEventPlan = () => {
       await updateEventPerformerDietary(selectedEventId, performerId, category)
       setPerformers((prev) =>
         prev.map((p) => (p.performer_id === performerId ? { ...p, dietary_category: category } : p))
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
+  }
+
+  const handleTravelNotesChanged = async (performerId: string, notes: string) => {
+    if (!selectedEventId) return
+    const trimmed = notes.trim() || null
+    try {
+      await updateEventPerformerTravelNotes(selectedEventId, performerId, trimmed)
+      setPerformers((prev) =>
+        prev.map((p) => (p.performer_id === performerId ? { ...p, notes: trimmed } : p))
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
+  }
+
+  const handleAccommodationChanged = async (performerId: string, accommodation: string) => {
+    if (!selectedEventId) return
+    const trimmed = accommodation.trim() || null
+    try {
+      await updateEventPerformerAccommodation(selectedEventId, performerId, trimmed)
+      setPerformers((prev) =>
+        prev.map((p) => (p.performer_id === performerId ? { ...p, accommodation: trimmed } : p))
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
+  }
+
+  const handleAccommodationDetailsChanged = async (performerId: string, details: string) => {
+    if (!selectedEventId) return
+    const trimmed = details.trim() || null
+    try {
+      await updateEventPerformerAccommodationDetails(selectedEventId, performerId, trimmed)
+      setPerformers((prev) =>
+        prev.map((p) =>
+          p.performer_id === performerId ? { ...p, accommodation_details: trimmed } : p
+        )
       )
     } catch (err) {
       toast.error(t('Kunde inte spara.', 'Could not save.'))
@@ -984,6 +1032,17 @@ export const AdminEventPlan = () => {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('travel')}
+              className={
+                activeTab === 'travel'
+                  ? 'btn-gold text-xs py-2 px-4'
+                  : 'btn-gold-outline text-xs py-2 px-4'
+              }
+            >
+              {t('Resa & boende', 'Travel & accommodation')}
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('vip')}
               className={
                 activeTab === 'vip'
@@ -1010,6 +1069,16 @@ export const AdminEventPlan = () => {
                   onUpdatePerformerDietary={handleUpdatePerformerDietary}
                   onStaffFoodUpdated={handleStaffFoodUpdated}
                   onOrganizerFoodUpdated={handleOrganizerFoodUpdated}
+                />
+              )}
+
+              {activeTab === 'travel' && (
+                <TravelAccommodationTab
+                  eventTitle={eventTitle}
+                  performers={performers}
+                  onTravelNotesChanged={handleTravelNotesChanged}
+                  onAccommodationChanged={handleAccommodationChanged}
+                  onAccommodationDetailsChanged={handleAccommodationDetailsChanged}
                 />
               )}
 

@@ -13,6 +13,7 @@ import {
   Plus,
   Crown,
   Mic2,
+  Car,
 } from 'lucide-react'
 import type { CastingApplicationPortalData, DietaryCategory } from '@/types/types'
 import { dietaryCategoryLabel } from '@/lib/contactLabels'
@@ -190,7 +191,16 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       dietary_category: (logisticsData?.dietary_category ?? '') as DietaryCategory | '',
       plus_one_name: logisticsData?.plus_one_name ?? '',
       plus_one_email: logisticsData?.plus_one_email ?? '',
-      travel_covered: logisticsData?.travel_covered ?? 0,
+      plus_one_needs_accommodation: logisticsData?.plus_one_needs_accommodation ?? false,
+      // Defaults to the negotiated estimate, not 0 — the number input showed a bare "0"
+      // (the placeholder only shows the estimate, it doesn't fill the value), so saving the
+      // form for an unrelated reason (dietary info, plus-one, etc.) without ever touching
+      // this field silently locked in "$0 travel reimbursement" as if it were deliberate.
+      // Real case: Luminous Starling's agreed 1000 SEK got recorded as 0 this way. Direct
+      // feedback 2026-09-22.
+      travel_covered: logisticsData?.travel_covered ?? application.travel_cost_amount ?? 0,
+      travels_by_car: logisticsData?.travels_by_car ?? false,
+      artist_note: logisticsData?.artist_note ?? '',
     }
   })
 
@@ -207,8 +217,9 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type } = e.target
+    const nextValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+    setFormData((prev) => ({ ...prev, [name]: nextValue }))
     setIsDirty(true)
   }
 
@@ -471,7 +482,10 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           travel_receipts: receiptFiles,
           plus_one_name: formData.plus_one_name,
           plus_one_email: formData.plus_one_email,
+          plus_one_needs_accommodation: formData.plus_one_needs_accommodation,
           travel_covered: Number(formData.travel_covered) || 0,
+          travels_by_car: formData.travels_by_car,
+          artist_note: formData.artist_note,
         }
         await updateEventPerformerDetails(
           actualEventId,
@@ -932,99 +946,159 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 className="login-input"
               />
             </div>
+            {/* Only shown when the artist themselves needs housing — a +1 sharing that
+                accommodation is meaningless otherwise. Direct feedback 2026-09-22, the
+                Luminous Starling case. */}
+            {application.needs_accommodation && (
+              <label className="flex items-center gap-2 cursor-pointer select-none md:col-span-2">
+                <input
+                  type="checkbox"
+                  name="plus_one_needs_accommodation"
+                  checked={formData.plus_one_needs_accommodation}
+                  onChange={handleChange}
+                  className="accent-accent h-4 w-4 rounded"
+                />
+                <span className="text-xs font-medium text-foreground">
+                  {t('Mitt plus one behöver också boende', 'My plus one also needs accommodation')}
+                </span>
+              </label>
+            )}
+          </div>
+
+          <div className="form-field border-t border-border/40 pt-4">
+            <label className="form-label-block text-xs">
+              {t('Övrig anteckning till styrelsen', 'Other note for the board')}
+            </label>
+            <input
+              type="text"
+              name="artist_note"
+              placeholder={t(
+                'T.ex. "Reser med Florence Shimmermore"',
+                'E.g. "Traveling with Florence Shimmermore"'
+              )}
+              value={formData.artist_note}
+              onChange={handleChange}
+              className="login-input"
+            />
           </div>
 
           {(application.needs_travel_costs || (application.travel_cost_amount ?? 0) > 0) && (
             <div className="form-field border-t border-border/40 pt-4 space-y-3">
-              <div className="form-field">
-                <label className="form-label-block text-xs">
-                  {t('Slutliga reseräkning', 'Final Travel Reimbursement')}
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div className="form-field flex-1">
+                  <label className="form-label-block text-xs">
+                    {t('Slutliga reseräkning', 'Final Travel Reimbursement')}
+                  </label>
+                  <input
+                    type="number"
+                    name="travel_covered"
+                    placeholder={
+                      application.travel_cost_amount
+                        ? t(
+                            `Uppskattat ca ${application.travel_cost_amount}`,
+                            `Estimated ~${application.travel_cost_amount}`
+                          )
+                        : t('T.ex. 500', 'e.g. 500')
+                    }
+                    value={formData.travel_covered}
+                    onChange={handleChange}
+                    className="login-input"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none shrink-0 sm:pb-2.5">
+                  <input
+                    type="checkbox"
+                    name="travels_by_car"
+                    checked={formData.travels_by_car}
+                    onChange={handleChange}
+                    className="accent-accent h-4 w-4 rounded shrink-0"
+                  />
+                  <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    <Car className="h-3.5 w-3.5 text-accent shrink-0" />
+                    {t(
+                      'Reser med bil (inget resekvitto - summan betalas med gaget)',
+                      'Traveling by car (no travel receipt - the amount is paid with the fee)'
+                    )}
+                  </span>
                 </label>
-                <input
-                  type="number"
-                  name="travel_covered"
-                  placeholder={
-                    application.travel_cost_amount
-                      ? t(
-                          `Uppskattat ca ${application.travel_cost_amount}`,
-                          `Estimated ~${application.travel_cost_amount}`
-                        )
-                      : t('T.ex. 500', 'e.g. 500')
-                  }
-                  value={formData.travel_covered}
-                  onChange={handleChange}
-                  className="login-input"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="form-label-block text-xs">
-                  {t('Resekvitton (PDF/Bild)', 'Travel Receipts (PDF/Image)')}
-                </label>
-                <label
-                  htmlFor="receipt-up-multi"
-                  className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5 shrink-0"
-                >
-                  {uploadingReceipt ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Plus size={14} />
-                  )}
-                  {t('Ladda upp kvitto(n)', 'Upload receipt(s)')}
-                </label>
-                <input
-                  type="file"
-                  id="receipt-up-multi"
-                  className="hidden"
-                  accept="image/*,.pdf"
-                  multiple
-                  onChange={handleReceiptUpload}
-                />
               </div>
 
-              {receiptFiles.length > 0 ? (
-                <div className="space-y-2">
-                  {receiptFiles.map((receipt, idx) => (
-                    <div
-                      key={receipt.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-accent/40 bg-accent/10"
+              {/* No receipt to upload when traveling by car — the sum above is paid out
+                  directly instead. Direct feedback 2026-09-22. */}
+              {!formData.travels_by_car && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <label className="form-label-block text-xs">
+                      {t('Resekvitton (PDF/Bild)', 'Travel Receipts (PDF/Image)')}
+                    </label>
+                    <label
+                      htmlFor="receipt-up-multi"
+                      className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5 shrink-0"
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                        <FileText className="w-5 h-5 text-accent shrink-0" />
-                        <div className="min-w-0 flex-1 flex flex-col items-start">
-                          <p className="text-xs font-semibold text-foreground truncate w-full text-left">
-                            {idx + 1}. {receipt.name}
-                          </p>
-                          <p className="text-[10px] text-accent font-medium text-left">
-                            ✓ Kvitto bifogat
-                          </p>
+                      {uploadingReceipt ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Plus size={14} />
+                      )}
+                      {t('Ladda upp kvitto(n)', 'Upload receipt(s)')}
+                    </label>
+                    <input
+                      type="file"
+                      id="receipt-up-multi"
+                      className="hidden"
+                      accept="image/*,.pdf"
+                      multiple
+                      onChange={handleReceiptUpload}
+                    />
+                  </div>
+
+                  {receiptFiles.length > 0 ? (
+                    <div className="space-y-2">
+                      {receiptFiles.map((receipt, idx) => (
+                        <div
+                          key={receipt.id}
+                          className="flex items-center justify-between p-3 rounded-lg border border-accent/40 bg-accent/10"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                            <FileText className="w-5 h-5 text-accent shrink-0" />
+                            <div className="min-w-0 flex-1 flex flex-col items-start">
+                              <p className="text-xs font-semibold text-foreground truncate w-full text-left">
+                                {idx + 1}. {receipt.name}
+                              </p>
+                              <p className="text-[10px] text-accent font-medium text-left">
+                                ✓ Kvitto bifogat
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={receipt.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
+                              title={t('Öppna kvitto', 'Open receipt')}
+                            >
+                              <ExternalLink size={14} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => removeReceiptFile(receipt.id)}
+                              className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
+                              title={t('Ta bort', 'Remove')}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <a
-                          href={receipt.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
-                          title={t('Öppna kvitto', 'Open receipt')}
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => removeReceiptFile(receipt.id)}
-                          className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
-                          title={t('Ta bort', 'Remove')}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-foreground/50 italic pt-1">
-                  {t('Inga kvitton uppladdade ännu.', 'No receipts uploaded yet.')}
-                </p>
+                  ) : (
+                    <p className="text-xs text-foreground/50 italic pt-1">
+                      {t('Inga kvitton uppladdade ännu.', 'No receipts uploaded yet.')}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1079,13 +1153,21 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                   </>
                 )}
                 {needsTravel && travelCovered === 0 && (
-                  <p className="text-foreground/60 italic">
-                    +{' '}
-                    {t(
-                      `Reseersättning tillkommer (uppskattat ca ${offeredTravelEstimate} SEK) — fyll i den slutliga summan ovan när den är klar`,
-                      `Travel reimbursement to be added (estimated ~${offeredTravelEstimate} SEK) — fill in the final amount above once known`
-                    )}
-                  </p>
+                  <>
+                    <p className="text-foreground/60 italic">
+                      +{' '}
+                      {t(
+                        `Reseersättning tillkommer (uppskattat ca ${offeredTravelEstimate} SEK)`,
+                        `Travel reimbursement to be added (estimated ~${offeredTravelEstimate} SEK)`
+                      )}
+                    </p>
+                    <p className="text-foreground/60 italic">
+                      {t(
+                        'Fyll i den slutliga summan ovan när den är klar.',
+                        'Fill in the final amount above once known.'
+                      )}
+                    </p>
+                  </>
                 )}
                 {roleLabel && (
                   <p className="pt-1.5 border-t border-border/30 flex items-center justify-center gap-1.5 text-center">
