@@ -1210,6 +1210,7 @@ export const AdminEventPlan = () => {
                   onAddExhibitionSponsor={handleAddExhibitionSponsor}
                   fetchOtherCandidates={fetchOtherCandidates}
                   onAddOtherSponsor={handleAddOtherSponsor}
+                  vipEntries={vipEntries}
                   onRequestVipForSalesperson={handleRequestVipForSalesperson}
                   onRequestVipForExhibitor={handleRequestVipForExhibitor}
                 />

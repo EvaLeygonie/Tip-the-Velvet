@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs'
 import { loadEnv } from 'vite'
 
-const SITE_URL = 'https://tipthevelvet.nu'
+const SITE_URL = 'https://www.tipthevelvet.nu'
 const env = { ...loadEnv('production', process.cwd(), 'VITE_'), ...process.env }
 const supabaseUrl = env.VITE_SUPABASE_URL
 const anonKey = env.VITE_SUPABASE_ANON_KEY

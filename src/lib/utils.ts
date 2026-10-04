@@ -414,6 +414,17 @@ export const formatEventDateVenueLine = (
   return `📆 ${formatSocialDateLine(eventStart, lang)}\n📍 ${location ?? ''}`
 }
 
+// Mirrors TicketButton.tsx's own release-date gating (same `releaseDate > now` check) — a
+// ticket URL is often filled in ahead of the actual release date so it's ready to go live
+// the moment sales open, so marketing templates need this check before printing it in a
+// post, not just `event.ticketUrl` truthiness, or a caption could point at a link before it
+// actually works. No release date set at all is treated as already released, same as
+// TicketButton. Direct feedback 2026-10-04.
+export const isTicketReleased = (ticketReleaseDate: string | null | undefined): boolean => {
+  if (!ticketReleaseDate) return true
+  return new Date(ticketReleaseDate) <= new Date()
+}
+
 export const formatDateTime = (language: string, dateStr: string | null) => {
   if (!dateStr) return 'TBA'
   const date = new Date(dateStr)

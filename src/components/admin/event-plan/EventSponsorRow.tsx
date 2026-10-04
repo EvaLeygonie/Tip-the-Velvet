@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, UserPlus, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { sponsorTypeLabel } from '@/lib/contactLabels'
+import { getImageSrc } from '@/lib/utils'
 import {
   updateEventSponsorDetails,
   updateEventSponsorMerchNotes,
@@ -20,6 +20,20 @@ interface EventSponsorRowProps {
   onUpdated: (sponsorId: string, patch: Partial<AdminEventSponsorRow>) => void
   onMerchToggled: (sponsorId: string, value: boolean) => void
   onExhibitionToggled: (sponsorId: string, value: boolean) => void
+  // Only passed for sponsors that can have an on-site person (Säljbord/Utställning rows) —
+  // lets the VIP nudge live on the card itself instead of as a separate line underneath it,
+  // and doubles as a "already added" indicator once isAdded flips true. Direct feedback
+  // 2026-10-04 that the standalone link under each card looked awkward.
+  vipStatus?: {
+    isAdded: boolean
+    onRequestVip: () => void
+  }
+  // A sponsor confirmed in more than one capacity (e.g. prize + merch table) renders as a
+  // separate card per section (one in Pris-sponsorer, one in Säljbord), each reading the same
+  // underlying row — so without this, both cards showed BOTH note fields regardless of which
+  // section they sat in. Each caller now says which single field its section cares about.
+  // Direct feedback 2026-10-04.
+  noteField: { key: 'details' | 'merch_table_notes'; label: string }
 }
 
 // Mirrors EventStaffRow.tsx — Event Planning's operational view of one confirmed
@@ -32,6 +46,8 @@ export const EventSponsorRow = ({
   onUpdated,
   onMerchToggled,
   onExhibitionToggled,
+  vipStatus,
+  noteField,
 }: EventSponsorRowProps) => {
   const { t } = useLanguage()
   const isPrizeSponsor = row.role === 'prize'
@@ -40,10 +56,8 @@ export const EventSponsorRow = ({
   const [isTogglingMerch, setIsTogglingMerch] = useState(false)
   const [isTogglingExhibition, setIsTogglingExhibition] = useState(false)
   const [isTogglingPrice, setIsTogglingPrice] = useState(false)
-  const [draft, setDraft] = useState({
-    details: row.details ?? '',
-    merchTableNotes: row.merch_table_notes ?? '',
-  })
+  const currentNoteValue = noteField.key === 'details' ? row.details : row.merch_table_notes
+  const [draft, setDraft] = useState({ note: currentNoteValue ?? '' })
 
   const handleToggleMerch = async () => {
     setIsTogglingMerch(true)
@@ -109,13 +123,14 @@ export const EventSponsorRow = ({
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const details = draft.details.trim() || null
-      const merchTableNotes = draft.merchTableNotes.trim() || null
-      await Promise.all([
-        updateEventSponsorDetails(eventId, row.sponsor_id, details),
-        updateEventSponsorMerchNotes(eventId, row.sponsor_id, merchTableNotes),
-      ])
-      onUpdated(row.sponsor_id, { details, merch_table_notes: merchTableNotes })
+      const value = draft.note.trim() || null
+      if (noteField.key === 'details') {
+        await updateEventSponsorDetails(eventId, row.sponsor_id, value)
+        onUpdated(row.sponsor_id, { details: value })
+      } else {
+        await updateEventSponsorMerchNotes(eventId, row.sponsor_id, value)
+        onUpdated(row.sponsor_id, { merch_table_notes: value })
+      }
       toast.success(t('Sparat!', 'Saved!'))
       setIsExpanded(false)
     } catch (err) {
@@ -151,18 +166,45 @@ export const EventSponsorRow = ({
           card sharing a grid row with an empty slot gets stretched taller than a row of two
           real cards (CSS Grid stretches the whole row to its tallest item), which looked
           like an arbitrary height mismatch between rows. Direct feedback 2026-09-21. */}
-      <div className="p-3 flex items-center gap-3 min-h-[52px]">
+      <div className="p-3 flex items-center gap-3 min-h-[72px]">
         <div className="text-accent/50 shrink-0">
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
-        <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">
-          {row.sponsor.name}
-        </span>
-        {row.role && (
-          <span className="text-accent italic text-xs font-heading shrink-0">
-            {sponsorTypeLabel(t, row.role)}
+        {/* Same logo treatment as CastingApplicationRow's performer thumbnail — direct
+            feedback 2026-10-04. */}
+        <div className="w-12 h-12 rounded-md overflow-hidden border border-accent/20 shrink-0 bg-black/40">
+          {row.sponsor.logo_id ? (
+            <img
+              src={getImageSrc(row.sponsor.logo_id)}
+              alt={row.sponsor.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-accent/30 text-xs font-mono">
+              N/A
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-decorative text-sm text-foreground truncate block">
+            {row.sponsor.name}
           </span>
-        )}
+          {/* The note relevant to THIS section only (see noteField), not whichever note the
+              sponsor happens to have in another capacity — moved here under the title,
+              smaller and gold, instead of truncated off to the side. Direct feedback
+              2026-10-04. */}
+          {currentNoteValue && !isExpanded && (
+            <p className="text-left text-[11px] text-accent/80 italic truncate">
+              {currentNoteValue}
+            </p>
+          )}
+        </div>
+        {/* No separate role-label badge here on purpose — the grid section this row sits in
+            (Pris-sponsorer / Säljbord / Utställning / Övriga) already says what kind of
+            sponsor this is. These badges are for the status/cross-category signal a section
+            alone can't show (e.g. a Prize sponsor who's also running a merch table), one
+            badge per dimension, amber when something's outstanding and green when it isn't —
+            not a second label repeating the category itself. Direct feedback 2026-10-04. */}
         {isPrizeSponsor && (
           <span
             className={`text-[10px] border rounded-full px-2 py-0.5 shrink-0 ${
@@ -186,11 +228,25 @@ export const EventSponsorRow = ({
             {t('Utställning', 'Exhibition')}
           </span>
         )}
-        {row.details && !isExpanded && (
-          <span className="text-xs text-foreground/50 italic truncate max-w-[180px] shrink-0 hidden sm:block">
-            {row.details}
-          </span>
-        )}
+        {vipStatus &&
+          (vipStatus.isAdded ? (
+            <span className="flex items-center gap-1 text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-2 py-0.5 shrink-0">
+              <Check className="h-2.5 w-2.5" />
+              {t('VIP-listan', 'VIP list')}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                vipStatus.onRequestVip()
+              }}
+              className="flex items-center gap-1 text-[10px] text-accent/70 border border-accent/20 rounded-full px-2 py-0.5 shrink-0 hover:text-accent hover:border-accent/40 transition-colors"
+            >
+              <UserPlus className="h-2.5 w-2.5" />
+              {t('VIP-listan', 'VIP list')}
+            </button>
+          ))}
       </div>
 
       {isExpanded && (
@@ -233,32 +289,13 @@ export const EventSponsorRow = ({
             )}
           </div>
           <div className="space-y-1">
-            <label className="form-label-gold block">
-              {isPrizeSponsor
-                ? t('Anteckning om priset', 'Note about the prize')
-                : t('Anteckning', 'Note')}
-            </label>
+            <label className="form-label-gold block">{noteField.label}</label>
             <textarea
-              value={draft.details}
-              onChange={(e) => setDraft({ ...draft, details: e.target.value })}
+              value={draft.note}
+              onChange={(e) => setDraft({ ...draft, note: e.target.value })}
               className="w-full min-h-[70px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
             />
           </div>
-          {row.has_merch_table && (
-            <div className="space-y-1">
-              <label className="form-label-gold block">
-                {t(
-                  'Anteckning om säljbordet (t.ex. platsbehov)',
-                  'Merch table note (e.g. space needed)'
-                )}
-              </label>
-              <textarea
-                value={draft.merchTableNotes}
-                onChange={(e) => setDraft({ ...draft, merchTableNotes: e.target.value })}
-                className="w-full min-h-[70px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
-              />
-            </div>
-          )}
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
             <button type="button" onClick={handleRemove} className="btn-red text-xs py-2 px-4">
               {t('Ta bort från event', 'Remove from event')}

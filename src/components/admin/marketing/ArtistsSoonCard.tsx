@@ -1,4 +1,10 @@
-import { toBoldSerif, toSmallCaps, formatSocialDateLine } from '@/lib/utils'
+import {
+  toBoldSerif,
+  toSmallCaps,
+  formatSocialDateLine,
+  formatEventDateVenueLine,
+  isTicketReleased,
+} from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 // The "reveals starting soon" teaser — precedes the individual artist-reveal posts
@@ -18,16 +24,19 @@ export const buildArtistsSoonText = (event: EventMarketingData): string => {
     dateEng = ` on the ${dayWithSuffix} of ${month} ${year}`
   }
 
-  const ticketsSection = event.ticketUrl
-    ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}`
-    : null
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}`
+      : ''
 
-  const hashtagsSection = ['#PerformerReveal', event.hashtags?.trim()].filter(Boolean).join(' ') || null
+  const hashtagsSection =
+    ['#PerformerReveal', event.hashtags?.trim()].filter(Boolean).join(' ') || null
 
   return [
     `🇸🇪 🎭✨ ${toBoldSerif('Artister avslöjas snart!')} ✨🎭\n\nÄr ni taggade på att få veta vilka fantastiska artister som kommer att förgylla vår scen på ${titleSmallCaps}${dateSv}? Snart är väntan över 😘`,
     `🇬🇧 🎭✨ ${toBoldSerif('Performers will be revealed soon!')} ✨🎭\n\nAre you excited to find out which fantastic performers will be gracing our stage at ${titleSmallCaps}${dateEng}? Well the wait will soon be over 😘`,
-    ticketsSection,
+    [dateVenue, ticketsLine].filter(Boolean).join('\n'),
     hashtagsSection,
   ]
     .filter(Boolean)

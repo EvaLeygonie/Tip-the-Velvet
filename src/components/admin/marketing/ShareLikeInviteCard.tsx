@@ -1,4 +1,4 @@
-import { formatEventDateVenueLine } from '@/lib/utils'
+import { formatEventDateVenueLine, isTicketReleased } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 // Matches Dark Carnival's "Like, share & invite" post almost word for word — this one's
@@ -7,7 +7,10 @@ import type { EventMarketingData } from '@/services/eventService'
 // beyond the ticket link. 2026-09-22.
 export const buildShareLikeInviteText = (event: EventMarketingData): string => {
   const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
-  const ticketsLine = event.ticketUrl ? `🎟️ Biljetter/Tickets: ${event.ticketUrl}` : ''
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `🎟️ Biljetter/Tickets: ${event.ticketUrl}`
+      : ''
   const hashtagsSection = ['#ShareLikeInvite', event.hashtags?.trim()].filter(Boolean).join(' ')
 
   return [

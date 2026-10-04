@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 
 // React 19 hoists <title>, <meta> and <link> rendered anywhere in the tree into <head>,
 // so no helmet library is needed.
-const SITE_URL = 'https://tipthevelvet.nu'
+const SITE_URL = 'https://www.tipthevelvet.nu'
 
 interface SeoProps {
   title: string

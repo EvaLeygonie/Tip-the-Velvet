@@ -1,4 +1,10 @@
-import { toSmallCaps, toHashtag, joinWithConjunction } from '@/lib/utils'
+import {
+  toSmallCaps,
+  toHashtag,
+  joinWithConjunction,
+  formatEventDateVenueLine,
+  isTicketReleased,
+} from '@/lib/utils'
 import type { EventMarketingData, AdminEventSponsorRow } from '@/services/eventService'
 
 // Extrapolated from Desserted Island's "Sponsorer" and Creatures of the Night's "Sponsorer
@@ -49,6 +55,11 @@ export const buildSponsorsSalesTableText = (
       )
     )
   ).join(' ')
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `🎟️ Biljetter/Tickets: ${event.ticketUrl}`
+      : ''
   const hashtagsSection = ['#Sponsors', sponsorTags, event.hashtags?.trim()]
     .filter(Boolean)
     .join(' ')
@@ -56,6 +67,7 @@ export const buildSponsorsSalesTableText = (
   return [
     `🇸🇪 🎉✨ Våra fantastiska sponsorer & priser! ✨🎉\n\nVi är otroligt glada att presentera våra underbara sponsorer för ${titleSmallCaps}! 🖤 Ett stort tack till ${prizeNamesSv} för de fantastiska priserna till vår kostymtävling – kvällens bäst klädda gäster kommer få ta hem några riktigt fina priser! ✨${salesBlockSv}${exhibitionBlockSv}`,
     `🇬🇧 🎉✨ Our Amazing Sponsors & Prizes! ✨🎉\n\nWe're beyond excited to announce our wonderful sponsors for ${titleSmallCaps}! 🖤 Huge thanks to ${prizeNamesEng} for providing fabulous prizes for our costume contest – the best-dressed guests of the night will take home some truly magical treasures! ✨${salesBlockEng}${exhibitionBlockEng}`,
+    [dateVenue, ticketsLine].filter(Boolean).join('\n'),
     hashtagsSection,
   ]
     .filter(Boolean)

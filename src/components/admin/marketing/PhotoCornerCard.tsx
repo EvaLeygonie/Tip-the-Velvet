@@ -1,3 +1,4 @@
+import { formatEventDateVenueLine, isTicketReleased } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 // Extrapolated from Desserted Island's/Dark Carnival's/Creatures of the Night's "Fotohörna"
@@ -10,11 +11,17 @@ export const buildPhotoCornerText = (event: EventMarketingData): string => {
   const photographerCredit = event.photographer
     ? [event.photographer.name, event.photographer.instagramHandle].filter(Boolean).join(' ')
     : '[fotograf]'
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `🎟️ Biljetter/Tickets: ${event.ticketUrl}`
+      : ''
   const hashtagsSection = ['#PhotoBooth', event.hashtags?.trim()].filter(Boolean).join(' ')
 
   return [
     `🇸🇪 📸 Fotohörna! 📸\n\nVi är glada att ha fantastiska ${photographerCredit} på plats för att fånga era looks! Fotohörnan är öppen innan första akten samt under pausen mellan akterna.\n\nKom och posera – och ta med dig ett minne från kvällen! ✨`,
     `🇬🇧 📸 Photo Booth! 📸\n\nWe're thrilled to have the amazing ${photographerCredit} on site to capture your looks! The Photo Booth is open before the first act and during the intermission.\n\nCome strike a pose and take home a memory from the night! ✨`,
+    [dateVenue, ticketsLine].filter(Boolean).join('\n'),
     hashtagsSection,
   ]
     .filter(Boolean)

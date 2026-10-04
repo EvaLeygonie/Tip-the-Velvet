@@ -1,4 +1,4 @@
-import { toBoldSerif, formatEventDateVenueLine } from '@/lib/utils'
+import { toBoldSerif, formatEventDateVenueLine, isTicketReleased } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 const SITE_URL = 'https://tipthevelvet.nu'
@@ -28,9 +28,10 @@ export const buildVolunteersNeededText = (event: EventMarketingData): string => 
 
   const joinLine = `🥰 ${toBoldSerif('Join:')} ${SITE_URL}/join`
   const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
-  const ticketsLine = event.ticketUrl
-    ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}`
-    : ''
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `🎟️ ${toBoldSerif('Biljetter/Tickets:')} ${event.ticketUrl}`
+      : ''
   const closing = [dateVenue, ticketsLine].filter(Boolean).join('\n')
   const hashtagsSection = ['#VolunteersNeeded', event.hashtags?.trim()].filter(Boolean).join(' ')
 

@@ -1,4 +1,9 @@
-import { toSmallCaps, formatEventDateVenueLine, toDoubleStruck } from '@/lib/utils'
+import {
+  toSmallCaps,
+  formatEventDateVenueLine,
+  toDoubleStruck,
+  isTicketReleased,
+} from '@/lib/utils'
 import {
   LEGAL_INFO_SV,
   LEGAL_INFO_ENG,
@@ -10,9 +15,10 @@ import type { EventMarketingData } from '@/services/eventService'
 export const buildTicketReleaseText = (event: EventMarketingData): string => {
   const titleSmallCaps = toSmallCaps(event.title)
   const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
-  const ticketsLine = event.ticketUrl
-    ? `\n🎟️ ${toDoubleStruck('Biljetter/Tickets')} : ${event.ticketUrl}`
-    : ''
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `\n🎟️ ${toDoubleStruck('Biljetter/Tickets')} : ${event.ticketUrl}`
+      : ''
   const hashtagsSection = ['#TicketRelease', event.hashtags?.trim()].filter(Boolean).join(' ')
 
   return [

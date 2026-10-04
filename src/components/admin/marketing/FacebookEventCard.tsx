@@ -1,4 +1,4 @@
-import { toFraktur } from '@/lib/utils'
+import { toFraktur, isTicketReleased } from '@/lib/utils'
 import { LEGAL_INFO_SV, LEGAL_INFO_ENG } from './postBoilerplate'
 import type { EventMarketingData } from '@/services/eventService'
 
@@ -12,9 +12,13 @@ export const buildFacebookEventText = (event: EventMarketingData): string => {
         return `🔞 18+ | ${d.getDate()}/${d.getMonth() + 1} - ${d.getFullYear()} | ${event.location ?? ''}`
       })()
     : ''
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `🎟️ Biljetter/Tickets: ${event.ticketUrl}`
+      : ''
 
   return [
-    `${toFraktur(event.title)}\n${dateLine}`,
+    [toFraktur(event.title), dateLine, ticketsLine].filter(Boolean).join('\n'),
     `🇸🇪 ${event.descriptionSv ?? ''}\n✨ Artister annonseras snart!\n${LEGAL_INFO_SV}`,
     `🇬🇧 ${event.descriptionEng ?? ''}\n✨ Lineup to be announced!\n${LEGAL_INFO_ENG}`,
   ].join('\n\n')

@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { UserPlus } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { EventSponsorRow } from './EventSponsorRow'
 import { InlineAddPicker, type InlineAddPickerItem } from './InlineAddPicker'
 import { PRIZE_SLOT_COUNT } from './constants'
 import type { AdminEventSponsorRow } from '@/services/eventService'
+import type { VipManualEntry } from '@/types/types'
 
 interface SponsorSlotGridProps {
   sponsorRows: AdminEventSponsorRow[]
@@ -21,6 +21,10 @@ interface SponsorSlotGridProps {
   onAddExhibitionSponsor: (item: InlineAddPickerItem) => Promise<void>
   fetchOtherCandidates: () => Promise<InlineAddPickerItem[]>
   onAddOtherSponsor: (item: InlineAddPickerItem) => Promise<void>
+  // Already-saved VIP entries for this event — used only to tell whether a sales/exhibition
+  // sponsor has already been nudged onto the list (matched loosely by name in their note,
+  // since manual entries aren't linked to a sponsor_id). Direct feedback 2026-10-04.
+  vipEntries: VipManualEntry[]
   onRequestVipForSalesperson: (sponsorName: string) => void
   onRequestVipForExhibitor: (sponsorName: string) => void
 }
@@ -56,6 +60,7 @@ export const SponsorSlotGrid = ({
   onAddExhibitionSponsor,
   fetchOtherCandidates,
   onAddOtherSponsor,
+  vipEntries,
   onRequestVipForSalesperson,
   onRequestVipForExhibitor,
 }: SponsorSlotGridProps) => {
@@ -67,6 +72,12 @@ export const SponsorSlotGrid = ({
     (r) => r.role !== 'prize' && !r.has_merch_table && !r.has_exhibition
   )
   const emptySlots = Math.max(0, PRIZE_SLOT_COUNT - prizeRows.length)
+
+  // Manual entries aren't linked to a sponsor_id, so this is a best-effort name match
+  // against the note text handleRequestVipForVendor pre-fills ("<role> — <sponsor name>") —
+  // a soft nudge, not a hard link, consistent with how this whole flow already works.
+  const isSponsorInVipList = (sponsorName: string) =>
+    vipEntries.some((entry) => entry.note?.toLowerCase().includes(sponsorName.toLowerCase()))
 
   // Shared by the header "+" and every empty placeholder below it — same picker, several
   // triggers, direct feedback 2026-09-22 that an empty slot should be clickable on its own
@@ -81,8 +92,9 @@ export const SponsorSlotGrid = ({
     />
   )
 
-  // Shared shape for Säljbord and Utställning — a count badge, a "+" picker, and each row
-  // getting its own "add to VIP list" nudge underneath. Pulled into one function once there
+  // Shared shape for Säljbord and Utställning — a count badge, a "+" picker, and each row's
+  // own "add to VIP list" nudge living on the card itself (see EventSponsorRow's vipStatus
+  // prop) rather than as a separate line underneath it. Pulled into one function once there
   // were two of these instead of duplicating the whole block.
   const renderVendorSection = (
     title: string,
@@ -91,7 +103,7 @@ export const SponsorSlotGrid = ({
     onAddSponsor: (item: InlineAddPickerItem) => Promise<void>,
     emptyMessage: string,
     onRequestVip: (sponsorName: string) => void,
-    vipButtonLabel: string
+    noteField: { key: 'details' | 'merch_table_notes'; label: string }
   ) => (
     <div className="space-y-2">
       <div className="flex items-center justify-between border-b border-accent/10 pb-2">
@@ -113,24 +125,20 @@ export const SponsorSlotGrid = ({
       ) : (
         <div className="space-y-2">
           {rows.map((row) => (
-            <div key={row.sponsor_id} className="space-y-1.5">
-              <EventSponsorRow
-                row={row}
-                eventId={eventId}
-                onRemoved={onRemoved}
-                onUpdated={onUpdated}
-                onMerchToggled={onMerchToggled}
-                onExhibitionToggled={onExhibitionToggled}
-              />
-              <button
-                type="button"
-                onClick={() => onRequestVip(row.sponsor.name)}
-                className="flex items-center gap-1.5 text-[11px] text-accent/70 hover:text-accent transition-colors pl-1"
-              >
-                <UserPlus className="h-3 w-3" />
-                {vipButtonLabel}
-              </button>
-            </div>
+            <EventSponsorRow
+              key={row.sponsor_id}
+              row={row}
+              eventId={eventId}
+              onRemoved={onRemoved}
+              onUpdated={onUpdated}
+              onMerchToggled={onMerchToggled}
+              onExhibitionToggled={onExhibitionToggled}
+              vipStatus={{
+                isAdded: isSponsorInVipList(row.sponsor.name),
+                onRequestVip: () => onRequestVip(row.sponsor.name),
+              }}
+              noteField={noteField}
+            />
           ))}
         </div>
       )}
@@ -157,7 +165,11 @@ export const SponsorSlotGrid = ({
             {renderPrizePicker()}
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {/* items-start: grid rows otherwise stretch every cell to match the tallest one, so
+            expanding a card used to drag its row-mate (another card or an empty slot) to the
+            same height, leaving it showing dead space below its own content. Direct feedback
+            2026-10-04. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
           {prizeRows.map((row) => (
             <EventSponsorRow
               key={row.sponsor_id}
@@ -167,6 +179,10 @@ export const SponsorSlotGrid = ({
               onUpdated={onUpdated}
               onMerchToggled={onMerchToggled}
               onExhibitionToggled={onExhibitionToggled}
+              noteField={{
+                key: 'details',
+                label: t('Anteckning om priset', 'Note about the prize'),
+              }}
             />
           ))}
           {Array.from({ length: emptySlots }).map((_, i) =>
@@ -175,7 +191,7 @@ export const SponsorSlotGrid = ({
                 key={`empty-${i}`}
                 type="button"
                 onClick={onOpen}
-                className="w-full border border-dashed border-accent/15 rounded p-3 flex items-center justify-center text-xs text-foreground/30 italic min-h-[52px] hover:border-accent/40 hover:text-accent/60 transition-colors"
+                className="w-full border border-dashed border-accent/15 rounded p-3 flex items-center justify-center text-xs text-foreground/30 italic min-h-[72px] hover:border-accent/40 hover:text-accent/60 transition-colors"
               >
                 {t('Tom plats — lägg till sponsor', 'Empty slot — add sponsor')}
               </button>
@@ -184,7 +200,9 @@ export const SponsorSlotGrid = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {/* Same items-start fix as the prize grid above — an expanded card inside one section
+          shouldn't stretch the sibling section's box too. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
         {renderVendorSection(
           t('Säljbord', 'Merch table'),
           salesRows,
@@ -195,7 +213,13 @@ export const SponsorSlotGrid = ({
             'No sponsor has a merch table booked for this event.'
           ),
           onRequestVipForSalesperson,
-          t('Lägg till säljare i VIP-listan', 'Add salesperson to VIP list')
+          {
+            key: 'merch_table_notes',
+            label: t(
+              'Anteckning om säljbordet (t.ex. platsbehov)',
+              'Merch table note (e.g. space needed)'
+            ),
+          }
         )}
         {renderVendorSection(
           t('Utställning', 'Exhibition'),
@@ -207,7 +231,7 @@ export const SponsorSlotGrid = ({
             'No sponsor is exhibiting at this event.'
           ),
           onRequestVipForExhibitor,
-          t('Lägg till utställare i VIP-listan', 'Add exhibitor to VIP list')
+          { key: 'details', label: t('Anteckning om utställningen', 'Note about the exhibition') }
         )}
       </div>
 
@@ -243,6 +267,7 @@ export const SponsorSlotGrid = ({
                 onUpdated={onUpdated}
                 onMerchToggled={onMerchToggled}
                 onExhibitionToggled={onExhibitionToggled}
+                noteField={{ key: 'details', label: t('Anteckning', 'Note') }}
               />
             ))}
           </div>

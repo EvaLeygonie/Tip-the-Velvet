@@ -1,3 +1,4 @@
+import { formatEventDateVenueLine, isTicketReleased } from '@/lib/utils'
 import type { EventMarketingData } from '@/services/eventService'
 
 // Times are Dark Carnival's real schedule (docs/old-work-documents/Social Media & Emails)
@@ -14,11 +15,17 @@ export const buildScheduleBlock = (): [string, string] => [
 
 export const buildEveningScheduleText = (event: EventMarketingData): string => {
   const [scheduleSv, scheduleEng] = buildScheduleBlock()
+  const dateVenue = formatEventDateVenueLine(event.eventStart, event.location, 'eng')
+  const ticketsLine =
+    event.ticketUrl && isTicketReleased(event.ticketReleaseDate)
+      ? `🎟️ Biljetter/Tickets: ${event.ticketUrl}`
+      : ''
   const hashtagsSection = ['#EveningSchedule', event.hashtags?.trim()].filter(Boolean).join(' ')
 
   return [
     `🇸🇪 Kvällens program för ${event.title}! ✨\n\n${scheduleSv}`,
     `🇬🇧 Tonight's schedule for ${event.title}! ✨\n\n${scheduleEng}`,
+    [dateVenue, ticketsLine].filter(Boolean).join('\n'),
     hashtagsSection,
   ]
     .filter(Boolean)

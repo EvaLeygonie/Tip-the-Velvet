@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /casting/confirm
 Disallow: /hall-of-fame-form
 
-Sitemap: https://tipthevelvet.nu/sitemap.xml
+Sitemap: https://www.tipthevelvet.nu/sitemap.xml
