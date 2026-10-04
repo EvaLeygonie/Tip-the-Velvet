@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import heroImage from '@/assets/hero-burlesque.jpg'
 import mainLogo from '@/assets/homepage-logo.png'
 import { Sparkles, UserPlus } from 'lucide-react'
+import { Seo } from '@/components/Seo'
 
 export const HomePage = () => {
   const { t } = useLanguage()
@@ -15,6 +16,20 @@ export const HomePage = () => {
       className="relative min-h-screen flex items-center justify-center overflow-hidden py-16 sm:py-20 bg-hero"
       style={heroVars}
     >
+      <Seo
+        path="/"
+        title={t(
+          'Tip the Velvet – Burlesque i Göteborg',
+          'Tip the Velvet – Burlesque in Gothenburg'
+        )}
+        description={t(
+          'Tip the Velvet arrangerar burlesque-shower i Göteborg. Se kommande event, ansök som artist eller bli volontär.',
+          'Tip the Velvet produces burlesque shows in Gothenburg. See upcoming events, apply to perform or volunteer.'
+        )}
+      />
+      <h1 className="sr-only">
+        {t('Tip the Velvet – Burlesque i Göteborg', 'Tip the Velvet – Burlesque in Gothenburg')}
+      </h1>
       {/* Gradients */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.3)_0%,hsla(0,_0%,_0%,_0.6)_100%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_40%,hsl(0_75%_42%/0.15),transparent)]" />

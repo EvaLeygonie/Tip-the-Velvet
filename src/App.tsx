@@ -10,6 +10,7 @@ import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import { Navigation } from '@/components/Navigation'
 import { Footer } from '@/components/footer'
 
+import { PrivateRouteRobots, HtmlLangSync } from '@/components/Seo'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { HomePage } from '@/pages/HomePage'
 import { NotFound } from '@/pages/NotFound'
@@ -58,6 +59,8 @@ export const App = () => (
             }}
           />
           <BrowserRouter>
+            <HtmlLangSync />
+            <PrivateRouteRobots />
             <Navigation />
             <ScrollToTop />
             <main className="layout-base">

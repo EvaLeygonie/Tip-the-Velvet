@@ -8,6 +8,7 @@ import drea from '@/assets/omOss/Drea.jpg'
 import krister from '@/assets/omOss/Krister.jpg'
 import omOss1 from '@/assets/omOss/OmOss-1.jpg'
 import omOss2 from '@/assets/omOss/OmOss-2.jpg'
+import { Seo } from '@/components/Seo'
 
 export const About = () => {
   const { t } = useLanguage()
@@ -20,6 +21,14 @@ export const About = () => {
 
   return (
     <div className="page-shell">
+      <Seo
+        path="/about"
+        title={t('Om oss | Tip the Velvet', 'About Us | Tip the Velvet')}
+        description={t(
+          'Möt teamet bakom Tip the Velvet, en ideell burlesque-förening i Göteborg som skapar inkluderande shower.',
+          'Meet the team behind Tip the Velvet, a volunteer-run burlesque organization in Gothenburg.'
+        )}
+      />
       <div className="bg-glow-spot" />
 
       <header className="header">
@@ -53,7 +62,7 @@ export const About = () => {
         </div>
       </header>
 
-      <main className="container-wide space-y-12">
+      <div className="container-wide space-y-12">
         {/* NEW BOARD */}
         <section className="space-y-6">
           {/* Separate cards */}
@@ -64,7 +73,7 @@ export const About = () => {
                 className="velvet-card group flex flex-col items-center justify-between p-6 text-center min-h-[340px]"
               >
                 <div className="promo-frame-story w-full aspect-[3/4] min-h-0 bg-black/40 border border-accent/20 rounded-xl flex-center relative overflow-hidden group-hover:border-accent/50 transition-all">
-                  <img src={member.src} />
+                  <img src={member.src} alt={`${member.name} – ${member.role}`} />
                 </div>
 
                 <div className="mt-4 space-y-1 w-full">
@@ -199,7 +208,7 @@ export const About = () => {
             </blockquote>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   )
 }

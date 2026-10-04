@@ -13,6 +13,7 @@ import Lightbox from 'yet-another-react-lightbox'
 import Captions from 'yet-another-react-lightbox/plugins/captions'
 import 'yet-another-react-lightbox/styles.css'
 import 'yet-another-react-lightbox/plugins/captions.css'
+import { Seo } from '@/components/Seo'
 
 interface GalleryImage {
   id: string
@@ -122,6 +123,17 @@ export const PerformerDetail = () => {
 
   return (
     <>
+      <Seo
+        path={`/performers/${slug}`}
+        title={`${performer.performer_name} | Tip the Velvet`.slice(0, 60)}
+        description={(
+          t(performer.bio_sv, performer.bio_eng) ||
+          t(
+            `Lär känna ${performer.performer_name}, burlesque-artist hos Tip the Velvet i Göteborg.`,
+            `Meet ${performer.performer_name}, a burlesque performer with Tip the Velvet in Gothenburg.`
+          )
+        ).slice(0, 150)}
+      />
       <div className="page-shell !max-w-none w-full px-0">
         <div className="bg-glow-spot z-0" />
 
@@ -236,6 +248,7 @@ export const PerformerDetail = () => {
                 publicId={performer.promo_image_id}
                 width={500}
                 height={666}
+                alt={performer.performer_name ?? ''}
                 gravityFace={true}
                 className="media-cover group-hover:scale-102 transition-transform duration-700"
               />
@@ -291,6 +304,7 @@ export const PerformerDetail = () => {
                     publicId={img.id}
                     width={400}
                     height={400}
+                    alt={`${performer.performer_name} – ${t('foto', 'photo')} ${imgIndex + 1}`}
                     className="media-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                   />
 

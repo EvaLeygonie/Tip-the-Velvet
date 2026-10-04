@@ -56,6 +56,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
                   publicId={event.image_id}
                   width={800}
                   height={800}
+                  alt={event.title}
                   className="media-cover transform group-hover:scale-105 transition-transform duration-1000 ease-out"
                 />
               </div>
@@ -73,7 +74,9 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
           <div className="featured-card-glow" style={glowVars} />
 
           <div className="space-y-2 w-full min-w-0 text-center md:text-left">
-            <h1 className="featured-card-title">{event.title}</h1>
+            <h2 className="featured-card-title pb-4 tracking-wider md:tracking-widest">
+              {event.title}
+            </h2>
             {event.subtitle && <p className="event-card-subtitle">{event.subtitle}</p>}
           </div>
 

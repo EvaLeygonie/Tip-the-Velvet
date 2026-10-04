@@ -12,6 +12,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { Images, Eye, EyeOff, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Seo } from '@/components/Seo'
 
 export const Performers = () => {
   const [performers, setPerformers] = useState<(Performer | PublicPerformer)[]>([])
@@ -102,6 +103,17 @@ export const Performers = () => {
 
   return (
     <>
+      <Seo
+        path="/performers"
+        title={t(
+          'Hall of Fame – våra artister | Tip the Velvet',
+          'Hall of Fame – Our Performers | Tip the Velvet'
+        )}
+        description={t(
+          'Möt burlesque-artisterna som har stått på Tip the Velvets scen i Göteborg.',
+          'Meet the burlesque performers who have graced the Tip the Velvet stage in Gothenburg.'
+        )}
+      />
       <div className="page-shell">
         <div className="bg-glow-spot" />
         <header className="header !mb-0 !pb-5">

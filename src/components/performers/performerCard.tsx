@@ -23,6 +23,7 @@ export const PerformerCard = ({ performer }: { performer: Performer }) => {
                 publicId={performer.promo_image_id}
                 width={600}
                 height={800}
+                alt={performer.performer_name}
                 className="object-cover w-full h-full"
               />
             </div>

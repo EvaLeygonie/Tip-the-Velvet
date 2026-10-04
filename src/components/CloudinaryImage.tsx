@@ -11,6 +11,7 @@ interface CloudinaryImageProps {
   width?: number
   height?: number
   className?: string
+  alt?: string
   fit?: boolean
   gravityFace?: boolean
 }
@@ -20,6 +21,7 @@ export default function CloudinaryImage({
   width = 800,
   height = 600,
   className,
+  alt = '',
   fit = false,
   gravityFace = false,
 }: CloudinaryImageProps) {
@@ -59,5 +61,5 @@ export default function CloudinaryImage({
     return image
   }, [publicId, width, height, fit, gravityFace])
 
-  return <AdvancedImage cldImg={myImage} className={className} />
+  return <AdvancedImage cldImg={myImage} className={className} alt={alt} />
 }

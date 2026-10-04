@@ -18,6 +18,7 @@ import { getImageSrc } from '@/lib/utils'
 import { EventInfo } from '@/components/events/EventInfo'
 import { OldEventInfo } from '@/components/events/OldEventInfo'
 import { EventLineup } from '@/components/events/EventLineup'
+import { Seo } from '@/components/Seo'
 
 type ExtendedEvent = Event & {
   public_photographers?: {
@@ -29,7 +30,7 @@ type ExtendedEvent = Event & {
 
 export const EventDetail = () => {
   const { user } = useAuth()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { slug, type } = useParams()
   const isOldEvent = type === 'old'
   const [loading, setLoading] = useState(true)
@@ -88,6 +89,21 @@ export const EventDetail = () => {
 
   return (
     <div className="page-shell">
+      <Seo
+        path={`/events/${type}/${slug}`}
+        noindex={!event}
+        title={`${event?.title ?? t('Event', 'Event')} | Tip the Velvet`.slice(0, 60)}
+        description={(
+          (event &&
+            (language === 'sv'
+              ? (event as { description_sv?: string | null }).description_sv
+              : (event as { description_eng?: string | null }).description_eng)) ||
+          t(
+            'Burlesque-show av Tip the Velvet i Göteborg.',
+            'A burlesque show by Tip the Velvet in Gothenburg.'
+          )
+        ).slice(0, 150)}
+      />
       <div className="bg-glow-spot" />
       <div className="editor-container">
         <FloatingBackLink to="/events" label={t('Tillbaka till events', 'Back to events')} />
@@ -231,6 +247,7 @@ export const EventDetail = () => {
                   publicId={img.image_id}
                   width={600}
                   height={600}
+                  alt={`${event?.title ?? 'Tip the Velvet'} – ${t('bild', 'image')} ${idx + 1}`}
                   className="media-cover"
                 />
               </div>

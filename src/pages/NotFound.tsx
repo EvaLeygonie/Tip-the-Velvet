@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom'
+import { Seo } from '@/components/Seo'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 export const NotFound = () => {
   const { t } = useLanguage()
   return (
-    <main className="flex-center min-h-screen text-center px-4 sm:px-6">
+    <div className="flex-center min-h-screen text-center px-4 sm:px-6">
+      <Seo
+        noindex
+        title={t('Sidan hittades inte | Tip the Velvet', 'Page not found | Tip the Velvet')}
+      />
       <div className="middle-glow" />
       <div>
         <h1>404</h1>
@@ -28,6 +33,6 @@ export const NotFound = () => {
           {t('← Tillbaka till scenen', '← Back to the stage')}
         </Link>
       </div>
-    </main>
+    </div>
   )
 }

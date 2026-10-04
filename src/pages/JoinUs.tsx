@@ -2,12 +2,24 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { JoinUsCard } from '@/components/applications/JoinUsForm'
 import { SponsorCard } from '@/components/applications/SponsorForm'
 import { Heart, Briefcase, Star } from 'lucide-react'
+import { Seo } from '@/components/Seo'
 
 export const JoinUs = () => {
   const { t } = useLanguage()
 
   return (
     <div className="page-shell">
+      <Seo
+        path="/join"
+        title={t(
+          'Joina oss – bli volontär | Tip the Velvet',
+          'Join Us – Volunteer | Tip the Velvet'
+        )}
+        description={t(
+          'Vill du jobba bakom kulisserna eller sponsra en show? Joina Tip the Velvet som volontär, personal eller sponsor.',
+          'Want to work behind the scenes or sponsor a show? Join Tip the Velvet as a volunteer, staff member or sponsor.'
+        )}
+      />
       <div className="bg-glow-spot" />
 
       {/* GEMENSAM ANPASSAD INTRO */}

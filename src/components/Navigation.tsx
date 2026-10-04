@@ -97,7 +97,7 @@ export const Navigation = () => {
             <Link to="/" className="transition-all duration-500 transform">
               <img
                 src={logoFull}
-                alt="Logo"
+                alt="Tip the Velvet"
                 className={`transition-all duration-500 object-contain w-auto ${isScrolled ? 'h-[80px]' : 'h-[100px]'}`}
               />
             </Link>

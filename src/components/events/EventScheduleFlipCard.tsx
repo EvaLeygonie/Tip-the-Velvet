@@ -92,6 +92,7 @@ export const EventScheduleFlipCard = ({
                 publicId={imageId}
                 width={800}
                 height={800}
+                alt=""
                 className="media-cover"
               />
             ) : (

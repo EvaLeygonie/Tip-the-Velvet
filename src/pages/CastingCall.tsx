@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import type { Event } from '@/types/types'
 import { getEventWithCasting } from '@/services/applicationService'
 import { ApplicationCard } from '@/components/applications/CastingForm'
+import { Seo } from '@/components/Seo'
 
 export const CastingCall = () => {
   const { t } = useLanguage()
@@ -33,6 +34,17 @@ export const CastingCall = () => {
 
   return (
     <>
+      <Seo
+        path="/casting-call"
+        title={t(
+          'Casting Call – ansök som artist | Tip the Velvet',
+          'Casting Call – Apply to Perform | Tip the Velvet'
+        )}
+        description={t(
+          'Är du burlesque-artist? Ansök till vår nästa show i Göteborg via Tip the Velvets casting call.',
+          'Are you a burlesque performer? Apply to our next show in Gothenburg through the Tip the Velvet casting call.'
+        )}
+      />
       <div className="page-shell">
         <header className="header !mb-0 !pb-5">
           <h1>Casting Call</h1>

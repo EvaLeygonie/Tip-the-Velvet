@@ -24,6 +24,7 @@ export const ArchivedEventCard = ({ event }: { event: Event | OldEvent }) => {
                 publicId={event.image_id}
                 width={800}
                 height={600}
+                alt={event.title}
                 className="object-cover w-full h-full"
               />
             </div>

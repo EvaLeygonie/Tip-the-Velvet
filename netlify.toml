@@ -1,3 +1,10 @@
+# Permanent redirects from the old site. Must stay ABOVE the SPA fallback below.
+[[redirects]]
+  from = "/kontakt"
+  to = "/"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

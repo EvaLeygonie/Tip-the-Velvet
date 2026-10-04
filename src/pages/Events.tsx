@@ -6,6 +6,7 @@ import type { OldEvent, Event } from '@/types/types'
 import { FeaturedEventCard } from '@/components/events/featuredEventCard'
 import { ArchivedEventCard } from '@/components/events/archivedEventCard'
 import { fetchEvents } from '@/services/eventService'
+import { Seo } from '@/components/Seo'
 
 export const Events = () => {
   const [oldEvents, setOldEvents] = useState<OldEvent[]>([])
@@ -46,6 +47,17 @@ export const Events = () => {
 
   return (
     <>
+      <Seo
+        path="/events"
+        title={t(
+          'Kommande burlesque-event i Göteborg | Tip the Velvet',
+          'Upcoming Burlesque Events in Gothenburg | Tip the Velvet'
+        )}
+        description={t(
+          'Kommande och tidigare burlesque-shower från Tip the Velvet i Göteborg. Köp biljetter och se vårt arkiv.',
+          'Upcoming and past burlesque shows from Tip the Velvet in Gothenburg. Get tickets and browse our archive.'
+        )}
+      />
       <div className="page-standard">
         <div>
           <div className="section-header-triad">

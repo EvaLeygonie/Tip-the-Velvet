@@ -10,6 +10,7 @@ import img5 from '@/assets/dresscode/img5.jpg'
 import img6 from '@/assets/dresscode/img6.jpg'
 import img7 from '@/assets/dresscode/img7.jpg'
 import img8 from '@/assets/dresscode/img8.jpg'
+import { Seo } from '@/components/Seo'
 
 export const Dresscode = () => {
   const { t } = useLanguage()
@@ -28,6 +29,14 @@ export const Dresscode = () => {
 
   return (
     <div className="page-shell">
+      <Seo
+        path="/dresscode"
+        title={t('Klädkod | Tip the Velvet', 'Dresscode | Tip the Velvet')}
+        description={t(
+          'Få inspiration till vad du ska ha på dig på våra burlesque-kvällar. Läs om Tip the Velvets klädkod.',
+          'Get inspired by what to wear to our burlesque nights. Read about the Tip the Velvet dresscode.'
+        )}
+      />
       <div className="bg-glow-spot" />
 
       {/* Header Section */}
@@ -59,7 +68,7 @@ export const Dresscode = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container-wide space-y-12">
+      <div className="container-wide space-y-12">
         <div className="card-grid">
           {/* Card 1: Teman */}
           <div className="velvet-card">
@@ -225,7 +234,7 @@ export const Dresscode = () => {
             ))}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
