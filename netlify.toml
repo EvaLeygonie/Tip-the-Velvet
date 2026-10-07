@@ -5,6 +5,63 @@
   status = 301
   force = true
 
+# Apex domain -> www, so Google only ever sees one host.
+[[redirects]]
+  from = "https://tipthevelvet.nu/*"
+  to = "https://www.tipthevelvet.nu/:splat"
+  status = 301
+  force = true
+
+# Old WordPress pages that no longer exist. Served with a real 404 status (the SPA's
+# NotFound page renders) instead of the catch-all 200, so Google drops them from the index.
+[[redirects]]
+  from = "/nyheter/*"
+  to = "/events"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/author/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/tag/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/category/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/logo-redesign/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/velvetvixens/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/mingel_*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/wp-*"
+  to = "/index.html"
+  status = 404
+
+# Trailing slash -> no slash, matching the canonical URLs (/dresscode/ -> /dresscode).
+[[redirects]]
+  from = "/*/"
+  to = "/:splat"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

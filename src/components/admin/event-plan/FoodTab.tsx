@@ -178,41 +178,76 @@ export const FoodTab = ({
                     key={person.key}
                     className="admin-panel velvet-surface p-3 flex flex-wrap items-center gap-2 text-sm text-foreground"
                   >
-                    <span className="flex-1 min-w-[120px] truncate">{person.name}</span>
-                    <span className="text-accent/70 italic text-xs shrink-0">
-                      {person.subtitle}
-                    </span>
-                    <DietaryCategoryPicker
-                      value={person.category}
-                      onChange={(value) => setCategory(person, value)}
-                      className="shrink-0"
-                    />
-                    {person.notesEditable ? (
+                    {/* Grouped into 2 flex items (identity, controls) instead of 5 loose ones
+                        — flex-wrap can only ever split a row across as many lines as it has
+                        top-level items, so this caps it at 2 lines no matter how narrow the
+                        panel is, instead of each of the 5 wrapping onto its own line
+                        unpredictably (what was producing 3 lines before). Direct feedback
+                        2026-10-07. */}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="flex-1 min-w-[60px] truncate">{person.name}</span>
+                      <span className="text-accent/70 italic text-xs shrink-0 max-w-[160px] truncate">
+                        {person.subtitle}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <DietaryCategoryPicker
+                        value={person.category}
+                        onChange={(value) => setCategory(person, value)}
+                        className="shrink-0"
+                      />
+                      {/* Always the same input, editable or not, so every row's allergy field
+                          takes up the same width — previously a bare <span> (read-only, fixed
+                          max-width) sat next to a flex-1 <input> (editable), and nothing at
+                          all rendered for a performer with no notes, so rows didn't line up.
+                          Fixed width (not flex-1): this row's only other flex-1 is the name
+                          above, so there's no second flex-1 competing with it for leftover
+                          space anymore. max-w-24 alongside w-24 is load-bearing, not
+                          redundant — Safari has a real flexbox bug where a replaced form
+                          element's (input/select) own intrinsic size wins over an explicit
+                          `width` when resolving flex-basis: auto inside a flex container, so
+                          the input rendered ~4-5x too wide in Safari despite w-24 (confirmed
+                          via screenshot 2026-10-07) while looking correct in Chromium. Both
+                          max-width (a hard clamp applied after flex resolution, which Safari
+                          does respect) stops that. Performers' notes come straight from their
+                          own booking form (dietary_requirements) and stay read-only here, but
+                          use the same placeholder as every other row — direct feedback
+                          2026-10-07 that the booking form's own wording ("T.ex. nötallergi...")
+                          looked inconsistent next to the staff/organizer rows' "Allergier
+                          etc.". */}
                       <input
                         type="text"
                         defaultValue={person.notes ?? ''}
-                        onBlur={(e) => setStaffNotes(person, e.target.value)}
+                        readOnly={!person.notesEditable}
+                        onBlur={
+                          person.notesEditable
+                            ? (e) => setStaffNotes(person, e.target.value)
+                            : undefined
+                        }
                         placeholder={t('Allergier etc.', 'Allergies etc.')}
-                        className="min-w-[120px] flex-1 h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+                        title={
+                          person.notesEditable
+                            ? undefined
+                            : t(
+                                'Ifyllt av artisten i deras bokningsblankett',
+                                'Filled in by the artist in their booking form'
+                              )
+                        }
+                        className={`w-40 max-w-40 shrink-0 h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white ${
+                          person.notesEditable ? '' : 'cursor-default opacity-70'
+                        }`}
                       />
-                    ) : person.notes ? (
-                      <span
-                        title={person.notes}
-                        className="text-xs text-foreground/50 italic truncate max-w-[140px]"
-                      >
-                        {person.notes}
-                      </span>
-                    ) : null}
-                    {person.email && (
-                      <button
-                        type="button"
-                        onClick={() => setMailTarget(person)}
-                        title={t('Mejla', 'Email')}
-                        className="text-accent/60 hover:text-accent shrink-0"
-                      >
-                        <Mail className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                      {person.email && (
+                        <button
+                          type="button"
+                          onClick={() => setMailTarget(person)}
+                          title={t('Mejla', 'Email')}
+                          className="text-accent/60 hover:text-accent shrink-0"
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))
               )}

@@ -93,11 +93,30 @@ export const volunteerShiftLabel = (t: Translate, shift: VolunteerShift): string
 // Combines every role/shift one person holds at one event into a single readable subtitle —
 // e.g. "Stage kitten, Volontär (Setup)" — for the VIP list and any other person-level summary,
 // instead of showing just one of their rows' roles as if that were their only assignment.
+// Volunteering in several shifts used to print "Volontär (Setup), Volontär (Dörrvakt)" —
+// the role name repeated once per row. Shifts for the same role now collect into one entry,
+// "Volontär (Setup & Dörrvakt)", instead. Direct feedback 2026-10-07.
 export const staffPersonRoleSummary = (t: Translate, rows: AdminEventStaffRow[]): string => {
-  const labels = rows.map((row) =>
-    row.role === 'volunteer' && row.shift
-      ? `${staffRoleLabel(t, row.role)} (${volunteerShiftLabel(t, row.shift)})`
-      : staffRoleLabel(t, row.role)
-  )
-  return Array.from(new Set(labels)).join(', ')
+  const roleLabels: string[] = []
+  const shiftsByRoleLabel = new Map<string, Set<string>>()
+
+  for (const row of rows) {
+    const roleLabel = staffRoleLabel(t, row.role)
+    if (row.role === 'volunteer' && row.shift) {
+      if (!shiftsByRoleLabel.has(roleLabel)) {
+        shiftsByRoleLabel.set(roleLabel, new Set())
+        roleLabels.push(roleLabel)
+      }
+      shiftsByRoleLabel.get(roleLabel)!.add(volunteerShiftLabel(t, row.shift))
+    } else if (!roleLabels.includes(roleLabel)) {
+      roleLabels.push(roleLabel)
+    }
+  }
+
+  return roleLabels
+    .map((roleLabel) => {
+      const shifts = shiftsByRoleLabel.get(roleLabel)
+      return shifts ? `${roleLabel} (${Array.from(shifts).join(' & ')})` : roleLabel
+    })
+    .join(', ')
 }

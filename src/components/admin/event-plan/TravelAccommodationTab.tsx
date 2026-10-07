@@ -63,6 +63,14 @@ export const TravelAccommodationTab = ({
 
   const travelRows = performers.filter((p) => p.needsTravelCosts)
   const accommodationRows = performers.filter((p) => p.needsAccommodation)
+  // A row is a booking, not a head — a performer whose plus-one also needs a bed is 2
+  // people in 1 row, so the badge (meant to say how many people need placing) has to count
+  // heads, not rows. Travel has no plus-one dimension (only the performer's own fee covers
+  // travel), so travelRows.length stays a plain row count. Direct feedback 2026-10-07.
+  const accommodationHeadcount = accommodationRows.reduce(
+    (total, row) => total + 1 + (row.plus_one_name && row.plus_one_needs_accommodation ? 1 : 0),
+    0
+  )
 
   // One zip across every artist's uploaded receipts, same reasoning as EventAssetPanel's
   // "download all performer images"/"download all sponsor logos" — a plain link/window.open
@@ -236,7 +244,7 @@ export const TravelAccommodationTab = ({
             {t('Boende', 'Accommodation')}
           </h3>
           <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-            {accommodationRows.length}
+            {accommodationHeadcount}
           </span>
         </div>
         {accommodationRows.length === 0 ? (

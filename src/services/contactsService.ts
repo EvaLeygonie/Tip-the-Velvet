@@ -531,6 +531,16 @@ export const updateEventStaffShift = async (
   if (error) throw error
 }
 
+// This event's fee for this position, as opposed to staff_volunteers.fee (the person's
+// usual rate) — the UI falls back to that profile fee for display when this is still null,
+// but a save here only ever touches this row, never the shared profile. Same single-column-
+// update shape as updateEventStaffRoleDetails/updateEventStaffShift.
+export const updateEventStaffFee = async (id: string, fee: number | null): Promise<void> => {
+  const { error } = await supabase.from('event_staff_volunteers').update({ fee }).eq('id', id)
+
+  if (error) throw error
+}
+
 // A plain, uncoupled toggle — appointing an experienced volunteer to guide others on their
 // shift. Nothing enforces one-per-shift; the board decides operationally.
 export const setStaffInCharge = async (id: string, inCharge: boolean): Promise<void> => {

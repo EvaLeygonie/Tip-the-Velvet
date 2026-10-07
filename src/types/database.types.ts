@@ -528,6 +528,7 @@ export type Database = {
           dietary_category: Database['public']['Enums']['dietary_category'] | null
           dietary_notes: string | null
           event_id: string
+          fee: number | null
           id: string
           in_charge: boolean
           needs_food: boolean
@@ -541,6 +542,7 @@ export type Database = {
           dietary_category?: Database['public']['Enums']['dietary_category'] | null
           dietary_notes?: string | null
           event_id: string
+          fee?: number | null
           id?: string
           in_charge?: boolean
           needs_food?: boolean
@@ -554,6 +556,7 @@ export type Database = {
           dietary_category?: Database['public']['Enums']['dietary_category'] | null
           dietary_notes?: string | null
           event_id?: string
+          fee?: number | null
           id?: string
           in_charge?: boolean
           needs_food?: boolean

@@ -6,6 +6,7 @@ import { volunteerShiftLabel } from '@/lib/contactLabels'
 import {
   updateEventStaffRoleDetails,
   updateEventStaffShift,
+  updateEventStaffFee,
   setStaffInCharge,
   removeStaffFromEvent,
 } from '@/services/contactsService'
@@ -29,9 +30,15 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
   const [isSaving, setIsSaving] = useState(false)
   const [isTogglingInCharge, setIsTogglingInCharge] = useState(false)
   const isVolunteer = row.role === 'volunteer'
+  // Unpaid by definition, so volunteers never get a fee field at all — everyone else
+  // (including stage kittens, who stay in their own column above but are paid the same as
+  // any other non-volunteer role) does. Falls back to the person's usual rate
+  // (staff.fee) until this event's own fee is actually saved. Direct feedback 2026-10-07.
+  const resolvedFee = row.fee ?? row.staff.fee
   const [draft, setDraft] = useState({
     role_details: row.role_details ?? '',
     shift: row.shift,
+    fee: resolvedFee !== null ? String(resolvedFee) : '',
   })
 
   const handleSave = async () => {
@@ -40,10 +47,12 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
       const patch = {
         role_details: draft.role_details.trim() || null,
         shift: isVolunteer ? draft.shift : row.shift,
+        fee: isVolunteer ? row.fee : draft.fee.trim() === '' ? null : Number(draft.fee),
       }
       await Promise.all([
         updateEventStaffRoleDetails(row.id, patch.role_details),
         ...(isVolunteer ? [updateEventStaffShift(row.id, patch.shift)] : []),
+        ...(isVolunteer ? [] : [updateEventStaffFee(row.id, patch.fee)]),
       ])
       onUpdated(row.id, patch)
       toast.success(t('Sparat!', 'Saved!'))
@@ -75,10 +84,7 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
 
   const handleRemove = async () => {
     const confirmed = window.confirm(
-      t(
-        `Ta bort ${row.staff.name} från eventet?`,
-        `Remove ${row.staff.name} from the event?`
-      )
+      t(`Ta bort ${row.staff.name} från eventet?`, `Remove ${row.staff.name} from the event?`)
     )
     if (!confirmed) return
     try {
@@ -130,6 +136,28 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
             {row.role_details}
           </span>
         )}
+        {/* Rightmost, and only when there's an actual number to show — no badge at all for
+            a role with neither an event-specific fee nor a profile default, rather than an
+            empty "—" pill. Direct feedback 2026-10-07. */}
+        {!isVolunteer && resolvedFee !== null && (
+          <span
+            title={
+              row.fee !== null
+                ? undefined
+                : t(
+                    'Standardarvode från profilen — inget satt för just detta event än',
+                    'Default fee from their profile — nothing set for this event yet'
+                  )
+            }
+            className={`shrink-0 min-w-[60px] text-center text-xs font-mono px-2 py-0.5 rounded-full border ${
+              row.fee !== null
+                ? 'text-foreground/80 border-accent/20 bg-black/20'
+                : 'text-amber-400 border-amber-500/30 bg-amber-500/10 italic'
+            }`}
+          >
+            {resolvedFee} kr
+          </span>
+        )}
       </div>
 
       {isExpanded && (
@@ -154,6 +182,20 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+          {!isVolunteer && (
+            <div className="space-y-1">
+              <label className="form-label-gold block">
+                {t('Arvode för detta event (kr)', 'Fee for this event (kr)')}
+              </label>
+              <input
+                type="number"
+                value={draft.fee}
+                onChange={(e) => setDraft({ ...draft, fee: e.target.value })}
+                placeholder={t('Inget arvode', 'No fee')}
+                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+              />
             </div>
           )}
           <div className="space-y-1">

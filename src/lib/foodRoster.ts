@@ -1,7 +1,7 @@
 import type { AdminEventPerformerRow, AdminEventOrganizerFoodRow } from '@/services/eventService'
 import type { GroupedStaffPerson } from '@/lib/staffRowGrouping'
 import type { DietaryCategory } from '@/types/types'
-import { staffPersonRoleSummary, type Translate } from '@/lib/contactLabels'
+import { staffRoleLabel, type Translate } from '@/lib/contactLabels'
 
 // One shared shape for "someone who might need feeding at this event," merging three tables
 // that don't otherwise agree on field names: performers always eat (event_performers has no
@@ -23,6 +23,13 @@ export interface FoodPerson {
   performerId?: string
   staffId?: string
 }
+
+// Which shift a volunteer is covering doesn't matter for food planning — just that they're
+// a volunteer (and any other role they also hold) — so this drops staffPersonRoleSummary's
+// shift detail ("Volontär (Setup & Dörrvakt)") down to the plain role label ("Volontär").
+// Direct feedback 2026-10-07.
+const foodSubtitle = (t: Translate, rows: GroupedStaffPerson['rows']): string =>
+  Array.from(new Set(rows.map((row) => staffRoleLabel(t, row.role)))).join(', ')
 
 export const buildFoodRoster = (
   t: Translate,
@@ -50,7 +57,7 @@ export const buildFoodRoster = (
         key: `staff:${p.staff.id}`,
         name: p.staff.name,
         email: p.staff.email,
-        subtitle: staffPersonRoleSummary(t, p.rows),
+        subtitle: foodSubtitle(t, p.rows),
         category: p.dietary_category,
         notes: p.dietary_notes,
         notesEditable: true,

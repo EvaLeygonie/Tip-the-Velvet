@@ -293,6 +293,12 @@ export interface AdminEventStaffRow {
   // Only meaningful for role: 'volunteer' — every other role leaves both null/false.
   shift: VolunteerShift | null
   in_charge: boolean
+  // Null until the board sets one for this specific event — UI falls back to
+  // staff.fee (the person's usual rate) for display, but a save here only ever writes this
+  // column, never the profile's own fee. Never meaningful for role: 'volunteer' (unpaid by
+  // definition), same as shift above. Direct feedback 2026-10-07 (the Arzon case — one
+  // person, paid as entertainment but not for the volunteer shift he's also covering).
+  fee: number | null
   staff: StaffVolunteers
 }
 
@@ -304,7 +310,7 @@ export const getEventStaffForAdmin = async (eventId: string): Promise<AdminEvent
   const { data, error } = await supabase
     .from('event_staff_volunteers')
     .select(
-      'id, role, role_details, needs_food, dietary_category, dietary_notes, shift, in_charge, staff:staff_volunteers(*)'
+      'id, role, role_details, needs_food, dietary_category, dietary_notes, shift, in_charge, fee, staff:staff_volunteers(*)'
     )
     .eq('event_id', eventId)
 
