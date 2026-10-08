@@ -55,13 +55,6 @@
   to = "/index.html"
   status = 404
 
-# Trailing slash -> no slash, matching the canonical URLs (/dresscode/ -> /dresscode).
-[[redirects]]
-  from = "/*/"
-  to = "/:splat"
-  status = 301
-  force = true
-
 [[redirects]]
   from = "/*"
   to = "/index.html"
