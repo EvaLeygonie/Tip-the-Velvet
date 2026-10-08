@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Mail, CalendarPlus, CircleMinus, Ban, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { formatDate } from '@/lib/utils'
 import { volunteerShiftLabel } from '@/lib/contactLabels'
@@ -75,6 +76,7 @@ export const StaffVolunteerRow = ({
     link: row.link ?? '',
     fee: row.fee != null ? String(row.fee) : '',
     worked_with: row.worked_with ?? false,
+    language: row.language,
   })
 
   const handleSave = async () => {
@@ -95,6 +97,7 @@ export const StaffVolunteerRow = ({
           link: draft.link.trim() || null,
           fee: draft.fee === '' ? null : Number(draft.fee),
           worked_with: draft.worked_with,
+          language: draft.language,
         },
         isNew
       )
@@ -118,7 +121,10 @@ export const StaffVolunteerRow = ({
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
-      t(`Är du säker på att du vill radera ${row.name}?`, `Are you sure you want to delete ${row.name}?`)
+      t(
+        `Är du säker på att du vill radera ${row.name}?`,
+        `Are you sure you want to delete ${row.name}?`
+      )
     )
     if (!confirmed) return
     try {
@@ -385,6 +391,7 @@ export const StaffVolunteerRow = ({
           className="flex items-center gap-2 shrink-0 self-end sm:self-center"
           onClick={(e) => e.stopPropagation()}
         >
+          <LanguageMarker language={row.language} />
           <button
             onClick={() => row.email && onEmail(row)}
             disabled={!row.email}
@@ -398,7 +405,10 @@ export const StaffVolunteerRow = ({
             title={
               row.email
                 ? eventStatus?.contactedAt
-                  ? t('Redan kontaktad för eventet — skicka igen?', 'Already contacted for this event — send again?')
+                  ? t(
+                      'Redan kontaktad för eventet — skicka igen?',
+                      'Already contacted for this event — send again?'
+                    )
                   : t('Skicka mail', 'Send email')
                 : undefined
             }
@@ -518,15 +528,17 @@ export const StaffVolunteerRow = ({
                 ? `✓ ${t('Samtycke godkänt', 'Consent given')}`
                 : `— ${t('Inget samtycke registrerat', 'No consent on record')}`}
             </span>
+            <div className="ml-auto">
+              <LanguageToggle
+                value={draft.language}
+                onChange={(language) => setDraft({ ...draft, language })}
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
             {!isNew ? (
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="btn-red text-xs py-2 px-4"
-              >
+              <button type="button" onClick={handleDelete} className="btn-red text-xs py-2 px-4">
                 {t('Radera', 'Delete')}
               </button>
             ) : (

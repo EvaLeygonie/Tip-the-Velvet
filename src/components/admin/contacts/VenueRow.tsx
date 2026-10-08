@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Mail, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { Venue } from '@/types/types'
 
@@ -36,11 +37,14 @@ export const VenueRow = ({
     email: row.email ?? '',
     phone: row.phone ?? '',
     price: row.price != null ? String(row.price) : '',
+    language: row.language,
   })
 
   const handleSave = async () => {
     if (!draft.name.trim() || !draft.location.trim() || !draft.map_link.trim()) {
-      toast.error(t('Namn, plats och kartlänk krävs.', 'Name, location, and map link are required.'))
+      toast.error(
+        t('Namn, plats och kartlänk krävs.', 'Name, location, and map link are required.')
+      )
       return
     }
     setIsSaving(true)
@@ -55,6 +59,7 @@ export const VenueRow = ({
           email: draft.email.trim() || null,
           phone: draft.phone.trim() || null,
           price: draft.price === '' ? null : Number(draft.price),
+          language: draft.language,
         },
         isNew
       )
@@ -69,7 +74,10 @@ export const VenueRow = ({
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
-      t(`Är du säker på att du vill radera ${row.name}?`, `Are you sure you want to delete ${row.name}?`)
+      t(
+        `Är du säker på att du vill radera ${row.name}?`,
+        `Are you sure you want to delete ${row.name}?`
+      )
     )
     if (!confirmed) return
     try {
@@ -140,6 +148,7 @@ export const VenueRow = ({
           className="flex items-center gap-2 shrink-0 self-end sm:self-center"
           onClick={(e) => e.stopPropagation()}
         >
+          <LanguageMarker language={row.language} />
           <button
             onClick={() => row.email && onEmail(row)}
             disabled={!row.email}
@@ -198,7 +207,9 @@ export const VenueRow = ({
               />
             </div>
             <div className="space-y-1">
-              <label className="form-label-gold block">{t('Kontaktperson', 'Contact person')}</label>
+              <label className="form-label-gold block">
+                {t('Kontaktperson', 'Contact person')}
+              </label>
               <input
                 type="text"
                 value={draft.contact_person}
@@ -224,6 +235,13 @@ export const VenueRow = ({
                 className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
               />
             </div>
+          </div>
+
+          <div className="flex justify-end">
+            <LanguageToggle
+              value={draft.language}
+              onChange={(language) => setDraft({ ...draft, language })}
+            />
           </div>
 
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">

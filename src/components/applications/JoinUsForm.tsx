@@ -93,6 +93,8 @@ export const JoinUsCard = () => {
       role_details: formData.role_details || '',
       link: formattedOther || '',
       agreed_to_terms: true,
+      // Whichever language the site is being browsed in — no separate picker.
+      language,
     }
 
     const applicantName = formData.name.trim()

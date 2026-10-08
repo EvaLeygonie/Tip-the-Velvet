@@ -30,9 +30,17 @@ import type {
   CreateSponsorInput,
   CreateClubInput,
 } from '@/types/types'
-import { staffRoleLabel, sponsorTypeLabel as contactSponsorTypeLabel } from '@/lib/contactLabels'
+import {
+  staffRoleLabel,
+  sponsorTypeLabel as contactSponsorTypeLabel,
+  type Translate,
+} from '@/lib/contactLabels'
 import { ContactsToolbar } from '@/components/admin/contacts/ContactsToolbar'
-import { ContactMailModal } from '@/components/admin/contacts/ContactMailModal'
+import {
+  ContactMailModal,
+  type MailDraft,
+  type MailRecipient,
+} from '@/components/admin/contacts/ContactMailModal'
 import { StaffVolunteerRow } from '@/components/admin/contacts/StaffVolunteerRow'
 import { BoardMemberRow } from '@/components/admin/contacts/BoardMemberRow'
 import { SponsorRow } from '@/components/admin/contacts/SponsorRow'
@@ -59,6 +67,8 @@ const SPONSOR_TYPE_ORDER: SponsorType[] = [
   'other',
 ]
 
+const EMPTY_DRAFT: MailDraft = { subject: '', greeting: '', body: '' }
+
 const blankStaff = (): StaffVolunteers => ({
   id: crypto.randomUUID(),
   name: '',
@@ -74,6 +84,7 @@ const blankStaff = (): StaffVolunteers => ({
   // consent on record" warning for the seconds before saving.
   agreed_to_terms: true,
   worked_with: null,
+  language: 'sv',
   created_at: new Date().toISOString(),
 })
 
@@ -89,6 +100,7 @@ const blankSponsor = (): Sponsors => ({
   club_id: null,
   instagram_link: null,
   other_link: null,
+  language: 'sv',
   created_at: new Date().toISOString(),
 })
 
@@ -101,6 +113,7 @@ const blankVenue = (): Venue => ({
   email: null,
   phone: null,
   price: null,
+  language: 'sv',
   created_at: new Date().toISOString(),
 })
 
@@ -180,10 +193,9 @@ export const AdminContacts = () => {
   const [clubRegionFilter, setClubRegionFilter] = useState('')
 
   const [mailTarget, setMailTarget] = useState<{
-    recipients: { name: string; email: string; staffId?: string }[]
-    defaultSubject: string
-    defaultGreeting: string
-    defaultBody: string
+    recipients: MailRecipient[]
+    defaultSv: MailDraft
+    defaultEng: MailDraft
   } | null>(null)
 
   // Staff & Volunteers tab only — lets the board email several people (e.g. everyone
@@ -432,25 +444,45 @@ export const AdminContacts = () => {
   const buildMailSubject = (category: string | null): string =>
     [category, statusEvent?.title].filter(Boolean).join(' ')
 
+  // Every Contacts email gets a Swedish and an English draft; the modal sends each recipient
+  // the one matching their `language`. `categoryOf` is handed a fixed-language translator so
+  // the subject's category label ("Volontär" / "Volunteer") matches its draft, not whichever
+  // language the admin UI happens to be in.
+  const svT: Translate = (sv) => sv
+  const engT: Translate = (_sv, en) => en
+  const buildMailDrafts = (
+    categoryOf: (tr: Translate) => string | null,
+    greeting: { sv: string; eng: string }
+  ): { defaultSv: MailDraft; defaultEng: MailDraft } => ({
+    defaultSv: {
+      subject: buildMailSubject(categoryOf(svT)),
+      greeting: greeting.sv,
+      body: '\n\nVarma hälsningar,\nTip the Velvet',
+    },
+    defaultEng: {
+      subject: buildMailSubject(categoryOf(engT)),
+      greeting: greeting.eng,
+      body: '\n\nWarmly,\nTip the Velvet',
+    },
+  })
+  const NAME_GREETING = { sv: 'Hej {name}!', eng: 'Hi {name}!' }
+
   const openMailModalForSponsor = (row: Sponsors) => {
     if (!row.email) return
     setMailTarget({
-      recipients: [{ name: row.name, email: row.email }],
-      defaultSubject: buildMailSubject(
-        row.sponsor_type ? sponsorTypeLabel(row.sponsor_type) : null
+      recipients: [{ name: row.name, email: row.email, language: row.language }],
+      ...buildMailDrafts(
+        (tr) => (row.sponsor_type ? contactSponsorTypeLabel(tr, row.sponsor_type) : null),
+        NAME_GREETING
       ),
-      defaultGreeting: `Hej ${row.name}!`,
-      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
     })
   }
 
   const openMailModalForVenue = (row: Venue) => {
     if (!row.email) return
     setMailTarget({
-      recipients: [{ name: row.name, email: row.email }],
-      defaultSubject: buildMailSubject(null),
-      defaultGreeting: `Hej ${row.name}!`,
-      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
+      recipients: [{ name: row.name, email: row.email, language: row.language }],
+      ...buildMailDrafts(() => null, NAME_GREETING),
     })
   }
 
@@ -460,26 +492,37 @@ export const AdminContacts = () => {
   // event Contacts is currently showing statuses for.
   const openMailModalForVolunteer = (row: StaffVolunteers) => {
     if (!row.email) return
-    const firstName = row.name.trim().split(/\s+/)[0]
     setMailTarget({
-      recipients: [{ name: row.name, email: row.email, staffId: row.id }],
-      defaultSubject: buildMailSubject(roleLabel(row.role)),
-      defaultGreeting: `Hej ${firstName}!`,
-      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
+      recipients: [
+        {
+          name: row.name,
+          email: row.email,
+          language: row.language,
+          greetingName: row.name.trim().split(/\s+/)[0],
+          staffId: row.id,
+        },
+      ],
+      ...buildMailDrafts((tr) => staffRoleLabel(tr, row.role), NAME_GREETING),
     })
   }
 
   // "Email selected" — everyone currently ticked in the Staff & Volunteers tab who has an
-  // email on file, sent as one shared draft instead of one-by-one.
+  // email on file, sent as one shared draft per language instead of one-by-one.
   const openMailModalForSelectedStaff = () => {
     const rows = staffRows.filter((r) => selectedStaffIds.has(r.id) && r.email)
     if (rows.length === 0) return
     const roles = new Set(rows.map((r) => r.role))
     setMailTarget({
-      recipients: rows.map((r) => ({ name: r.name, email: r.email as string, staffId: r.id })),
-      defaultSubject: buildMailSubject(roles.size === 1 ? roleLabel(rows[0].role) : null),
-      defaultGreeting: t('Hej allihopa!', 'Hi everyone!'),
-      defaultBody: '\n\nVarma hälsningar,\nTip the Velvet',
+      recipients: rows.map((r) => ({
+        name: r.name,
+        email: r.email as string,
+        language: r.language,
+        staffId: r.id,
+      })),
+      ...buildMailDrafts((tr) => (roles.size === 1 ? staffRoleLabel(tr, rows[0].role) : null), {
+        sv: 'Hej allihopa!',
+        eng: 'Hi everyone!',
+      }),
     })
   }
 
@@ -939,9 +982,8 @@ export const AdminContacts = () => {
         isOpen={!!mailTarget}
         onClose={() => setMailTarget(null)}
         recipients={mailTarget?.recipients ?? []}
-        defaultSubject={mailTarget?.defaultSubject ?? ''}
-        defaultGreeting={mailTarget?.defaultGreeting ?? ''}
-        defaultBody={mailTarget?.defaultBody ?? ''}
+        defaultSv={mailTarget?.defaultSv ?? EMPTY_DRAFT}
+        defaultEng={mailTarget?.defaultEng ?? EMPTY_DRAFT}
         onSent={handleMailSent}
       />
     </div>

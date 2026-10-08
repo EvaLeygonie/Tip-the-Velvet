@@ -44,7 +44,8 @@ import {
 } from '@/services/todoService'
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
-import { ContactMailModal, type MailRecipient } from '@/components/admin/contacts/ContactMailModal'
+import { MissingInfoModal, type MissingInfoFilter } from '@/components/admin/MissingInfoModal'
+import { collectMissingInfo, type MissingInfoPerson } from '@/lib/missingInfo'
 import { missingMusicItems } from '@/components/admin/event-plan/musicCoverage'
 import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from '@/components/admin/event-plan/constants'
 import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
@@ -69,11 +70,11 @@ interface EventOverviewData {
   applications: CastingApplicationWithActs[]
 }
 
-interface EmailTarget {
-  recipients: MailRecipient[]
-  defaultSubject: string
-  defaultGreeting: string
-  defaultBody: string
+interface MissingInfoTarget {
+  eventId: string
+  eventTitle: string
+  filter: MissingInfoFilter
+  people: MissingInfoPerson[]
 }
 
 const NEW_WINDOW_DAYS = 7
@@ -115,7 +116,7 @@ export const AdminDashboard = () => {
   const [eventOverviews, setEventOverviews] = useState<EventOverviewData[]>([])
   const [eventOverviewsLoading, setEventOverviewsLoading] = useState(true)
   const [todos, setTodos] = useState<Todo[]>([])
-  const [emailTarget, setEmailTarget] = useState<EmailTarget | null>(null)
+  const [missingInfoTarget, setMissingInfoTarget] = useState<MissingInfoTarget | null>(null)
   // Scroll target for the warning icon below — jumps straight to the to-do lists instead of
   // making the admin hunt for whichever list the due-soon item actually lives in. Direct
   // feedback 2026-09-22: the old "Deadlines inom en vecka" banner (a full heading + card per
@@ -330,72 +331,26 @@ export const AdminDashboard = () => {
     navigate('/admin/casting')
   }
 
-  // The stage-notes reminder goes out to performers only — no one else fills those in. Bulk-
-  // sent individually to each recipient via ContactMailModal, same as everywhere else in the
-  // app.
-  const handleEmailMissingNotes = (ov: EventOverviewData) => {
-    // Manual/constant show-program segments (performer_id: null) never count as "missing" —
-    // most genuinely need no prep, direct feedback 2026-09-21. Real acts only here.
-    const performerIdsMissingNotes = new Set(
-      ov.acts
-        .filter((a) => a.performer_id && !a.stage_preparations && !a.pick_up_cleaning)
-        .map((a) => a.performer_id)
-    )
-    const recipients: MailRecipient[] = ov.performers
-      .filter((p) => performerIdsMissingNotes.has(p.performer_id) && p.performer.email)
-      .map((p) => ({ name: p.performer.performer_name, email: p.performer.email as string }))
-    setEmailTarget({
-      recipients,
-      defaultSubject: t(`Scenanteckningar — ${ov.eventTitle}`, `Stage notes — ${ov.eventTitle}`),
-      defaultGreeting: t('Hej!', 'Hi!'),
-      defaultBody: t(
-        'Vi saknar fortfarande dina scenanteckningar (ljud, ljus & scenkrav) inför showen — kan du fylla i dem så snart som möjligt via din bokningslänk?\n\nVarma hälsningar,\nTip the Velvet',
-        "We're still missing your stage notes (sound, lighting & stage requirements) for the show — could you fill them in as soon as possible via your booking link?\n\nWarmly,\nTip the Velvet"
-      ),
-    })
-  }
-  // Now covers staff/volunteers needing food as well as performers — direct feedback
-  // 2026-09-21 that the count already did, but the email target didn't.
-  const handleEmailMissingFood = (ov: EventOverviewData) => {
-    const performerRecipients: MailRecipient[] = ov.performers
-      .filter((p) => !p.dietary_category && p.performer.email)
-      .map((p) => ({ name: p.performer.performer_name, email: p.performer.email as string }))
-    const staffRecipients: MailRecipient[] = groupStaffRowsByPerson(ov.staffRows)
-      .filter((p) => p.needs_food && !p.dietary_category && p.staff.email)
-      .map((p) => ({ name: p.staff.name, email: p.staff.email as string }))
-    const recipients = [...performerRecipients, ...staffRecipients]
-    setEmailTarget({
-      recipients,
-      defaultSubject: t(`Matpreferenser — ${ov.eventTitle}`, `Food preferences — ${ov.eventTitle}`),
-      defaultGreeting: t('Hej!', 'Hi!'),
-      defaultBody: t(
-        'Vi saknar fortfarande din matpreferens inför showen — kan du fylla i den så snart som möjligt via din bokningslänk?\n\nVarma hälsningar,\nTip the Velvet',
-        "We're still missing your food preference for the show — could you fill it in as soon as possible via your booking link?\n\nWarmly,\nTip the Velvet"
-      ),
-    })
-  }
-  // Same bulk-email pattern as handleEmailMissingNotes/handleEmailMissingFood — recipients
-  // are artists who said they need travel costs covered but haven't uploaded a receipt yet.
-  // Traveling by car is excluded — that's a lump sum paid with their fee, no receipt ever
-  // expected. Direct feedback 2026-09-22.
-  const handleEmailMissingReceipts = (ov: EventOverviewData) => {
-    const recipients: MailRecipient[] = ov.performers
-      .filter(
-        (p) =>
-          p.needsTravelCosts &&
-          !p.travels_by_car &&
-          !(Array.isArray(p.travel_receipts) && p.travel_receipts.length > 0) &&
-          p.performer.email
-      )
-      .map((p) => ({ name: p.performer.performer_name, email: p.performer.email as string }))
-    setEmailTarget({
-      recipients,
-      defaultSubject: t(`Reskvitto — ${ov.eventTitle}`, `Travel receipt — ${ov.eventTitle}`),
-      defaultGreeting: t('Hej!', 'Hi!'),
-      defaultBody: t(
-        'Vi saknar fortfarande ditt reskvitto för resan till showen — kan du ladda upp det så snart som möjligt via din bokningslänk?\n\nVarma hälsningar,\nTip the Velvet',
-        "We're still missing your travel receipt for the trip to the show — could you upload it as soon as possible via your booking link?\n\nWarmly,\nTip the Velvet"
-      ),
+  // One panel for every "someone still owes us something" email (food, stage notes, travel
+  // receipts): each person is asked once, in their own language, for everything they're
+  // missing. The card clicked only decides which filter the panel opens on. Receipts are
+  // left out while casting still needs attention — same gate as the receipts card below.
+  const openMissingInfo = (
+    ov: EventOverviewData,
+    includeReceipts: boolean,
+    filter: MissingInfoFilter
+  ) => {
+    setMissingInfoTarget({
+      eventId: ov.eventId,
+      eventTitle: ov.eventTitle,
+      filter,
+      people: collectMissingInfo({
+        performers: ov.performers,
+        acts: ov.acts,
+        groupedStaff: groupStaffRowsByPerson(ov.staffRows),
+        applications: ov.applications,
+        includeReceipts,
+      }),
     })
   }
 
@@ -542,8 +497,8 @@ export const AdminDashboard = () => {
                 ),
                 icon: <Drama className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'show'),
-                onEmailAll: () => handleEmailMissingNotes(ov),
-                emailTitle: t('Mejla berörda artister', 'Email affected artists'),
+                onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'notes'),
+                emailTitle: t('Be om saknad information', 'Ask for missing info'),
               })
             }
             if (missingFoodCount > 0) {
@@ -556,8 +511,8 @@ export const AdminDashboard = () => {
                 ),
                 icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'food'),
-                onEmailAll: () => handleEmailMissingFood(ov),
-                emailTitle: t('Mejla berörda personer', 'Email affected people'),
+                onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'food'),
+                emailTitle: t('Be om saknad information', 'Ask for missing info'),
               })
             }
             if (!needsCastingAttention && missingReceipts.length > 0) {
@@ -570,8 +525,8 @@ export const AdminDashboard = () => {
                 ),
                 icon: <Car className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'travel'),
-                onEmailAll: () => handleEmailMissingReceipts(ov),
-                emailTitle: t('Mejla berörda artister', 'Email affected artists'),
+                onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'receipt'),
+                emailTitle: t('Be om saknad information', 'Ask for missing info'),
               })
             }
             if (!needsCastingAttention && missingHousingCount > 0) {
@@ -821,14 +776,16 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      <ContactMailModal
-        isOpen={emailTarget !== null}
-        onClose={() => setEmailTarget(null)}
-        recipients={emailTarget?.recipients ?? []}
-        defaultSubject={emailTarget?.defaultSubject ?? ''}
-        defaultGreeting={emailTarget?.defaultGreeting ?? ''}
-        defaultBody={emailTarget?.defaultBody ?? ''}
-      />
+      {missingInfoTarget && (
+        <MissingInfoModal
+          isOpen
+          onClose={() => setMissingInfoTarget(null)}
+          eventId={missingInfoTarget.eventId}
+          eventTitle={missingInfoTarget.eventTitle}
+          people={missingInfoTarget.people}
+          initialFilter={missingInfoTarget.filter}
+        />
+      )}
     </div>
   )
 }

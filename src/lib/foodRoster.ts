@@ -1,6 +1,6 @@
 import type { AdminEventPerformerRow, AdminEventOrganizerFoodRow } from '@/services/eventService'
 import type { GroupedStaffPerson } from '@/lib/staffRowGrouping'
-import type { DietaryCategory } from '@/types/types'
+import type { DietaryCategory, Language } from '@/types/types'
 import { staffRoleLabel, type Translate } from '@/lib/contactLabels'
 
 // One shared shape for "someone who might need feeding at this event," merging three tables
@@ -15,6 +15,7 @@ export interface FoodPerson {
   key: string
   name: string
   email: string | null
+  language: Language
   subtitle: string
   category: DietaryCategory | null
   notes: string | null
@@ -42,6 +43,7 @@ export const buildFoodRoster = (
       key: `performer:${p.performer_id}`,
       name: p.performer.performer_name,
       email: p.performer.email,
+      language: p.performer.language,
       subtitle: t('Artist', 'Artist'),
       category: p.dietary_category,
       notes: p.dietary_requirements,
@@ -57,6 +59,7 @@ export const buildFoodRoster = (
         key: `staff:${p.staff.id}`,
         name: p.staff.name,
         email: p.staff.email,
+        language: p.staff.language,
         subtitle: foodSubtitle(t, p.rows),
         category: p.dietary_category,
         notes: p.dietary_notes,
@@ -72,6 +75,7 @@ export const buildFoodRoster = (
         key: `organizer:${o.staff_id}`,
         name: o.staff.name,
         email: o.staff.email,
+        language: o.staff.language,
         subtitle: t('Arrangör', 'Organizer'),
         category: o.dietary_category,
         notes: o.dietary_notes,

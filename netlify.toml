@@ -12,6 +12,13 @@
   status = 301
   force = true
 
+# Truncated link that is in the wild (cut off at the hyphen).
+[[redirects]]
+  from = "/performers/morau-"
+  to = "/performers/morau-amour"
+  status = 301
+  force = true
+
 # Old WordPress pages that no longer exist. Served with a real 404 status (the SPA's
 # NotFound page renders) instead of the catch-all 200, so Google drops them from the index.
 [[redirects]]

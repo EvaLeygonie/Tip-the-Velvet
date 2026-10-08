@@ -107,10 +107,10 @@ export const POST_SCHEDULE: PostScheduleItem[] = [
     hasTemplate: false,
   },
   {
-    type: 'venue_rules',
+    type: 'share_like_invite',
     offset: { unit: 'weeks', amount: -2 },
-    labelSv: 'Venue-regler',
-    labelEng: 'Venue rules',
+    labelSv: 'Share, like, invite',
+    labelEng: 'Share, like, invite',
     hasTemplate: false,
   },
   {
@@ -128,10 +128,10 @@ export const POST_SCHEDULE: PostScheduleItem[] = [
     hasTemplate: false,
   },
   {
-    type: 'share_like_invite',
+    type: 'venue_rules',
     offset: { unit: 'weeks', amount: -1 },
-    labelSv: 'Share, like, invite',
-    labelEng: 'Share, like, invite',
+    labelSv: 'Venue-regler',
+    labelEng: 'Venue rules',
     hasTemplate: false,
   },
   {

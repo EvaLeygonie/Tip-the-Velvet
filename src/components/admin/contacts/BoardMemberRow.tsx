@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Mail, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { StaffVolunteers } from '@/types/types'
 
@@ -28,6 +29,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
     phone: row.phone ?? '',
     fee: row.fee != null ? String(row.fee) : '',
     role_details: row.role_details ?? '',
+    language: row.language,
   })
 
   const handleSave = async () => {
@@ -43,6 +45,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
         phone: draft.phone.trim() || null,
         fee: draft.fee === '' ? null : Number(draft.fee),
         role_details: draft.role_details.trim() || null,
+        language: draft.language,
       })
       setIsExpanded(false)
     } catch (err) {
@@ -116,6 +119,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
         </div>
 
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+          <LanguageMarker language={row.language} />
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -180,6 +184,13 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
                 className="w-full h-20 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
               />
             </div>
+          </div>
+
+          <div className="flex justify-end">
+            <LanguageToggle
+              value={draft.language}
+              onChange={(language) => setDraft({ ...draft, language })}
+            />
           </div>
 
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">

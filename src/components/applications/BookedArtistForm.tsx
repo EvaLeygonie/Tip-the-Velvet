@@ -53,6 +53,8 @@ interface BookedArtistFormProps {
   onSaveSuccess?: () => void
 }
 
+const NOTHING_TO_ADD = 'N/A'
+
 interface ActFormState {
   key: string
   actId: string | null
@@ -225,6 +227,23 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
   // Same as handleChange, but writes into the currently active act's block instead of
   // the shared formData — act fields are per-act (Phase 9 of multi-act-casting-plan.md).
+  // "Nothing to add" writes N/A into both stage fields so the board's dashboard counts the
+  // act as done (it only checks that one of them is filled in). Only offered while both
+  // fields are blank or already N/A — once there's real text, the act is done anyway.
+  const stageFieldValues = [activeAct?.stage_preparations ?? '', activeAct?.pick_up_cleaning ?? '']
+  const canMarkNothingToAdd = stageFieldValues.every((v) => v === '' || v === NOTHING_TO_ADD)
+  const nothingToAdd = stageFieldValues.every((v) => v === NOTHING_TO_ADD)
+  const handleNothingToAddChange = (checked: boolean) => {
+    const value = checked ? NOTHING_TO_ADD : ''
+    setActsFormData((prev) =>
+      prev.map((act, idx) =>
+        idx === activeActIndex
+          ? { ...act, stage_preparations: value, pick_up_cleaning: value }
+          : act
+      )
+    )
+  }
+
   const handleActFieldChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setActsFormData((prev) =>
@@ -824,6 +843,20 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
           {/* SCENFÄLT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/40 pt-4">
+            {canMarkNothingToAdd && (
+              <label className="md:col-span-2 flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={nothingToAdd}
+                  onChange={(e) => handleNothingToAddChange(e.target.checked)}
+                  className="h-4 w-4 accent-accent"
+                />
+                {t(
+                  'Jag har inget att lägga till här (fyller i N/A)',
+                  'I have nothing to add here (fills in N/A)'
+                )}
+              </label>
+            )}
             <div className="form-field">
               <label className="form-label-block text-xs">
                 {t('Scen förberedelser', 'Stage preparations')}

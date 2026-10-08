@@ -9,6 +9,7 @@ import {
   CalendarPlus,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload'
@@ -63,6 +64,7 @@ export const SponsorRow = ({
     instagram_link: row.instagram_link ?? '',
     other_link: row.other_link ?? '',
     club_id: row.club_id ?? '',
+    language: row.language,
   })
   const [tempLogoFile, setTempLogoFile] = useState<File | null>(null)
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
@@ -129,6 +131,7 @@ export const SponsorRow = ({
             : null,
           other_link: draft.other_link.trim() ? formatOtherLink(draft.other_link.trim()) : null,
           club_id: draft.club_id || null,
+          language: draft.language,
           logo_id: logoId,
         },
         isNew
@@ -255,6 +258,7 @@ export const SponsorRow = ({
           className="flex items-center gap-2 shrink-0 self-end sm:self-center"
           onClick={(e) => e.stopPropagation()}
         >
+          <LanguageMarker language={row.language} />
           <button
             onClick={() => row.email && onEmail(row)}
             disabled={!row.email}
@@ -434,11 +438,19 @@ export const SponsorRow = ({
             </div>
           )}
 
-          <span className="text-xs text-foreground/40 flex items-center gap-1.5">
-            {row.agreed_to_terms
-              ? `✓ ${t('Samtycke godkänt', 'Consent given')}`
-              : `— ${t('Inget samtycke registrerat', 'No consent on record')}`}
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-foreground/40 flex items-center gap-1.5">
+              {row.agreed_to_terms
+                ? `✓ ${t('Samtycke godkänt', 'Consent given')}`
+                : `— ${t('Inget samtycke registrerat', 'No consent on record')}`}
+            </span>
+            <div className="ml-auto">
+              <LanguageToggle
+                value={draft.language}
+                onChange={(language) => setDraft({ ...draft, language })}
+              />
+            </div>
+          </div>
 
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
             {!isNew ? (

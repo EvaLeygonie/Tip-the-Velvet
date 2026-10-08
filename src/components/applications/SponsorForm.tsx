@@ -137,6 +137,8 @@ export const SponsorCard = () => {
       other_link: formData.other_link?.trim() ? formatOtherLink(formData.other_link.trim()) : null,
       logo_id: finalLogoId,
       agreed_to_terms: true,
+      // Whichever language the site is being browsed in — no separate picker.
+      language,
     }
 
     const applicantName = formData.name.trim()
@@ -310,7 +312,6 @@ export const SponsorCard = () => {
                 className="w-full"
               />
             </div>
-
           </div>
         </div>
 

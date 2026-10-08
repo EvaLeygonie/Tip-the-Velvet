@@ -741,6 +741,55 @@ export type Database = {
           },
         ]
       }
+      info_reminders: {
+        Row: {
+          event_id: string
+          id: string
+          item: string
+          performer_id: string | null
+          reminded_at: string
+          staff_id: string | null
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          item: string
+          performer_id?: string | null
+          reminded_at?: string
+          staff_id?: string | null
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          item?: string
+          performer_id?: string | null
+          reminded_at?: string
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'info_reminders_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'info_reminders_performer_id_fkey'
+            columns: ['performer_id']
+            isOneToOne: false
+            referencedRelation: 'performers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'info_reminders_staff_id_fkey'
+            columns: ['staff_id']
+            isOneToOne: false
+            referencedRelation: 'staff_volunteers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       marketing_posts: {
         Row: {
           content: string | null
@@ -1011,6 +1060,7 @@ export type Database = {
       }
       sponsors: {
         Row: {
+          language: Database['public']['Enums']['language']
           agreed_to_terms: boolean | null
           club_id: string | null
           created_at: string
@@ -1025,6 +1075,7 @@ export type Database = {
           sponsor_type: Database['public']['Enums']['sponsor_type'] | null
         }
         Insert: {
+          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           club_id?: string | null
           created_at?: string
@@ -1039,6 +1090,7 @@ export type Database = {
           sponsor_type?: Database['public']['Enums']['sponsor_type'] | null
         }
         Update: {
+          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           club_id?: string | null
           created_at?: string
@@ -1064,6 +1116,7 @@ export type Database = {
       }
       staff_volunteers: {
         Row: {
+          language: Database['public']['Enums']['language']
           agreed_to_terms: boolean | null
           created_at: string
           email: string | null
@@ -1077,6 +1130,7 @@ export type Database = {
           worked_with: boolean | null
         }
         Insert: {
+          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
@@ -1090,6 +1144,7 @@ export type Database = {
           worked_with?: boolean | null
         }
         Update: {
+          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
@@ -1150,6 +1205,7 @@ export type Database = {
       }
       venues: {
         Row: {
+          language: Database['public']['Enums']['language']
           contact_person: string | null
           created_at: string
           email: string | null
@@ -1161,6 +1217,7 @@ export type Database = {
           price: number | null
         }
         Insert: {
+          language?: Database['public']['Enums']['language']
           contact_person?: string | null
           created_at?: string
           email?: string | null
@@ -1172,6 +1229,7 @@ export type Database = {
           price?: number | null
         }
         Update: {
+          language?: Database['public']['Enums']['language']
           contact_person?: string | null
           created_at?: string
           email?: string | null

@@ -288,13 +288,19 @@ export const FoodTab = ({
         <ContactMailModal
           isOpen={Boolean(mailTarget)}
           onClose={() => setMailTarget(null)}
-          recipients={[{ name: mailTarget.name, email: mailTarget.email }]}
-          defaultSubject={t(`Fråga om mat — ${eventTitle}`, `Food question — ${eventTitle}`)}
-          defaultGreeting={t(`Hej ${mailTarget.name}!`, `Hi ${mailTarget.name}!`)}
-          defaultBody={t(
-            `Vi ville dubbelkolla din mat inför ${eventTitle}. Hör av dig om något behöver ändras.\n\nVarma hälsningar,\nTip the Velvet`,
-            `We wanted to double-check your food for ${eventTitle}. Let us know if anything needs to change.\n\nWarmly,\nTip the Velvet`
-          )}
+          recipients={[
+            { name: mailTarget.name, email: mailTarget.email, language: mailTarget.language },
+          ]}
+          defaultSv={{
+            subject: `Fråga om mat — ${eventTitle}`,
+            greeting: 'Hej {name}!',
+            body: `Vi ville dubbelkolla din mat inför ${eventTitle}. Hör av dig om något behöver ändras.\n\nVarma hälsningar,\nTip the Velvet`,
+          }}
+          defaultEng={{
+            subject: `Food question — ${eventTitle}`,
+            greeting: 'Hi {name}!',
+            body: `We wanted to double-check your food for ${eventTitle}. Let us know if anything needs to change.\n\nWarmly,\nTip the Velvet`,
+          }}
         />
       )}
       {bulkMailGroup && (
@@ -303,13 +309,17 @@ export const FoodTab = ({
           onClose={() => setBulkMailGroup(null)}
           recipients={bulkMailGroup.people
             .filter((p): p is FoodPerson & { email: string } => Boolean(p.email))
-            .map((p) => ({ name: p.name, email: p.email }))}
-          defaultSubject={t(`Om maten på ${eventTitle}`, `About the food at ${eventTitle}`)}
-          defaultGreeting={t('Hej allihopa!', 'Hi everyone!')}
-          defaultBody={t(
-            `En snabb fråga om maten inför ${eventTitle} — hör av er om något behöver ändras.\n\nVarma hälsningar,\nTip the Velvet`,
-            `A quick question about the food for ${eventTitle} — let us know if anything needs to change.\n\nWarmly,\nTip the Velvet`
-          )}
+            .map((p) => ({ name: p.name, email: p.email, language: p.language }))}
+          defaultSv={{
+            subject: `Om maten på ${eventTitle}`,
+            greeting: 'Hej allihopa!',
+            body: `En snabb fråga om maten inför ${eventTitle} — hör av er om något behöver ändras.\n\nVarma hälsningar,\nTip the Velvet`,
+          }}
+          defaultEng={{
+            subject: `About the food at ${eventTitle}`,
+            greeting: 'Hi everyone!',
+            body: `A quick question about the food for ${eventTitle} — let us know if anything needs to change.\n\nWarmly,\nTip the Velvet`,
+          }}
         />
       )}
     </div>

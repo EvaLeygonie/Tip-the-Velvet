@@ -105,6 +105,10 @@ export const PerformerDetail = () => {
   if (!performer) {
     return (
       <div className="empty-state">
+        <Seo
+          noindex
+          title={t('Artisten hittades inte | Tip the Velvet', 'Performer not found | Tip the Velvet')}
+        />
         <p>{t('Artisten hittades inte.', 'Performer not found.')}</p>
         <Link to="/performers" className="btn-gold mt-4">
           <ArrowLeft size={16} className="mr-2" /> {t('Tillbaka', 'Back')}
