@@ -1230,7 +1230,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 : 'fixed bottom-0 left-0 right-0 z-40 border-t border-accent/30 bg-background/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.35)]'
             }
           >
-            <div className="max-w-2xl mx-auto flex items-center justify-end gap-3">
+            <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
               {isDirty && !submitting && (
                 <span className="text-xs text-accent/90 italic mr-auto">
                   {t('Osparade ändringar', 'Unsaved changes')}

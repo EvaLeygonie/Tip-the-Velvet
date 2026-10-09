@@ -12,6 +12,7 @@ import {
   setSponsorGotPrice,
 } from '@/services/contactsService'
 import type { AdminEventSponsorRow } from '@/services/eventService'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface EventSponsorRowProps {
   row: AdminEventSponsorRow
@@ -50,6 +51,7 @@ export const EventSponsorRow = ({
   noteField,
 }: EventSponsorRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const isPrizeSponsor = row.role === 'prize'
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -142,9 +144,13 @@ export const EventSponsorRow = ({
   }
 
   const handleRemove = async () => {
-    const confirmed = window.confirm(
-      t(`Ta bort ${row.sponsor.name} från eventet?`, `Remove ${row.sponsor.name} from the event?`)
-    )
+    const confirmed = await confirm({
+      message: t(
+        `Ta bort ${row.sponsor.name} från eventet?`,
+        `Remove ${row.sponsor.name} from the event?`
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await removeSponsorFromEvent(eventId, row.sponsor_id)

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { UtensilsCrossed, Download, FileText, Plus, SplitSquareVertical } from 'lucide-react'
 import { toast } from 'sonner'
-import { jsPDF } from 'jspdf'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import { EventPicker } from '@/components/admin/EventPicker'
@@ -40,14 +39,18 @@ import {
   updateStaffFoodInfoForPerson,
   updateOrganizerFoodInfo,
 } from '@/services/contactsService'
-import {
-  staffRoleLabel,
-  staffPersonRoleSummary,
-  vipCategoryLabel,
-  dietaryCategoryLabel,
-} from '@/lib/contactLabels'
+import { staffRoleLabel, staffPersonRoleSummary, dietaryCategoryLabel } from '@/lib/contactLabels'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
+import {
+  buildVipSections,
+  downloadEventDocuments,
+  loadEventDocContext,
+  type EventDocContext,
+  type EventDocumentId,
+  type VipListItem,
+} from '@/lib/eventDocuments'
 import { EventStaffRow } from '@/components/admin/event-plan/EventStaffRow'
+import { EntertainerProfileModal } from '@/components/admin/event-plan/EntertainerProfileModal'
 import { EventMusicSection } from '@/components/admin/event-plan/EventMusicSection'
 import { VolunteerShiftGroups } from '@/components/admin/event-plan/VolunteerShiftGroups'
 import { SponsorSlotGrid } from '@/components/admin/event-plan/SponsorSlotGrid'
@@ -61,23 +64,14 @@ import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCov
 import { ShowProgramBoard } from '@/components/admin/event-plan/ShowProgramBoard'
 import { FoodTab } from '@/components/admin/event-plan/FoodTab'
 import { TravelAccommodationTab } from '@/components/admin/event-plan/TravelAccommodationTab'
-import {
-  STANDING_ORGANIZERS,
-  VIP_CATEGORY_ORDER,
-  ROLE_ORDER,
-} from '@/components/admin/event-plan/constants'
+import { STANDING_ORGANIZERS, ROLE_ORDER } from '@/components/admin/event-plan/constants'
 import type {
   VipManualEntry,
   CreateVipManualEntryInput,
   DietaryCategory,
   StaffVolunteerType,
 } from '@/types/types'
-
-interface VipListItem {
-  name: string
-  email?: string | null
-  sub?: string
-}
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 const blankVipEntry = (eventId: string): VipManualEntry => ({
   id: crypto.randomUUID(),
@@ -96,6 +90,7 @@ const escapeHtml = (value: string): string =>
 
 export const AdminEventPlan = () => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const { selectedEventId, upcomingEvents } = useCurrentEvent()
   // Lets the Dashboard's highlight cards deep-link straight to a specific tab (e.g. "show"
   // for the stage-notes card) via navigate(path, { state: { tab } }) instead of always
@@ -112,6 +107,11 @@ export const AdminEventPlan = () => {
   const [vipEntries, setVipEntries] = useState<VipManualEntry[]>([])
   const [vipDrafts, setVipDrafts] = useState<VipManualEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [buildingTechPdf, setBuildingTechPdf] = useState(false)
+  const [entertainerTarget, setEntertainerTarget] = useState<{
+    staffId: string
+    name: string
+  } | null>(null)
   // CurrentEventContext only carries id/title/event_start (a deliberately narrow shared
   // query — see getEventVenueId's comment in eventService.ts for the same pattern), so the
   // three playlist fields need their own dedicated fetch here, same as venue_id does elsewhere.
@@ -210,6 +210,8 @@ export const AdminEventPlan = () => {
       await confirmStaffForEvent(selectedEventId, item.id, item.label, role, null, null)
       setStaffRows(await getEventStaffForAdmin(selectedEventId))
       toast.success(t('Tillagd!', 'Added!'))
+      // An entertainer also gets a public profile — open it straight away (skippable).
+      if (role === 'entertainment') setEntertainerTarget({ staffId: item.id, name: item.label })
     }
   const fetchDjCandidates = fetchStaffCandidatesForRole('dj')
   const handleAddDj = handleAddStaffToRole('dj')
@@ -383,13 +385,13 @@ export const AdminEventPlan = () => {
   // it splits on the order the board has already arranged (not a fixed position), getting
   // the order right first and then splitting already gives full control over exactly where
   // the cut lands.
-  const handleAutoSplit = () => {
-    const confirmed = window.confirm(
-      t(
+  const handleAutoSplit = async () => {
+    const confirmed = await confirm({
+      message: t(
         'Dela upp alla akter jämnt mellan Set 1 och Set 2? Detta skriver över akternas nuvarande set-placering (egna och fasta moment påverkas inte).',
         "Split all acts evenly between Set 1 and Set 2? This overwrites acts' current set assignment (manual and constant segments are left untouched)."
-      )
-    )
+      ),
+    })
     if (!confirmed) return
 
     const realActs = acts
@@ -541,46 +543,6 @@ export const AdminEventPlan = () => {
   // summary, progress overview) reads from this instead of raw staffRows.
   const groupedStaff = groupStaffRowsByPerson(staffRows)
 
-  // Shared by both export formats below, so the two never drift out of sync with each
-  // other (or with the on-screen list above).
-  const buildVipSections = (): { title: string; items: VipListItem[] }[] => [
-    {
-      title: t('Arrangörer', 'Organizers'),
-      items: STANDING_ORGANIZERS.map((o) => ({ name: o.name, email: o.email })),
-    },
-    {
-      title: t('Artister', 'Artists'),
-      items: performers.map((p) => ({
-        name: p.performer.performer_name,
-        email: p.performer.email,
-      })),
-    },
-    {
-      title: t('Arbetare & volontärer', 'Staff & volunteers'),
-      items: groupedStaff.map((p) => ({
-        name: p.staff.name,
-        email: p.staff.email,
-        sub: staffPersonRoleSummary(t, p.rows),
-      })),
-    },
-    {
-      title: t('Artisternas +1', "Artists' +1"),
-      items: performers
-        .filter((p) => p.plus_one_name)
-        .map((p) => ({
-          name: p.plus_one_name as string,
-          email: p.plus_one_email,
-          sub: `+1 ${p.performer.performer_name}`,
-        })),
-    },
-    ...VIP_CATEGORY_ORDER.map((category) => ({
-      title: vipCategoryLabel(t, category),
-      items: vipEntries
-        .filter((e) => e.category === category)
-        .map((e) => ({ name: e.name, email: e.email })),
-    })),
-  ]
-
   // An A4-formatted HTML document with a real (if per-device, not synced) checkbox next to
   // every name, saved straight to disk so it can be printed, reopened, or sent to someone
   // else — not just a plain-text list. No PDF library needed for *this* format — just
@@ -657,7 +619,7 @@ export const AdminEventPlan = () => {
   <div class="page">
     <h1>${escapeHtml(t('VIP-lista', 'VIP list'))}</h1>
     <div class="subtitle">${escapeHtml(eventTitle)}</div>
-    ${buildVipSections()
+    ${buildVipSections(docContext)
       .map((s) => section(s.title, s.items))
       .join('')}
   </div>
@@ -675,305 +637,29 @@ export const AdminEventPlan = () => {
     URL.revokeObjectURL(url)
   }
 
-  // A real, vector PDF (not a rasterized screenshot of the HTML version) — built directly
-  // with jsPDF's own text/rect drawing API rather than pulling in html2canvas as a second
-  // dependency just to convert the HTML version, since the layout here is simple enough
-  // (headers + rows) to lay out by hand.
-  const handleDownloadVipListPdf = () => {
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-    const margin = 18
-    const pageWidth = 210
-    const pageBottom = 280
-    let y = margin
-
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(18)
-    doc.setTextColor(20)
-    doc.text(t('VIP-lista', 'VIP list'), margin, y)
-    y += 7
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(11)
-    doc.setTextColor(120)
-    doc.text(eventTitle, margin, y)
-    y += 10
-
-    for (const sectionData of buildVipSections()) {
-      if (sectionData.items.length === 0) continue
-
-      if (y > pageBottom - 15) {
-        doc.addPage()
-        y = margin
-      }
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.setTextColor(20)
-      doc.text(sectionData.title.toUpperCase(), margin, y)
-      doc.setDrawColor(180)
-      doc.line(margin, y + 1.5, pageWidth - margin, y + 1.5)
-      y += 7
-
-      for (const item of sectionData.items) {
-        if (y > pageBottom) {
-          doc.addPage()
-          y = margin
-        }
-        doc.setDrawColor(50)
-        doc.rect(margin, y - 3.5, 4, 4)
-
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        doc.setTextColor(20)
-        doc.text(item.name, margin + 7, y)
-
-        if (item.email) {
-          const nameWidth = doc.getTextWidth(item.name)
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(8.5)
-          doc.setTextColor(130)
-          doc.text(item.email, margin + 7 + nameWidth + 4, y)
-        }
-        if (item.sub) {
-          doc.setFont('helvetica', 'italic')
-          doc.setFontSize(8.5)
-          doc.setTextColor(166, 124, 0)
-          doc.text(item.sub, pageWidth - margin, y, { align: 'right' })
-        }
-        y += 6.5
-      }
-      y += 4
-    }
-
-    doc.save(`${eventTitle}-vip-lista.pdf`)
-  }
-
-  // Acts are already in running order via getEventActsForAdmin's query — no separate
-  // "sections" builder needed like the VIP list's (there's only ever one list here), but
-  // both export formats below still read from this one spot so they can't drift apart.
-  // Two separate documents now (direct feedback 2026-09-21) — one for stage kittens (running
-  // order + prep/pickup + a blank line to hand-write on), one for the technician (light/sound
-  // notes only). Both walk the acts in the same Set 1 / break / Set 2 grouping the Show tab
-  // itself uses, with one continuous position count spanning both sets.
-  const buildSetListSections = () => [
-    { label: t('Set 1', 'Set 1'), rows: acts.filter((a) => a.set_number === 1), offset: 0 },
-    {
-      label: t('Set 2', 'Set 2'),
-      rows: acts.filter((a) => a.set_number === 2),
-      offset: acts.filter((a) => a.set_number === 1).length,
-    },
-  ]
-
-  // Hand-drawn jsPDF table layout, matching the structure of the org's own historical set
-  // list documents (each act as a bordered 2-column table: an Artist/Act header row, then a
-  // label/value row each for stage prep, pick-up/cleaning, and a blank Anteckningar row for
-  // stage kittens to hand-write on) — direct feedback 2026-09-21, replacing the previous
-  // plain-text layout.
-  const handleDownloadStageKittenPdf = () => {
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-    const margin = 18
-    const pageWidth = 210
-    const contentWidth = pageWidth - margin * 2
-    const pageBottom = 280
-    const lineHeight = 4.3
-    const cellPad = 2.2
-    let y = margin
-
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(18)
-    doc.setTextColor(20)
-    doc.text(t('Set List', 'Set List'), margin, y)
-    y += 7
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(11)
-    doc.setTextColor(120)
-    doc.text(eventTitle, margin, y)
-    y += 10
-
-    const ensureSpace = (needed: number) => {
-      if (y + needed > pageBottom) {
-        doc.addPage()
-        y = margin
-      }
-    }
-
-    // One bordered two-column row — sized to whichever cell needs more wrapped lines, so a
-    // long note doesn't overflow its box.
-    const drawRow = (
-      leftText: string,
-      rightText: string,
-      leftWidth: number,
-      opts: { bold?: boolean; italicLeft?: boolean; minHeight?: number } = {}
-    ) => {
-      const rightWidth = contentWidth - leftWidth
-      const leftLines = doc.splitTextToSize(leftText, leftWidth - cellPad * 2) as string[]
-      const rightLines = rightText
-        ? (doc.splitTextToSize(rightText, rightWidth - cellPad * 2) as string[])
-        : []
-      const linesNeeded = Math.max(leftLines.length, rightLines.length, 1)
-      const rowHeight = Math.max(linesNeeded * lineHeight + cellPad * 2, opts.minHeight ?? 0)
-      ensureSpace(rowHeight)
-
-      doc.setDrawColor(180)
-      doc.rect(margin, y, leftWidth, rowHeight)
-      doc.rect(margin + leftWidth, y, rightWidth, rowHeight)
-
-      doc.setFont('helvetica', opts.bold ? 'bold' : opts.italicLeft ? 'italic' : 'normal')
-      doc.setFontSize(9.5)
-      doc.setTextColor(20)
-      doc.text(leftLines, margin + cellPad, y + cellPad + 3)
-
-      if (rightLines.length > 0) {
-        doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
-        doc.setTextColor(40)
-        doc.text(rightLines, margin + leftWidth + cellPad, y + cellPad + 3)
-      }
-
-      y += rowHeight
-    }
-
-    buildSetListSections().forEach((section, sectionIndex) => {
-      if (section.rows.length === 0) return
-      if (sectionIndex > 0) {
-        ensureSpace(12)
-        doc.setFont('helvetica', 'bolditalic')
-        doc.setFontSize(11)
-        doc.setTextColor(166, 124, 0)
-        doc.text(t('— PAUS —', '— BREAK —'), pageWidth / 2, y, { align: 'center' })
-        y += 9
-      }
-      ensureSpace(10)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(13)
-      doc.setTextColor(20)
-      doc.text(section.label, margin, y)
-      y += 7
-
-      const headerLeftWidth = contentWidth / 2
-      const labelWidth = 46
-
-      section.rows.forEach((row, index) => {
-        ensureSpace(6)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        doc.setTextColor(166, 124, 0)
-        doc.text(`${section.offset + index + 1}.`, margin, y)
-        y += 5
-
-        if (row.performer) {
-          drawRow(
-            `${t('Artist', 'Artist')}: ${row.performer.performer_name}`,
-            `${t('Akt', 'Act')}: ${row.act_name}`,
-            headerLeftWidth,
-            { bold: true }
-          )
-        } else {
-          drawRow(
-            t('Moment', 'Segment'),
-            row.act_name || t('(Namnlöst)', '(Untitled)'),
-            headerLeftWidth,
-            { bold: true }
-          )
-        }
-
-        drawRow(
-          t('Scenförberedelser:', 'Stage preparations:'),
-          row.stage_preparations ?? '',
-          labelWidth,
-          { italicLeft: true }
-        )
-        drawRow(
-          t('Plockning/städning:', 'Pick up/cleaning:'),
-          row.pick_up_cleaning ?? '',
-          labelWidth,
-          { italicLeft: true }
-        )
-        drawRow(t('Anteckningar:', 'Notes:'), '', labelWidth, { italicLeft: true, minHeight: 16 })
-
-        y += 6
-      })
-    })
-
-    doc.save(`${eventTitle}-set-list.pdf`)
-  }
-
-  // The technician's own document — only the light/sound content (act_notes, labelled
-  // "Sound, Lighting & General Notes" on the artist's own booking form), pulled out of the
-  // stage kittens' set list entirely rather than mixed into it.
-  const handleDownloadTechNotesPdf = () => {
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-    const margin = 18
-    const pageWidth = 210
-    const contentWidth = pageWidth - margin * 2
-    const pageBottom = 280
-    let y = margin
-
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(18)
-    doc.setTextColor(20)
-    doc.text(t('Ljud & Ljus', 'Sound & Light'), margin, y)
-    y += 7
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(11)
-    doc.setTextColor(120)
-    doc.text(eventTitle, margin, y)
-    y += 10
-
-    const ensureSpace = (needed: number) => {
-      if (y + needed > pageBottom) {
-        doc.addPage()
-        y = margin
-      }
-    }
-
-    buildSetListSections().forEach((section, sectionIndex) => {
-      if (section.rows.length === 0) return
-      if (sectionIndex > 0) {
-        ensureSpace(12)
-        doc.setFont('helvetica', 'bolditalic')
-        doc.setFontSize(11)
-        doc.setTextColor(166, 124, 0)
-        doc.text(t('— PAUS —', '— BREAK —'), pageWidth / 2, y, { align: 'center' })
-        y += 9
-      }
-      ensureSpace(10)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(13)
-      doc.setTextColor(20)
-      doc.text(section.label, margin, y)
-      y += 7
-
-      section.rows.forEach((row, index) => {
-        ensureSpace(10)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(11)
-        doc.setTextColor(20)
-        const title = row.performer
-          ? `${section.offset + index + 1}. ${row.act_name} — ${row.performer.performer_name}`
-          : `${section.offset + index + 1}. ${row.act_name}`
-        doc.text(title, margin, y)
-        y += 5.5
-
-        if (row.act_notes) {
-          const lines = doc.splitTextToSize(row.act_notes, contentWidth - 12) as string[]
-          const boxHeight = lines.length * 4.2 + 7
-          ensureSpace(boxHeight + 2)
-          doc.setFillColor(255, 246, 220)
-          doc.setDrawColor(166, 124, 0)
-          doc.rect(margin + 6, y - 3.5, contentWidth - 6, boxHeight, 'FD')
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(9)
-          doc.setTextColor(40)
-          doc.text(lines, margin + 9, y + 1)
-          y += lines.length * 4.2 + 5
-        }
-
-        y += 3
-      })
-    })
-
-    doc.save(`${eventTitle}-ljud-ljus.pdf`)
-  }
-
   const eventTitle = upcomingEvents.find((e) => e.id === selectedEventId)?.title ?? 'Event'
+  const eventStart = upcomingEvents.find((e) => e.id === selectedEventId)?.event_start
+  const docContext: EventDocContext = {
+    t,
+    eventTitle,
+    eventStart,
+    acts,
+    performers,
+    groupedStaff,
+    vipEntries,
+    organizers: organizerFood,
+    eventInfo: null,
+  }
+  // Fetches the few things this page doesn't hold itself (event times) fresh, then downloads.
+  const handleDownloadDocument = async (id: EventDocumentId) => {
+    try {
+      const ctx = await loadEventDocContext(docContext, selectedEventId)
+      await downloadEventDocuments([id], ctx, setBuildingTechPdf)
+    } catch (err) {
+      console.error('Kunde inte skapa dokumentet:', err)
+      toast.error(t('Kunde inte skapa dokumentet.', 'Could not create the document.'))
+    }
+  }
 
   return (
     <div className="page-shell">
@@ -1061,25 +747,49 @@ export const AdminEventPlan = () => {
           ) : (
             <div className="max-w-5xl mx-auto space-y-4">
               {activeTab === 'food' && (
-                <FoodTab
-                  eventTitle={eventTitle}
-                  performers={performers}
-                  groupedStaff={groupedStaff}
-                  organizers={organizerFood}
-                  onUpdatePerformerDietary={handleUpdatePerformerDietary}
-                  onStaffFoodUpdated={handleStaffFoodUpdated}
-                  onOrganizerFoodUpdated={handleOrganizerFoodUpdated}
-                />
+                <>
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadDocument('foodList')}
+                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {t('Ladda ner matlista', 'Download food list')}
+                    </button>
+                  </div>
+                  <FoodTab
+                    eventTitle={eventTitle}
+                    performers={performers}
+                    groupedStaff={groupedStaff}
+                    organizers={organizerFood}
+                    onUpdatePerformerDietary={handleUpdatePerformerDietary}
+                    onStaffFoodUpdated={handleStaffFoodUpdated}
+                    onOrganizerFoodUpdated={handleOrganizerFoodUpdated}
+                  />
+                </>
               )}
 
               {activeTab === 'travel' && (
-                <TravelAccommodationTab
-                  eventTitle={eventTitle}
-                  performers={performers}
-                  onTravelNotesChanged={handleTravelNotesChanged}
-                  onAccommodationChanged={handleAccommodationChanged}
-                  onAccommodationDetailsChanged={handleAccommodationDetailsChanged}
-                />
+                <>
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadDocument('artistContacts')}
+                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {t('Ladda ner artistlista', 'Download artist list')}
+                    </button>
+                  </div>
+                  <TravelAccommodationTab
+                    eventTitle={eventTitle}
+                    performers={performers}
+                    onTravelNotesChanged={handleTravelNotesChanged}
+                    onAccommodationChanged={handleAccommodationChanged}
+                    onAccommodationDetailsChanged={handleAccommodationDetailsChanged}
+                  />
+                </>
               )}
 
               {activeTab === 'show' &&
@@ -1095,7 +805,7 @@ export const AdminEventPlan = () => {
                     <div className="flex justify-center gap-2 flex-wrap">
                       <button
                         type="button"
-                        onClick={handleDownloadStageKittenPdf}
+                        onClick={() => handleDownloadDocument('setList')}
                         className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
                       >
                         <Download className="h-3.5 w-3.5" />
@@ -1103,11 +813,20 @@ export const AdminEventPlan = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={handleDownloadTechNotesPdf}
-                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                        onClick={() => handleDownloadDocument('soundLight')}
+                        disabled={buildingTechPdf}
+                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-50 disabled:pointer-events-none"
                       >
                         <FileText className="h-3.5 w-3.5" />
                         {t('Ladda ner ljud & ljus', 'Download sound & light')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument('runOfShow')}
+                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {t('Ladda ner körschema', 'Download run of show')}
                       </button>
                       <button
                         type="button"
@@ -1229,7 +948,7 @@ export const AdminEventPlan = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={handleDownloadVipListPdf}
+                      onClick={() => handleDownloadDocument('vipList')}
                       className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
                     >
                       <FileText className="h-3.5 w-3.5" />
@@ -1445,6 +1164,15 @@ export const AdminEventPlan = () => {
             </div>
           )}
         </>
+      )}
+      {entertainerTarget && selectedEventId && (
+        <EntertainerProfileModal
+          eventId={selectedEventId}
+          staffId={entertainerTarget.staffId}
+          staffName={entertainerTarget.name}
+          onClose={() => setEntertainerTarget(null)}
+          onSaved={async () => setStaffRows(await getEventStaffForAdmin(selectedEventId))}
+        />
       )}
     </div>
   )

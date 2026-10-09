@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { Venue } from '@/types/types'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface VenueRowProps {
   row: Venue
@@ -27,6 +28,7 @@ export const VenueRow = ({
   isBookedForEvent,
 }: VenueRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
@@ -73,12 +75,13 @@ export const VenueRow = ({
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(
+    const confirmed = await confirm({
+      message: t(
         `Är du säker på att du vill radera ${row.name}?`,
         `Are you sure you want to delete ${row.name}?`
-      )
-    )
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await onDelete(row.id)

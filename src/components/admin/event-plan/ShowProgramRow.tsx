@@ -16,7 +16,9 @@ import {
   updateShowSegmentTitle,
   deleteManualShowSegment,
 } from '@/services/eventService'
+import { parseActTracks, trackFileUrl } from '@/lib/actMusic'
 import type { AdminEventActRow } from '@/services/eventService'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface ShowProgramRowProps {
   row: AdminEventActRow
@@ -48,6 +50,7 @@ export const ShowProgramRow = ({
   onUpdated,
 }: ShowProgramRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const isManual = row.performer === null
   const isConstant = row.is_constant
   // The two costume-competition constants are board appearances specifically (the
@@ -68,6 +71,7 @@ export const ShowProgramRow = ({
     zIndex: isDragging ? 10 : undefined,
   }
 
+  const tracks = parseActTracks(row.audio_files)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -76,6 +80,11 @@ export const ShowProgramRow = ({
     stage_preparations: row.stage_preparations ?? '',
     pick_up_cleaning: row.pick_up_cleaning ?? '',
     act_notes: row.act_notes ?? '',
+    // Manual/constant rows have no artist submitting music, so the board fills in one song
+    // here (e.g. what plays to call everyone back on stage). Real acts show the artist's own
+    // submitted tracks read-only instead.
+    music_artist: tracks[0]?.artist ?? '',
+    music_title: tracks[0]?.title ?? '',
   })
 
   // A real act's own notes being empty is worth flagging (the artist hasn't filled them in
@@ -87,10 +96,32 @@ export const ShowProgramRow = ({
   const handleSave = async () => {
     setIsSaving(true)
     try {
+      const musicArtist = draft.music_artist.trim()
+      const musicTitle = draft.music_title.trim()
+      // Only manual rows edit music here; the first track is the one these two fields map to,
+      // any further tracks are left as they were.
+      const audioFilesPatch = isManual
+        ? {
+            audio_files: [
+              ...(musicArtist || musicTitle
+                ? [
+                    {
+                      ...tracks[0],
+                      id: tracks[0]?.id ?? `track-${crypto.randomUUID()}`,
+                      title: musicTitle,
+                      artist: musicArtist,
+                    },
+                  ]
+                : []),
+              ...tracks.slice(1),
+            ] as unknown as AdminEventActRow['audio_files'],
+          }
+        : {}
       const patch = {
         stage_preparations: draft.stage_preparations.trim() || null,
         pick_up_cleaning: draft.pick_up_cleaning.trim() || null,
         act_notes: draft.act_notes.trim() || null,
+        ...audioFilesPatch,
       }
       await updatePerformerActNotes(row.id, patch)
       let titlePatch: Partial<AdminEventActRow> = {}
@@ -113,7 +144,10 @@ export const ShowProgramRow = ({
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(t('Ta bort det här momentet?', 'Remove this segment?'))
+    const confirmed = await confirm({
+      message: t('Ta bort det här momentet?', 'Remove this segment?'),
+      destructive: true,
+    })
     if (!confirmed) return
     setIsDeleting(true)
     try {
@@ -132,7 +166,11 @@ export const ShowProgramRow = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer"
+      className={`admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer ${
+        // Board appearances, fixed moments and custom segments get a gold tint so they read
+        // apart from the artists' acts at a glance.
+        isManual ? 'bg-accent/[0.05] border-accent/20' : ''
+      }`}
     >
       <div className="p-3 flex items-center gap-3" onClick={() => setIsExpanded(!isExpanded)}>
         <span className="text-xs font-mono text-accent/60 shrink-0 w-5 text-center">
@@ -197,6 +235,12 @@ export const ShowProgramRow = ({
             {t('Inga scenanteckningar', 'No stage notes')}
           </span>
         )}
+        {/* Music is only mandatory for real acts — a custom/board row without a song is fine. */}
+        {!isManual && tracks.length === 0 && !isExpanded && (
+          <span className="text-[10px] font-body font-semibold text-amber-400/80 border border-amber-400/30 rounded-full px-1.5 py-0.5 shrink-0">
+            {t('Ingen musik', 'No music')}
+          </span>
+        )}
         <div className="text-accent/50 shrink-0">
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
@@ -217,6 +261,63 @@ export const ShowProgramRow = ({
                 placeholder={t('T.ex. Värdens sångnummer', "E.g. the host's song number")}
                 className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
               />
+            </div>
+          )}
+          {isManual ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="form-label-gold block">
+                  {t('Musik: artist', 'Music: artist')}
+                </label>
+                <input
+                  type="text"
+                  value={draft.music_artist}
+                  onChange={(e) => setDraft({ ...draft, music_artist: e.target.value })}
+                  className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="form-label-gold block">{t('Musik: låt', 'Music: track')}</label>
+                <input
+                  type="text"
+                  value={draft.music_title}
+                  onChange={(e) => setDraft({ ...draft, music_title: e.target.value })}
+                  className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="form-label-gold block">{t('Musik', 'Music')}</label>
+              {tracks.length === 0 ? (
+                <p className="text-sm text-foreground/40 italic">
+                  {t(
+                    'Artisten har inte angett någon musik än.',
+                    'The artist has not given any music yet.'
+                  )}
+                </p>
+              ) : (
+                <ul className="text-sm text-foreground/80 space-y-0.5">
+                  {tracks.map((track) => {
+                    const url = trackFileUrl(track)
+                    return (
+                      <li key={track.id}>
+                        {track.title} — {track.artist}
+                        {url && (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-2 text-xs text-accent hover:underline"
+                          >
+                            {t('Fil', 'File')}
+                          </a>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </div>
           )}
           <div className="space-y-1">

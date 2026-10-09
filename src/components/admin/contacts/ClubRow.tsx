@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { formatOtherLink } from '@/lib/utils'
 import type { Club } from '@/types/types'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface ClubRowProps {
   row: Club
@@ -26,6 +27,7 @@ export const ClubRow = ({
   isLinkedSponsor,
 }: ClubRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
@@ -68,12 +70,13 @@ export const ClubRow = ({
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(
+    const confirmed = await confirm({
+      message: t(
         `Är du säker på att du vill radera ${row.name}?`,
         `Are you sure you want to delete ${row.name}?`
-      )
-    )
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await onDelete(row.id)

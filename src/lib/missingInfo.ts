@@ -1,8 +1,9 @@
 import type { AdminEventActRow, AdminEventPerformerRow } from '@/services/eventService'
+import { actHasMusic } from '@/lib/actMusic'
 import type { GroupedStaffPerson } from '@/lib/staffRowGrouping'
 import type { CastingApplicationWithActs, Language } from '@/types/types'
 
-export type MissingItem = 'food' | 'notes' | 'receipt'
+export type MissingItem = 'food' | 'music' | 'notes' | 'receipt'
 
 export interface MissingInfoPerson {
   key: string
@@ -14,6 +15,8 @@ export interface MissingInfoPerson {
   email: string | null
   language: Language
   items: MissingItem[]
+  // Names of this artist's acts that have no music yet (filled when `items` has 'music').
+  musicActs: string[]
   // The artist's personal booking-portal link, when they have a casting application with
   // an access token for this event.
   bookingLink: string | null
@@ -33,6 +36,8 @@ const bookingLinkFor = (
 //    have none (volunteers have nothing else to give).
 //  - notes: performers with an act where both stage_preparations and pick_up_cleaning are
 //    empty ("N/A" counts as filled). Manual show segments (no performer_id) never count.
+//  - music: performers with an act that has no song entry at all (title + artist is enough;
+//    an upload isn't required). Manual show segments never count.
 //  - receipt: needs travel costs covered, not travelling by car, no receipt uploaded —
 //    and only once `includeReceipts` says casting is settled (see AdminDashboard).
 export const collectMissingInfo = ({
@@ -54,9 +59,15 @@ export const collectMissingInfo = ({
       .map((a) => a.performer_id)
   )
 
+  const actsMissingMusic = acts.filter((a) => a.performer_id && !actHasMusic(a.audio_files))
+
   const artists: MissingInfoPerson[] = performers.flatMap((p) => {
     const items: MissingItem[] = []
     if (!p.dietary_category) items.push('food')
+    const musicActs = actsMissingMusic
+      .filter((a) => a.performer_id === p.performer_id)
+      .map((a) => a.act_name)
+    if (musicActs.length > 0) items.push('music')
     if (performerIdsMissingNotes.has(p.performer_id)) items.push('notes')
     if (
       includeReceipts &&
@@ -76,6 +87,7 @@ export const collectMissingInfo = ({
         email: p.performer.email,
         language: p.performer.language,
         items,
+        musicActs,
         bookingLink: bookingLinkFor(p.performer_id, applications),
       },
     ]
@@ -91,6 +103,7 @@ export const collectMissingInfo = ({
       email: p.staff.email,
       language: p.staff.language,
       items: ['food' as const],
+      musicActs: [],
       bookingLink: null,
     }))
 

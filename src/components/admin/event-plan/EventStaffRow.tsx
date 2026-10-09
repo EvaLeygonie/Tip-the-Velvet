@@ -13,6 +13,8 @@ import {
 import { VOLUNTEER_SHIFT_ORDER } from './constants'
 import type { AdminEventStaffRow } from '@/services/eventService'
 import type { VolunteerShift } from '@/types/types'
+import { useConfirm } from '@/contexts/ConfirmContext'
+import { EntertainerProfileModal } from './EntertainerProfileModal'
 
 interface EventStaffRowProps {
   row: AdminEventStaffRow
@@ -26,10 +28,16 @@ interface EventStaffRowProps {
 // which roles they hold) is still only editable via Contacts.
 export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaffRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isTogglingInCharge, setIsTogglingInCharge] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
   const isVolunteer = row.role === 'volunteer'
+  // Pre-show entertainers also carry a public profile (photo, text, links) — see
+  // EntertainerProfileModal. Flagged here while it's still empty.
+  const isEntertainer = row.role === 'entertainment'
+  const hasProfile = Boolean(row.display_name || row.bio_sv || row.bio_eng || row.image_id)
   // Unpaid by definition, so volunteers never get a fee field at all — everyone else
   // (including stage kittens, who stay in their own column above but are paid the same as
   // any other non-volunteer role) does. Falls back to the person's usual rate
@@ -83,9 +91,13 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
   }
 
   const handleRemove = async () => {
-    const confirmed = window.confirm(
-      t(`Ta bort ${row.staff.name} från eventet?`, `Remove ${row.staff.name} from the event?`)
-    )
+    const confirmed = await confirm({
+      message: t(
+        `Ta bort ${row.staff.name} från eventet?`,
+        `Remove ${row.staff.name} from the event?`
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await removeStaffFromEvent(eventId, row.staff.id, row.role, row.shift)
@@ -130,6 +142,23 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
           >
             <Crown className="h-4 w-4" fill={row.in_charge ? 'currentColor' : 'none'} />
           </button>
+        )}
+        {isEntertainer && (
+          <span
+            className={`shrink-0 text-[10px] font-body font-semibold rounded-full px-1.5 py-0.5 border ${
+              !hasProfile
+                ? 'text-amber-400/80 border-amber-400/30'
+                : row.is_revealed
+                  ? 'text-green-400 border-green-400/30'
+                  : 'text-foreground/50 border-accent/20'
+            }`}
+          >
+            {!hasProfile
+              ? t('Ingen profil', 'No profile')
+              : row.is_revealed
+                ? t('Avslöjad', 'Revealed')
+                : t('Profil klar', 'Profile ready')}
+          </span>
         )}
         {row.role_details && !isExpanded && (
           <span className="text-xs text-foreground/50 italic truncate shrink-0 max-w-[220px] hidden sm:block">
@@ -198,6 +227,15 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
               />
             </div>
           )}
+          {isEntertainer && (
+            <button
+              type="button"
+              onClick={() => setShowProfile(true)}
+              className="text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+            >
+              {t('Offentlig profil (bild, text, länkar)', 'Public profile (photo, text, links)')}
+            </button>
+          )}
           <div className="space-y-1">
             <label className="form-label-gold block">{t('Anteckning', 'Note')}</label>
             <textarea
@@ -221,6 +259,15 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
             </button>
           </div>
         </div>
+      )}
+      {showProfile && (
+        <EntertainerProfileModal
+          eventId={eventId}
+          staffId={row.staff.id}
+          staffName={row.staff.name}
+          onClose={() => setShowProfile(false)}
+          onSaved={(patch) => onUpdated(row.id, patch)}
+        />
       )}
     </div>
   )

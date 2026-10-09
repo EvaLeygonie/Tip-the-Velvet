@@ -8,6 +8,7 @@ export const ImageCategory = {
   SPONSOR: 'sponsor',
   STAGE: 'stage',
   OLD_EVENT: 'old-event',
+  PRE_SHOW: 'pre-show',
 } as const
 
 export type ImageCategoryType = (typeof ImageCategory)[keyof typeof ImageCategory]

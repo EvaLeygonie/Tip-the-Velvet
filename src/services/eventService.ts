@@ -299,6 +299,17 @@ export interface AdminEventStaffRow {
   // definition), same as shift above. Direct feedback 2026-10-07 (the Arzon case — one
   // person, paid as entertainment but not for the volunteer shift he's also covering).
   fee: number | null
+  // Pre-show entertainers (role 'entertainment') only — their public profile and reveal
+  // state, see entertainerService.ts. Null/false for every other role.
+  display_name: string | null
+  title_sv: string | null
+  title_eng: string | null
+  bio_sv: string | null
+  bio_eng: string | null
+  image_id: string | null
+  instagram_link: string | null
+  other_link: string | null
+  is_revealed: boolean
   staff: StaffVolunteers
 }
 
@@ -310,7 +321,7 @@ export const getEventStaffForAdmin = async (eventId: string): Promise<AdminEvent
   const { data, error } = await supabase
     .from('event_staff_volunteers')
     .select(
-      'id, role, role_details, needs_food, dietary_category, dietary_notes, shift, in_charge, fee, staff:staff_volunteers(*)'
+      'id, role, role_details, needs_food, dietary_category, dietary_notes, shift, in_charge, fee, display_name, title_sv, title_eng, bio_sv, bio_eng, image_id, instagram_link, other_link, is_revealed, staff:staff_volunteers(*)'
     )
     .eq('event_id', eventId)
 
@@ -427,7 +438,9 @@ export const updatePerformerActOrder = (id: string, displayOrder: number) =>
 
 export const updatePerformerActNotes = (
   id: string,
-  patch: Partial<Pick<PerformerAct, 'stage_preparations' | 'pick_up_cleaning' | 'act_notes'>>
+  patch: Partial<
+    Pick<PerformerAct, 'stage_preparations' | 'pick_up_cleaning' | 'act_notes' | 'audio_files'>
+  >
 ) => updateRow('performer_acts', id, patch)
 
 // Manual/constant segments only — a real act's act_name is artist-submitted and stays
@@ -806,4 +819,27 @@ export const deleteEventImage = async (imageId: string, publicId: string, isOldE
   if (error) throw error
 
   await deleteFromCloudinary(publicId)
+}
+
+// The few event-level facts the printable documents need (CurrentEventContext only carries
+// id/title/event_start — see getEventPlaylists above for the same dedicated-fetch pattern).
+export interface EventScheduleInfo {
+  event_start: string | null
+  event_end: string | null
+  location: string | null
+}
+
+export const getEventScheduleInfo = async (eventId: string): Promise<EventScheduleInfo> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('event_start, event_end, location')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (error) throw error
+  return {
+    event_start: data?.event_start ?? null,
+    event_end: data?.event_end ?? null,
+    location: data?.location ?? null,
+  }
 }

@@ -7,10 +7,14 @@ import {
   AlertTriangle,
   UtensilsCrossed,
   Music2,
+  Disc3,
   CheckCircle2,
   Car,
   Hotel,
+  Mail,
+  Download,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import { getStaffVolunteers, getSponsors } from '@/services/contactsService'
@@ -45,6 +49,7 @@ import {
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
 import { MissingInfoModal, type MissingInfoFilter } from '@/components/admin/MissingInfoModal'
+import { actHasMusic } from '@/lib/actMusic'
 import { collectMissingInfo, type MissingInfoPerson } from '@/lib/missingInfo'
 import { missingMusicItems } from '@/components/admin/event-plan/musicCoverage'
 import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from '@/components/admin/event-plan/constants'
@@ -52,6 +57,12 @@ import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOv
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { staffRoleLabel, sponsorTypeLabel } from '@/lib/contactLabels'
 import { formatDate } from '@/lib/utils'
+import {
+  downloadEventDocuments,
+  loadEventDocContext,
+  type EventDocumentId,
+} from '@/lib/eventDocuments'
+import { DownloadDocumentsModal } from '@/components/admin/dashboard/DownloadDocumentsModal'
 import type { StaffVolunteers, Sponsors, Todo, CastingApplicationWithActs } from '@/types/types'
 
 // Just what the Dashboard's own highlight cards need per event — deliberately narrower than
@@ -116,6 +127,8 @@ export const AdminDashboard = () => {
   const [eventOverviews, setEventOverviews] = useState<EventOverviewData[]>([])
   const [eventOverviewsLoading, setEventOverviewsLoading] = useState(true)
   const [todos, setTodos] = useState<Todo[]>([])
+  const [docsTarget, setDocsTarget] = useState<EventOverviewData | null>(null)
+  const [isDownloadingDocs, setIsDownloadingDocs] = useState(false)
   const [missingInfoTarget, setMissingInfoTarget] = useState<MissingInfoTarget | null>(null)
   // Scroll target for the warning icon below — jumps straight to the to-do lists instead of
   // making the admin hunt for whichever list the due-soon item actually lives in. Direct
@@ -354,6 +367,32 @@ export const AdminDashboard = () => {
     })
   }
 
+  // The chosen show documents — one as a PDF, several as one ZIP. Built by the same
+  // generators as the Event Plan page's own buttons, see lib/eventDocuments.ts.
+  const downloadChosenDocuments = async (ov: EventOverviewData, ids: EventDocumentId[]) => {
+    setIsDownloadingDocs(true)
+    try {
+      const ctx = await loadEventDocContext(
+        {
+          t,
+          eventTitle: ov.eventTitle,
+          eventStart: upcomingEvents.find((e) => e.id === ov.eventId)?.event_start,
+          acts: ov.acts,
+          performers: ov.performers,
+          groupedStaff: groupStaffRowsByPerson(ov.staffRows),
+        },
+        ov.eventId
+      )
+      await downloadEventDocuments(ids, ctx)
+      setDocsTarget(null)
+    } catch (err) {
+      console.error('Kunde inte skapa dokumenten:', err)
+      toast.error(t('Kunde inte skapa dokumenten.', 'Could not create the documents.'))
+    } finally {
+      setIsDownloadingDocs(false)
+    }
+  }
+
   const newStaff = staffVolunteers
     .filter((row) => isRecent(row.created_at))
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -407,6 +446,14 @@ export const AdminDashboard = () => {
             // — same headcount EventProgressOverview's own "Mat" card uses. Direct feedback
             // 2026-09-21: this card only ever counted artists, not the staff side too.
             const groupedStaff = groupStaffRowsByPerson(ov.staffRows)
+            // Artists with at least one act that has no song entry yet — not to be confused
+            // with the "Musik" card below, which is the staff side (playlists/musicians).
+            // Manual show segments (no performer_id) are exempt, same as stage notes.
+            const missingActMusicCount = new Set(
+              ov.acts
+                .filter((a) => a.performer_id && !actHasMusic(a.audio_files))
+                .map((a) => a.performer_id)
+            ).size
             const missingFoodCount =
               ov.performers.filter((p) => !p.dietary_category).length +
               groupedStaff.filter((p) => p.needs_food && !p.dietary_category).length
@@ -501,6 +548,20 @@ export const AdminDashboard = () => {
                 emailTitle: t('Be om saknad information', 'Ask for missing info'),
               })
             }
+            if (missingActMusicCount > 0) {
+              cards.push({
+                key: 'act_music',
+                label: t('Akternas musik', 'Act music'),
+                value: t(
+                  `Saknas: ${missingActMusicCount} artister`,
+                  `Missing: ${missingActMusicCount} artists`
+                ),
+                icon: <Disc3 className="h-4 w-4 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'show'),
+                onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'music'),
+                emailTitle: t('Be om saknad information', 'Ask for missing info'),
+              })
+            }
             if (missingFoodCount > 0) {
               cards.push({
                 key: 'food',
@@ -585,6 +646,24 @@ export const AdminDashboard = () => {
                 <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
                   {ov.eventTitle}
                 </h2>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openMissingInfo(ov, !needsCastingAttention, 'all')}
+                    className="flex items-center gap-1.5 py-1.5 px-3 rounded-full border border-accent/30 text-sm text-accent hover:bg-accent/10 transition-colors"
+                  >
+                    <Mail className="h-4 w-4 shrink-0" />
+                    {t('Skicka påminnelse till alla', 'Send reminders to everyone')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDocsTarget(ov)}
+                    className="flex items-center gap-1.5 py-1.5 px-3 rounded-full border border-accent/30 text-sm text-accent hover:bg-accent/10 transition-colors"
+                  >
+                    <Download className="h-4 w-4 shrink-0" />
+                    {t('Ladda ner dokument', 'Download documents')}
+                  </button>
+                </div>
                 {cards.length === 0 ? (
                   <div className="admin-panel velvet-surface p-3 flex items-center justify-center gap-2 text-sm text-emerald-400">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -774,6 +853,15 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {docsTarget && (
+        <DownloadDocumentsModal
+          eventTitle={docsTarget.eventTitle}
+          isDownloading={isDownloadingDocs}
+          onClose={() => setDocsTarget(null)}
+          onDownload={(ids) => downloadChosenDocuments(docsTarget, ids)}
+        />
       )}
 
       {missingInfoTarget && (

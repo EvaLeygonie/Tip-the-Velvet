@@ -49,7 +49,12 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
       <div className="flex flex-col md:flex-row items-center gap-8 md:gap-16">
         {/* Image Container */}
         <div className="w-full md:w-1/2 shrink-0 flex justify-center md:justify-start">
-          <div className="promo-frame-featured mx-auto md:mx-0" style={glowVars}>
+          <Link
+            to={`/events/event/${event.slug}`}
+            aria-label={event.title}
+            className="promo-frame-featured mx-auto md:mx-0 block"
+            style={glowVars}
+          >
             {event.image_id ? (
               <div className="w-full h-full overflow-hidden">
                 <CloudinaryImage
@@ -66,7 +71,7 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
               </div>
             )}
             <div className="absolute inset-0 border border-white/5 rounded-xl scale-[1.03]" />
-          </div>
+          </Link>
         </div>
 
         {/* Event Details */}

@@ -13,12 +13,14 @@ import { supabase } from '@/lib/supabase'
 import { Images, Eye, EyeOff, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Seo } from '@/components/Seo'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 export const Performers = () => {
   const [performers, setPerformers] = useState<(Performer | PublicPerformer)[]>([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
   const { t } = useLanguage()
+  const confirm = useConfirm()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,12 +69,13 @@ export const Performers = () => {
     reactEvent.stopPropagation()
 
     if (
-      !confirm(
-        t(
+      !(await confirm({
+        message: t(
           'Är du säker på att du vill radera den här artisten?',
           'Are you sure you want to delete this performer?'
-        )
-      )
+        ),
+        destructive: true,
+      }))
     )
       return
 

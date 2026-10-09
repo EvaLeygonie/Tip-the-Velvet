@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { StaffVolunteers } from '@/types/types'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface BoardMemberRowProps {
   row: StaffVolunteers
@@ -21,6 +22,7 @@ interface BoardMemberRowProps {
 // individual shows the way staff/volunteers are.
 export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
@@ -57,12 +59,13 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(
+    const confirmed = await confirm({
+      message: t(
         `Är du säker på att du vill radera ${row.name}?`,
         `Are you sure you want to delete ${row.name}?`
-      )
-    )
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await onDelete(row.id)

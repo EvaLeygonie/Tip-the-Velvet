@@ -19,6 +19,10 @@ export const CurrentEventContext = createContext<CurrentEventContextType | undef
 
 export const CurrentEventProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth()
+  // Keyed on the id, not the user object: Supabase re-emits the session (new object, same
+  // person) whenever the browser tab regains focus, which used to re-run the load below and
+  // reset the selected event to the first one — losing whatever the board was working on.
+  const userId = user?.id ?? null
   const [events, setEvents] = useState<Event[]>([])
   const [selectedEventId, setSelectedEventId] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
@@ -26,7 +30,7 @@ export const CurrentEventProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const loadEvents = async () => {
-      if (!user) {
+      if (!userId) {
         setEvents([])
         setSelectedEventId('')
         return
@@ -37,9 +41,10 @@ export const CurrentEventProvider = ({ children }: { children: ReactNode }) => {
       try {
         const data = await fetchEventsForAdmin()
         setEvents(data)
-        if (data.length > 0) {
-          setSelectedEventId(data[0].id)
-        }
+        // Keep the current selection if it's still there; only default on first load.
+        setSelectedEventId((current) =>
+          data.some((e) => e.id === current) ? current : (data[0]?.id ?? '')
+        )
       } catch (err) {
         console.error('Kunde inte hämta event:', err)
         setError('Kunde inte läsa in eventlistan.')
@@ -48,7 +53,7 @@ export const CurrentEventProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     loadEvents()
-  }, [user])
+  }, [userId])
 
   const todayStr = new Date().toISOString().split('T')[0]
   const upcomingEvents = events.filter((e) => e.event_start && e.event_start >= todayStr)

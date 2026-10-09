@@ -60,6 +60,19 @@ export const FoodTab = ({
       .map((o) => ({ id: o.staff_id, name: o.staff.name, kind: 'organizer' as const })),
   ]
   const notesGiven = roster.filter((p) => p.notes && p.notes.trim())
+  // Identical notes (ignoring case/whitespace) collapse into one badge with a count.
+  const noteBadges = Array.from(
+    notesGiven
+      .reduce((map, p) => {
+        const text = p.notes!.trim()
+        const key = text.toLowerCase().replace(/\s+/g, ' ')
+        const existing = map.get(key)
+        if (existing) existing.count += 1
+        else map.set(key, { key, text, count: 1 })
+        return map
+      }, new Map<string, { key: string; text: string; count: number }>())
+      .values()
+  )
 
   const byCategory = (cat: DietaryCategory) => roster.filter((p) => p.category === cat)
   const uncategorized = roster.filter((p) => !p.category)
@@ -130,12 +143,13 @@ export const FoodTab = ({
             </p>
           ) : (
             <ul className="flex flex-wrap justify-center gap-1.5">
-              {notesGiven.map((p) => (
+              {noteBadges.map((b) => (
                 <li
-                  key={p.key}
+                  key={b.key}
                   className="text-xs text-foreground/80 bg-black/30 border border-accent/10 rounded-full px-2.5 py-1"
                 >
-                  {p.notes}
+                  {b.text}
+                  {b.count > 1 && <span className="text-accent ml-1">x{b.count}</span>}
                 </li>
               ))}
             </ul>

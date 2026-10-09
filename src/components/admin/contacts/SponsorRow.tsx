@@ -19,6 +19,7 @@ import { createSlug, processUploadedImage, formatInstagramLink, formatOtherLink 
 import { ImageCategory } from '@/types/media'
 import { AddToEventPopover, type PopoverAction } from './AddToEventPopover'
 import type { Sponsors, SponsorType } from '@/types/types'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 
@@ -52,6 +53,7 @@ export const SponsorRow = ({
   onConfirmed,
 }: SponsorRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
   const [showEventPopover, setShowEventPopover] = useState(false)
@@ -148,12 +150,13 @@ export const SponsorRow = ({
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(
+    const confirmed = await confirm({
+      message: t(
         `Är du säker på att du vill radera ${row.name}?`,
         `Are you sure you want to delete ${row.name}?`
-      )
-    )
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await onDelete(row.id)

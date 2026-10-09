@@ -23,6 +23,7 @@ import {
 import { deleteRow } from '@/services/databaseService'
 import { uploadToCloudinary, deleteFromCloudinary } from '@/services/cloudinaryService'
 import { ImageCategory } from '@/types/media'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface DropdownOption {
   id: string
@@ -31,6 +32,7 @@ interface DropdownOption {
 
 export const EventEditor = () => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const navigate = useNavigate()
   const { slug } = useParams()
   const { open, isSupported } = useEyeDropper()
@@ -261,12 +263,13 @@ export const EventEditor = () => {
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(
+    const confirmed = await confirm({
+      message: t(
         'Är du säker på att du vill radera detta event?',
         'Are you sure you want to delete this event?'
-      )
-    )
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     setLoading(true)
 

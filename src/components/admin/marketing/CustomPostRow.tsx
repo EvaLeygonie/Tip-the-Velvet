@@ -7,6 +7,7 @@ import {
   deleteCustomPost,
   type CustomMarketingPost,
 } from '@/services/marketingService'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface CustomPostRowProps {
   post: CustomMarketingPost
@@ -18,6 +19,7 @@ interface CustomPostRowProps {
 // hygiene every other row-based list in this app already has.
 export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
@@ -76,9 +78,10 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(`Är du säker på att du vill radera "${post.title}"?`, `Delete "${post.title}"?`)
-    )
+    const confirmed = await confirm({
+      message: t(`Är du säker på att du vill radera "${post.title}"?`, `Delete "${post.title}"?`),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await deleteCustomPost(post.id)

@@ -11,6 +11,7 @@ export interface ArtistBlocks {
   greeting: string
   intro: string
   food: string
+  music: string
   notes: string
   receipt: string
   outro: string
@@ -40,6 +41,8 @@ export const buildDefaultTemplates = (eventTitle: string): MissingInfoTemplates 
       greeting: 'Hej {name}!',
       intro: `Inför ${eventTitle} saknar vi fortfarande lite information från dig:`,
       food: `• Din matpreferens (${foodOptions(svT)}) samt eventuella allergier`,
+      music:
+        '• Musik till din akt ({acts}) — skriv låttitel och artist så vi kan hitta låten online, eller ladda upp din egen ljudfil',
       notes:
         '• Dina scenanteckningar (scenförberedelser, plock/städ, ljud & ljus). Har du inget att lägga till, bocka i rutan "Jag har inget att lägga till" så räknas det som klart.',
       receipt: '• Ditt reskvitto för resan till showen',
@@ -50,6 +53,8 @@ export const buildDefaultTemplates = (eventTitle: string): MissingInfoTemplates 
       greeting: 'Hi {name}!',
       intro: `For ${eventTitle} we're still missing a little information from you:`,
       food: `• Your food preference (${foodOptions(engT)}) and any allergies`,
+      music:
+        '• Music for your act ({acts}) — write the song title and artist so we can find it online, or upload your own sound file',
       notes:
         '• Your stage notes (stage preparations, pick up/cleaning, sound & lighting). If you have nothing to add, tick "I have nothing to add" and it counts as done.',
       receipt: '• Your travel receipt for the trip to the show',
@@ -76,7 +81,7 @@ export interface RenderedEmail {
   body: string
 }
 
-// Both `name` (for the greeting) and `items` are already resolved by the caller — a shared
+// `{acts}` in the music line becomes the artist's act names. Both `name` (for the greeting) and `items` are already resolved by the caller — a shared
 // inbox passes the joined names and the union of its members' missing items.
 export const renderMissingInfoEmail = (
   templates: MissingInfoTemplates,
@@ -84,7 +89,8 @@ export const renderMissingInfoEmail = (
   language: Language,
   names: string,
   items: MissingItem[],
-  bookingLink: string | null
+  bookingLink: string | null,
+  musicActs: string[] = []
 ): RenderedEmail => {
   if (kind === 'staff') {
     const blocks = templates.staff[language]
@@ -95,8 +101,10 @@ export const renderMissingInfoEmail = (
     }
   }
   const blocks = templates.artist[language]
-  const itemOrder: MissingItem[] = ['food', 'notes', 'receipt']
-  const lines = itemOrder.filter((i) => items.includes(i)).map((i) => blocks[i])
+  const itemOrder: MissingItem[] = ['food', 'music', 'notes', 'receipt']
+  const lines = itemOrder
+    .filter((i) => items.includes(i))
+    .map((i) => blocks[i].replaceAll('{acts}', musicActs.join(', ')))
   // No link on file → end the sentence there rather than send a dangling "{link}".
   const outro = bookingLink
     ? blocks.outro.replaceAll('{link}', bookingLink)

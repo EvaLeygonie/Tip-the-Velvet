@@ -3,7 +3,7 @@ import CloudinaryImage from '@/components/CloudinaryImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Link, useParams } from 'react-router-dom'
-import type { Event, OldEvent, EventImage } from '@/types/types'
+import type { Event, OldEvent, EventImage, PublicEventEntertainer } from '@/types/types'
 import {
   getEventWithImages,
   getEventPerformers,
@@ -18,6 +18,8 @@ import { getImageSrc } from '@/lib/utils'
 import { EventInfo } from '@/components/events/EventInfo'
 import { OldEventInfo } from '@/components/events/OldEventInfo'
 import { EventLineup } from '@/components/events/EventLineup'
+import { EventPreShow } from '@/components/events/EventPreShow'
+import { getPublicEventEntertainers } from '@/services/entertainerService'
 import { Seo } from '@/components/Seo'
 
 type ExtendedEvent = Event & {
@@ -37,6 +39,7 @@ export const EventDetail = () => {
 
   const [event, setEvent] = useState<ExtendedEvent | OldEvent | null>(null)
   const [eventPerformers, setEventPerformers] = useState<EventPerformerRow[]>([])
+  const [entertainers, setEntertainers] = useState<PublicEventEntertainer[]>([])
   const [images, setImages] = useState<EventImage[]>([])
   const [index, setIndex] = useState<number>(-1)
 
@@ -62,6 +65,15 @@ export const EventDetail = () => {
 
       const performersData = await getEventPerformers(data.id)
       setEventPerformers(performersData)
+
+      // Pre-show entertainment only exists for our own events, not the old board's archive.
+      if (!isOldEvent) {
+        try {
+          setEntertainers(await getPublicEventEntertainers(data.id))
+        } catch (err) {
+          console.error('Kunde inte hämta förshowunderhållning:', err)
+        }
+      }
     } catch (err) {
       console.error('Error fetching event:', err)
     } finally {
@@ -149,6 +161,7 @@ export const EventDetail = () => {
           <>
             <EventInfo event={event as Event}></EventInfo>
             <EventLineup performers={eventPerformers} />
+            <EventPreShow entertainers={entertainers} />
           </>
         )}
 

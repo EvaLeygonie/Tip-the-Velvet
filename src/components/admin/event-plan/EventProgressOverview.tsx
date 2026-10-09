@@ -1,3 +1,4 @@
+import { actHasMusic } from '@/lib/actMusic'
 import type { ReactNode } from 'react'
 import {
   CheckCircle2,
@@ -84,15 +85,25 @@ export const EventProgressOverview = ({
   const groupedStaff = groupStaffRowsByPerson(staffRows)
 
   // Showplanering — every confirmed artist always has at least one act (created by the
-  // booking flow itself), so the only real gap left to flag is missing stage notes.
+  // booking flow itself), so the real gaps left to flag are missing stage notes and missing
+  // music (a song entry per act — title + artist is enough, an upload isn't required).
   const actsMissingNotes = acts.filter((a) => !a.stage_preparations && !a.pick_up_cleaning).length
-  const showOk = performers.length === 0 ? null : actsMissingNotes === 0
+  const actsMissingMusic = acts.filter((a) => a.performer_id && !actHasMusic(a.audio_files)).length
+  const showOk = performers.length === 0 ? null : actsMissingNotes === 0 && actsMissingMusic === 0
+  const showGaps = [
+    actsMissingNotes > 0
+      ? t(`${actsMissingNotes} utan scenanteckningar`, `${actsMissingNotes} without stage notes`)
+      : null,
+    actsMissingMusic > 0
+      ? t(`${actsMissingMusic} utan musik`, `${actsMissingMusic} without music`)
+      : null,
+  ].filter(Boolean)
   const showValue =
     performers.length === 0
       ? t('Inga artister än', 'No artists yet')
       : showOk
         ? t(`${acts.length} akter klara`, `${acts.length} acts ready`)
-        : t(`${actsMissingNotes} utan scenanteckningar`, `${actsMissingNotes} without stage notes`)
+        : showGaps.join(', ')
 
   // Nyckelroller — just the must-fill roles (photographer/technician); a plain role list
   // when something's missing, not a sentence.

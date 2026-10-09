@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { groupByEmail, joinNames } from '@/lib/emailGrouping'
+import { sendAdminEmail } from '@/services/emailService'
 import type { MissingInfoPerson, MissingItem } from '@/lib/missingInfo'
 import {
   buildDefaultTemplates,
@@ -33,7 +34,7 @@ interface MissingInfoModalProps {
   initialFilter: MissingInfoFilter
 }
 
-const ITEM_ORDER: MissingItem[] = ['food', 'notes', 'receipt']
+const ITEM_ORDER: MissingItem[] = ['food', 'music', 'notes', 'receipt']
 
 // Module-level so the render body doesn't call Date.now() itself (same reasoning as
 // AdminDashboard's isRecent).
@@ -106,9 +107,11 @@ export const MissingInfoModal = ({
   const itemLabel = (item: MissingItem): string =>
     item === 'food'
       ? t('Mat', 'Food')
-      : item === 'notes'
-        ? t('Scenanteckningar', 'Stage notes')
-        : t('Reskvitto', 'Receipt')
+      : item === 'music'
+        ? t('Musik', 'Music')
+        : item === 'notes'
+          ? t('Scenanteckningar', 'Stage notes')
+          : t('Reskvitto', 'Receipt')
 
   const filterOptions: { value: MissingInfoFilter; label: string; count: number }[] = [
     { value: 'all' as MissingInfoFilter, label: t('Alla', 'All'), count: people.length },
@@ -199,26 +202,22 @@ export const MissingInfoModal = ({
               group.language,
               joinNames(group.members.map(greetingName), group.language),
               items,
-              group.members.find((m) => m.bookingLink)?.bookingLink ?? null
+              group.members.find((m) => m.bookingLink)?.bookingLink ?? null,
+              [...new Set(group.members.flatMap((m) => m.musicActs))]
             )
-          const ok = await fetch('/api/send-casting-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: group.email,
-              name: joinNames(
-                group.members.map((m) => m.name),
-                group.language
-              ),
-              subject: email.subject,
-              bodyText: email.body,
-              // The edge function's own language value is 'en', not 'eng'.
-              language: group.language === 'eng' ? 'en' : 'sv',
-              fromName: 'Tip the Velvet',
-              greeting: email.greeting,
-            }),
-          }).then((res) => res.ok)
-          return { group, ok }
+          const result = await sendAdminEmail({
+            to: group.email,
+            name: joinNames(
+              group.members.map((m) => m.name),
+              group.language
+            ),
+            subject: email.subject,
+            bodyText: email.body,
+            language: group.language === 'eng' ? 'en' : 'sv',
+            fromName: 'Tip the Velvet',
+            greeting: email.greeting,
+          })
+          return { group, ok: result.ok, error: result.ok ? null : result.error }
         })
       )
 
@@ -241,11 +240,20 @@ export const MissingInfoModal = ({
         setExcluded(
           new Set(people.filter((p) => !failed.some((f) => f.key === p.key)).map((p) => p.key))
         )
+        const failures = outcomes.filter((o) => !o.ok)
+        console.error('Mail som inte gick iväg:', failures)
         toast.error(
           t(
-            `Skickat till ${sentPeople.length}/${selected.length} — resten misslyckades.`,
-            `Sent to ${sentPeople.length}/${selected.length} — the rest failed.`
-          )
+            `Skickat till ${sentPeople.length}/${selected.length} — misslyckades för:`,
+            `Sent to ${sentPeople.length}/${selected.length} — failed for:`
+          ),
+          {
+            description: failures
+              .map((o) => `${o.group.members.map((m) => m.name).join(', ')} — ${o.error}`)
+              .join('\n'),
+            duration: 15000,
+            classNames: { description: 'whitespace-pre-line' },
+          }
         )
       }
     } catch (err) {
@@ -270,7 +278,8 @@ export const MissingInfoModal = ({
           p.language,
           greetingName(p),
           activeItems(p),
-          p.bookingLink
+          p.bookingLink,
+          p.musicActs
         ))
       : null
     return (
@@ -378,6 +387,11 @@ export const MissingInfoModal = ({
     { field: 'greeting', label: t('Hälsning', 'Greeting'), rows: 1 },
     { field: 'intro', label: t('Inledning', 'Intro'), rows: 2 },
     { field: 'food', label: t('Rad: mat', 'Line: food'), rows: 2 },
+    {
+      field: 'music',
+      label: t('Rad: musik ({acts} = aktens namn)', 'Line: music ({acts} = act names)'),
+      rows: 2,
+    },
     { field: 'notes', label: t('Rad: scenanteckningar', 'Line: stage notes'), rows: 3 },
     { field: 'receipt', label: t('Rad: reskvitto', 'Line: receipt'), rows: 2 },
     {

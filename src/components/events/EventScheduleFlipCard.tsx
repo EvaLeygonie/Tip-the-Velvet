@@ -40,6 +40,11 @@ const SCHEDULE_ITEMS: ScheduleItem[] = [
       'Doors open! Sign up for the costume contest, grab a drink and visit the photo corner 📸',
   },
   {
+    time: '19.00–20.30',
+    textSv: 'Eldshow utanför! 🔥',
+    textEng: 'Fire show outside! 🔥',
+  },
+  {
     time: '21.00',
     textSv: 'Showen startar med första akten! Därefter presenteras alla tävlande på scen.',
     textEng:

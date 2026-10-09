@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { groupByEmail, joinNames } from '@/lib/emailGrouping'
+import { sendAdminEmail } from '@/services/emailService'
 import type { Language } from '@/types/types'
 
 export interface MailRecipient {
@@ -84,38 +85,33 @@ export const ContactMailModal = ({
   const handleSend = async () => {
     setIsSending(true)
     try {
-      const groupOks = await Promise.all(
+      const groupResults = await Promise.all(
         groups.map((group) => {
           const draft = drafts[group.language]
-          return fetch('/api/send-casting-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: group.email,
-              name: joinNames(
-                group.members.map((m) => m.name),
+          return sendAdminEmail({
+            to: group.email,
+            name: joinNames(
+              group.members.map((m) => m.name),
+              group.language
+            ),
+            subject: draft.subject,
+            bodyText: draft.body,
+            language: group.language === 'eng' ? 'en' : 'sv',
+            fromName: 'Tip the Velvet',
+            greeting: draft.greeting.replaceAll(
+              '{name}',
+              joinNames(
+                group.members.map((m) => m.greetingName ?? m.name),
                 group.language
-              ),
-              subject: draft.subject,
-              bodyText: draft.body,
-              // The edge function's own language value is 'en', not 'eng'.
-              language: group.language === 'eng' ? 'en' : 'sv',
-              fromName: 'Tip the Velvet',
-              greeting: draft.greeting.replaceAll(
-                '{name}',
-                joinNames(
-                  group.members.map((m) => m.greetingName ?? m.name),
-                  group.language
-                )
-              ),
-            }),
-          }).then((res) => res.ok)
+              )
+            ),
+          })
         })
       )
       // Report per person (not per email) so callers still mark everyone in a shared-inbox
       // group as contacted.
       const results = groups.flatMap((group, i) =>
-        group.members.map((recipient) => ({ recipient, ok: groupOks[i] }))
+        group.members.map((recipient) => ({ recipient, ok: groupResults[i].ok }))
       )
       const oks = results.map((r) => r.ok)
       const successCount = oks.filter(Boolean).length
@@ -128,11 +124,23 @@ export const ContactMailModal = ({
         )
         onClose()
       } else {
+        const failures = groups.flatMap((group, i) => {
+          const result = groupResults[i]
+          return result.ok
+            ? []
+            : [`${group.members.map((m) => m.name).join(', ')} — ${result.error}`]
+        })
+        console.error('Mail som inte gick iväg:', failures)
         toast.error(
           t(
-            `Skickat till ${successCount}/${recipients.length} — resten misslyckades.`,
-            `Sent to ${successCount}/${recipients.length} — the rest failed.`
-          )
+            `Skickat till ${successCount}/${recipients.length} — misslyckades för:`,
+            `Sent to ${successCount}/${recipients.length} — failed for:`
+          ),
+          {
+            description: failures.join('\n'),
+            duration: 15000,
+            classNames: { description: 'whitespace-pre-line' },
+          }
         )
       }
     } catch (err) {

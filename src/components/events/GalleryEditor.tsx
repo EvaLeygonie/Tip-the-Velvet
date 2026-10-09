@@ -13,6 +13,7 @@ import { ImageCategory } from '@/types/media'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Eye, EyeOff, Upload, Trash2, X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 interface GalleryEditorProps {
   event: Event | OldEvent
@@ -35,6 +36,7 @@ export const GalleryEditor = ({
   eventPerformers,
 }: GalleryEditorProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -194,7 +196,13 @@ export const GalleryEditor = ({
   }
 
   const handleDelete = async (img: EventImage) => {
-    if (!confirm(t('Är du säker?', 'Are you sure?'))) return
+    if (
+      !(await confirm({
+        message: t('Radera den här bilden?', 'Delete this image?'),
+        destructive: true,
+      }))
+    )
+      return
     try {
       await deleteEventImage(img.id, img.image_id, isOldEvent)
       toast.success(t('Bild raderad!', 'Image deleted!'))

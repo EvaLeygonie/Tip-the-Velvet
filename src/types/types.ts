@@ -12,6 +12,7 @@ export type OldEvent = Tables<'old_events'>
 export type EventImage = Tables<'event_images'>
 export type Performer = Tables<'performers'>
 export type PublicPerformer = Views<'public_performers'>
+export type PublicEventEntertainer = Views<'public_event_entertainers'>
 export type EventPerformer = Tables<'event_performers'>
 export type CastingApplication = Tables<'casting_applications'>
 export type CastingApplicationAct = Tables<'casting_application_acts'>
@@ -64,6 +65,7 @@ export type Venue = Tables<'venues'>
 export type Club = Tables<'clubs'>
 export type VipManualEntry = Tables<'vip_manual_entries'>
 export type EventStaffInvitation = Tables<'event_staff_invitations'>
+export type EventStaffVolunteer = Tables<'event_staff_volunteers'>
 export type PerformerAct = Tables<'performer_acts'>
 export type Todo = Tables<'todos'>
 

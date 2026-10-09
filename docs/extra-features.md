@@ -329,3 +329,30 @@ worth having quick access to from inside the admin rather than just a bookmark.
 
 No further design done — surfaced in conversation, not worked through. Revisit once
 there's time and appetite, same as everything else in this doc.
+
+## Pre-show entertainment on the public event pages
+
+Logged 2026-10-08, thinking only — nothing designed or built. Since the board took over the
+club, someone has welcomed guests at the entrance before the show (a mermaid harpist for
+Once Upon a Time, a dark cellist for Creatures of the Night, a pirate troubadour for
+Desserted Island, and Arzon Flametongue the fire artist for Pandaemonium). It's a signature
+of the events and worth crediting and using to hype them, but these people must not read as
+part of the lineup — no artist page, no "booked artist" weight.
+
+**Where the data could live** (the main open question):
+- *Not* `performers` — that table feeds the artist pages, lineup and casting flow, which is
+  exactly the weight we want to avoid.
+- Staff roles `entertainment`/`musician` already model "who's playing at this event", but
+  `staff_volunteers` isn't publicly readable and has no photo/bio/links.
+- Leaning towards a small dedicated table (e.g. `event_pre_show`: event_id, name,
+  short_descriptor_sv/eng, bio_sv/eng, image_id, links, optional staff_id for reuse) with a
+  public-read policy, managed from the Event Plan (next to the music section).
+
+**How it could look**: a compact "Welcomed by" / "Välkomnade av" strip under the artists —
+small round photo (not a full card), name, a one-line descriptor ("fire artist"), two or
+three lines of text and small link icons (Instagram/website). Deliberately different from
+the artist cards (round, smaller, no flip, no detail page) so it stays secondary but still
+gives credit and attention. Archived events keep the strip as credit.
+
+**Open questions**: should they be hidden until announced, like the artist reveal dates?
+Is a photo required or optional? Wanted in the marketing templates too?

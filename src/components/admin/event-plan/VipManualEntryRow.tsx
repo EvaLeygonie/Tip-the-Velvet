@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { vipCategoryLabel } from '@/lib/contactLabels'
 import type { VipManualEntry, VipEntryCategory } from '@/types/types'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 const CATEGORY_OPTIONS: VipEntryCategory[] = ['ticket_winner', 'contest_winner', 'other']
 
@@ -26,6 +27,7 @@ export const VipManualEntryRow = ({
   onCancelNew,
 }: VipManualEntryRowProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
@@ -62,9 +64,13 @@ export const VipManualEntryRow = ({
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(`Är du säker på att du vill radera ${row.name}?`, `Are you sure you want to delete ${row.name}?`)
-    )
+    const confirmed = await confirm({
+      message: t(
+        `Är du säker på att du vill radera ${row.name}?`,
+        `Are you sure you want to delete ${row.name}?`
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await onDelete(row.id)
@@ -125,7 +131,9 @@ export const VipManualEntryRow = ({
               <label className="form-label-gold block">{t('Kategori', 'Category')}</label>
               <select
                 value={draft.category}
-                onChange={(e) => setDraft({ ...draft, category: e.target.value as VipEntryCategory })}
+                onChange={(e) =>
+                  setDraft({ ...draft, category: e.target.value as VipEntryCategory })
+                }
                 className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
               >
                 {CATEGORY_OPTIONS.map((category) => (

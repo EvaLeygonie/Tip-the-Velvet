@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Mail, CalendarPlus, CircleMinus, Ban, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { LanguageMarker, LanguageToggle } from './LanguageToggle'
+import { EntertainerProfileModal } from '@/components/admin/event-plan/EntertainerProfileModal'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { formatDate } from '@/lib/utils'
 import { volunteerShiftLabel } from '@/lib/contactLabels'
@@ -19,6 +20,7 @@ import {
 } from '@/services/contactsService'
 import type { StaffEventStatus } from '@/services/contactsService'
 import type { StaffVolunteers, StaffVolunteerType } from '@/types/types'
+import { useConfirm } from '@/contexts/ConfirmContext'
 
 // Mirrors CastingApplicationRow.tsx's statusRowClass convention rather than inventing a
 // new one — plain border/bg tint, no pill, so it reads at a glance without competing with
@@ -64,9 +66,11 @@ export const StaffVolunteerRow = ({
   onToggleSelect,
 }: StaffVolunteerRowProps) => {
   const { t, language } = useLanguage()
+  const askConfirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(isNew)
   const [isSaving, setIsSaving] = useState(false)
   const [showEventPopover, setShowEventPopover] = useState(false)
+  const [profileEventId, setProfileEventId] = useState<string | null>(null)
   const [draft, setDraft] = useState({
     name: row.name,
     email: row.email ?? '',
@@ -120,12 +124,13 @@ export const StaffVolunteerRow = ({
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      t(
+    const confirmed = await askConfirm({
+      message: t(
         `Är du säker på att du vill radera ${row.name}?`,
         `Are you sure you want to delete ${row.name}?`
-      )
-    )
+      ),
+      destructive: true,
+    })
     if (!confirmed) return
     try {
       await onDelete(row.id)
@@ -174,7 +179,10 @@ export const StaffVolunteerRow = ({
       const role = selection?.role ?? row.role
       const roleDetails = selection?.roleDetails ?? row.role_details
       const shift = selection?.shift ?? null
-      return confirmStaffForEvent(eventId, row.id, row.name, role, roleDetails, shift)
+      return confirmStaffForEvent(eventId, row.id, row.name, role, roleDetails, shift).then(() => {
+        // An entertainer also gets a public profile — open it straight away (skippable).
+        if (role === 'entertainment') setProfileEventId(eventId)
+      })
     },
     needsRoleSelection: {
       roleOptions,
@@ -566,6 +574,14 @@ export const StaffVolunteerRow = ({
             </div>
           </div>
         </div>
+      )}
+      {profileEventId && (
+        <EntertainerProfileModal
+          eventId={profileEventId}
+          staffId={row.id}
+          staffName={row.name}
+          onClose={() => setProfileEventId(null)}
+        />
       )}
     </div>
   )

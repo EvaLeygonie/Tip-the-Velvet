@@ -524,6 +524,18 @@ export type Database = {
       }
       event_staff_volunteers: {
         Row: {
+          bio_eng: string | null
+          bio_sv: string | null
+          display_name: string | null
+          image_id: string | null
+          instagram_link: string | null
+          is_revealed: boolean
+          other_link: string | null
+          photo_credit: string | null
+          reveal_date: string | null
+          social_posted: boolean
+          title_eng: string | null
+          title_sv: string | null
           created_at: string
           dietary_category: Database['public']['Enums']['dietary_category'] | null
           dietary_notes: string | null
@@ -538,6 +550,18 @@ export type Database = {
           staff_id: string
         }
         Insert: {
+          bio_eng?: string | null
+          bio_sv?: string | null
+          display_name?: string | null
+          image_id?: string | null
+          instagram_link?: string | null
+          is_revealed?: boolean
+          other_link?: string | null
+          photo_credit?: string | null
+          reveal_date?: string | null
+          social_posted?: boolean
+          title_eng?: string | null
+          title_sv?: string | null
           created_at?: string
           dietary_category?: Database['public']['Enums']['dietary_category'] | null
           dietary_notes?: string | null
@@ -552,6 +576,18 @@ export type Database = {
           staff_id: string
         }
         Update: {
+          bio_eng?: string | null
+          bio_sv?: string | null
+          display_name?: string | null
+          image_id?: string | null
+          instagram_link?: string | null
+          is_revealed?: boolean
+          other_link?: string | null
+          photo_credit?: string | null
+          reveal_date?: string | null
+          social_posted?: boolean
+          title_eng?: string | null
+          title_sv?: string | null
           created_at?: string
           dietary_category?: Database['public']['Enums']['dietary_category'] | null
           dietary_notes?: string | null
@@ -1282,6 +1318,24 @@ export type Database = {
       }
     }
     Views: {
+      public_event_entertainers: {
+        Row: {
+          bio_eng: string | null
+          bio_sv: string | null
+          created_at: string | null
+          event_id: string | null
+          id: string | null
+          image_id: string | null
+          instagram_link: string | null
+          name: string | null
+          other_link: string | null
+          photo_credit: string | null
+          staff_id: string | null
+          title_eng: string | null
+          title_sv: string | null
+        }
+        Relationships: []
+      }
       public_performers: {
         Row: {
           bio_eng: string | null

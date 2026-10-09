@@ -29,6 +29,8 @@ import {
 } from '@/lib/marketingSchedule'
 import { EventAssetPanel } from '@/components/admin/marketing/EventAssetPanel'
 import { ArtistOverviewCard } from '@/components/admin/marketing/ArtistOverviewCard'
+import { EntertainerOverviewCard } from '@/components/admin/marketing/EntertainerOverviewCard'
+import { getEventEntertainers, type EventEntertainer } from '@/services/entertainerService'
 import { StandardPostRow } from '@/components/admin/marketing/StandardPostRow'
 import { buildSaveTheDateText } from '@/components/admin/marketing/SaveTheDateCard'
 import { buildArtistsSoonText } from '@/components/admin/marketing/ArtistsSoonCard'
@@ -108,6 +110,7 @@ export const AdminMarketing = () => {
   const { selectedEventId } = useCurrentEvent()
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [sponsorRows, setSponsorRows] = useState<AdminEventSponsorRow[]>([])
+  const [entertainers, setEntertainers] = useState<EventEntertainer[]>([])
   const [ticketUrl, setTicketUrl] = useState<string | null>(null)
   const [hashtags, setHashtags] = useState<string | null>(null)
   const [eventData, setEventData] = useState<EventMarketingData | null>(null)
@@ -123,13 +126,15 @@ export const AdminMarketing = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const [performersData, sponsors, marketingData, records, customs] = await Promise.all([
-          getEventPerformersForAdmin(selectedEventId),
-          getEventSponsorsForAdmin(selectedEventId),
-          getEventMarketingData(selectedEventId),
-          getMarketingPosts(selectedEventId),
-          getCustomPosts(selectedEventId),
-        ])
+        const [performersData, sponsors, marketingData, records, customs, entertainerRows] =
+          await Promise.all([
+            getEventPerformersForAdmin(selectedEventId),
+            getEventSponsorsForAdmin(selectedEventId),
+            getEventMarketingData(selectedEventId),
+            getMarketingPosts(selectedEventId),
+            getCustomPosts(selectedEventId),
+            getEventEntertainers(selectedEventId),
+          ])
         setPerformers(performersData.performers)
         setSponsorRows(sponsors)
         setTicketUrl(performersData.ticketUrl)
@@ -137,6 +142,7 @@ export const AdminMarketing = () => {
         setEventData(marketingData)
         setPostRecords(records)
         setCustomPosts(customs)
+        setEntertainers(entertainerRows)
       } catch (err) {
         console.error('Kunde inte hämta marknadsföringsdata:', err)
       } finally {
@@ -150,6 +156,10 @@ export const AdminMarketing = () => {
     setPerformers((prev) =>
       prev.map((row) => (row.performer_id === performerId ? { ...row, ...patch } : row))
     )
+  }
+
+  const handleEntertainerChanged = (id: string, patch: Partial<EventEntertainer>) => {
+    setEntertainers((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
   }
 
   const handleTogglePost = async (postType: FixedMarketingPostType, isPosted: boolean) => {
@@ -330,6 +340,42 @@ export const AdminMarketing = () => {
                   {renderArtistsSection()}
                   {renderPostRow(POST_SCHEDULE.find((i) => i.type === 'artists_all_together')!)}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-decorative text-lg text-foreground/90">
+                    {t('Förshowunderhållning', 'Pre-show entertainment')}
+                  </h3>
+                  <span className="text-[11px] text-foreground/50">
+                    {t('Postat på sociala medier', 'Posted on social media')}
+                  </span>
+                </div>
+                {entertainers.length === 0 ? (
+                  <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-6">
+                    {t(
+                      'Ingen förshowunderhållning tilldelad än. Lägg till under Eventplan → Bemanning → Underhållning.',
+                      'No pre-show entertainment assigned yet. Add them under Event Plan → Staffing → Entertainment.'
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {entertainers.map((row) => (
+                      <EntertainerOverviewCard
+                        key={row.id}
+                        row={row}
+                        event={{
+                          id: selectedEventId,
+                          ticketUrl,
+                          hashtags,
+                          eventStart: eventData?.eventStart ?? null,
+                          location: eventData?.location ?? null,
+                        }}
+                        onChanged={handleEntertainerChanged}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
