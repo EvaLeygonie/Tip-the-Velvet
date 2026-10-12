@@ -4,32 +4,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.5'
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    PostgrestVersion: '14.1'
   }
   public: {
     Tables: {
@@ -235,6 +210,41 @@ export type Database = {
         }
         Relationships: []
       }
+      door_shift_slots: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          slot_end: string
+          slot_start: string
+          volunteer_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          slot_end: string
+          slot_start: string
+          volunteer_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          slot_end?: string
+          slot_start?: string
+          volunteer_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'door_shift_slots_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       event_images: {
         Row: {
           created_at: string
@@ -266,6 +276,91 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'event_images_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      event_info_items: {
+        Row: {
+          audiences: string[]
+          body_eng: string | null
+          body_sv: string | null
+          created_at: string
+          doc_key: string | null
+          event_id: string
+          id: string
+          kind: string
+          sort_order: number
+          time_text: string | null
+          title_eng: string | null
+          title_sv: string | null
+        }
+        Insert: {
+          audiences?: string[]
+          body_eng?: string | null
+          body_sv?: string | null
+          created_at?: string
+          doc_key?: string | null
+          event_id: string
+          id?: string
+          kind: string
+          sort_order?: number
+          time_text?: string | null
+          title_eng?: string | null
+          title_sv?: string | null
+        }
+        Update: {
+          audiences?: string[]
+          body_eng?: string | null
+          body_sv?: string | null
+          created_at?: string
+          doc_key?: string | null
+          event_id?: string
+          id?: string
+          kind?: string
+          sort_order?: number
+          time_text?: string | null
+          title_eng?: string | null
+          title_sv?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_info_items_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      event_info_links: {
+        Row: {
+          audience: string
+          created_at: string
+          event_id: string
+          id: string
+          token: string
+        }
+        Insert: {
+          audience: string
+          created_at?: string
+          event_id: string
+          id?: string
+          token?: string
+        }
+        Update: {
+          audience?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_info_links_event_id_fkey'
             columns: ['event_id']
             isOneToOne: false
             referencedRelation: 'events'
@@ -526,80 +621,80 @@ export type Database = {
         Row: {
           bio_eng: string | null
           bio_sv: string | null
-          display_name: string | null
-          image_id: string | null
-          instagram_link: string | null
-          is_revealed: boolean
-          other_link: string | null
-          photo_credit: string | null
-          reveal_date: string | null
-          social_posted: boolean
-          title_eng: string | null
-          title_sv: string | null
           created_at: string
           dietary_category: Database['public']['Enums']['dietary_category'] | null
           dietary_notes: string | null
+          display_name: string | null
           event_id: string
           fee: number | null
           id: string
+          image_id: string | null
           in_charge: boolean
+          instagram_link: string | null
+          is_revealed: boolean
           needs_food: boolean
+          other_link: string | null
+          photo_credit: string | null
+          reveal_date: string | null
           role: Database['public']['Enums']['staff_volunteer_type']
           role_details: string | null
           shift: Database['public']['Enums']['volunteer_shift'] | null
+          social_posted: boolean
           staff_id: string
+          title_eng: string | null
+          title_sv: string | null
         }
         Insert: {
           bio_eng?: string | null
           bio_sv?: string | null
-          display_name?: string | null
-          image_id?: string | null
-          instagram_link?: string | null
-          is_revealed?: boolean
-          other_link?: string | null
-          photo_credit?: string | null
-          reveal_date?: string | null
-          social_posted?: boolean
-          title_eng?: string | null
-          title_sv?: string | null
           created_at?: string
           dietary_category?: Database['public']['Enums']['dietary_category'] | null
           dietary_notes?: string | null
+          display_name?: string | null
           event_id: string
           fee?: number | null
           id?: string
+          image_id?: string | null
           in_charge?: boolean
+          instagram_link?: string | null
+          is_revealed?: boolean
           needs_food?: boolean
+          other_link?: string | null
+          photo_credit?: string | null
+          reveal_date?: string | null
           role?: Database['public']['Enums']['staff_volunteer_type']
           role_details?: string | null
           shift?: Database['public']['Enums']['volunteer_shift'] | null
+          social_posted?: boolean
           staff_id: string
+          title_eng?: string | null
+          title_sv?: string | null
         }
         Update: {
           bio_eng?: string | null
           bio_sv?: string | null
-          display_name?: string | null
-          image_id?: string | null
-          instagram_link?: string | null
-          is_revealed?: boolean
-          other_link?: string | null
-          photo_credit?: string | null
-          reveal_date?: string | null
-          social_posted?: boolean
-          title_eng?: string | null
-          title_sv?: string | null
           created_at?: string
           dietary_category?: Database['public']['Enums']['dietary_category'] | null
           dietary_notes?: string | null
+          display_name?: string | null
           event_id?: string
           fee?: number | null
           id?: string
+          image_id?: string | null
           in_charge?: boolean
+          instagram_link?: string | null
+          is_revealed?: boolean
           needs_food?: boolean
+          other_link?: string | null
+          photo_credit?: string | null
+          reveal_date?: string | null
           role?: Database['public']['Enums']['staff_volunteer_type']
           role_details?: string | null
           shift?: Database['public']['Enums']['volunteer_shift'] | null
+          social_posted?: boolean
           staff_id?: string
+          title_eng?: string | null
+          title_sv?: string | null
         }
         Relationships: [
           {
@@ -634,6 +729,7 @@ export type Database = {
           casting_call_start: string | null
           casting_info_eng: string | null
           casting_info_sv: string | null
+          checkin_url: string | null
           created_at: string
           description_eng: string | null
           description_sv: string | null
@@ -674,6 +770,7 @@ export type Database = {
           casting_call_start?: string | null
           casting_info_eng?: string | null
           casting_info_sv?: string | null
+          checkin_url?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
@@ -714,6 +811,7 @@ export type Database = {
           casting_call_start?: string | null
           casting_info_eng?: string | null
           casting_info_sv?: string | null
+          checkin_url?: string | null
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
@@ -815,6 +913,20 @@ export type Database = {
             columns: ['performer_id']
             isOneToOne: false
             referencedRelation: 'performers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'info_reminders_performer_id_fkey'
+            columns: ['performer_id']
+            isOneToOne: false
+            referencedRelation: 'public_performers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'info_reminders_staff_id_fkey'
+            columns: ['staff_id']
+            isOneToOne: false
+            referencedRelation: 'public_photographers'
             referencedColumns: ['id']
           },
           {
@@ -1096,13 +1208,13 @@ export type Database = {
       }
       sponsors: {
         Row: {
-          language: Database['public']['Enums']['language']
           agreed_to_terms: boolean | null
           club_id: string | null
           created_at: string
           email: string | null
           id: string
           instagram_link: string | null
+          language: Database['public']['Enums']['language']
           logo_id: string | null
           name: string
           other_link: string | null
@@ -1111,13 +1223,13 @@ export type Database = {
           sponsor_type: Database['public']['Enums']['sponsor_type'] | null
         }
         Insert: {
-          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           club_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
           instagram_link?: string | null
+          language?: Database['public']['Enums']['language']
           logo_id?: string | null
           name: string
           other_link?: string | null
@@ -1126,13 +1238,13 @@ export type Database = {
           sponsor_type?: Database['public']['Enums']['sponsor_type'] | null
         }
         Update: {
-          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           club_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
           instagram_link?: string | null
+          language?: Database['public']['Enums']['language']
           logo_id?: string | null
           name?: string
           other_link?: string | null
@@ -1152,12 +1264,12 @@ export type Database = {
       }
       staff_volunteers: {
         Row: {
-          language: Database['public']['Enums']['language']
           agreed_to_terms: boolean | null
           created_at: string
           email: string | null
           fee: number | null
           id: string
+          language: Database['public']['Enums']['language']
           link: string | null
           name: string
           phone: string | null
@@ -1166,12 +1278,12 @@ export type Database = {
           worked_with: boolean | null
         }
         Insert: {
-          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
           fee?: number | null
           id?: string
+          language?: Database['public']['Enums']['language']
           link?: string | null
           name: string
           phone?: string | null
@@ -1180,12 +1292,12 @@ export type Database = {
           worked_with?: boolean | null
         }
         Update: {
-          language?: Database['public']['Enums']['language']
           agreed_to_terms?: boolean | null
           created_at?: string
           email?: string | null
           fee?: number | null
           id?: string
+          language?: Database['public']['Enums']['language']
           link?: string | null
           name?: string
           phone?: string | null
@@ -1241,39 +1353,48 @@ export type Database = {
       }
       venues: {
         Row: {
-          language: Database['public']['Enums']['language']
           contact_person: string | null
           created_at: string
+          door_code: string | null
           email: string | null
           id: string
+          language: Database['public']['Enums']['language']
           location: string
           map_link: string
           name: string
           phone: string | null
+          practical_info_eng: string | null
+          practical_info_sv: string | null
           price: number | null
         }
         Insert: {
-          language?: Database['public']['Enums']['language']
           contact_person?: string | null
           created_at?: string
+          door_code?: string | null
           email?: string | null
           id?: string
+          language?: Database['public']['Enums']['language']
           location: string
           map_link: string
           name: string
           phone?: string | null
+          practical_info_eng?: string | null
+          practical_info_sv?: string | null
           price?: number | null
         }
         Update: {
-          language?: Database['public']['Enums']['language']
           contact_person?: string | null
           created_at?: string
+          door_code?: string | null
           email?: string | null
           id?: string
+          language?: Database['public']['Enums']['language']
           location?: string
           map_link?: string
           name?: string
           phone?: string | null
+          practical_info_eng?: string | null
+          practical_info_sv?: string | null
           price?: number | null
         }
         Relationships: []
@@ -1334,7 +1455,29 @@ export type Database = {
           title_eng: string | null
           title_sv: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'event_staff_volunteers_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'event_staff_volunteers_staff_id_fkey'
+            columns: ['staff_id']
+            isOneToOne: false
+            referencedRelation: 'public_photographers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'event_staff_volunteers_staff_id_fkey'
+            columns: ['staff_id']
+            isOneToOne: false
+            referencedRelation: 'staff_volunteers'
+            referencedColumns: ['id']
+          },
+        ]
       }
       public_performers: {
         Row: {
@@ -1435,6 +1578,10 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_door_slot: {
+        Args: { p_name: string; p_slot_id: string; p_token: string }
+        Returns: undefined
+      }
       confirm_and_migrate_artist: {
         Args: {
           p_access_token: string
@@ -1449,9 +1596,18 @@ export type Database = {
         Args: { p_id: string; p_token: string }
         Returns: Json
       }
+      get_event_document_data: {
+        Args: { p_doc: string; p_token: string }
+        Returns: Json
+      }
+      get_event_info: { Args: { p_token: string }; Returns: Json }
       get_performer_by_slug_for_edit: {
         Args: { p_slug: string }
         Returns: Json
+      }
+      release_door_slot: {
+        Args: { p_slot_id: string; p_token: string }
+        Returns: undefined
       }
       slugify: { Args: { value: string }; Returns: string }
       submit_casting_application: {
@@ -1694,9 +1850,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       booking_status_type: [

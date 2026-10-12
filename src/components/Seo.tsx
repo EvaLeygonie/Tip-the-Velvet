@@ -33,7 +33,7 @@ export const Seo = ({ title, description, path, noindex = false }: SeoProps) => 
 )
 
 // Board-only and token-authenticated routes must never be indexed.
-const PRIVATE_PREFIXES = ['/admin', '/hall-of-fame-form', '/casting/confirm']
+const PRIVATE_PREFIXES = ['/admin', '/hall-of-fame-form', '/casting/confirm', '/info']
 
 export const PrivateRouteRobots = () => {
   const { pathname } = useLocation()

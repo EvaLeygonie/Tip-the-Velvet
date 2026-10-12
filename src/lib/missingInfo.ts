@@ -3,7 +3,7 @@ import { actHasMusic } from '@/lib/actMusic'
 import type { GroupedStaffPerson } from '@/lib/staffRowGrouping'
 import type { CastingApplicationWithActs, Language } from '@/types/types'
 
-export type MissingItem = 'food' | 'music' | 'notes' | 'receipt'
+export type MissingItem = 'food' | 'music' | 'notes' | 'receipt' | 'doorshift'
 
 export interface MissingInfoPerson {
   key: string
@@ -20,6 +20,8 @@ export interface MissingInfoPerson {
   // The artist's personal booking-portal link, when they have a casting application with
   // an access token for this event.
   bookingLink: string | null
+  // Staff: the volunteer info page, where the door-shift table lives (when 'doorshift' is missing).
+  infoLink: string | null
 }
 
 const bookingLinkFor = (
@@ -40,18 +42,24 @@ const bookingLinkFor = (
 //    an upload isn't required). Manual show segments never count.
 //  - receipt: needs travel costs covered, not travelling by car, no receipt uploaded —
 //    and only once `includeReceipts` says casting is settled (see AdminDashboard).
+//  - doorshift: door staff whose name isn't on any door slot yet.
 export const collectMissingInfo = ({
   performers,
   acts,
   groupedStaff,
   applications,
   includeReceipts,
+  unplacedDoorStaffIds = new Set<string>(),
+  volunteerInfoLink = null,
 }: {
   performers: AdminEventPerformerRow[]
   acts: AdminEventActRow[]
   groupedStaff: GroupedStaffPerson[]
   applications: CastingApplicationWithActs[]
   includeReceipts: boolean
+  // Door staff who haven't put their name on a door slot, and the link to do it.
+  unplacedDoorStaffIds?: Set<string>
+  volunteerInfoLink?: string | null
 }): MissingInfoPerson[] => {
   const performerIdsMissingNotes = new Set(
     acts
@@ -89,23 +97,31 @@ export const collectMissingInfo = ({
         items,
         musicActs,
         bookingLink: bookingLinkFor(p.performer_id, applications),
+        infoLink: null,
       },
     ]
   })
 
-  const staff: MissingInfoPerson[] = groupedStaff
-    .filter((p) => p.needs_food && !p.dietary_category)
-    .map((p) => ({
-      key: `staff:${p.staff.id}`,
-      kind: 'staff' as const,
-      staffId: p.staff.id,
-      name: p.staff.name,
-      email: p.staff.email,
-      language: p.staff.language,
-      items: ['food' as const],
-      musicActs: [],
-      bookingLink: null,
-    }))
+  const staff: MissingInfoPerson[] = groupedStaff.flatMap((p) => {
+    const items: MissingItem[] = []
+    if (p.needs_food && !p.dietary_category) items.push('food')
+    if (unplacedDoorStaffIds.has(p.staff.id)) items.push('doorshift')
+    if (items.length === 0) return []
+    return [
+      {
+        key: `staff:${p.staff.id}`,
+        kind: 'staff' as const,
+        staffId: p.staff.id,
+        name: p.staff.name,
+        email: p.staff.email,
+        language: p.staff.language,
+        items,
+        musicActs: [],
+        bookingLink: null,
+        infoLink: items.includes('doorshift') ? volunteerInfoLink : null,
+      },
+    ]
+  })
 
   return [...artists, ...staff]
 }

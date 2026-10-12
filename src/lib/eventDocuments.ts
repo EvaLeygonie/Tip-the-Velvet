@@ -37,6 +37,8 @@ export interface EventDocContext {
   vipEntries: VipManualEntry[]
   organizers: AdminEventOrganizerFoodRow[]
   eventInfo: EventScheduleInfo | null
+  // The info hub's guest list is public to a role's link holders — names only, no emails.
+  omitEmails?: boolean
 }
 
 export interface GeneratedDocument {
@@ -59,8 +61,8 @@ export interface VipSection {
 // other (or with the on-screen list above).
 
 export const buildVipSections = (ctx: EventDocContext): VipSection[] => {
-  const { t, performers, groupedStaff, vipEntries } = ctx
-  return [
+  const { t, performers, groupedStaff, vipEntries, omitEmails } = ctx
+  const sections: VipSection[] = [
     {
       title: t('Arrangörer', 'Organizers'),
       items: STANDING_ORGANIZERS.map((o) => ({ name: o.name, email: o.email })),
@@ -97,6 +99,11 @@ export const buildVipSections = (ctx: EventDocContext): VipSection[] => {
         .map((e) => ({ name: e.name, email: e.email })),
     })),
   ]
+  if (!omitEmails) return sections
+  return sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => ({ ...item, email: null })),
+  }))
 }
 
 // A real, vector PDF (not a rasterized screenshot of the HTML version) — built directly
@@ -324,15 +331,9 @@ export const createStageKittenPdf = (ctx: EventDocContext): GeneratedDocument =>
   return { doc, fileName: `${eventTitle}-set-list.pdf` }
 }
 
-// Every uploaded sound file in running order, bundled into one ZIP the sound & light PDF links
-// to at the top (the per-song links further down stay too). A ZIP failure never blocks the
-// PDF — it just returns null.
-export const createTechMusicZip = async (
-  ctx: EventDocContext,
-  onBusy?: (busy: boolean) => void
-): Promise<{ url: string; included: number } | null> => {
-  const { t, eventTitle, eventStart } = ctx
-  const zipEntries = buildSetListSections(ctx).flatMap((section) =>
+// Every uploaded sound file in running order, named "position - artist - act - file".
+export const buildMusicZipEntries = (ctx: EventDocContext): { name: string; url: string }[] =>
+  buildSetListSections(ctx).flatMap((section) =>
     section.rows.flatMap((row, index) =>
       row.performer
         ? parseActTracks(row.audio_files).flatMap((track) => {
@@ -349,6 +350,15 @@ export const createTechMusicZip = async (
         : []
     )
   )
+
+// The same files bundled into one ZIP the sound & light PDF links to at the top (the per-song
+// links further down stay too). A ZIP failure never blocks the PDF — it just returns null.
+export const createTechMusicZip = async (
+  ctx: EventDocContext,
+  onBusy?: (busy: boolean) => void
+): Promise<{ url: string; included: number } | null> => {
+  const { t, eventTitle, eventStart } = ctx
+  const zipEntries = buildMusicZipEntries(ctx)
   if (zipEntries.length === 0) return null
 
   // Name the file gets when downloaded, e.g. "Pandaemonium - 2026-10-24.zip".

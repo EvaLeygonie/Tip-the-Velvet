@@ -180,7 +180,7 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
             }
             className={`shrink-0 min-w-[60px] text-center text-xs font-mono px-2 py-0.5 rounded-full border ${
               row.fee !== null
-                ? 'text-foreground/80 border-accent/20 bg-black/20'
+                ? 'text-accent border-accent/40 bg-accent/10'
                 : 'text-amber-400 border-amber-500/30 bg-amber-500/10 italic'
             }`}
           >

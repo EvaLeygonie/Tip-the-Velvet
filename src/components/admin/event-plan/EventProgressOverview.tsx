@@ -23,7 +23,7 @@ import { dietaryCategoryLabel, staffRoleLabel } from '@/lib/contactLabels'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { missingMusicItems } from './musicCoverage'
 
-export type EventPlanTab = 'show' | 'staff' | 'sponsors' | 'food' | 'vip' | 'travel'
+export type EventPlanTab = 'show' | 'staff' | 'sponsors' | 'food' | 'vip' | 'travel' | 'info'
 
 interface EventProgressOverviewProps {
   performers: AdminEventPerformerRow[]

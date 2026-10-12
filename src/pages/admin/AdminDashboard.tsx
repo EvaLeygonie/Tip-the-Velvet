@@ -13,6 +13,7 @@ import {
   Hotel,
   Mail,
   Download,
+  DoorOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -50,6 +51,14 @@ import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
 import { MissingInfoModal, type MissingInfoFilter } from '@/components/admin/MissingInfoModal'
 import { actHasMusic } from '@/lib/actMusic'
+import {
+  countUncoveredDoorWindows,
+  findUnplacedDoorStaff,
+  isDoorStaffRow,
+  planDoorShifts,
+  type DoorSlot,
+} from '@/lib/eventInfo'
+import { getDoorSlots, getInfoLinkToken, infoLinkUrl } from '@/services/eventInfoService'
 import { collectMissingInfo, type MissingInfoPerson } from '@/lib/missingInfo'
 import { missingMusicItems } from '@/components/admin/event-plan/musicCoverage'
 import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from '@/components/admin/event-plan/constants'
@@ -79,6 +88,8 @@ interface EventOverviewData {
   sponsorRows: AdminEventSponsorRow[]
   playlists: EventPlaylists
   applications: CastingApplicationWithActs[]
+  doorSlots: DoorSlot[]
+  volunteerInfoToken: string | null
 }
 
 interface MissingInfoTarget {
@@ -86,6 +97,7 @@ interface MissingInfoTarget {
   eventTitle: string
   filter: MissingInfoFilter
   people: MissingInfoPerson[]
+  doorPlan: ReturnType<typeof planDoorShifts>
 }
 
 const NEW_WINDOW_DAYS = 7
@@ -299,15 +311,26 @@ export const AdminDashboard = () => {
       try {
         const overviews = await Promise.all(
           upcomingEvents.map(async (evt): Promise<EventOverviewData> => {
-            const [performersData, acts, staffRows, playlists, sponsorRows, applications] =
-              await Promise.all([
-                getEventPerformersForAdmin(evt.id),
-                getEventActsForAdmin(evt.id),
-                getEventStaffForAdmin(evt.id),
-                getEventPlaylists(evt.id),
-                getEventSponsorsForAdmin(evt.id),
-                evt.has_casting_call ? getApplicationsFromEvent(evt.id) : Promise.resolve([]),
-              ])
+            const [
+              performersData,
+              acts,
+              staffRows,
+              playlists,
+              sponsorRows,
+              applications,
+              doorSlots,
+              volunteerInfoToken,
+            ] = await Promise.all([
+              getEventPerformersForAdmin(evt.id),
+              getEventActsForAdmin(evt.id),
+              getEventStaffForAdmin(evt.id),
+              getEventPlaylists(evt.id),
+              getEventSponsorsForAdmin(evt.id),
+              evt.has_casting_call ? getApplicationsFromEvent(evt.id) : Promise.resolve([]),
+              // Info-hub data is optional here — never let it break the Dashboard.
+              getDoorSlots(evt.id).catch(() => [] as DoorSlot[]),
+              getInfoLinkToken(evt.id, 'volunteer').catch(() => null),
+            ])
             return {
               eventId: evt.id,
               eventTitle: evt.title,
@@ -318,6 +341,8 @@ export const AdminDashboard = () => {
               sponsorRows,
               playlists,
               applications,
+              doorSlots,
+              volunteerInfoToken,
             }
           })
         )
@@ -348,11 +373,25 @@ export const AdminDashboard = () => {
   // receipts): each person is asked once, in their own language, for everything they're
   // missing. The card clicked only decides which filter the panel opens on. Receipts are
   // left out while casting still needs attention — same gate as the receipts card below.
+  // Door staff (guest-list volunteers) whose name isn't on any door slot yet.
+  const unplacedDoorStaff = (ov: EventOverviewData) => {
+    if (ov.doorSlots.length === 0) return []
+    const door = new Map<string, { id: string; name: string }>()
+    for (const r of ov.staffRows.filter(isDoorStaffRow)) {
+      door.set(r.staff.id, { id: r.staff.id, name: r.staff.name })
+    }
+    return findUnplacedDoorStaff(
+      Array.from(door.values()),
+      ov.doorSlots.map((s) => s.volunteer_name)
+    )
+  }
+
   const openMissingInfo = (
     ov: EventOverviewData,
     includeReceipts: boolean,
     filter: MissingInfoFilter
   ) => {
+    const doorStaffCount = new Set(ov.staffRows.filter(isDoorStaffRow).map((r) => r.staff.id)).size
     setMissingInfoTarget({
       eventId: ov.eventId,
       eventTitle: ov.eventTitle,
@@ -363,7 +402,10 @@ export const AdminDashboard = () => {
         groupedStaff: groupStaffRowsByPerson(ov.staffRows),
         applications: ov.applications,
         includeReceipts,
+        unplacedDoorStaffIds: new Set(unplacedDoorStaff(ov).map((p) => p.id)),
+        volunteerInfoLink: ov.volunteerInfoToken ? infoLinkUrl(ov.volunteerInfoToken) : null,
       }),
+      doorPlan: planDoorShifts(ov.doorSlots, doorStaffCount),
     })
   }
 
@@ -600,6 +642,25 @@ export const AdminDashboard = () => {
                 ),
                 icon: <Hotel className="h-4 w-4 shrink-0" />,
                 onClick: () => goToEventPlan(ov.eventId, 'travel'),
+              })
+            }
+            // Time windows nobody has signed up for (two spots per window, only one needs a
+            // name). The email-all button asks door staff who aren't on any slot yet.
+            const uncoveredDoorWindows = countUncoveredDoorWindows(ov.doorSlots)
+            if (uncoveredDoorWindows > 0) {
+              cards.push({
+                key: 'door',
+                label: t('Dörrpass', 'Door shifts'),
+                value: t(
+                  `Saknas: ${uncoveredDoorWindows} pass`,
+                  `Missing: ${uncoveredDoorWindows} shifts`
+                ),
+                icon: <DoorOpen className="h-4 w-4 shrink-0" />,
+                onClick: () => goToEventPlan(ov.eventId, 'info'),
+                ...(unplacedDoorStaff(ov).length > 0 && {
+                  onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'doorshift'),
+                  emailTitle: t('Be om saknad information', 'Ask for missing info'),
+                }),
               })
             }
             if (missingMusic.length > 0) {
@@ -872,6 +933,7 @@ export const AdminDashboard = () => {
           eventTitle={missingInfoTarget.eventTitle}
           people={missingInfoTarget.people}
           initialFilter={missingInfoTarget.filter}
+          doorPlan={missingInfoTarget.doorPlan}
         />
       )}
     </div>

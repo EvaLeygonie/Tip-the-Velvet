@@ -15,6 +15,7 @@ import {
   Megaphone,
 } from 'lucide-react'
 import logoFull from '@/assets/header-logo.png'
+import { INFO_TOKEN_STORAGE_KEY } from '@/lib/eventInfo'
 
 export const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -28,6 +29,15 @@ export const Navigation = () => {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  // Opening an info link stores its token; read fresh each render so the nav entry appears
+  // right after navigating there.
+  let infoToken: string | null = null
+  try {
+    infoToken = localStorage.getItem(INFO_TOKEN_STORAGE_KEY)
+  } catch {
+    // storage unavailable — no shortcut link
+  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -47,6 +57,7 @@ export const Navigation = () => {
     { to: '/dresscode', label: t('Klädkod', 'Dresscode') },
     { to: '/about', label: t('Om oss', 'About') },
     { to: '/join', label: t('Joina oss', 'Join us') },
+    ...(infoToken ? [{ to: `/info/${infoToken}`, label: t('Eventinfo', 'Event info') }] : []),
   ]
 
   const adminSubLinks = [

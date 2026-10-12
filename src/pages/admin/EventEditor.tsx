@@ -14,12 +14,7 @@ import {
   localToUtc,
   DEFAULT_EVENT_HASHTAGS,
 } from '@/lib/utils'
-import {
-  getAdminEventDetails,
-  getAllVenues,
-  getAllPhotographers,
-  setEventPhotographer,
-} from '@/services/eventService'
+import { getAdminEventDetails, getAllVenues } from '@/services/eventService'
 import { deleteRow } from '@/services/databaseService'
 import { uploadToCloudinary, deleteFromCloudinary } from '@/services/cloudinaryService'
 import { ImageCategory } from '@/types/media'
@@ -43,19 +38,15 @@ export const EventEditor = () => {
   const [oldImageId, setOldImageId] = useState<string | null>(null)
 
   const [venues, setVenues] = useState<DropdownOption[]>([])
-  const [photographers, setPhotographers] = useState<DropdownOption[]>([])
 
   const [formData, setFormData] = useState<Partial<Event>>({
     title: '',
     slug: '',
     status: 'draft',
     has_casting_call: false,
-    is_english: false,
     glow_color: '#D4AF37',
     venue_id: null,
-    photographer_id: null,
     location: '',
-    photographer: '',
     hashtags: DEFAULT_EVENT_HASHTAGS,
   })
 
@@ -72,14 +63,8 @@ export const EventEditor = () => {
     const loadData = async () => {
       setLoading(true)
       try {
-        const [venuesData, photographersData] = await Promise.all([
-          getAllVenues(),
-          getAllPhotographers(),
-        ])
+        const venuesData = await getAllVenues()
         setVenues((venuesData || []).filter((v) => v.id && v.name) as DropdownOption[])
-        setPhotographers(
-          (photographersData || []).filter((p) => p.id && p.name) as DropdownOption[]
-        )
 
         if (slug) {
           const data = await getAdminEventDetails(slug)
@@ -141,17 +126,6 @@ export const EventEditor = () => {
     }))
   }
 
-  const handlePhotographerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = e.target.value || null
-    const selectedPhotographer = photographers.find((p) => p.id === selectedId)
-
-    setFormData((prev) => ({
-      ...prev,
-      photographer_id: selectedId,
-      photographer: selectedPhotographer ? selectedPhotographer.name : '',
-    }))
-  }
-
   const handleSave = async () => {
     if (!formData.title) return toast.error(t('Titel krävs', 'Title is required'))
 
@@ -203,7 +177,6 @@ export const EventEditor = () => {
       slug: finalSlug,
       status: formData.status || 'draft',
       has_casting_call: formData.has_casting_call || false,
-      is_english: formData.is_english || false,
       casting_call_start: formData.casting_call_start || null,
       casting_call_deadline: formData.casting_call_deadline || null,
       staff_recruitment_open: formData.staff_recruitment_open || false,
@@ -217,9 +190,7 @@ export const EventEditor = () => {
       event_end: formData.event_end ? localToUtc(formData.event_end) : null,
       reveal_date: formData.reveal_date || null,
       venue_id: formData.venue_id || null,
-      photographer_id: formData.photographer_id || null,
       location: formData.location || null,
-      photographer: formData.photographer || null,
       ticket_url: formData.ticket_url || null,
       afterparty_playlist: formData.afterparty_playlist || null,
       ticket_release_date: formData.ticket_release_date || null,
@@ -229,27 +200,16 @@ export const EventEditor = () => {
       pinterest_link: formData.pinterest_link || null,
       facebook_event: formData.facebook_event || null,
       fb_album_url: formData.fb_album_url || null,
+      checkin_url: formData.checkin_url || null,
       hashtags: formData.hashtags || null,
     }
 
     try {
-      const { data, error } = slug
-        ? await supabase.from('events').update(payload).eq('slug', slug).select().single()
-        : await supabase.from('events').insert([payload]).select().single()
+      const { error } = slug
+        ? await supabase.from('events').update(payload).eq('slug', slug)
+        : await supabase.from('events').insert([payload])
 
       if (error) throw error
-
-      try {
-        await setEventPhotographer(data.id, formData.photographer_id || null)
-      } catch (photographerErr) {
-        console.error('Kunde inte synka fotograf mot kontaktlistan:', photographerErr)
-        toast.error(
-          t(
-            'Eventet sparades, men fotografen kunde inte synkas mot kontaktlistan.',
-            'Event saved, but the photographer could not be synced to the contact roster.'
-          )
-        )
-      }
 
       toast.success(slug ? t('Uppdaterat!', 'Updated!') : t('Skapat!', 'Created!'))
 
@@ -591,12 +551,14 @@ export const EventEditor = () => {
             {t('Fler detaljer', 'More details')}
           </summary>
 
-          {/* PINTEREST & FACEBOOK EVENT */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 pt-6 border-t border-white/5">
+          {/* PINTEREST, FACEBOOK EVENT & FACEBOOK ALBUM */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
             <div className="field-row">
               <label className="form-label-gold">{t('Pinterest länk', 'Pinterest Link')}</label>
               <input
+                type="url"
                 name="pinterest_link"
+                placeholder="https://..."
                 className="editor-input"
                 value={formData.pinterest_link || ''}
                 onChange={handleChange}
@@ -605,34 +567,20 @@ export const EventEditor = () => {
             <div className="field-row">
               <label className="form-label-gold">Facebook Event</label>
               <input
+                type="url"
                 name="facebook_event"
+                placeholder="https://..."
                 className="editor-input"
                 value={formData.facebook_event || ''}
                 onChange={handleChange}
               />
             </div>
-
-            {/* FOTOGRAF & FACEBOOK ALBUM */}
-            <div className="field-row">
-              <label className="form-label-gold">{t('Fotograf', 'Photographer')}</label>
-              <select
-                name="photographer_id"
-                value={formData.photographer_id || ''}
-                onChange={handlePhotographerChange}
-                className="admin-select"
-              >
-                <option value="">-- {t('Välj fotograf...', 'Select photographer...')} --</option>
-                {photographers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="field-row">
               <label className="form-label-gold">{t('Facebook album', 'Facebook Album')}</label>
               <input
+                type="url"
                 name="fb_album_url"
+                placeholder="https://..."
                 className="editor-input"
                 value={formData.fb_album_url || ''}
                 onChange={handleChange}
@@ -640,7 +588,7 @@ export const EventEditor = () => {
             </div>
           </div>
 
-          {/* TICKETS */}
+          {/* TICKET LINK, RELEASE DATE & GUEST LIST */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
             <div className="field-row">
               <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
@@ -666,23 +614,20 @@ export const EventEditor = () => {
               />
             </div>
             <div className="field-row">
-              <label className="form-label-gold">{t('Språk', 'Language')}</label>
-              <label className="flex items-center gap-2 cursor-pointer pt-3 pb-1">
-                <input
-                  type="checkbox"
-                  name="is_english"
-                  checked={formData.is_english || false}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, is_english: e.target.checked }))
-                  }
-                  className="w-4 h-4 accent-accent"
-                />
-                <span className="text-xs text-foreground/70">
-                  {t('Värden talar engelska', 'Host speaks English')}
-                </span>
-              </label>
+              <label className="form-label-gold">{t('Gästlista', 'Guest list')}</label>
+              <input
+                type="url"
+                name="checkin_url"
+                placeholder="https://..."
+                className="editor-input"
+                value={formData.checkin_url || ''}
+                onChange={handleChange}
+              />
             </div>
+          </div>
 
+          {/* TICKET NUMBERS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
             <div className="field-row">
               <label className="form-label-gold">{t('Pris (SEK)', 'Price (SEK)')}</label>
               <input

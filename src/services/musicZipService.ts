@@ -15,18 +15,13 @@ export interface MusicZipResult {
   failed: string[]
 }
 
-const safeName = (name: string): string => name.replace(/[\\/:*?"<>|]/g, '-')
+export const safeName = (name: string): string => name.replace(/[\\/:*?"<>|]/g, '-')
 
-// Bundles the artists' uploaded sound files into one ZIP and stores it in the same public
-// bucket, so the sound & light PDF can link to a single "download all" URL. It's a snapshot
-// of what's uploaded right now — regenerate the PDF to refresh it. Each run uploads a new
-// ZIP (a stable name would need an overwrite policy on the bucket).
-export const createMusicZipLink = async (
-  eventTitle: string,
-  entries: MusicZipEntry[],
-  // What the browser saves the file as — the stored object keeps its unique generated name.
-  downloadName: string
-): Promise<MusicZipResult> => {
+// Fetches every entry and zips them (in the browser). Entries that can't be fetched are listed
+// in `failed` instead of aborting the whole ZIP; throws only if nothing could be fetched.
+export const buildMusicZipBlob = async (
+  entries: MusicZipEntry[]
+): Promise<{ blob: Blob; included: number; failed: string[] }> => {
   const zip = new JSZip()
   const failed: string[] = []
   const used = new Set<string>()
@@ -49,8 +44,20 @@ export const createMusicZipLink = async (
 
   const included = entries.length - failed.length
   if (included === 0) throw new Error('Inga filer kunde hämtas.')
+  return { blob: await zip.generateAsync({ type: 'blob' }), included, failed }
+}
 
-  const blob = await zip.generateAsync({ type: 'blob' })
+// Bundles the artists' uploaded sound files into one ZIP and stores it in the same public
+// bucket, so the sound & light PDF can link to a single "download all" URL. It's a snapshot
+// of what's uploaded right now — regenerate the PDF to refresh it. Each run uploads a new
+// ZIP (a stable name would need an overwrite policy on the bucket).
+export const createMusicZipLink = async (
+  eventTitle: string,
+  entries: MusicZipEntry[],
+  // What the browser saves the file as — the stored object keeps its unique generated name.
+  downloadName: string
+): Promise<MusicZipResult> => {
+  const { blob, included, failed } = await buildMusicZipBlob(entries)
   const file = new File([blob], 'all-music.zip', { type: 'application/zip' })
   const path = await uploadStorageFile('artist-files', `${eventTitle}/technician`, file)
   // `download` makes the public URL serve the file under a readable name.

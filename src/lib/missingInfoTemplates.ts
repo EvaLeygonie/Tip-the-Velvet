@@ -1,11 +1,12 @@
 import { dietaryCategoryLabel, type Translate } from '@/lib/contactLabels'
 import type { Language } from '@/types/types'
+import { doorPlanSentence, type DoorPlan } from '@/lib/eventInfo'
 import type { MissingInfoPerson, MissingItem } from '@/lib/missingInfo'
 
 // The editable building blocks of the "missing info" emails. Artists get one email
-// assembled from whichever item lines they're actually missing; volunteers/staff only ever
-// owe food info, so theirs is a single plain body. `{name}` and `{link}` are filled in per
-// recipient when rendering.
+// assembled from whichever item lines they're actually missing; volunteers/staff owe food info
+// and/or a door shift, assembled the same way. `{name}`, `{link}` and `{plan}` are filled in
+// per recipient when rendering.
 export interface ArtistBlocks {
   subject: string
   greeting: string
@@ -20,8 +21,14 @@ export interface ArtistBlocks {
 export interface StaffBlocks {
   subject: string
   greeting: string
-  body: string
+  intro: string
+  food: string
+  // {link} = the volunteer info page, {plan} = "about 1 hour each…" (empty if no plan yet).
+  doorshift: string
+  outro: string
 }
+
+type ArtistItem = Exclude<MissingItem, 'doorshift'>
 
 export interface MissingInfoTemplates {
   artist: Record<Language, ArtistBlocks>
@@ -63,14 +70,20 @@ export const buildDefaultTemplates = (eventTitle: string): MissingInfoTemplates 
   },
   staff: {
     sv: {
-      subject: `Matpreferens — ${eventTitle}`,
+      subject: `Det här behöver vi från dig inför ${eventTitle}`,
       greeting: 'Hej {name}!',
-      body: `Inför ${eventTitle} behöver vi veta vad du vill äta. Svara på det här mailet och berätta:\n\n• Vilket alternativ som passar dig: ${foodOptions(svT)}\n• Om du har några allergier\n\nVarma hälsningar,\nTip the Velvet`,
+      intro: `Inför ${eventTitle} behöver vi lite information från dig:`,
+      food: `• Vad du vill äta: ${foodOptions(svT)} – och om du har några allergier. Svara på det här mailet så noterar vi det.`,
+      doorshift: '• Skriv upp dig på ett dörrpass här: {link}\n  {plan}',
+      outro: 'Varma hälsningar,\nTip the Velvet',
     },
     eng: {
-      subject: `Food preference — ${eventTitle}`,
+      subject: `What we still need from you for ${eventTitle}`,
       greeting: 'Hi {name}!',
-      body: `For ${eventTitle} we need to know what you'd like to eat. Just reply to this email and tell us:\n\n• Which option suits you: ${foodOptions(engT)}\n• Whether you have any allergies\n\nWarmly,\nTip the Velvet`,
+      intro: `For ${eventTitle} we need a little information from you:`,
+      food: `• What you would like to eat: ${foodOptions(engT)} – and whether you have any allergies. Just reply to this email and we will note it down.`,
+      doorshift: '• Please put your name on a door shift here: {link}\n  {plan}',
+      outro: 'Warmly,\nTip the Velvet',
     },
   },
 })
@@ -90,18 +103,27 @@ export const renderMissingInfoEmail = (
   names: string,
   items: MissingItem[],
   bookingLink: string | null,
-  musicActs: string[] = []
+  musicActs: string[] = [],
+  door: { infoLink: string | null; plan: DoorPlan | null } = { infoLink: null, plan: null }
 ): RenderedEmail => {
   if (kind === 'staff') {
     const blocks = templates.staff[language]
+    const lines = (['food', 'doorshift'] as const)
+      .filter((i) => items.includes(i))
+      .map((i) =>
+        blocks[i]
+          .replaceAll('{link}', door.infoLink ?? '')
+          .replaceAll('{plan}', door.plan ? doorPlanSentence(door.plan, language) : '')
+          .replace(/\n {2}$/, '')
+      )
     return {
       subject: blocks.subject,
       greeting: blocks.greeting.replaceAll('{name}', names),
-      body: blocks.body,
+      body: [blocks.intro, lines.join('\n'), blocks.outro].join('\n\n'),
     }
   }
   const blocks = templates.artist[language]
-  const itemOrder: MissingItem[] = ['food', 'music', 'notes', 'receipt']
+  const itemOrder: ArtistItem[] = ['food', 'music', 'notes', 'receipt']
   const lines = itemOrder
     .filter((i) => items.includes(i))
     .map((i) => blocks[i].replaceAll('{acts}', musicActs.join(', ')))

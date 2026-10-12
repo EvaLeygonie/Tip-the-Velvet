@@ -19,6 +19,7 @@ import {
   logInfoReminders,
   type InfoReminder,
 } from '@/services/infoReminderService'
+import type { DoorPlan } from '@/lib/eventInfo'
 import type { Language } from '@/types/types'
 
 export type MissingInfoFilter = MissingItem | 'all'
@@ -32,9 +33,11 @@ interface MissingInfoModalProps {
   // The Dashboard card the admin clicked — only decides who is listed first; every email
   // still asks each person for everything they're missing.
   initialFilter: MissingInfoFilter
+  // Per-person door time guidance for the door-shift reminder (null when no slots exist yet).
+  doorPlan?: DoorPlan | null
 }
 
-const ITEM_ORDER: MissingItem[] = ['food', 'music', 'notes', 'receipt']
+const ITEM_ORDER: MissingItem[] = ['food', 'music', 'notes', 'receipt', 'doorshift']
 
 // Module-level so the render body doesn't call Date.now() itself (same reasoning as
 // AdminDashboard's isRecent).
@@ -61,6 +64,7 @@ export const MissingInfoModal = ({
   eventTitle,
   people,
   initialFilter,
+  doorPlan = null,
 }: MissingInfoModalProps) => {
   const { t } = useLanguage()
   const [filter, setFilter] = useState<MissingInfoFilter>(initialFilter)
@@ -111,7 +115,9 @@ export const MissingInfoModal = ({
         ? t('Musik', 'Music')
         : item === 'notes'
           ? t('Scenanteckningar', 'Stage notes')
-          : t('Reskvitto', 'Receipt')
+          : item === 'receipt'
+            ? t('Reskvitto', 'Receipt')
+            : t('Dörrpass', 'Door shift')
 
   const filterOptions: { value: MissingInfoFilter; label: string; count: number }[] = [
     { value: 'all' as MissingInfoFilter, label: t('Alla', 'All'), count: people.length },
@@ -203,7 +209,11 @@ export const MissingInfoModal = ({
               joinNames(group.members.map(greetingName), group.language),
               items,
               group.members.find((m) => m.bookingLink)?.bookingLink ?? null,
-              [...new Set(group.members.flatMap((m) => m.musicActs))]
+              [...new Set(group.members.flatMap((m) => m.musicActs))],
+              {
+                infoLink: group.members.find((m) => m.infoLink)?.infoLink ?? null,
+                plan: doorPlan,
+              }
             )
           const result = await sendAdminEmail({
             to: group.email,
@@ -279,7 +289,8 @@ export const MissingInfoModal = ({
           greetingName(p),
           activeItems(p),
           p.bookingLink,
-          p.musicActs
+          p.musicActs,
+          { infoLink: p.infoLink, plan: doorPlan }
         ))
       : null
     return (
@@ -403,7 +414,17 @@ export const MissingInfoModal = ({
   const staffFields: { field: keyof StaffBlocks; label: string; rows: number }[] = [
     { field: 'subject', label: t('Ämnesrad', 'Subject'), rows: 1 },
     { field: 'greeting', label: t('Hälsning', 'Greeting'), rows: 1 },
-    { field: 'body', label: t('Mailtext', 'Email Text'), rows: 8 },
+    { field: 'intro', label: t('Inledning', 'Intro'), rows: 2 },
+    { field: 'food', label: t('Rad: mat', 'Line: food'), rows: 3 },
+    {
+      field: 'doorshift',
+      label: t(
+        'Rad: dörrpass ({link} = infosidan, {plan} = tid per person)',
+        'Line: door shift ({link} = info page, {plan} = time per person)'
+      ),
+      rows: 3,
+    },
+    { field: 'outro', label: t('Avslutning', 'Outro'), rows: 3 },
   ]
 
   const renderField = (

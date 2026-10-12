@@ -62,6 +62,7 @@ import { VipManualEntryRow } from '@/components/admin/event-plan/VipManualEntryR
 import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
 import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
 import { ShowProgramBoard } from '@/components/admin/event-plan/ShowProgramBoard'
+import { InfoHubTab } from '@/components/admin/event-plan/InfoHubTab'
 import { FoodTab } from '@/components/admin/event-plan/FoodTab'
 import { TravelAccommodationTab } from '@/components/admin/event-plan/TravelAccommodationTab'
 import { STANDING_ORGANIZERS, ROLE_ORDER } from '@/components/admin/event-plan/constants'
@@ -707,17 +708,6 @@ export const AdminEventPlan = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('food')}
-              className={
-                activeTab === 'food'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Mat', 'Food')}
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveTab('travel')}
               className={
                 activeTab === 'travel'
@@ -729,6 +719,17 @@ export const AdminEventPlan = () => {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('food')}
+              className={
+                activeTab === 'food'
+                  ? 'btn-gold text-xs py-2 px-4'
+                  : 'btn-gold-outline text-xs py-2 px-4'
+              }
+            >
+              {t('Mat', 'Food')}
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('vip')}
               className={
                 activeTab === 'vip'
@@ -737,6 +738,17 @@ export const AdminEventPlan = () => {
               }
             >
               {t('VIP', 'VIP')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('info')}
+              className={
+                activeTab === 'info'
+                  ? 'btn-gold text-xs py-2 px-4'
+                  : 'btn-gold-outline text-xs py-2 px-4'
+              }
+            >
+              {t('Info & länkar', 'Info & links')}
             </button>
           </div>
 
@@ -932,6 +944,16 @@ export const AdminEventPlan = () => {
                   vipEntries={vipEntries}
                   onRequestVipForSalesperson={handleRequestVipForSalesperson}
                   onRequestVipForExhibitor={handleRequestVipForExhibitor}
+                />
+              )}
+
+              {activeTab === 'info' && (
+                <InfoHubTab
+                  eventId={selectedEventId}
+                  eventTitle={eventTitle}
+                  performers={performers}
+                  staffRows={staffRows}
+                  acts={acts}
                 />
               )}
 

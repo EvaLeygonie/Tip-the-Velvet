@@ -39,6 +39,9 @@ export const VenueRow = ({
     email: row.email ?? '',
     phone: row.phone ?? '',
     price: row.price != null ? String(row.price) : '',
+    practical_info_sv: row.practical_info_sv ?? '',
+    practical_info_eng: row.practical_info_eng ?? '',
+    door_code: row.door_code ?? '',
     language: row.language,
   })
 
@@ -61,6 +64,9 @@ export const VenueRow = ({
           email: draft.email.trim() || null,
           phone: draft.phone.trim() || null,
           price: draft.price === '' ? null : Number(draft.price),
+          practical_info_sv: draft.practical_info_sv.trim() || null,
+          practical_info_eng: draft.practical_info_eng.trim() || null,
+          door_code: draft.door_code.trim() || null,
           language: draft.language,
         },
         isNew
@@ -229,6 +235,21 @@ export const VenueRow = ({
                 className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
               />
             </div>
+            <div className="space-y-1">
+              <label className="form-label-gold block">{t('Portkod', 'Entry code')}</label>
+              <input
+                type="text"
+                value={draft.door_code}
+                onChange={(e) => setDraft({ ...draft, door_code: e.target.value })}
+                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+              />
+              <p className="text-[11px] text-foreground/40">
+                {t(
+                  'Visas på infosidorna först 38 timmar före eventstart.',
+                  'Shown on the info pages only from 38 hours before the event starts.'
+                )}
+              </p>
+            </div>
             <div className="space-y-1 sm:col-span-2">
               <label className="form-label-gold block">{t('Kartlänk', 'Map link')}</label>
               <input
@@ -236,6 +257,42 @@ export const VenueRow = ({
                 value={draft.map_link}
                 onChange={(e) => setDraft({ ...draft, map_link: e.target.value })}
                 className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="form-label-gold block">
+                {t(
+                  'Praktisk info för artister & crew (svenska)',
+                  'Practical info for artists & crew (Swedish)'
+                )}
+              </label>
+              <textarea
+                rows={6}
+                value={draft.practical_info_sv}
+                placeholder={t(
+                  'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
+                  'Tram, stage size, load-in, mirrors, food nearby…'
+                )}
+                onChange={(e) => setDraft({ ...draft, practical_info_sv: e.target.value })}
+                className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="form-label-gold block">
+                {t(
+                  'Praktisk info för artister & crew (engelska)',
+                  'Practical info for artists & crew (English)'
+                )}
+              </label>
+              <textarea
+                rows={6}
+                value={draft.practical_info_eng}
+                placeholder={t(
+                  'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
+                  'Tram, stage size, load-in, mirrors, food nearby…'
+                )}
+                onChange={(e) => setDraft({ ...draft, practical_info_eng: e.target.value })}
+                className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
               />
             </div>
           </div>

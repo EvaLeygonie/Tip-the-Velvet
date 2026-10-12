@@ -693,40 +693,6 @@ export const getAllVenues = async () => {
   return data
 }
 
-export const getAllPhotographers = async () => {
-  const { data, error } = await supabase
-    .from('public_photographers')
-    .select('id, name')
-    .order('name')
-
-  if (error) throw error
-  return data
-}
-
-// Keeps event_staff_volunteers' photographer row in sync with EventEditor's
-// photographer_id dropdown (the EventEditor -> Contacts direction — the reverse direction
-// is handled by contactsService.confirmStaffForEvent). Only one photographer per event, so
-// any existing role='photographer' row is removed before (optionally) inserting the new
-// one; staffId of null just clears it.
-export const setEventPhotographer = async (
-  eventId: string,
-  staffId: string | null
-): Promise<void> => {
-  const { error: deleteError } = await supabase
-    .from('event_staff_volunteers')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('role', 'photographer')
-  if (deleteError) throw deleteError
-
-  if (staffId) {
-    const { error } = await supabase
-      .from('event_staff_volunteers')
-      .insert({ event_id: eventId, staff_id: staffId, role: 'photographer' })
-    if (error) throw error
-  }
-}
-
 //=== CREATE ===//
 
 export const createEvent = async (eventData: CreateEventInput): Promise<Event> => {
