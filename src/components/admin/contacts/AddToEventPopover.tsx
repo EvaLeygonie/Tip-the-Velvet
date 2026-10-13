@@ -44,7 +44,11 @@ export interface PopoverAction {
   successMessage: string
   onClick: (
     eventId: string,
-    selection?: { role: StaffVolunteerType; roleDetails: string | null; shift: VolunteerShift | null }
+    selection?: {
+      role: StaffVolunteerType
+      roleDetails: string | null
+      shift: VolunteerShift | null
+    }
   ) => Promise<void>
   // Only the staff "Confirm" action sets this — reveals a role (+ shift) picker inline
   // instead of firing immediately, and keeps the popover open afterward so another role can
@@ -235,7 +239,7 @@ export const AddToEventPopover = ({
             <select
               value={targetEventId}
               onChange={(e) => setTargetEventId(e.target.value)}
-              className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white text-center"
+              className="velvet-select text-center"
             >
               {upcomingEvents.map((evt) => (
                 <option key={evt.id} value={evt.id}>
@@ -283,7 +287,7 @@ export const AddToEventPopover = ({
               <select
                 value={selectedRole ?? ''}
                 onChange={(e) => setSelectedRole(e.target.value as StaffVolunteerType)}
-                className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+                className="velvet-select"
               >
                 {pendingAction.needsRoleSelection.roleOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -301,7 +305,7 @@ export const AddToEventPopover = ({
                   onChange={(e) =>
                     setSelectedShift((e.target.value || null) as VolunteerShift | null)
                   }
-                  className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+                  className="velvet-select"
                 >
                   <option value="">{t('Inget pass (valfritt)', 'No shift (optional)')}</option>
                   {VOLUNTEER_SHIFT_ORDER.map((shift) => (
@@ -319,7 +323,7 @@ export const AddToEventPopover = ({
                 value={roleDetails}
                 onChange={(e) => setRoleDetails(e.target.value)}
                 rows={2}
-                className="w-full text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                className="velvet-textarea"
               />
             </div>
 

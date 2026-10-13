@@ -9,18 +9,30 @@ import {
 } from '@/lib/eventDocuments'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import type { InfoDocKey } from '@/lib/eventInfo'
+import { downloadBlob } from '@/lib/utils'
+import { buildVipListHtml } from '@/lib/vipListHtml'
+
+// What get_event_document_data returns (the rpc itself is typed as plain Json).
+interface HubDocumentData {
+  event_title: string
+  event_start: string | null
+  acts?: unknown[]
+  performers?: unknown[]
+  staff?: Parameters<typeof groupStaffRowsByPerson>[0]
+  vip_entries?: unknown[]
+}
 
 const loadDocContext = async (
   token: string,
   doc: InfoDocKey,
   t: (sv: string, eng: string) => string
 ): Promise<EventDocContext> => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc('get_event_document_data', {
+  const { data: data_, error } = await supabase.rpc('get_event_document_data', {
     p_token: token,
     p_doc: doc,
   })
   if (error) throw error
+  const data = (data_ ?? {}) as unknown as HubDocumentData
 
   return {
     t,
@@ -70,13 +82,29 @@ export const downloadHubMusicZip = async (
 
   const { blob, included, failed } = await buildMusicZipBlob(entries)
   const fileName = `${ctx.eventTitle}${ctx.eventStart ? ` - ${ctx.eventStart.slice(0, 10)}` : ''}.zip`
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = safeName(fileName)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, safeName(fileName))
   return { included, failed }
+}
+
+// The printable A4 VIP list (tick boxes) opened in a new tab, next to the guest list link on
+// the volunteer page. The tab is opened *before* the data is fetched — browsers only allow
+// window.open straight from a click, not after an await — and pointed at the page once it is
+// built. If the browser blocks the tab, the file is downloaded instead.
+export const openHubVipList = async (
+  token: string,
+  t: (sv: string, eng: string) => string
+): Promise<void> => {
+  const tab = window.open('', '_blank')
+  try {
+    const ctx = await loadDocContext(token, 'vipList', t)
+    const blob = new Blob([buildVipListHtml(ctx)], { type: 'text/html;charset=utf-8' })
+    if (tab) {
+      tab.location.href = URL.createObjectURL(blob)
+    } else {
+      downloadBlob(blob, safeName(`${ctx.eventTitle}-vip-lista.html`))
+    }
+  } catch (err) {
+    tab?.close()
+    throw err
+  }
 }

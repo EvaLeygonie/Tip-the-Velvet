@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Mail, CalendarPlus, CircleMinus, Ban, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mail, CalendarPlus, CircleMinus, Ban } from 'lucide-react'
 import { toast } from 'sonner'
 import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { EntertainerProfileModal } from '@/components/admin/event-plan/EntertainerProfileModal'
@@ -20,7 +20,8 @@ import {
 } from '@/services/contactsService'
 import type { StaffEventStatus } from '@/services/contactsService'
 import type { StaffVolunteers, StaffVolunteerType } from '@/types/types'
-import { useConfirm } from '@/contexts/ConfirmContext'
+import { useContactRow } from '@/hooks/useContactRow'
+import { ContactRowFooter } from './ContactRowFooter'
 
 // Mirrors CastingApplicationRow.tsx's statusRowClass convention rather than inventing a
 // new one — plain border/bg tint, no pill, so it reads at a glance without competing with
@@ -66,9 +67,6 @@ export const StaffVolunteerRow = ({
   onToggleSelect,
 }: StaffVolunteerRowProps) => {
   const { t, language } = useLanguage()
-  const askConfirm = useConfirm()
-  const [isExpanded, setIsExpanded] = useState(isNew)
-  const [isSaving, setIsSaving] = useState(false)
   const [showEventPopover, setShowEventPopover] = useState(false)
   const [profileEventId, setProfileEventId] = useState<string | null>(null)
   const [draft, setDraft] = useState({
@@ -83,71 +81,43 @@ export const StaffVolunteerRow = ({
     language: row.language,
   })
 
-  const handleSave = async () => {
-    if (!draft.name.trim()) {
-      toast.error(t('Namn krävs.', 'Name is required.'))
-      return
-    }
-    setIsSaving(true)
-    try {
-      await onSave(
-        row.id,
-        {
-          name: draft.name.trim(),
-          email: draft.email.trim() || null,
-          phone: draft.phone.trim() || null,
-          role: draft.role,
-          role_details: draft.role_details.trim() || null,
-          link: draft.link.trim() || null,
-          fee: draft.fee === '' ? null : Number(draft.fee),
-          worked_with: draft.worked_with,
-          language: draft.language,
-        },
-        isNew
-      )
-      if (!isNew) setIsExpanded(false)
-    } catch (err: unknown) {
-      const dbError = err as { code?: string; message?: string }
-      if (dbError?.code === '23505' || dbError?.message?.includes('unique_volunteer_role')) {
-        toast.error(
-          t(
+  const { isExpanded, toggle, isSaving, rootRef, save, remove } = useContactRow({
+    id: row.id,
+    name: row.name,
+    isNew,
+    onSave,
+    onDelete,
+    linkedDeleteMessage: {
+      sv: 'Kan inte radera — kontakten är kopplad till ett event.',
+      eng: "Can't delete — this contact is still linked to an event.",
+    },
+    saveErrorMessage: (err) =>
+      err.code === '23505' || err.message?.includes('unique_volunteer_role')
+        ? t(
             'Det finns redan en volontär med denna e-post och roll.',
             'A volunteer with this email and role already exists.'
           )
-        )
-      } else {
-        toast.error(t('Kunde inte spara.', 'Could not save.'))
-      }
-    } finally {
-      setIsSaving(false)
-    }
-  }
+        : null,
+  })
 
-  const handleDelete = async () => {
-    const confirmed = await askConfirm({
-      message: t(
-        `Är du säker på att du vill radera ${row.name}?`,
-        `Are you sure you want to delete ${row.name}?`
-      ),
-      destructive: true,
-    })
-    if (!confirmed) return
-    try {
-      await onDelete(row.id)
-    } catch (err: unknown) {
-      const dbError = err as { code?: string }
-      if (dbError?.code === '23503') {
-        toast.error(
-          t(
-            'Kan inte radera — kontakten är kopplad till ett event.',
-            "Can't delete — this contact is still linked to an event."
-          )
-        )
-      } else {
-        toast.error(t('Kunde inte radera.', 'Could not delete.'))
+  const handleSave = () =>
+    save(() => {
+      if (!draft.name.trim()) {
+        toast.error(t('Namn krävs.', 'Name is required.'))
+        return null
       }
-    }
-  }
+      return {
+        name: draft.name.trim(),
+        email: draft.email.trim() || null,
+        phone: draft.phone.trim() || null,
+        role: draft.role,
+        role_details: draft.role_details.trim() || null,
+        link: draft.link.trim() || null,
+        fee: draft.fee === '' ? null : Number(draft.fee),
+        worked_with: draft.worked_with,
+        language: draft.language,
+      }
+    })
 
   const status = eventStatus?.status
   const rowStatusClass = status ? (EVENT_STATUS_ROW_CLASS[status] ?? '') : ''
@@ -298,9 +268,10 @@ export const StaffVolunteerRow = ({
 
   return (
     <div
+      ref={rootRef}
       className={`admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer ${rowStatusClass}`}
       style={{ padding: 0 }}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={toggle}
     >
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
         <div className="grid grid-cols-12 gap-4 items-center flex-1 min-w-0">
@@ -458,7 +429,7 @@ export const StaffVolunteerRow = ({
                 type="text"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -466,7 +437,7 @@ export const StaffVolunteerRow = ({
               <select
                 value={draft.role}
                 onChange={(e) => setDraft({ ...draft, role: e.target.value as StaffVolunteerType })}
-                className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+                className="velvet-select"
               >
                 {roleOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -481,7 +452,7 @@ export const StaffVolunteerRow = ({
                 type="email"
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -490,7 +461,7 @@ export const StaffVolunteerRow = ({
                 type="text"
                 value={draft.phone}
                 onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -499,7 +470,7 @@ export const StaffVolunteerRow = ({
                 type="text"
                 value={draft.link}
                 onChange={(e) => setDraft({ ...draft, link: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -508,7 +479,7 @@ export const StaffVolunteerRow = ({
                 type="number"
                 value={draft.fee}
                 onChange={(e) => setDraft({ ...draft, fee: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
@@ -516,7 +487,7 @@ export const StaffVolunteerRow = ({
               <textarea
                 value={draft.role_details}
                 onChange={(e) => setDraft({ ...draft, role_details: e.target.value })}
-                className="w-full h-20 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                className="velvet-textarea h-20 resize-none"
               />
             </div>
           </div>
@@ -544,35 +515,13 @@ export const StaffVolunteerRow = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
-            {!isNew ? (
-              <button type="button" onClick={handleDelete} className="btn-red text-xs py-2 px-4">
-                {t('Radera', 'Delete')}
-              </button>
-            ) : (
-              <div />
-            )}
-            <div className="flex items-center gap-2">
-              {isNew && onCancelNew && (
-                <button
-                  type="button"
-                  onClick={() => onCancelNew(row.id)}
-                  className="px-4 py-2 text-xs border border-accent/20 rounded text-foreground/70 hover:bg-white/5 transition-colors"
-                >
-                  {t('Avbryt', 'Cancel')}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5"
-              >
-                {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {t('Spara', 'Save')}
-              </button>
-            </div>
-          </div>
+          <ContactRowFooter
+            isNew={isNew}
+            isSaving={isSaving}
+            onSave={handleSave}
+            onDelete={remove}
+            onCancelNew={onCancelNew ? () => onCancelNew(row.id) : undefined}
+          />
         </div>
       )}
       {profileEventId && (

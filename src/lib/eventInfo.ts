@@ -1,6 +1,6 @@
 import type { StaffVolunteerType } from '@/types/types'
 
-// The info hub: one token link per role per event (see supabase/migrations/20261012_event_info_hub.sql).
+// The info hub: one token link per role per event.
 // An item with no audiences is shown to everyone.
 
 // Lets the Navigation show an "Event info" link once someone has opened their link on this device.
@@ -239,6 +239,14 @@ export const formatDuration = (minutes: number, language: 'sv' | 'eng'): string 
   return language === 'sv'
     ? `${shown} ${plural ? 'timmar' : 'timme'}`
     : `${shown} ${plural ? 'hours' : 'hour'}`
+}
+
+// Compact version for tight spots: "1 tim" / "1,5 tim" / "1 h" / "30 min".
+export const formatDurationShort = (minutes: number, language: 'sv' | 'eng'): string => {
+  if (minutes < 60) return `${minutes} min`
+  const hours = minutes / 60
+  const num = Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
+  return language === 'sv' ? `${num.replace('.', ',')} tim` : `${num} h`
 }
 
 export const doorPlanSentence = (plan: DoorPlan, language: 'sv' | 'eng'): string => {

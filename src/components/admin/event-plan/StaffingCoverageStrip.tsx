@@ -26,7 +26,7 @@ const STAGE_KITTEN_MIN = 2
 // relabeled "Musik"/"Music" here since that card now covers all three playlist slots, not
 // just whether a DJ is booked — see the "dj" branch below.
 const shortLabel = (t: (sv: string, en: string) => string, role: StaffVolunteerType): string => {
-  if (role === 'doorman') return t('Värd', 'Host')
+  if (role === 'doorman') return t('Dörrvakt', 'Guard')
   if (role === 'stage_kitten') return t('Stage', 'Stage')
   if (role === 'dj') return t('Musik', 'Music')
   return staffRoleLabel(t, role)

@@ -51,6 +51,7 @@ export const EventInfoHub = () => {
   const [busySlot, setBusySlot] = useState<string | null>(null)
   const [busyDoc, setBusyDoc] = useState<InfoDocKey | null>(null)
   const [busyZip, setBusyZip] = useState(false)
+  const [busyVip, setBusyVip] = useState(false)
 
   const [reloadKey, setReloadKey] = useState(0)
   const reload = () => setReloadKey((k) => k + 1)
@@ -111,6 +112,20 @@ export const EventInfoHub = () => {
       toast.error(t('Kunde inte skapa dokumentet.', 'Could not create the document.'))
     } finally {
       setBusyDoc(null)
+    }
+  }
+
+  const handleOpenVipList = async () => {
+    if (!token) return
+    setBusyVip(true)
+    try {
+      const { openHubVipList } = await import('@/lib/hubDocuments')
+      await openHubVipList(token, t)
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte skapa dokumentet.', 'Could not create the document.'))
+    } finally {
+      setBusyVip(false)
     }
   }
 
@@ -192,6 +207,8 @@ export const EventInfoHub = () => {
   const documents = items.filter((i) => i.kind === 'document')
   const generals = info.contacts.filter((c) => c.kind === 'general')
   const others = info.contacts.filter((c) => c.kind !== 'general')
+  // Only once the board has released the VIP list to this link (it is also a document item).
+  const hasVipList = audience === 'volunteer' && documents.some((i) => i.doc_key === 'vipList')
   const venueInfo = venue ? pick(venue.practical_info_sv, venue.practical_info_eng) : ''
 
   const doorPlan = planDoorShifts(slots, info.door_people ?? 0)
@@ -219,25 +236,19 @@ export const EventInfoHub = () => {
 
       <div className="max-w-3xl mx-auto space-y-6 text-left">
         {/* Access + contacts */}
-        {(access?.has_door_code || access?.has_checkin_url || info.contacts.length > 0) && (
+        {(access?.door_code ||
+          access?.has_checkin_url ||
+          hasVipList ||
+          info.contacts.length > 0) && (
           <section className="admin-panel velvet-surface p-5 space-y-4">
-            {access?.has_door_code && (
+            {access?.door_code && (
               <div className="flex items-start gap-3">
                 <KeyRound className="h-5 w-5 text-accent shrink-0 mt-0.5" />
                 <div>
                   <div className="form-label-gold">{t('Portkod / väg in', 'Entry code')}</div>
-                  {access.door_code ? (
-                    <div className="text-2xl font-mono tracking-widest text-foreground">
-                      {access.door_code}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-foreground/70">
-                      {t(
-                        `Koden visas här från ${formatDateTime(access.reveal_at, language)}.`,
-                        `The code appears here from ${formatDateTime(access.reveal_at, language)}.`
-                      )}
-                    </p>
-                  )}
+                  <div className="text-2xl font-mono tracking-widest text-foreground">
+                    {access.door_code}
+                  </div>
                 </div>
               </div>
             )}
@@ -265,6 +276,24 @@ export const EventInfoHub = () => {
                       )}
                     </p>
                   )}
+                </div>
+              </div>
+            )}
+            {hasVipList && (
+              <div className="flex items-start gap-3">
+                <FileText className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                <div>
+                  <div className="form-label-gold">{t('VIP-lista', 'VIP list')}</div>
+                  <button
+                    type="button"
+                    disabled={busyVip}
+                    onClick={handleOpenVipList}
+                    className="text-accent hover:underline disabled:opacity-60"
+                  >
+                    {busyVip
+                      ? t('Öppnar…', 'Opening…')
+                      : t('Öppna utskriftsvänlig lista', 'Open printable list')}
+                  </button>
                 </div>
               </div>
             )}
@@ -332,7 +361,7 @@ export const EventInfoHub = () => {
                   value={name}
                   maxLength={60}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                  className="velvet-input"
                 />
               </div>
               <ul className="divide-y divide-accent/10">

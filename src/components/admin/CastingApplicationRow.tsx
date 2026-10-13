@@ -15,7 +15,7 @@ import {
   BusFront,
   Home,
   DollarSign,
-  Check,
+  FileSignature,
   Loader2,
   Crown,
   Mic2,
@@ -26,6 +26,8 @@ import { toast } from 'sonner'
 interface CastingApplicationRowProps {
   application: CastingApplicationWithActs
   eventTitle: string
+  // Confirmed artists link to their rows on the Show planning / Travel tabs of the same page.
+  onOpenTab?: (tab: 'show' | 'travel') => void
   onStatusChange: (id: string, newStatus: CastingApplication['review_status']) => Promise<void>
   onSaveNotes: (id: string, notes: string) => Promise<void>
   onUpdateLogistics: (
@@ -66,6 +68,7 @@ const Instagram = ({ size = 20 }: { size?: number }) => (
 export const CastingApplicationRow = ({
   application,
   eventTitle,
+  onOpenTab,
   onStatusChange,
   onSaveNotes,
   onUpdateLogistics,
@@ -644,7 +647,21 @@ export const CastingApplicationRow = ({
                 )}
               </div>
               <div className="text-accent italic text-xs font-heading flex items-center gap-1.5 min-w-0">
-                <span className="truncate min-w-0">{displayActTitle}</span>
+                {onOpenTab && application.booking_status === 'confirmed' ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenTab('show')
+                    }}
+                    title={t('Visa i showplaneringen', 'Show in show planning')}
+                    className="truncate min-w-0 italic hover:underline text-left"
+                  >
+                    {displayActTitle}
+                  </button>
+                ) : (
+                  <span className="truncate min-w-0">{displayActTitle}</span>
+                )}
                 {extraActCount > 0 && (
                   <span
                     className="shrink-0 not-italic font-body font-semibold text-[10px] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full"
@@ -687,12 +704,44 @@ export const CastingApplicationRow = ({
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
                   {needsTravel && (
-                    <span title={t('Erbjuder resa', 'Offers travel')}>
+                    <span
+                      title={
+                        onOpenTab && application.booking_status === 'confirmed'
+                          ? t('Visa under Resa & boende', 'Show under Travel & accommodation')
+                          : t('Erbjuder resa', 'Offers travel')
+                      }
+                      className={
+                        onOpenTab && application.booking_status === 'confirmed'
+                          ? 'cursor-pointer'
+                          : ''
+                      }
+                      onClick={(e) => {
+                        if (!onOpenTab || application.booking_status !== 'confirmed') return
+                        e.stopPropagation()
+                        onOpenTab('travel')
+                      }}
+                    >
                       <BusFront className="h-3.5 w-3.5 text-gold" />
                     </span>
                   )}
                   {needsAccom && (
-                    <span title={t('Erbjuder boende', 'Offers accommodation')}>
+                    <span
+                      title={
+                        onOpenTab && application.booking_status === 'confirmed'
+                          ? t('Visa under Resa & boende', 'Show under Travel & accommodation')
+                          : t('Erbjuder boende', 'Offers accommodation')
+                      }
+                      className={
+                        onOpenTab && application.booking_status === 'confirmed'
+                          ? 'cursor-pointer'
+                          : ''
+                      }
+                      onClick={(e) => {
+                        if (!onOpenTab || application.booking_status !== 'confirmed') return
+                        e.stopPropagation()
+                        onOpenTab('travel')
+                      }}
+                    >
                       <Home className="h-3.5 w-3.5 text-accent/50" />
                     </span>
                   )}
@@ -729,7 +778,7 @@ export const CastingApplicationRow = ({
                 className="p-2 border rounded-md transition-colors shrink-0 bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-black"
                 title={t('Visa kontrakt', 'View contract')}
               >
-                <Check className="h-4 w-4" />
+                <FileSignature className="h-4 w-4" />
               </button>
             </Link>
           ) : (
@@ -1234,7 +1283,7 @@ export const CastingApplicationRow = ({
                   type="text"
                   value={mailSubject}
                   onChange={(e) => setMailSubject(e.target.value)}
-                  className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                  className="velvet-field"
                 />
               </div>
 
@@ -1245,7 +1294,7 @@ export const CastingApplicationRow = ({
                 <textarea
                   value={currentMailBodyText}
                   onChange={(e) => setCustomMailBodyText(e.target.value)}
-                  className="w-full h-44 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                  className="velvet-textarea h-44 resize-none"
                 />
               </div>
 

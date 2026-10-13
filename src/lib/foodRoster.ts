@@ -1,7 +1,7 @@
 import type { AdminEventPerformerRow, AdminEventOrganizerFoodRow } from '@/services/eventService'
 import type { GroupedStaffPerson } from '@/lib/staffRowGrouping'
 import type { DietaryCategory, Language } from '@/types/types'
-import { staffRoleLabel, type Translate } from '@/lib/contactLabels'
+import { staffRoleLabel, volunteerShiftLabel, type Translate } from '@/lib/contactLabels'
 
 // One shared shape for "someone who might need feeding at this event," merging three tables
 // that don't otherwise agree on field names: performers always eat (event_performers has no
@@ -25,12 +25,51 @@ export interface FoodPerson {
   staffId?: string
 }
 
-// Which shift a volunteer is covering doesn't matter for food planning — just that they're
-// a volunteer (and any other role they also hold) — so this drops staffPersonRoleSummary's
-// shift detail ("Volontär (Setup & Dörrvakt)") down to the plain role label ("Volontär").
-// Direct feedback 2026-10-07.
-const foodSubtitle = (t: Translate, rows: GroupedStaffPerson['rows']): string =>
-  Array.from(new Set(rows.map((row) => staffRoleLabel(t, row.role)))).join(', ')
+// Volunteers are described by the shift they cover rather than the generic "Volontär" —
+// setup volunteers are there all day (so they eat), door/takedown volunteers arrive later,
+// so the shift is the useful bit for food planning. Direct feedback 2026-10-13.
+const foodRowLabel = (t: Translate, row: GroupedStaffPerson['rows'][number]): string =>
+  row.role === 'volunteer' && row.shift
+    ? volunteerShiftLabel(t, row.shift)
+    : staffRoleLabel(t, row.role)
+
+// Order people appear in the "Doesn't need food" list — roughly most-likely-to-eat first:
+// artist, organizer, technician, photographer, transport, stage kitten, setup, entertainment,
+// DJ, guard, door, takedown, other. A person with several roles sorts by their best one.
+const FOOD_PRIORITY = [
+  'performer',
+  'organizer',
+  'technician',
+  'photographer',
+  'driving',
+  'stage_kitten',
+  'setup',
+  'entertainment',
+  'dj',
+  'doorman',
+  'guestlist',
+  'takedown',
+]
+
+const rankOf = (key: string): number => {
+  const i = FOOD_PRIORITY.indexOf(key)
+  return i === -1 ? FOOD_PRIORITY.length : i
+}
+
+export const foodPriorityRank = (kind: 'performer' | 'organizer'): number => rankOf(kind)
+
+const rowRank = (row: GroupedStaffPerson['rows'][number]): number =>
+  rankOf(row.role === 'volunteer' ? (row.shift ?? 'other') : row.role)
+
+export const staffFoodPriorityRank = (rows: GroupedStaffPerson['rows']): number =>
+  Math.min(...rows.map(rowRank))
+
+// Labels follow the same priority as the list order (so "Setup, Städ", not the other way
+// round, whichever shift was added first).
+export const foodSubtitle = (t: Translate, rows: GroupedStaffPerson['rows']): string =>
+  Array.from(
+    new Set([...rows].sort((a, b) => rowRank(a) - rowRank(b)).map((row) => foodRowLabel(t, row)))
+  ).join(', ')
 
 export const buildFoodRoster = (
   t: Translate,
@@ -38,20 +77,22 @@ export const buildFoodRoster = (
   groupedStaff: GroupedStaffPerson[],
   organizers: AdminEventOrganizerFoodRow[]
 ): FoodPerson[] => [
-  ...performers.map(
-    (p): FoodPerson => ({
-      key: `performer:${p.performer_id}`,
-      name: p.performer.performer_name,
-      email: p.performer.email,
-      language: p.performer.language,
-      subtitle: t('Artist', 'Artist'),
-      category: p.dietary_category,
-      notes: p.dietary_requirements,
-      notesEditable: false,
-      kind: 'performer',
-      performerId: p.performer_id,
-    })
-  ),
+  ...performers
+    .filter((p) => p.needs_food)
+    .map(
+      (p): FoodPerson => ({
+        key: `performer:${p.performer_id}`,
+        name: p.performer.performer_name,
+        email: p.performer.email,
+        language: p.performer.language,
+        subtitle: t('Artist', 'Artist'),
+        category: p.dietary_category,
+        notes: p.dietary_requirements,
+        notesEditable: false,
+        kind: 'performer',
+        performerId: p.performer_id,
+      })
+    ),
   ...groupedStaff
     .filter((p) => p.needs_food)
     .map(

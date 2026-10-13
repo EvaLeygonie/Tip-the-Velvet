@@ -849,6 +849,29 @@ body {
     @apply form-label-gold block mb-2;
   }
 
+  /* Dark text fields used across the admin forms. Add sizing (h-*, w-*) as utilities where
+     needed; velvet-input is the standard single-line height. */
+  .velvet-field {
+    @apply w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white;
+  }
+
+  .velvet-input {
+    @apply velvet-field h-9;
+  }
+
+  /* Compact variant for dense rows (add a w-* utility where it shouldn't fill the width). */
+  .velvet-input-sm {
+    @apply w-full h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white;
+  }
+
+  .velvet-select {
+    @apply velvet-input flex items-center py-2 pl-2 pr-8;
+  }
+
+  .velvet-textarea {
+    @apply velvet-field font-sans leading-relaxed resize-none;
+  }
+
   /* -- DRESSCODE -- */
   .velvet-card {
     @apply velvet-surface flex flex-col justify-between p-8 rounded-2xl transition-all duration-300;

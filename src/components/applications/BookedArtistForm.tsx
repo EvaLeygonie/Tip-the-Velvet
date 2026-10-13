@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { toast } from 'sonner'
 import {
@@ -14,10 +15,11 @@ import {
   Crown,
   Mic2,
   Car,
+  X,
 } from 'lucide-react'
 import type { CastingApplicationPortalData, DietaryCategory } from '@/types/types'
 import { dietaryCategoryLabel } from '@/lib/contactLabels'
-import { uploadStorageFile } from '@/services/databaseService'
+import { uploadStorageFile, uploadStorageFileWithProgress } from '@/services/databaseService'
 import { supabase } from '@/lib/supabase'
 import {
   updatePerformerAct,
@@ -93,6 +95,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   application,
   onSaveSuccess,
 }) => {
+  const confirm = useConfirm()
   const { t } = useLanguage()
 
   const [submitting, setSubmitting] = useState(false)
@@ -130,10 +133,13 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const [pendingDeletePaths, setPendingDeletePaths] = useState<string[]>([])
 
   const [uploadingAudio, setUploadingAudio] = useState(false)
+  // 0–1 while an audio file is uploading; the status area shows it as a percentage.
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
   const [newTrackTitle, setNewTrackTitle] = useState('')
   const [newTrackArtist, setNewTrackArtist] = useState('')
+  const [attachingTrackId, setAttachingTrackId] = useState<string | null>(null)
   const [newTrackFile, setNewTrackFile] = useState<{
     name: string
     url: string
@@ -284,8 +290,16 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
     setUploadingAudio(true)
     try {
+      // Replacing a file that was never added to the act: the old upload would be orphaned.
+      if (newTrackFile) await removeStoredFile(newTrackFile.path)
       const folderPath = getStorageFolderPath('audio-tracks')
-      const rawPath = await uploadStorageFile('artist-files', folderPath, file)
+      setUploadProgress(0)
+      const rawPath = await uploadStorageFileWithProgress(
+        'artist-files',
+        folderPath,
+        file,
+        setUploadProgress
+      )
       const publicUrl = getPublicFileUrl(rawPath)
 
       setNewTrackFile({
@@ -293,16 +307,23 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         url: publicUrl,
         path: rawPath,
       })
+      // The file is already in storage but not yet part of the act — warn on leaving.
+      setIsDirty(true)
       toast.success(
         t(
-          'Ljudfil bifogad! Glöm inte att klicka "Lägg till låt i akten".',
-          'Audio file attached! Don\'t forget to press "Add song to act".'
+          'Ljudfilen är uppladdad! Fyll i låttitel och artist och spara formuläret.',
+          'Audio file uploaded! Fill in the song title and artist and save the form.'
         ),
         { duration: 7000 }
       )
     } catch (err) {
       console.error(err)
-      toast.error(t('Kunde inte ladda upp ljudfilen.', 'Could not upload audio file.'))
+      toast.error(
+        t(
+          'Kunde inte ladda upp ljudfilen just nu – servern var upptagen. Vänta en stund och försök igen.',
+          'Could not upload the audio file right now – the server was busy. Wait a moment and try again.'
+        )
+      )
     } finally {
       setUploadingAudio(false)
       e.target.value = ''
@@ -310,23 +331,15 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   }
 
   const handleAddTrack = () => {
-    if (!newTrackTitle.trim() || !newTrackArtist.trim()) {
-      toast.error(
-        t(
-          'Ange både låttitel och artist för att lägga till låten. Ladda upp fil vid behov.',
-          'Please enter both a track title and artist to add the song. Upload a file if needed.'
-        )
-      )
-      return
-    }
+    if (!newTrackTitle.trim() || !newTrackArtist.trim() || !newTrackFile) return
 
     const newTrack: AudioTrackItem = {
       id: `track-${Date.now()}`,
       title: newTrackTitle.trim(),
       artist: newTrackArtist.trim(),
-      fileName: newTrackFile?.name,
-      fileUrl: newTrackFile?.url,
-      filePath: newTrackFile?.path,
+      fileName: newTrackFile.name,
+      fileUrl: newTrackFile.url,
+      filePath: newTrackFile.path,
     }
 
     setActsFormData((prev) =>
@@ -346,6 +359,70 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         "Track added to the list! Don't forget to save the form."
       )
     )
+  }
+
+  // A just-uploaded file that isn't part of any song yet can simply be deleted again.
+  const removeStoredFile = async (path: string) => {
+    try {
+      await supabase.storage.from('artist-files').remove([path])
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const removePendingFile = async () => {
+    if (!newTrackFile) return
+    await removeStoredFile(newTrackFile.path)
+    setNewTrackFile(null)
+  }
+
+  const patchActiveTrack = (trackId: string, patch: Partial<AudioTrackItem>) => {
+    setActsFormData((prev) =>
+      prev.map((act, idx) =>
+        idx === activeActIndex
+          ? {
+              ...act,
+              audioTracks: act.audioTracks.map((track) =>
+                track.id === trackId ? { ...track, ...patch } : track
+              ),
+            }
+          : act
+      )
+    )
+    setIsDirty(true)
+  }
+
+  // Upload a file straight onto a song that was added without one.
+  const handleAttachFile = async (trackId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAttachingTrackId(trackId)
+    try {
+      setUploadProgress(0)
+      const rawPath = await uploadStorageFileWithProgress(
+        'artist-files',
+        getStorageFolderPath('audio-tracks'),
+        file,
+        setUploadProgress
+      )
+      patchActiveTrack(trackId, {
+        fileName: file.name,
+        fileUrl: getPublicFileUrl(rawPath),
+        filePath: rawPath,
+      })
+      toast.success(
+        t(
+          'Ljudfilen är kopplad till låten. Glöm inte att spara formuläret.',
+          "The audio file is attached to the song. Don't forget to save the form."
+        )
+      )
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte ladda upp ljudfilen.', 'Could not upload audio file.'))
+    } finally {
+      setAttachingTrackId(null)
+      e.target.value = ''
+    }
   }
 
   // filePath is meant to hold a bucket-relative storage path, but items saved before
@@ -454,6 +531,53 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   // --- SPARA TILL SUPABASE ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // A song that is filled in but was never added to the act would be lost on save: ask. A
+    // half-filled one is stopped, so it isn't silently dropped either.
+    let actsToSave = actsFormData
+    const pendingStarted = Boolean(newTrackTitle.trim() || newTrackArtist.trim() || newTrackFile)
+    if (pendingStarted) {
+      if (!newTrackTitle.trim() || !newTrackArtist.trim() || !newTrackFile) {
+        toast.error(
+          !newTrackFile
+            ? t(
+                'Ladda upp ljudfilen för låten (krävs), eller töm låtfälten.',
+                'Upload the audio file for the song (required), or clear the song fields.'
+              )
+            : t(
+                'Fyll i både låttitel och artist för låten.',
+                'Fill in both the song title and artist for the song.'
+              ),
+          { duration: 9000 }
+        )
+        return
+      }
+      const addIt = await confirm({
+        message: t(
+          `Du har fyllt i låten "${newTrackTitle.trim()}" men inte lagt till den i akten. Lägga till den och spara?`,
+          `You have filled in the song "${newTrackTitle.trim()}" but not added it to the act. Add it and save?`
+        ),
+        confirmLabel: t('Lägg till och spara', 'Add and save'),
+        cancelLabel: t('Tillbaka', 'Go back'),
+      })
+      if (!addIt) return
+      const pendingTrack: AudioTrackItem = {
+        id: `track-${Date.now()}`,
+        title: newTrackTitle.trim(),
+        artist: newTrackArtist.trim(),
+        fileName: newTrackFile.name,
+        fileUrl: newTrackFile.url,
+        filePath: newTrackFile.path,
+      }
+      actsToSave = actsFormData.map((act, idx) =>
+        idx === activeActIndex ? { ...act, audioTracks: [...act.audioTracks, pendingTrack] } : act
+      )
+      setActsFormData(actsToSave)
+      setNewTrackTitle('')
+      setNewTrackArtist('')
+      setNewTrackFile(null)
+    }
+
     setSubmitting(true)
 
     try {
@@ -470,7 +594,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       }
 
       // 2. Uppdatera varje vald akts Performer Act (en per flik)
-      for (const act of actsFormData) {
+      for (const act of actsToSave) {
         if (!act.actId) continue
         const actData: PerformerActInput & {
           stage_preparations?: string
@@ -685,7 +809,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           {/* MUSIC */}
           <div className="space-y-4 border-t border-border/40 pt-4">
             <label className="form-label-block text-xs font-bold text-accent">
-              {t('Låtar för akten', 'Act Songs & Audio Tracks')}
+              {t('Låtar för akten', 'Act songs & audio files')}
             </label>
 
             <div className="p-4 rounded-lg border border-accent/30 bg-accent/5 space-y-3">
@@ -698,14 +822,20 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                   type="text"
                   placeholder={t('Låttitel (t.ex. Feeling Good)', 'Track Title')}
                   value={newTrackTitle}
-                  onChange={(e) => setNewTrackTitle(e.target.value)}
+                  onChange={(e) => {
+                    setNewTrackTitle(e.target.value)
+                    setIsDirty(true)
+                  }}
                   className="login-input text-xs"
                 />
                 <input
                   type="text"
                   placeholder={t('Låtartist / Kompositör (t.ex. Nina Simone)', 'Track Artist')}
                   value={newTrackArtist}
-                  onChange={(e) => setNewTrackArtist(e.target.value)}
+                  onChange={(e) => {
+                    setNewTrackArtist(e.target.value)
+                    setIsDirty(true)
+                  }}
                   className="login-input text-xs"
                 />
               </div>
@@ -722,8 +852,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                       <Upload size={14} />
                     )}
                     {newTrackFile
-                      ? t('Byt ljudfil', 'Change audio file')
-                      : t('Välj ljudfil (valfritt)', 'Select audio file (optional)')}
+                      ? t('Byt ljudfil', 'Replace audio file')
+                      : t('Ladda upp ljudfil', 'Upload audio file')}
                   </label>
                   <input
                     type="file"
@@ -732,15 +862,35 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                     accept="audio/*"
                     onChange={handleTempAudioUpload}
                   />
-                  {newTrackFile && (
+                  {uploadingAudio ? (
                     <span className="text-xs text-accent truncate min-w-0">
-                      ✓ {newTrackFile.name}
+                      {t('Laddar upp', 'Uploading')} {Math.round(uploadProgress * 100)}%
+                    </span>
+                  ) : newTrackFile ? (
+                    <>
+                      <span className="text-xs text-accent truncate min-w-0">
+                        ✓ {newTrackFile.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={removePendingFile}
+                        title={t('Ta bort filen', 'Remove the file')}
+                        className="shrink-0 p-1 rounded-md text-foreground/60 hover:text-destructive transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-amber-400 italic truncate min-w-0">
+                      {t('Ingen uppladdad fil (krävs)', 'No uploaded file (required)')}
                     </span>
                   )}
                 </div>
 
                 {(() => {
-                  const canAddTrack = Boolean(newTrackTitle.trim() && newTrackArtist.trim())
+                  const canAddTrack = Boolean(
+                    newTrackTitle.trim() && newTrackArtist.trim() && newTrackFile
+                  )
                   return (
                     <button
                       type="button"
@@ -756,32 +906,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                   )
                 })()}
               </div>
-
-              {(() => {
-                const hasTitle = Boolean(newTrackTitle.trim())
-                const hasArtist = Boolean(newTrackArtist.trim())
-                if (hasTitle && hasArtist) {
-                  return (
-                    <p className="text-[11px] text-accent/90 italic">
-                      {t(
-                        'Klart? Glöm inte att trycka "Lägg till låt i akten" — annars sparas den inte.',
-                        'Ready? Don\'t forget to press "Add song to act" — otherwise it won\'t be saved.'
-                      )}
-                    </p>
-                  )
-                }
-                if (hasTitle || hasArtist || newTrackFile) {
-                  return (
-                    <p className="text-[11px] text-foreground/60 italic">
-                      {t(
-                        'Låttitel och artist krävs för att kunna lägga till låten.',
-                        'Track title and artist are both required to add the song.'
-                      )}
-                    </p>
-                  )
-                }
-                return null
-              })()}
             </div>
 
             {/* Lista över sparade låtar */}
@@ -790,49 +914,80 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
                 <span className="text-xs font-medium text-foreground/70 block">
                   {t('Tillagda låtar:', 'Added tracks:')}
                 </span>
-                {(activeAct?.audioTracks ?? []).map((track, idx) => (
-                  <div
-                    key={track.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border/60 bg-background/40"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                      <Music className="w-4 h-4 text-accent shrink-0" />
-                      <div className="min-w-0 flex-1 flex flex-col items-start">
-                        <p className="text-xs font-semibold text-foreground truncate w-full text-left">
-                          {idx + 1}. {track.title || t('Namnlös låt', 'Untitled track')}
-                          {track.artist ? ` - ${track.artist}` : ''}
-                        </p>
-                        {track.fileName && (
-                          <p className="text-[10px] text-accent truncate w-full text-left">
-                            Fil: {track.fileName}
+                {(activeAct?.audioTracks ?? []).map((track, idx) => {
+                  const hasFile = Boolean(track.fileUrl || track.filePath)
+                  return (
+                    <div
+                      key={track.id}
+                      className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border border-border/60 bg-background/40"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <Music className="w-4 h-4 text-accent shrink-0" />
+                        <div className="min-w-0 flex-1 flex flex-col items-start">
+                          <p className="text-xs font-semibold text-foreground truncate w-full text-left">
+                            {idx + 1}. {track.title || t('Namnlös låt', 'Untitled track')}
+                            {track.artist ? ` - ${track.artist}` : ''}
                           </p>
+                          {hasFile ? (
+                            <p className="text-[10px] text-accent truncate w-full text-left">
+                              ✓ {track.fileName || t('Fil uppladdad', 'File uploaded')}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-amber-400 w-full text-left">
+                              {t('Ingen ljudfil uppladdad än', 'No audio file uploaded yet')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {!hasFile && (
+                          <>
+                            <label
+                              htmlFor={`track-file-${track.id}`}
+                              className="btn-gold-outline text-[11px] py-1 px-2.5 cursor-pointer flex items-center gap-1.5"
+                            >
+                              {attachingTrackId === track.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Upload size={12} />
+                              )}
+                              {attachingTrackId === track.id
+                                ? `${Math.round(uploadProgress * 100)}%`
+                                : t('Ladda upp fil', 'Upload file')}
+                            </label>
+                            <input
+                              type="file"
+                              id={`track-file-${track.id}`}
+                              className="hidden"
+                              accept="audio/*"
+                              onChange={(e) => handleAttachFile(track.id, e)}
+                            />
+                          </>
                         )}
+                        {track.fileUrl && (
+                          <a
+                            href={track.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
+                            title={t('Lyssna/Öppna', 'Listen/Open')}
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeTrack(track.id)}
+                          className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
+                          title={t('Ta bort', 'Remove')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {track.fileUrl && (
-                        <a
-                          href={track.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
-                          title={t('Lyssna/Öppna', 'Listen/Open')}
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeTrack(track.id)}
-                        className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
-                        title={t('Ta bort', 'Remove')}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <p className="text-xs text-foreground/50 italic pt-1">
@@ -944,7 +1099,10 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
               <input
                 type="text"
                 name="dietary_requirements"
-                placeholder={t('T.ex. nötallergi...', 'e.g. nut allergy...')}
+                placeholder={t(
+                  'T.ex. nötallergi – lämna tomt om inga',
+                  'e.g. nut allergy – leave empty if none'
+                )}
                 value={formData.dietary_requirements}
                 onChange={handleChange}
                 className="login-input"
@@ -1006,8 +1164,8 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
               type="text"
               name="artist_note"
               placeholder={t(
-                'T.ex. "Reser med Florence Shimmermore"',
-                'E.g. "Traveling with Florence Shimmermore"'
+                'T.ex. "Reser med bil tillsammans med ..."',
+                'E.g. "Travelling by car together with ..."'
               )}
               value={formData.artist_note}
               onChange={handleChange}

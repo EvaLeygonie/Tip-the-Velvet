@@ -145,7 +145,7 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
                 type="text"
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -154,7 +154,7 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
                 type="date"
                 value={draft.postDate}
                 onChange={(e) => setDraft({ ...draft, postDate: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
           </div>
@@ -163,7 +163,7 @@ export const CustomPostRow = ({ post, onChanged, onDeleted }: CustomPostRowProps
             <textarea
               value={draft.content}
               onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-              className="w-full min-h-[160px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
+              className="velvet-textarea min-h-[160px] resize-y"
             />
           </div>
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">

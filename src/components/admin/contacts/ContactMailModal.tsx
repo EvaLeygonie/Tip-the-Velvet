@@ -213,7 +213,7 @@ export const ContactMailModal = ({
                     type="text"
                     value={draft.subject}
                     onChange={(e) => updateDraft(value, 'subject', e.target.value)}
-                    className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                    className="velvet-field"
                   />
                 </div>
                 <div className="space-y-1">
@@ -224,7 +224,7 @@ export const ContactMailModal = ({
                     type="text"
                     value={draft.greeting}
                     onChange={(e) => updateDraft(value, 'greeting', e.target.value)}
-                    className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                    className="velvet-field"
                   />
                 </div>
                 <div className="space-y-1">
@@ -234,7 +234,7 @@ export const ContactMailModal = ({
                   <textarea
                     value={draft.body}
                     onChange={(e) => updateDraft(value, 'body', e.target.value)}
-                    className="w-full h-40 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                    className="velvet-textarea h-40 resize-none"
                   />
                 </div>
               </div>

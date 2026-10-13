@@ -294,6 +294,7 @@ export type Database = {
           id: string
           kind: string
           sort_order: number
+          template_key: string | null
           time_text: string | null
           title_eng: string | null
           title_sv: string | null
@@ -308,6 +309,7 @@ export type Database = {
           id?: string
           kind: string
           sort_order?: number
+          template_key?: string | null
           time_text?: string | null
           title_eng?: string | null
           title_sv?: string | null
@@ -322,6 +324,7 @@ export type Database = {
           id?: string
           kind?: string
           sort_order?: number
+          template_key?: string | null
           time_text?: string | null
           title_eng?: string | null
           title_sv?: string | null
@@ -382,6 +385,7 @@ export type Database = {
           final_fee: number | null
           is_revealed: boolean
           lineup_role: Database['public']['Enums']['event_performer_role']
+          needs_food: boolean
           notes: string | null
           performer_id: string
           plus_one_email: string | null
@@ -406,6 +410,7 @@ export type Database = {
           final_fee?: number | null
           is_revealed?: boolean
           lineup_role?: Database['public']['Enums']['event_performer_role']
+          needs_food?: boolean
           notes?: string | null
           performer_id: string
           plus_one_email?: string | null
@@ -430,6 +435,7 @@ export type Database = {
           final_fee?: number | null
           is_revealed?: boolean
           lineup_role?: Database['public']['Enums']['event_performer_role']
+          needs_food?: boolean
           notes?: string | null
           performer_id?: string
           plus_one_email?: string | null
@@ -938,6 +944,45 @@ export type Database = {
           },
         ]
       }
+      info_template_items: {
+        Row: {
+          audiences: string[]
+          body_eng: string | null
+          body_sv: string | null
+          key: string
+          kind: string
+          sort_order: number
+          time_text: string | null
+          title_eng: string | null
+          title_sv: string | null
+          updated_at: string
+        }
+        Insert: {
+          audiences?: string[]
+          body_eng?: string | null
+          body_sv?: string | null
+          key: string
+          kind: string
+          sort_order?: number
+          time_text?: string | null
+          title_eng?: string | null
+          title_sv?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audiences?: string[]
+          body_eng?: string | null
+          body_sv?: string | null
+          key?: string
+          kind?: string
+          sort_order?: number
+          time_text?: string | null
+          title_eng?: string | null
+          title_sv?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       marketing_posts: {
         Row: {
           content: string | null
@@ -1212,6 +1257,7 @@ export type Database = {
           club_id: string | null
           created_at: string
           email: string | null
+          has_sponsored: boolean
           id: string
           instagram_link: string | null
           language: Database['public']['Enums']['language']
@@ -1227,6 +1273,7 @@ export type Database = {
           club_id?: string | null
           created_at?: string
           email?: string | null
+          has_sponsored?: boolean
           id?: string
           instagram_link?: string | null
           language?: Database['public']['Enums']['language']
@@ -1242,6 +1289,7 @@ export type Database = {
           club_id?: string | null
           created_at?: string
           email?: string | null
+          has_sponsored?: boolean
           id?: string
           instagram_link?: string | null
           language?: Database['public']['Enums']['language']
@@ -1357,6 +1405,7 @@ export type Database = {
           created_at: string
           door_code: string | null
           email: string | null
+          has_hosted: boolean
           id: string
           language: Database['public']['Enums']['language']
           location: string
@@ -1372,6 +1421,7 @@ export type Database = {
           created_at?: string
           door_code?: string | null
           email?: string | null
+          has_hosted?: boolean
           id?: string
           language?: Database['public']['Enums']['language']
           location: string
@@ -1387,6 +1437,7 @@ export type Database = {
           created_at?: string
           door_code?: string | null
           email?: string | null
+          has_hosted?: boolean
           id?: string
           language?: Database['public']['Enums']['language']
           location?: string
@@ -1601,15 +1652,10 @@ export type Database = {
         Returns: Json
       }
       get_event_info: { Args: { p_token: string }; Returns: Json }
-      get_performer_by_slug_for_edit: {
-        Args: { p_slug: string }
-        Returns: Json
-      }
       release_door_slot: {
         Args: { p_slot_id: string; p_token: string }
         Returns: undefined
       }
-      slugify: { Args: { value: string }; Returns: string }
       submit_casting_application: {
         Args: { p_acts: Json; p_application: Json }
         Returns: string
@@ -1653,21 +1699,6 @@ export type Database = {
           p_bio_eng?: string
           p_bio_sv?: string
           p_performer_id: string
-        }
-        Returns: undefined
-      }
-      update_performer_by_slug: {
-        Args: {
-          p_bio_eng?: string
-          p_bio_sv?: string
-          p_city?: string
-          p_country?: string
-          p_instagram_link?: string
-          p_other_link?: string
-          p_photographer?: string
-          p_promo_image_id?: string
-          p_slug: string
-          p_third_link?: string
         }
         Returns: undefined
       }

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { formatOtherLink } from '@/lib/utils'
 import type { Club } from '@/types/types'
-import { useConfirm } from '@/contexts/ConfirmContext'
+import { useContactRow } from '@/hooks/useContactRow'
+import { ContactRowFooter } from './ContactRowFooter'
 
 interface ClubRowProps {
   row: Club
@@ -27,9 +28,6 @@ export const ClubRow = ({
   isLinkedSponsor,
 }: ClubRowProps) => {
   const { t } = useLanguage()
-  const confirm = useConfirm()
-  const [isExpanded, setIsExpanded] = useState(isNew)
-  const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
     name: row.name,
     organizers: row.organizers ?? '',
@@ -40,67 +38,41 @@ export const ClubRow = ({
     notes: row.notes ?? '',
   })
 
-  const handleSave = async () => {
-    if (!draft.name.trim()) {
-      toast.error(t('Namn krävs.', 'Name is required.'))
-      return
-    }
-    setIsSaving(true)
-    try {
-      await onSave(
-        row.id,
-        {
-          name: draft.name.trim(),
-          organizers: draft.organizers.trim() || null,
-          instagram_link: draft.instagram_link.trim() || null,
-          website: draft.website.trim() ? formatOtherLink(draft.website.trim()) : null,
-          location: draft.location.trim() || null,
-          region: draft.region.trim() || null,
-          notes: draft.notes.trim() || null,
-        },
-        isNew
-      )
-      if (!isNew) setIsExpanded(false)
-    } catch (err: unknown) {
-      toast.error(t('Kunde inte spara.', 'Could not save.'))
-      console.error(err)
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  const { isExpanded, toggle, isSaving, rootRef, save, remove } = useContactRow({
+    id: row.id,
+    name: row.name,
+    isNew,
+    onSave,
+    onDelete,
+    linkedDeleteMessage: {
+      sv: 'Kan inte radera — klubben är kopplad till en sponsor.',
+      eng: "Can't delete — this club is still linked to a sponsor.",
+    },
+  })
 
-  const handleDelete = async () => {
-    const confirmed = await confirm({
-      message: t(
-        `Är du säker på att du vill radera ${row.name}?`,
-        `Are you sure you want to delete ${row.name}?`
-      ),
-      destructive: true,
-    })
-    if (!confirmed) return
-    try {
-      await onDelete(row.id)
-    } catch (err: unknown) {
-      const dbError = err as { code?: string }
-      if (dbError?.code === '23503') {
-        toast.error(
-          t(
-            'Kan inte radera — klubben är kopplad till en sponsor.',
-            "Can't delete — this club is still linked to a sponsor."
-          )
-        )
-      } else {
-        toast.error(t('Kunde inte radera.', 'Could not delete.'))
-        console.error(err)
+  const handleSave = () =>
+    save(() => {
+      if (!draft.name.trim()) {
+        toast.error(t('Namn krävs.', 'Name is required.'))
+        return null
       }
-    }
-  }
+      return {
+        name: draft.name.trim(),
+        organizers: draft.organizers.trim() || null,
+        instagram_link: draft.instagram_link.trim() || null,
+        website: draft.website.trim() ? formatOtherLink(draft.website.trim()) : null,
+        location: draft.location.trim() || null,
+        region: draft.region.trim() || null,
+        notes: draft.notes.trim() || null,
+      }
+    })
 
   return (
     <div
+      ref={rootRef}
       className="admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer"
       style={{ padding: 0 }}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={toggle}
     >
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
         <div className="grid grid-cols-12 gap-4 items-center flex-1 min-w-0">
@@ -151,7 +123,7 @@ export const ClubRow = ({
                 type="text"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -160,7 +132,7 @@ export const ClubRow = ({
                 type="text"
                 value={draft.organizers}
                 onChange={(e) => setDraft({ ...draft, organizers: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
 
@@ -171,7 +143,7 @@ export const ClubRow = ({
                 placeholder="https://instagram.com/..."
                 value={draft.instagram_link}
                 onChange={(e) => setDraft({ ...draft, instagram_link: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -181,7 +153,7 @@ export const ClubRow = ({
                 placeholder="https://..."
                 value={draft.website}
                 onChange={(e) => setDraft({ ...draft, website: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
 
@@ -191,7 +163,7 @@ export const ClubRow = ({
                 type="text"
                 value={draft.location}
                 onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -201,7 +173,7 @@ export const ClubRow = ({
                 placeholder={t('t.ex. Sverige, Norden', 'e.g. Sweden, Nordic')}
                 value={draft.region}
                 onChange={(e) => setDraft({ ...draft, region: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
           </div>
@@ -211,39 +183,17 @@ export const ClubRow = ({
             <textarea
               value={draft.notes}
               onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-              className="w-full h-20 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+              className="velvet-textarea h-20 resize-none"
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
-            {!isNew ? (
-              <button type="button" onClick={handleDelete} className="btn-red text-xs py-2 px-4">
-                {t('Radera', 'Delete')}
-              </button>
-            ) : (
-              <div />
-            )}
-            <div className="flex items-center gap-2">
-              {isNew && onCancelNew && (
-                <button
-                  type="button"
-                  onClick={() => onCancelNew(row.id)}
-                  className="px-4 py-2 text-xs border border-accent/20 rounded text-foreground/70 hover:bg-white/5 transition-colors"
-                >
-                  {t('Avbryt', 'Cancel')}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5"
-              >
-                {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {t('Spara', 'Save')}
-              </button>
-            </div>
-          </div>
+          <ContactRowFooter
+            isNew={isNew}
+            isSaving={isSaving}
+            onSave={handleSave}
+            onDelete={remove}
+            onCancelNew={onCancelNew ? () => onCancelNew(row.id) : undefined}
+          />
         </div>
       )}
     </div>

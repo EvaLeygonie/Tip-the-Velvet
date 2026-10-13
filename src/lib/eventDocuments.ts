@@ -1,9 +1,8 @@
 import { jsPDF } from 'jspdf'
-import { toast } from 'sonner'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { parseActTracks, trackFileUrl } from '@/lib/actMusic'
 import { staffPersonRoleSummary, vipCategoryLabel } from '@/lib/contactLabels'
-import { createMusicZipLink } from '@/services/musicZipService'
+import { ensureInfoLinks, infoLinkUrl } from '@/services/eventInfoService'
 import {
   FIXED_STAFF_ROLES,
   STANDING_ORGANIZERS,
@@ -22,6 +21,7 @@ import {
   type EventScheduleInfo,
 } from '@/services/eventService'
 import type { VipManualEntry } from '@/types/types'
+import { downloadBlob } from '@/lib/utils'
 
 // The printable show documents (VIP list, stage kittens' set list, technician's sound & light
 // sheet). Pure builders over plain data so both the Event Plan page's own buttons and the
@@ -39,6 +39,8 @@ export interface EventDocContext {
   eventInfo: EventScheduleInfo | null
   // The info hub's guest list is public to a role's link holders — names only, no emails.
   omitEmails?: boolean
+  // Needed for the sound & light PDF's link to the technician's info page.
+  eventId?: string
 }
 
 export interface GeneratedDocument {
@@ -351,44 +353,21 @@ export const buildMusicZipEntries = (ctx: EventDocContext): { name: string; url:
     )
   )
 
-// The same files bundled into one ZIP the sound & light PDF links to at the top (the per-song
-// links further down stay too). A ZIP failure never blocks the PDF — it just returns null.
-export const createTechMusicZip = async (
-  ctx: EventDocContext,
-  onBusy?: (busy: boolean) => void
+// The sound & light PDF's "download all music" link goes to the technician's info page, where
+// the ZIP is built from the files uploaded *at that moment* — so it never goes stale when an
+// artist uploads after the PDF was made (a ZIP stored at PDF time would). Null when there is
+// nothing to download or no event to link to.
+export const getTechMusicLink = async (
+  ctx: EventDocContext
 ): Promise<{ url: string; included: number } | null> => {
-  const { t, eventTitle, eventStart } = ctx
-  const zipEntries = buildMusicZipEntries(ctx)
-  if (zipEntries.length === 0) return null
-
-  // Name the file gets when downloaded, e.g. "Pandaemonium - 2026-10-24.zip".
-  const zipDownloadName = `${eventTitle}${eventStart ? ` - ${eventStart.slice(0, 10)}` : ''}.zip`
-  onBusy?.(true)
-  const toastId = toast.loading(t('Samlar musikfilerna...', 'Gathering the music files...'))
+  const included = buildMusicZipEntries(ctx).length
+  if (included === 0 || !ctx.eventId) return null
   try {
-    const zip = await createMusicZipLink(eventTitle, zipEntries, zipDownloadName)
-    toast.dismiss(toastId)
-    if (zip.failed.length > 0) {
-      toast.warning(
-        t(
-          `${zip.failed.length} fil(er) kunde inte läggas i ZIP-filen: ${zip.failed.join(', ')}`,
-          `${zip.failed.length} file(s) couldn't be added to the ZIP: ${zip.failed.join(', ')}`
-        )
-      )
-    }
-    return zip
+    const links = await ensureInfoLinks(ctx.eventId)
+    return { url: infoLinkUrl(links.technician), included }
   } catch (err) {
-    console.error('Kunde inte skapa ZIP:', err)
-    toast.error(
-      t(
-        'Kunde inte skapa ZIP-filen — PDF:en skapas utan "ladda ner allt"-länk.',
-        'Could not create the ZIP — the PDF is made without a "download all" link.'
-      ),
-      { id: toastId }
-    )
+    console.error('Kunde inte hämta infolänken:', err)
     return null
-  } finally {
-    onBusy?.(false)
   }
 }
 
@@ -441,8 +420,8 @@ export const createTechNotesPdf = (
     doc.setTextColor(30, 90, 190)
     doc.textWithLink(
       `${t('Ladda ner all musik (ZIP)', 'Download all music (ZIP)')} - ${t(
-        `${zipLink.included} filer`,
-        `${zipLink.included} files`
+        `${zipLink.included} filer, alltid senaste versionen`,
+        `${zipLink.included} files, always the latest`
       )}`,
       margin,
       y,
@@ -482,7 +461,7 @@ export const createTechNotesPdf = (
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.setTextColor(...ink)
-    doc.text(section.label.toUpperCase(), margin, y, { charSpace: 1.5 })
+    doc.text(section.label.toUpperCase(), margin, y)
     y += 3
     doc.setDrawColor(...gold)
     doc.setLineWidth(0.4)
@@ -532,28 +511,26 @@ export const createTechNotesPdf = (
         tracks.forEach((track, trackIndex) => {
           ensureSpace(6)
           if (trackIndex > 0) y += 1
+          // "Download" sits on the same row as the song, right-aligned; the title wraps
+          // before it so the two never overlap.
+          const url = trackFileUrl(track)
+          const linkLabel = t('Ladda ner', 'Download')
           doc.setFont('helvetica', 'normal')
+          doc.setFontSize(9)
+          const linkWidth = url ? doc.getTextWidth(linkLabel) + 4 : 0
           doc.setFontSize(9.5)
           doc.setTextColor(40)
           const titleLines = doc.splitTextToSize(
             `${track.title} — ${track.artist}`,
-            pageWidth - margin - textX
+            pageWidth - margin - textX - linkWidth
           ) as string[]
           doc.text(titleLines, textX, y)
-          y += titleLines.length * 4.4 + 0.6
-          const url = trackFileUrl(track)
           if (url) {
-            ensureSpace(5)
             doc.setFontSize(9)
             doc.setTextColor(30, 90, 190)
-            doc.textWithLink(
-              `${t('Ladda ner fil', 'Download file')}: ${track.fileName ?? track.title}`,
-              textX,
-              y,
-              { url }
-            )
-            y += 5
+            doc.textWithLink(linkLabel, pageWidth - margin - (linkWidth - 4), y, { url })
           }
+          y += titleLines.length * 4.4 + 0.6
         })
         y += 2
       }
@@ -638,7 +615,7 @@ const startDocument = (title: string, eventTitle: string) => {
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
       doc.setTextColor(...INK)
-      doc.text(text.toUpperCase(), MARGIN, page.y, { charSpace: 1 })
+      doc.text(text.toUpperCase(), MARGIN, page.y)
       page.y += 2.5
       doc.setDrawColor(...GOLD)
       doc.setLineWidth(0.4)
@@ -989,19 +966,18 @@ export const loadEventDocContext = async (
     getEventOrganizerFood(eventId),
     getEventScheduleInfo(eventId),
   ])
-  return { ...base, vipEntries, organizers, eventInfo }
+  return { ...base, vipEntries, organizers, eventInfo, eventId }
 }
 
 export const generateEventDocument = async (
   id: EventDocumentId,
-  ctx: EventDocContext,
-  onBusy?: (busy: boolean) => void
+  ctx: EventDocContext
 ): Promise<GeneratedDocument> => {
   switch (id) {
     case 'setList':
       return createStageKittenPdf(ctx)
     case 'soundLight':
-      return createTechNotesPdf(ctx, await createTechMusicZip(ctx, onBusy))
+      return createTechNotesPdf(ctx, await getTechMusicLink(ctx))
     case 'vipList':
       return createVipListPdf(ctx)
     case 'runOfShow':
@@ -1013,30 +989,18 @@ export const generateEventDocument = async (
   }
 }
 
-const saveBlob = (blob: Blob, fileName: string) => {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
 // One document downloads as a plain PDF; several are bundled into one ZIP.
 export const downloadEventDocuments = async (
   ids: EventDocumentId[],
-  ctx: EventDocContext,
-  onBusy?: (busy: boolean) => void
+  ctx: EventDocContext
 ): Promise<void> => {
   const documents: GeneratedDocument[] = []
-  for (const id of ids) documents.push(await generateEventDocument(id, ctx, onBusy))
+  for (const id of ids) documents.push(await generateEventDocument(id, ctx))
   if (documents.length === 1) {
     documents[0].doc.save(documents[0].fileName)
     return
   }
   const zip = new JSZip()
   for (const { doc, fileName } of documents) zip.file(fileName, doc.output('arraybuffer'))
-  saveBlob(await zip.generateAsync({ type: 'blob' }), `${ctx.eventTitle}-dokument.zip`)
+  downloadBlob(await zip.generateAsync({ type: 'blob' }), `${ctx.eventTitle}-dokument.zip`)
 }

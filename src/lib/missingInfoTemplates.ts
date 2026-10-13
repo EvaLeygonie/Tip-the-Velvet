@@ -49,7 +49,7 @@ export const buildDefaultTemplates = (eventTitle: string): MissingInfoTemplates 
       intro: `Inför ${eventTitle} saknar vi fortfarande lite information från dig:`,
       food: `• Din matpreferens (${foodOptions(svT)}) samt eventuella allergier`,
       music:
-        '• Musik till din akt ({acts}) — skriv låttitel och artist så vi kan hitta låten online, eller ladda upp din egen ljudfil',
+        '• Ljudfilen till din akt ({acts}) — via din bokningslänk: ladda upp filen, fyll i låttitel och artist och spara formuläret.',
       notes:
         '• Dina scenanteckningar (scenförberedelser, plock/städ, ljud & ljus). Har du inget att lägga till, bocka i rutan "Jag har inget att lägga till" så räknas det som klart.',
       receipt: '• Ditt reskvitto för resan till showen',
@@ -61,7 +61,7 @@ export const buildDefaultTemplates = (eventTitle: string): MissingInfoTemplates 
       intro: `For ${eventTitle} we're still missing a little information from you:`,
       food: `• Your food preference (${foodOptions(engT)}) and any allergies`,
       music:
-        '• Music for your act ({acts}) — write the song title and artist so we can find it online, or upload your own sound file',
+        '• The audio file for your act ({acts}) — via your booking link: upload the file, fill in the song title and artist and save the form.',
       notes:
         '• Your stage notes (stage preparations, pick up/cleaning, sound & lighting). If you have nothing to add, tick "I have nothing to add" and it counts as done.',
       receipt: '• Your travel receipt for the trip to the show',

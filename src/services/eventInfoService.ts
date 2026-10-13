@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { Tables } from '@/types/database.types'
 import {
   DEFAULT_INFO_ITEMS,
   INFO_AUDIENCES,
@@ -8,11 +9,6 @@ import {
   type InfoAudience,
   type InfoTemplateItem,
 } from '@/lib/eventInfo'
-
-// The info hub's tables/functions are newer than the generated database.types.ts — once that is
-// regenerated after the 20261012 migration these casts can go.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any
 
 //=== PUBLIC (token) ===//
 
@@ -46,13 +42,13 @@ export interface EventInfoPayload {
 }
 
 export const getEventInfoByToken = async (token: string): Promise<EventInfoPayload> => {
-  const { data, error } = await db.rpc('get_event_info', { p_token: token })
+  const { data, error } = await supabase.rpc('get_event_info', { p_token: token })
   if (error) throw error
-  return data as EventInfoPayload
+  return data as unknown as EventInfoPayload
 }
 
 export const claimDoorSlot = async (token: string, slotId: string, name: string) => {
-  const { error } = await db.rpc('claim_door_slot', {
+  const { error } = await supabase.rpc('claim_door_slot', {
     p_token: token,
     p_slot_id: slotId,
     p_name: name,
@@ -61,7 +57,7 @@ export const claimDoorSlot = async (token: string, slotId: string, name: string)
 }
 
 export const releaseDoorSlot = async (token: string, slotId: string) => {
-  const { error } = await db.rpc('release_door_slot', { p_token: token, p_slot_id: slotId })
+  const { error } = await supabase.rpc('release_door_slot', { p_token: token, p_slot_id: slotId })
   if (error) throw error
 }
 
@@ -69,18 +65,18 @@ export const releaseDoorSlot = async (token: string, slotId: string) => {
 
 // Creates whichever per-role links don't exist yet for this event, then returns audience → token.
 export const ensureInfoLinks = async (eventId: string): Promise<Record<InfoAudience, string>> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('event_info_links')
     .select('audience, token')
     .eq('event_id', eventId)
   if (error) throw error
 
-  const existing = new Set<string>((data ?? []).map((r: { audience: string }) => r.audience))
+  const existing = new Set<string>((data ?? []).map((r) => r.audience))
   const missing = INFO_AUDIENCES.filter((a) => !existing.has(a))
-  let rows: { audience: InfoAudience; token: string }[] = data ?? []
+  let rows = (data ?? []) as { audience: InfoAudience; token: string }[]
 
   if (missing.length > 0) {
-    const { data: created, error: insertError } = await db
+    const { data: created, error: insertError } = await supabase
       .from('event_info_links')
       .upsert(
         missing.map((audience) => ({ event_id: eventId, audience })),
@@ -88,7 +84,7 @@ export const ensureInfoLinks = async (eventId: string): Promise<Record<InfoAudie
       )
       .select('audience, token')
     if (insertError) throw insertError
-    rows = [...rows, ...(created ?? [])]
+    rows = [...rows, ...((created ?? []) as typeof rows)]
   }
 
   return Object.fromEntries(rows.map((r) => [r.audience, r.token])) as Record<InfoAudience, string>
@@ -99,7 +95,7 @@ export const getInfoLinkToken = async (
   eventId: string,
   audience: InfoAudience
 ): Promise<string | null> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('event_info_links')
     .select('token')
     .eq('event_id', eventId)
@@ -112,7 +108,7 @@ export const getInfoLinkToken = async (
 export const infoLinkUrl = (token: string): string => `${window.location.origin}/info/${token}`
 
 export const getInfoItems = async (eventId: string): Promise<EventInfoItem[]> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('event_info_items')
     .select('*')
     .eq('event_id', eventId)
@@ -126,7 +122,7 @@ export const createInfoItem = async (
   eventId: string,
   input: EventInfoItemInput
 ): Promise<EventInfoItem> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('event_info_items')
     .insert({ ...input, event_id: eventId })
     .select()
@@ -139,7 +135,7 @@ export const updateInfoItem = async (
   id: string,
   patch: Partial<EventInfoItemInput>
 ): Promise<EventInfoItem> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('event_info_items')
     .update(patch)
     .eq('id', id)
@@ -150,16 +146,16 @@ export const updateInfoItem = async (
 }
 
 export const deleteInfoItem = async (id: string): Promise<void> => {
-  const { error } = await db.from('event_info_items').delete().eq('id', id)
+  const { error } = await supabase.from('event_info_items').delete().eq('id', id)
   if (error) throw error
 }
 
 //=== TEMPLATE ===//
 
-const toTemplate = (row: InfoTemplateItem & { updated_at?: string }): InfoTemplateItem => ({
+const toTemplate = (row: Tables<'info_template_items'>): InfoTemplateItem => ({
   key: row.key,
-  kind: row.kind,
-  audiences: row.audiences,
+  kind: row.kind as InfoTemplateItem['kind'],
+  audiences: row.audiences as InfoAudience[],
   sort_order: row.sort_order,
   time_text: row.time_text,
   title_sv: row.title_sv,
@@ -177,11 +173,9 @@ export const getTemplateItems = async (): Promise<InfoTemplateItem[]> => {
     sort_order: i,
     key: template_key as string,
   }))
-  const { data, error } = await db.from('info_template_items').select('*')
+  const { data, error } = await supabase.from('info_template_items').select('*')
   if (error) return defaults
-  const saved = new Map<string, InfoTemplateItem>(
-    (data ?? []).map((r: InfoTemplateItem) => [r.key, toTemplate(r)])
-  )
+  const saved = new Map<string, InfoTemplateItem>((data ?? []).map((r) => [r.key, toTemplate(r)]))
   const merged = defaults.map((d) => saved.get(d.key) ?? d)
   const extra = [...saved.values()].filter((r) => !defaults.some((d) => d.key === r.key))
   return [...merged, ...extra]
@@ -190,7 +184,7 @@ export const getTemplateItems = async (): Promise<InfoTemplateItem[]> => {
 // Just the saved row for one key (null if the template still uses the built-in default) —
 // kept so "undo" can put it back exactly.
 export const getSavedTemplateItem = async (key: string): Promise<InfoTemplateItem | null> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('info_template_items')
     .select('*')
     .eq('key', key)
@@ -200,14 +194,17 @@ export const getSavedTemplateItem = async (key: string): Promise<InfoTemplateIte
 }
 
 export const saveTemplateItem = async (item: InfoTemplateItem): Promise<void> => {
-  const { error } = await db
+  // The template table has no doc_key column (documents aren't part of the template).
+  const { doc_key, ...row } = item
+  void doc_key
+  const { error } = await supabase
     .from('info_template_items')
-    .upsert({ ...item, doc_key: undefined, updated_at: new Date().toISOString() })
+    .upsert({ ...row, updated_at: new Date().toISOString() })
   if (error) throw error
 }
 
 export const deleteSavedTemplateItem = async (key: string): Promise<void> => {
-  const { error } = await db.from('info_template_items').delete().eq('key', key)
+  const { error } = await supabase.from('info_template_items').delete().eq('key', key)
   if (error) throw error
 }
 
@@ -217,7 +214,7 @@ export const seedDefaultInfoItems = async (
   startOrder: number
 ): Promise<EventInfoItem[]> => {
   const template = await getTemplateItems()
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('event_info_items')
     .insert(
       template.map(({ key, ...item }, i) => ({
@@ -235,7 +232,7 @@ export const seedDefaultInfoItems = async (
 //=== DOOR SHIFTS (admin) ===//
 
 export const getDoorSlots = async (eventId: string): Promise<DoorSlot[]> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('door_shift_slots')
     .select('id, slot_start, slot_end, volunteer_name')
     .eq('event_id', eventId)
@@ -249,7 +246,7 @@ export const createDoorSlots = async (
   eventId: string,
   slots: { slot_start: string; slot_end: string }[]
 ): Promise<DoorSlot[]> => {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('door_shift_slots')
     .insert(slots.map((s) => ({ ...s, event_id: eventId })))
     .select('id, slot_start, slot_end, volunteer_name')
@@ -258,12 +255,15 @@ export const createDoorSlots = async (
 }
 
 export const setDoorSlotName = async (id: string, name: string | null): Promise<void> => {
-  const { error } = await db.from('door_shift_slots').update({ volunteer_name: name }).eq('id', id)
+  const { error } = await supabase
+    .from('door_shift_slots')
+    .update({ volunteer_name: name })
+    .eq('id', id)
   if (error) throw error
 }
 
 export const deleteDoorSlots = async (ids: string[]): Promise<void> => {
-  const { error } = await db.from('door_shift_slots').delete().in('id', ids)
+  const { error } = await supabase.from('door_shift_slots').delete().in('id', ids)
   if (error) throw error
 }
 

@@ -26,7 +26,11 @@ export const parseActTracks = (audioFiles: Json | null | undefined): ActTrack[] 
 export const trackFileUrl = (track: ActTrack): string | null =>
   track.fileUrl || (track.filePath ? getPublicFileUrl(track.filePath) : null) || null
 
-// An act "has music" once it has at least one song entry — title + artist is enough, an
-// upload isn't required.
-export const actHasMusic = (audioFiles: Json | null | undefined): boolean =>
-  parseActTracks(audioFiles).length > 0
+// A song counts as delivered once it has an uploaded file; title + artist alone is not enough.
+export const trackIsDelivered = (track: ActTrack): boolean => Boolean(trackFileUrl(track))
+
+// An act "has music" when it has at least one song and every song is delivered.
+export const actHasMusic = (audioFiles: Json | null | undefined): boolean => {
+  const tracks = parseActTracks(audioFiles)
+  return tracks.length > 0 && tracks.every(trackIsDelivered)
+}

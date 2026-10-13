@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { useSearchParams, useParams } from 'react-router-dom'
 import type { CastingApplicationPortalData } from '@/types/types'
 import { getCastingApplicationByToken } from '@/services/applicationService'
@@ -17,6 +17,9 @@ export const ArtistBookingPortal = () => {
   const [application, setApplication] = useState<CastingApplicationPortalData | null>(null)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
+  // The artist's saved language is applied once when the link opens — not on every refetch,
+  // or it would undo a language the artist picks with the toggle.
+  const appliedSavedLanguage = useRef(false)
 
   const refetchData = () => setReloadKey((prev) => prev + 1)
 
@@ -34,7 +37,8 @@ export const ArtistBookingPortal = () => {
         if (isMounted) {
           setApplication(app)
 
-          if (app?.language) {
+          if (app?.language && !appliedSavedLanguage.current) {
+            appliedSavedLanguage.current = true
             setLanguage(app.language as 'sv' | 'eng')
           }
         }

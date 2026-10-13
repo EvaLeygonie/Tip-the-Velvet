@@ -58,7 +58,7 @@ export const CustomPostForm = ({ event, onCreated, onCancel }: CustomPostFormPro
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+            className="velvet-input"
           />
         </div>
         <div className="space-y-1">
@@ -67,7 +67,7 @@ export const CustomPostForm = ({ event, onCreated, onCancel }: CustomPostFormPro
             type="date"
             value={postDate}
             onChange={(e) => setPostDate(e.target.value)}
-            className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+            className="velvet-input"
           />
         </div>
       </div>
@@ -76,7 +76,7 @@ export const CustomPostForm = ({ event, onCreated, onCancel }: CustomPostFormPro
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="w-full min-h-[160px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
+          className="velvet-textarea min-h-[160px] resize-y"
         />
       </div>
       <div className="flex items-center justify-end gap-2 pt-1">

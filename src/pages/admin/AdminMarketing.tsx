@@ -119,6 +119,7 @@ export const AdminMarketing = () => {
   const [customPosts, setCustomPosts] = useState<CustomMarketingPost[]>([])
   const [showCustomPostForm, setShowCustomPostForm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'posts' | 'emails'>('posts')
 
   useEffect(() => {
     if (!selectedEventId) return
@@ -293,7 +294,35 @@ export const AdminMarketing = () => {
 
       <EventPicker />
 
-      {selectedEventId && !loading && (
+      <div className="flex flex-wrap justify-center gap-2 mt-6">
+        {(
+          [
+            ['posts', t('Inlägg', 'Posts')],
+            ['emails', t('Mailmallar', 'Email templates')],
+          ] as const
+        ).map(([tab, label]) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={
+              activeTab === tab
+                ? 'btn-gold text-xs py-2 px-4'
+                : 'btn-gold-outline text-xs py-2 px-4'
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'emails' && (
+        <div className="max-w-5xl mx-auto mt-8 text-center text-sm text-foreground/60">
+          {t('Mailmallarna kommer hit.', 'Email templates will live here.')}
+        </div>
+      )}
+
+      {activeTab === 'posts' && selectedEventId && !loading && (
         <div className="max-w-5xl mx-auto mt-8 space-y-8">
           {eventData && (
             <EventAssetPanel
@@ -444,7 +473,7 @@ export const AdminMarketing = () => {
         </div>
       )}
 
-      {selectedEventId && loading && (
+      {activeTab === 'posts' && selectedEventId && loading && (
         <div className="loading-container">
           <div className="loading-text">{t('Öppnar ridån...', 'Opening the curtain...')}</div>
         </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2, Crown } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ChevronDown, ChevronUp, Loader2, Crown, Mail, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { volunteerShiftLabel } from '@/lib/contactLabels'
@@ -120,7 +121,15 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
         <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">
-          {row.staff.name}
+          <Link
+            to="/admin/contacts"
+            state={{ tab: 'staff', search: row.staff.name }}
+            onClick={(e) => e.stopPropagation()}
+            title={t('Öppna i Kontakter', 'Open in Contacts')}
+            className="hover:text-accent hover:underline"
+          >
+            {row.staff.name}
+          </Link>
         </span>
         {isVolunteer && row.staff.worked_with && (
           <span
@@ -202,7 +211,7 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
                 onChange={(e) =>
                   setDraft({ ...draft, shift: (e.target.value || null) as VolunteerShift | null })
                 }
-                className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+                className="velvet-select"
               >
                 <option value="">{t('Inget pass', 'No shift')}</option>
                 {VOLUNTEER_SHIFT_ORDER.map((shift) => (
@@ -213,36 +222,63 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
               </select>
             </div>
           )}
-          {!isVolunteer && (
-            <div className="space-y-1">
-              <label className="form-label-gold block">
-                {t('Arvode för detta event (kr)', 'Fee for this event (kr)')}
-              </label>
-              <input
-                type="number"
-                value={draft.fee}
-                onChange={(e) => setDraft({ ...draft, fee: e.target.value })}
-                placeholder={t('Inget arvode', 'No fee')}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
-              />
+          {(!isVolunteer || isEntertainer) && (
+            <div className="flex items-end gap-3">
+              {!isVolunteer && (
+                <div className="space-y-1 flex-1 min-w-0">
+                  <label className="form-label-gold block">
+                    {t('Arvode för detta event (kr)', 'Fee for this event (kr)')}
+                  </label>
+                  <input
+                    type="number"
+                    value={draft.fee}
+                    onChange={(e) => setDraft({ ...draft, fee: e.target.value })}
+                    placeholder={t('Inget arvode', 'No fee')}
+                    className="velvet-input px-2"
+                  />
+                </div>
+              )}
+              {isEntertainer && (
+                <button
+                  type="button"
+                  onClick={() => setShowProfile(true)}
+                  className="h-9 shrink-0 text-xs px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                >
+                  {t(
+                    'Offentlig profil (bild, text, länkar)',
+                    'Public profile (photo, text, links)'
+                  )}
+                </button>
+              )}
             </div>
-          )}
-          {isEntertainer && (
-            <button
-              type="button"
-              onClick={() => setShowProfile(true)}
-              className="text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-            >
-              {t('Offentlig profil (bild, text, länkar)', 'Public profile (photo, text, links)')}
-            </button>
           )}
           <div className="space-y-1">
             <label className="form-label-gold block">{t('Anteckning', 'Note')}</label>
             <textarea
               value={draft.role_details}
               onChange={(e) => setDraft({ ...draft, role_details: e.target.value })}
-              className="w-full min-h-[70px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
+              className="velvet-textarea min-h-[70px] resize-y"
             />
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm">
+            {row.staff.email && (
+              <a
+                href={`mailto:${row.staff.email}`}
+                className="flex items-center gap-1.5 text-accent hover:underline"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                {row.staff.email}
+              </a>
+            )}
+            {row.staff.phone && (
+              <a
+                href={`tel:${row.staff.phone.replace(/\s+/g, '')}`}
+                className="flex items-center gap-1.5 text-accent hover:underline"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                {row.staff.phone}
+              </a>
+            )}
           </div>
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
             <button type="button" onClick={handleRemove} className="btn-red text-xs py-2 px-4">

@@ -7,7 +7,7 @@ import {
   Settings,
   LogOut,
   BarChart3,
-  ClipboardList,
+  Sparkles,
   Users,
   Menu,
   X,
@@ -63,7 +63,7 @@ export const Navigation = () => {
   const adminSubLinks = [
     { to: '/admin', label: 'Dashboard', icon: BarChart3 },
     { to: '/admin/marketing', label: t('Marknadsföring', 'Marketing'), icon: Megaphone },
-    { to: '/admin/casting', label: t('Hantera Casting', 'Manage Casting'), icon: ClipboardList },
+    { to: '/admin/casting', label: t('Artistbokning', 'Artist booking'), icon: Sparkles },
     { to: '/admin/event-plan', label: t('Eventplanering', 'Event Planning'), icon: Settings },
     { to: '/admin/contacts', label: t('Kontakter', 'Contacts'), icon: Users },
   ]

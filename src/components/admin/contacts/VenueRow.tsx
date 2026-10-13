@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Mail, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { Venue } from '@/types/types'
-import { useConfirm } from '@/contexts/ConfirmContext'
+import { useContactRow } from '@/hooks/useContactRow'
+import { ContactRowFooter } from './ContactRowFooter'
 
 interface VenueRowProps {
   row: Venue
@@ -28,9 +29,6 @@ export const VenueRow = ({
   isBookedForEvent,
 }: VenueRowProps) => {
   const { t } = useLanguage()
-  const confirm = useConfirm()
-  const [isExpanded, setIsExpanded] = useState(isNew)
-  const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
     name: row.name,
     location: row.location,
@@ -42,75 +40,52 @@ export const VenueRow = ({
     practical_info_sv: row.practical_info_sv ?? '',
     practical_info_eng: row.practical_info_eng ?? '',
     door_code: row.door_code ?? '',
+    has_hosted: row.has_hosted ?? false,
     language: row.language,
   })
 
-  const handleSave = async () => {
-    if (!draft.name.trim() || !draft.location.trim() || !draft.map_link.trim()) {
-      toast.error(
-        t('Namn, plats och kartlänk krävs.', 'Name, location, and map link are required.')
-      )
-      return
-    }
-    setIsSaving(true)
-    try {
-      await onSave(
-        row.id,
-        {
-          name: draft.name.trim(),
-          location: draft.location.trim(),
-          map_link: draft.map_link.trim(),
-          contact_person: draft.contact_person.trim() || null,
-          email: draft.email.trim() || null,
-          phone: draft.phone.trim() || null,
-          price: draft.price === '' ? null : Number(draft.price),
-          practical_info_sv: draft.practical_info_sv.trim() || null,
-          practical_info_eng: draft.practical_info_eng.trim() || null,
-          door_code: draft.door_code.trim() || null,
-          language: draft.language,
-        },
-        isNew
-      )
-      if (!isNew) setIsExpanded(false)
-    } catch (err: unknown) {
-      toast.error(t('Kunde inte spara.', 'Could not save.'))
-      console.error(err)
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  const { isExpanded, toggle, isSaving, rootRef, save, remove } = useContactRow({
+    id: row.id,
+    name: row.name,
+    isNew,
+    onSave,
+    onDelete,
+    linkedDeleteMessage: {
+      sv: 'Kan inte radera — platsen är kopplad till ett event.',
+      eng: "Can't delete — this venue is still linked to an event.",
+    },
+  })
 
-  const handleDelete = async () => {
-    const confirmed = await confirm({
-      message: t(
-        `Är du säker på att du vill radera ${row.name}?`,
-        `Are you sure you want to delete ${row.name}?`
-      ),
-      destructive: true,
-    })
-    if (!confirmed) return
-    try {
-      await onDelete(row.id)
-    } catch (err: unknown) {
-      const dbError = err as { code?: string }
-      if (dbError?.code === '23503') {
+  const handleSave = () =>
+    save(() => {
+      if (!draft.name.trim() || !draft.location.trim() || !draft.map_link.trim()) {
         toast.error(
-          t(
-            'Kan inte radera — platsen är kopplad till ett event.',
-            "Can't delete — this venue is still linked to an event."
-          )
+          t('Namn, plats och kartlänk krävs.', 'Name, location, and map link are required.')
         )
-      } else {
-        toast.error(t('Kunde inte radera.', 'Could not delete.'))
+        return null
       }
-    }
-  }
+      return {
+        name: draft.name.trim(),
+        location: draft.location.trim(),
+        map_link: draft.map_link.trim(),
+        contact_person: draft.contact_person.trim() || null,
+        email: draft.email.trim() || null,
+        phone: draft.phone.trim() || null,
+        price: draft.price === '' ? null : Number(draft.price),
+        practical_info_sv: draft.practical_info_sv.trim() || null,
+        practical_info_eng: draft.practical_info_eng.trim() || null,
+        door_code: draft.door_code.trim() || null,
+        has_hosted: draft.has_hosted,
+        language: draft.language,
+      }
+    })
 
   return (
     <div
+      ref={rootRef}
       className="admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer"
       style={{ padding: 0 }}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={toggle}
     >
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
         <div className="grid grid-cols-12 gap-4 items-center flex-1 min-w-0">
@@ -138,7 +113,7 @@ export const VenueRow = ({
             <span className="truncate block">{row.contact_person || '—'}</span>
           </div>
 
-          <div className="col-span-6 sm:col-span-3 text-sm text-foreground/60 font-body truncate">
+          <div className="col-span-6 sm:col-span-2 text-sm text-foreground/60 font-body truncate">
             <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold mb-0.5">
               {t('E-post', 'Email')}
             </span>
@@ -150,6 +125,17 @@ export const VenueRow = ({
               {t('Pris', 'Price')}
             </span>
             <span className="block">{row.price != null ? `${row.price} SEK` : '—'}</span>
+          </div>
+
+          <div className="col-span-6 sm:col-span-1 text-sm">
+            {row.has_hosted && (
+              <span
+                title={t('Vi har haft fest här', "We've held a party here")}
+                className="text-green-400"
+              >
+                ✓
+              </span>
+            )}
           </div>
         </div>
 
@@ -185,7 +171,7 @@ export const VenueRow = ({
                 type="text"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -194,7 +180,7 @@ export const VenueRow = ({
                 type="text"
                 value={draft.location}
                 onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -203,7 +189,7 @@ export const VenueRow = ({
                 type="email"
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -212,7 +198,7 @@ export const VenueRow = ({
                 type="text"
                 value={draft.phone}
                 onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -223,7 +209,7 @@ export const VenueRow = ({
                 type="text"
                 value={draft.contact_person}
                 onChange={(e) => setDraft({ ...draft, contact_person: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -232,107 +218,92 @@ export const VenueRow = ({
                 type="number"
                 value={draft.price}
                 onChange={(e) => setDraft({ ...draft, price: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
-            <div className="space-y-1">
-              <label className="form-label-gold block">{t('Portkod', 'Entry code')}</label>
-              <input
-                type="text"
-                value={draft.door_code}
-                onChange={(e) => setDraft({ ...draft, door_code: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
-              />
-              <p className="text-[11px] text-foreground/40">
-                {t(
-                  'Visas på infosidorna först 38 timmar före eventstart.',
-                  'Shown on the info pages only from 38 hours before the event starts.'
-                )}
-              </p>
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="form-label-gold block">{t('Kartlänk', 'Map link')}</label>
+                <input
+                  type="text"
+                  value={draft.map_link}
+                  onChange={(e) => setDraft({ ...draft, map_link: e.target.value })}
+                  className="velvet-input"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="form-label-gold block">{t('Portkod', 'Entry code')}</label>
+                <input
+                  type="text"
+                  value={draft.door_code}
+                  onChange={(e) => setDraft({ ...draft, door_code: e.target.value })}
+                  className="velvet-input"
+                />
+              </div>
             </div>
-            <div className="space-y-1 sm:col-span-2">
-              <label className="form-label-gold block">{t('Kartlänk', 'Map link')}</label>
-              <input
-                type="text"
-                value={draft.map_link}
-                onChange={(e) => setDraft({ ...draft, map_link: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <label className="form-label-gold block">
-                {t(
-                  'Praktisk info för artister & crew (svenska)',
-                  'Practical info for artists & crew (Swedish)'
-                )}
-              </label>
-              <textarea
-                rows={6}
-                value={draft.practical_info_sv}
-                placeholder={t(
-                  'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
-                  'Tram, stage size, load-in, mirrors, food nearby…'
-                )}
-                onChange={(e) => setDraft({ ...draft, practical_info_sv: e.target.value })}
-                className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <label className="form-label-gold block">
-                {t(
-                  'Praktisk info för artister & crew (engelska)',
-                  'Practical info for artists & crew (English)'
-                )}
-              </label>
-              <textarea
-                rows={6}
-                value={draft.practical_info_eng}
-                placeholder={t(
-                  'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
-                  'Tram, stage size, load-in, mirrors, food nearby…'
-                )}
-                onChange={(e) => setDraft({ ...draft, practical_info_eng: e.target.value })}
-                className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
-              />
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="form-label-gold block">
+                  {t(
+                    'Praktisk info för artister & crew (svenska)',
+                    'Practical info for artists & crew (Swedish)'
+                  )}
+                </label>
+                <textarea
+                  rows={6}
+                  value={draft.practical_info_sv}
+                  placeholder={t(
+                    'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
+                    'Tram, stage size, load-in, mirrors, food nearby…'
+                  )}
+                  onChange={(e) => setDraft({ ...draft, practical_info_sv: e.target.value })}
+                  className="velvet-field"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="form-label-gold block">
+                  {t(
+                    'Praktisk info för artister & crew (engelska)',
+                    'Practical info for artists & crew (English)'
+                  )}
+                </label>
+                <textarea
+                  rows={6}
+                  value={draft.practical_info_eng}
+                  placeholder={t(
+                    'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
+                    'Tram, stage size, load-in, mirrors, food nearby…'
+                  )}
+                  onChange={(e) => setDraft({ ...draft, practical_info_eng: e.target.value })}
+                  className="velvet-field"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-4">
+            <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={draft.has_hosted}
+                onChange={(e) => setDraft({ ...draft, has_hosted: e.target.checked })}
+                className="h-4 w-4 accent-accent"
+              />
+              {t('Vi har haft fest här', "We've held a party here")}
+            </label>
             <LanguageToggle
               value={draft.language}
               onChange={(language) => setDraft({ ...draft, language })}
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
-            {!isNew ? (
-              <button type="button" onClick={handleDelete} className="btn-red text-xs py-2 px-4">
-                {t('Radera', 'Delete')}
-              </button>
-            ) : (
-              <div />
-            )}
-            <div className="flex items-center gap-2">
-              {isNew && onCancelNew && (
-                <button
-                  type="button"
-                  onClick={() => onCancelNew(row.id)}
-                  className="px-4 py-2 text-xs border border-accent/20 rounded text-foreground/70 hover:bg-white/5 transition-colors"
-                >
-                  {t('Avbryt', 'Cancel')}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5"
-              >
-                {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {t('Spara', 'Save')}
-              </button>
-            </div>
-          </div>
+          <ContactRowFooter
+            isNew={isNew}
+            isSaving={isSaving}
+            onSave={handleSave}
+            onDelete={remove}
+            onCancelNew={onCancelNew ? () => onCancelNew(row.id) : undefined}
+          />
         </div>
       )}
     </div>

@@ -31,7 +31,7 @@ export const DietaryCategoryPicker = ({
       // width with more right padding gives the arrow its own real space instead of
       // guessing at auto-sizing. Direct feedback 2026-10-07 (screenshot from Firefox
       // Developer Edition).
-      className={`w-36 text-xs bg-black/40 border border-accent/20 rounded py-1 pl-2 pr-7 focus:border-accent text-white ${className ?? ''}`}
+      className={`w-32 text-xs bg-black/40 border border-accent/20 rounded py-1 pl-2 pr-7 focus:border-accent text-white ${className ?? ''}`}
     >
       <option value="" disabled>
         {t('Mat...', 'Food...')}

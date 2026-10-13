@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Loader2, UserPlus, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -193,7 +194,15 @@ export const EventSponsorRow = ({
         </div>
         <div className="flex-1 min-w-0">
           <span className="font-decorative text-sm text-foreground truncate block">
-            {row.sponsor.name}
+            <Link
+              to="/admin/contacts"
+              state={{ tab: 'sponsors', search: row.sponsor.name }}
+              onClick={(e) => e.stopPropagation()}
+              title={t('Öppna i Kontakter', 'Open in Contacts')}
+              className="hover:text-accent hover:underline"
+            >
+              {row.sponsor.name}
+            </Link>
           </span>
           {/* The note relevant to THIS section only (see noteField), not whichever note the
               sponsor happens to have in another capacity — moved here under the title,
@@ -299,7 +308,7 @@ export const EventSponsorRow = ({
             <textarea
               value={draft.note}
               onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-              className="w-full min-h-[70px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
+              className="velvet-textarea min-h-[70px] resize-y"
             />
           </div>
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">

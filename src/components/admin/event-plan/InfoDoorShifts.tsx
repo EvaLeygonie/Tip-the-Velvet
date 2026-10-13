@@ -6,7 +6,7 @@ import { useConfirm } from '@/contexts/ConfirmContext'
 import {
   buildDoorSlots,
   countUncoveredDoorWindows,
-  formatDuration,
+  formatDurationShort,
   findUnplacedDoorStaff,
   formatClock,
   planDoorShifts,
@@ -23,8 +23,7 @@ interface InfoDoorShiftsProps {
   onSlotsChange: (slots: DoorSlot[]) => void
 }
 
-const inputClass =
-  'h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white'
+const inputClass = 'velvet-input'
 
 // "HH:MM" on the event's date (local time of the browser — the board plans in Swedish time).
 const timeOnDay = (day: Date, hhmm: string): Date | null => {
@@ -56,6 +55,13 @@ export const InfoDoorShifts = ({
   const [seats, setSeats] = useState(2) // two spots per slot, only one needs filling
   const [busy, setBusy] = useState(false)
 
+  // One row per time window, holding its (usually two) spots.
+  const windows = slots.reduce<DoorSlot[][]>((groups, slot) => {
+    const last = groups[groups.length - 1]
+    if (last && last[0].slot_start === slot.slot_start) last.push(slot)
+    else groups.push([slot])
+    return groups
+  }, [])
   const empty = slots.filter((s) => !s.volunteer_name)
   const unplaced = findUnplacedDoorStaff(
     volunteerNames.map((name) => ({ name })),
@@ -220,15 +226,13 @@ export const InfoDoorShifts = ({
         >
           {t('Skapa pass', 'Create shifts')}
         </button>
-        <div className="ml-auto text-sm text-foreground/70 text-right">
-          <div>
-            {t(`${volunteerNames.length} volontärer`, `${volunteerNames.length} volunteers`)}
-          </div>
+        <div className="ml-auto text-sm text-foreground/70 whitespace-nowrap text-right leading-tight">
+          <div>{t(`${volunteerNames.length} personer`, `${volunteerNames.length} people`)}</div>
           {formPlan && (
             <div>
               {t(
-                `ca ${formatDuration(formPlan.soloMinutes, 'sv')} var (${formatDuration(formPlan.tandemMinutes, 'sv')} om två och två)`,
-                `about ${formatDuration(formPlan.soloMinutes, 'eng')} each (${formatDuration(formPlan.tandemMinutes, 'eng')} if sharing)`
+                `ca ${formatDurationShort(formPlan.soloMinutes, 'sv')} var · ${formatDurationShort(formPlan.tandemMinutes, 'sv')} i par`,
+                `~${formatDurationShort(formPlan.soloMinutes, 'eng')} each · ${formatDurationShort(formPlan.tandemMinutes, 'eng')} in pairs`
               )}
             </div>
           )}
@@ -278,38 +282,36 @@ export const InfoDoorShifts = ({
             </div>
           </div>
 
-          {unplaced.length > 0 && (
-            <p className="text-sm text-foreground/70">
-              {t('Inte på något pass än: ', 'Not on a shift yet: ')}
-              {unplaced.map((p) => p.name).join(', ')}
-            </p>
-          )}
-
           <ul className="admin-panel velvet-surface divide-y divide-accent/10">
-            {slots.map((slot) => (
-              <li key={slot.id} className="flex items-center gap-3 px-4 py-2">
+            {windows.map((group) => (
+              <li key={group[0].slot_start} className="flex items-center gap-3 px-4 py-2">
                 <span className="w-28 shrink-0 font-mono text-accent text-sm">
-                  {formatClock(slot.slot_start)}–{formatClock(slot.slot_end)}
+                  {formatClock(group[0].slot_start)}–{formatClock(group[0].slot_end)}
                 </span>
-                <select
-                  value={slot.volunteer_name ?? ''}
-                  onChange={(e) => handleName(slot, e.target.value)}
-                  className={`${inputClass} flex-1 min-w-0`}
-                >
-                  <option value="">{t('Ledig', 'Open')}</option>
-                  {/* A name typed in by the volunteer themselves may not match a profile. */}
-                  {slot.volunteer_name && !volunteerNames.includes(slot.volunteer_name) && (
-                    <option value={slot.volunteer_name}>{slot.volunteer_name}</option>
-                  )}
-                  {volunteerNames.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
+                <div className="flex flex-1 min-w-0 flex-wrap gap-2">
+                  {group.map((slot) => (
+                    <select
+                      key={slot.id}
+                      value={slot.volunteer_name ?? ''}
+                      onChange={(e) => handleName(slot, e.target.value)}
+                      className={`${inputClass} flex-1 min-w-32`}
+                    >
+                      <option value="">{t('Ledig', 'Open')}</option>
+                      {/* A name typed in by the volunteer themselves may not match a profile. */}
+                      {slot.volunteer_name && !volunteerNames.includes(slot.volunteer_name) && (
+                        <option value={slot.volunteer_name}>{slot.volunteer_name}</option>
+                      )}
+                      {volunteerNames.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
                   ))}
-                </select>
+                </div>
                 <button
                   type="button"
-                  onClick={() => handleDelete([slot.id])}
+                  onClick={() => handleDelete(group.map((s) => s.id))}
                   className="p-1.5 text-foreground/40 hover:text-red-400"
                   aria-label={t('Radera pass', 'Delete shift')}
                 >
@@ -318,6 +320,13 @@ export const InfoDoorShifts = ({
               </li>
             ))}
           </ul>
+
+          {unplaced.length > 0 && (
+            <p className="text-sm text-foreground/70">
+              {t('Inte på något pass än: ', 'Not on a shift yet: ')}
+              {unplaced.map((p) => p.name).join(', ')}
+            </p>
+          )}
         </>
       )}
     </div>

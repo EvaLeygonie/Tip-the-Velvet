@@ -1,8 +1,14 @@
 import { useState } from 'react'
-import { Mail, Send, UtensilsCrossed, TriangleAlert } from 'lucide-react'
+import { Mail, Send, UtensilsCrossed, TriangleAlert, X } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { dietaryCategoryLabel } from '@/lib/contactLabels'
-import { buildFoodRoster, type FoodPerson } from '@/lib/foodRoster'
+import {
+  buildFoodRoster,
+  foodPriorityRank,
+  foodSubtitle,
+  staffFoodPriorityRank,
+  type FoodPerson,
+} from '@/lib/foodRoster'
 import { DietaryCategoryPicker } from './DietaryCategoryPicker'
 import { ContactMailModal } from '@/components/admin/contacts/ContactMailModal'
 import type { AdminEventPerformerRow, AdminEventOrganizerFoodRow } from '@/services/eventService'
@@ -21,6 +27,8 @@ interface FoodTabProps {
   groupedStaff: GroupedStaffPerson[]
   organizers: AdminEventOrganizerFoodRow[]
   onUpdatePerformerDietary: (performerId: string, category: DietaryCategory) => void
+  onUpdatePerformerDietaryNotes: (performerId: string, notes: string | null) => void
+  onUpdatePerformerNeedsFood: (performerId: string, needsFood: boolean) => void
   onStaffFoodUpdated: (staffId: string, patch: FoodPatch) => void
   onOrganizerFoodUpdated: (staffId: string, patch: FoodPatch) => void
 }
@@ -38,10 +46,21 @@ export const FoodTab = ({
   groupedStaff,
   organizers,
   onUpdatePerformerDietary,
+  onUpdatePerformerDietaryNotes,
+  onUpdatePerformerNeedsFood,
   onStaffFoodUpdated,
   onOrganizerFoodUpdated,
 }: FoodTabProps) => {
   const { t } = useLanguage()
+  // Which person lists are open — the summary counts above open their list when clicked.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+  const setGroupOpen = (key: string, open: boolean) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      if (open) next.add(key)
+      else next.delete(key)
+      return next
+    })
   const [mailTarget, setMailTarget] = useState<FoodPerson | null>(null)
   const [bulkMailGroup, setBulkMailGroup] = useState<{
     label: string
@@ -49,33 +68,60 @@ export const FoodTab = ({
   } | null>(null)
 
   const roster = buildFoodRoster(t, performers, groupedStaff, organizers)
-  // Not-eating is staff/organizer-only (performers are always assumed to attend & eat) —
-  // merged into one list of {id, name, kind} so both can share the same re-add button.
-  const notEating: { id: string; name: string; kind: 'staff' | 'organizer' }[] = [
+  // Everyone flagged needs_food = false (performers default to true; staff/organizers to
+  // false) — merged into one list of {id, name, kind} so they share the same re-add button.
+  const notEating = [
+    ...performers
+      .filter((p) => !p.needs_food)
+      .map((p) => ({
+        id: p.performer_id,
+        name: p.performer.performer_name,
+        subtitle: t('Artist', 'Artist'),
+        rank: foodPriorityRank('performer'),
+        kind: 'performer' as const,
+      })),
     ...groupedStaff
       .filter((p) => !p.needs_food)
-      .map((p) => ({ id: p.staff.id, name: p.staff.name, kind: 'staff' as const })),
+      .map((p) => ({
+        id: p.staff.id,
+        name: p.staff.name,
+        subtitle: foodSubtitle(t, p.rows),
+        rank: staffFoodPriorityRank(p.rows),
+        kind: 'staff' as const,
+      })),
     ...organizers
       .filter((o) => !o.needs_food)
-      .map((o) => ({ id: o.staff_id, name: o.staff.name, kind: 'organizer' as const })),
-  ]
-  const notesGiven = roster.filter((p) => p.notes && p.notes.trim())
+      .map((o) => ({
+        id: o.staff_id,
+        name: o.staff.name,
+        subtitle: t('Arrangör', 'Organizer'),
+        rank: foodPriorityRank('organizer'),
+        kind: 'organizer' as const,
+      })),
+  ].sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
   // Identical notes (ignoring case/whitespace) collapse into one badge with a count.
-  const noteBadges = Array.from(
-    notesGiven
-      .reduce((map, p) => {
-        const text = p.notes!.trim()
-        const key = text.toLowerCase().replace(/\s+/g, ' ')
-        const existing = map.get(key)
-        if (existing) existing.count += 1
-        else map.set(key, { key, text, count: 1 })
-        return map
-      }, new Map<string, { key: string; text: string; count: number }>())
-      .values()
-  )
+  const noteBadgesFor = (people: FoodPerson[]) =>
+    Array.from(
+      people
+        .filter((p) => p.notes && p.notes.trim())
+        .reduce((map, p) => {
+          const text = p.notes!.trim()
+          const key = text.toLowerCase().replace(/\s+/g, ' ')
+          const existing = map.get(key)
+          if (existing) existing.count += 1
+          else map.set(key, { key, text, count: 1 })
+          return map
+        }, new Map<string, { key: string; text: string; count: number }>())
+        .values()
+    )
 
   const byCategory = (cat: DietaryCategory) => roster.filter((p) => p.category === cat)
   const uncategorized = roster.filter((p) => !p.category)
+
+  const setNeedsFood = (kind: 'performer' | 'staff' | 'organizer', id: string, value: boolean) =>
+    kind === 'performer'
+      ? onUpdatePerformerNeedsFood(id, value)
+      : foodUpdateFor(kind)(id, { needs_food: value })
 
   const foodUpdateFor = (kind: 'staff' | 'organizer') =>
     kind === 'organizer' ? onOrganizerFoodUpdated : onStaffFoodUpdated
@@ -88,9 +134,14 @@ export const FoodTab = ({
     }
   }
 
-  const setStaffNotes = (person: FoodPerson, notes: string) => {
-    if ((person.kind === 'staff' || person.kind === 'organizer') && person.staffId) {
-      foodUpdateFor(person.kind)(person.staffId, { dietary_notes: notes.trim() || null })
+  const setNotes = (person: FoodPerson, notes: string) => {
+    const value = notes.trim() || null
+    if (person.kind === 'performer' && person.performerId) {
+      if (value !== (person.notes?.trim() || null)) {
+        onUpdatePerformerDietaryNotes(person.performerId, value)
+      }
+    } else if ((person.kind === 'staff' || person.kind === 'organizer') && person.staffId) {
+      foodUpdateFor(person.kind)(person.staffId, { dietary_notes: value })
     }
   }
 
@@ -105,62 +156,105 @@ export const FoodTab = ({
 
   return (
     <div className="space-y-4">
-      <div className="admin-panel velvet-surface p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Left: general headcount/diet stats — what decides how many pizzas of each kind
-            to order. Right: allergy/special-diet markers only, with no name attached — for
-            a pizza run nobody needs to know *who* needs gluten-free, just that one pizza
-            should be. Direct feedback 2026-09-21. Split into 2 columns (was 1 stacked
-            column) since the panel felt awkwardly empty/wide as a single block. */}
-        <div className="space-y-2 text-center sm:pr-4 sm:border-r sm:border-accent/10">
-          <div className="flex items-center justify-center gap-2 text-sm text-foreground">
+      {/* Order sheet: total + uncategorized warning on top, then one column per diet (big
+          count, label, allergy badges) — for ordering, nobody needs to know *who*, just what.
+          Anyone not categorised yet is flagged, since they can't be counted into a kind. */}
+      <div className="admin-panel velvet-surface overflow-hidden">
+        <div className="relative flex flex-wrap items-center justify-center gap-3 p-4 border-b border-accent/10">
+          <div className="flex items-center gap-2 text-sm text-foreground">
             <UtensilsCrossed className="h-4 w-4 text-accent/60 shrink-0" />
-            <span>
-              {t(`${roster.length} personer behöver mat`, `${roster.length} people need food`)}
-            </span>
+            {t(`${roster.length} personer behöver mat`, `${roster.length} people need food`)}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-foreground/60">
-            {CATEGORY_ORDER.map((cat) => (
-              <span key={cat}>
-                {byCategory(cat).length} {dietaryCategoryLabel(t, cat).toLowerCase()}
-              </span>
-            ))}
-            {uncategorized.length > 0 && (
-              <span className="text-amber-400">
-                {uncategorized.length} {t('okategoriserade', 'uncategorized')}
-              </span>
-            )}
-          </div>
+          {uncategorized.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setGroupOpen('uncategorized', true)
+                document
+                  .getElementById('food-group-uncategorized')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border border-amber-500/40 text-amber-400 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2"
+            >
+              <TriangleAlert className="h-3.5 w-3.5" />
+              {t(
+                `${uncategorized.length} ej kategoriserade`,
+                `${uncategorized.length} uncategorized`
+              )}
+            </button>
+          )}
         </div>
-
-        <div className="space-y-2 text-center pt-4 sm:pt-0 border-t sm:border-t-0 border-accent/10">
-          <div className="flex items-center justify-center gap-2 text-sm text-foreground">
-            <TriangleAlert className="h-4 w-4 text-accent/60 shrink-0" />
-            <span>{t('Allergier & specialkost', 'Allergies & special diets')}</span>
-          </div>
-          {notesGiven.length === 0 ? (
-            <p className="text-xs text-foreground/40 italic">
-              {t('Inga anteckningar.', 'No notes.')}
-            </p>
-          ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-accent/10">
+          {CATEGORY_ORDER.map((cat) => {
+            const people = byCategory(cat)
+            const badges = noteBadgesFor(people)
+            return (
+              <div key={cat} className="p-4 space-y-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroupOpen(cat, true)
+                    document
+                      .getElementById(`food-group-${cat}`)
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  title={t('Visa personerna', 'Show the people')}
+                  className="group block w-full"
+                >
+                  <span className="block font-decorative text-3xl text-accent leading-none">
+                    {people.length}
+                  </span>
+                  <span className="block mt-1.5 text-[11px] uppercase tracking-widest text-foreground/70 group-hover:text-accent">
+                    {dietaryCategoryLabel(t, cat)}
+                  </span>
+                </button>
+                {badges.length > 0 && (
+                  <ul className="flex flex-wrap justify-center gap-1.5">
+                    {badges.map((b) => (
+                      <li
+                        key={b.key}
+                        className="text-xs text-foreground/80 bg-black/30 border border-accent/10 rounded-full px-2.5 py-1"
+                      >
+                        {b.text}
+                        {b.count > 1 && <span className="text-accent ml-1">x{b.count}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {noteBadgesFor(uncategorized).length > 0 && (
+          <div className="p-4 space-y-1.5 text-center border-t border-amber-500/20">
+            <div className="text-sm text-amber-400">
+              {t('Ej kategoriserade – anteckningar', 'Uncategorized – notes')}
+            </div>
             <ul className="flex flex-wrap justify-center gap-1.5">
-              {noteBadges.map((b) => (
+              {noteBadgesFor(uncategorized).map((b) => (
                 <li
                   key={b.key}
-                  className="text-xs text-foreground/80 bg-black/30 border border-accent/10 rounded-full px-2.5 py-1"
+                  className="text-xs text-foreground/80 bg-black/30 border border-amber-500/20 rounded-full px-2.5 py-1"
                 >
                   {b.text}
                   {b.count > 1 && <span className="text-accent ml-1">x{b.count}</span>}
                 </li>
               ))}
             </ul>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {groups.map((group) => {
         const emailable = group.people.filter((p) => p.email)
         return (
-          <details key={group.key} className="group">
+          <details
+            key={group.key}
+            id={`food-group-${group.key}`}
+            open={openGroups.has(group.key)}
+            onToggle={(e) => setGroupOpen(group.key, e.currentTarget.open)}
+            className="group"
+          >
             <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 {group.label}
@@ -198,9 +292,9 @@ export const FoodTab = ({
                         panel is, instead of each of the 5 wrapping onto its own line
                         unpredictably (what was producing 3 lines before). Direct feedback
                         2026-10-07. */}
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="flex-1 min-w-[60px] truncate">{person.name}</span>
-                      <span className="text-accent/70 italic text-xs shrink-0 max-w-[160px] truncate">
+                    <div className="flex flex-col min-w-[90px] flex-1">
+                      <span className="truncate">{person.name}</span>
+                      <span className="text-accent/70 italic text-xs truncate">
                         {person.subtitle}
                       </span>
                     </div>
@@ -210,46 +304,17 @@ export const FoodTab = ({
                         onChange={(value) => setCategory(person, value)}
                         className="shrink-0"
                       />
-                      {/* Always the same input, editable or not, so every row's allergy field
-                          takes up the same width — previously a bare <span> (read-only, fixed
-                          max-width) sat next to a flex-1 <input> (editable), and nothing at
-                          all rendered for a performer with no notes, so rows didn't line up.
-                          Fixed width (not flex-1): this row's only other flex-1 is the name
-                          above, so there's no second flex-1 competing with it for leftover
-                          space anymore. max-w-24 alongside w-24 is load-bearing, not
-                          redundant — Safari has a real flexbox bug where a replaced form
-                          element's (input/select) own intrinsic size wins over an explicit
-                          `width` when resolving flex-basis: auto inside a flex container, so
-                          the input rendered ~4-5x too wide in Safari despite w-24 (confirmed
-                          via screenshot 2026-10-07) while looking correct in Chromium. Both
-                          max-width (a hard clamp applied after flex resolution, which Safari
-                          does respect) stops that. Performers' notes come straight from their
-                          own booking form (dietary_requirements) and stay read-only here, but
-                          use the same placeholder as every other row — direct feedback
-                          2026-10-07 that the booking form's own wording ("T.ex. nötallergi...")
-                          looked inconsistent next to the staff/organizer rows' "Allergier
-                          etc.". */}
+                      {/* Editable for everyone, performers included (their value originates in the
+                          artist's booking form, but the board often needs to clear things like
+                          "none"). w-40 + max-w-40 both: Safari lets an input's intrinsic size win
+                          over `width` in a flex row, max-width clamps it. */}
                       <input
+                        key={person.notes ?? ''}
                         type="text"
                         defaultValue={person.notes ?? ''}
-                        readOnly={!person.notesEditable}
-                        onBlur={
-                          person.notesEditable
-                            ? (e) => setStaffNotes(person, e.target.value)
-                            : undefined
-                        }
+                        onBlur={(e) => setNotes(person, e.target.value)}
                         placeholder={t('Allergier etc.', 'Allergies etc.')}
-                        title={
-                          person.notesEditable
-                            ? undefined
-                            : t(
-                                'Ifyllt av artisten i deras bokningsblankett',
-                                'Filled in by the artist in their booking form'
-                              )
-                        }
-                        className={`w-40 max-w-40 shrink-0 h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white ${
-                          person.notesEditable ? '' : 'cursor-default opacity-70'
-                        }`}
+                        className="w-40 max-w-40 shrink-0 velvet-input-sm"
                       />
                       {person.email && (
                         <button
@@ -259,6 +324,22 @@ export const FoodTab = ({
                           className="text-accent/60 hover:text-accent shrink-0"
                         >
                           <Mail className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {(person.performerId ?? person.staffId) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNeedsFood(
+                              person.kind,
+                              (person.performerId ?? person.staffId)!,
+                              false
+                            )
+                          }
+                          title={t('Behöver inte mat', "Doesn't need food")}
+                          className="text-accent/60 hover:text-accent shrink-0"
+                        >
+                          <X className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
@@ -284,10 +365,13 @@ export const FoodTab = ({
                 key={person.id}
                 className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
               >
-                <span className="flex-1 min-w-0 truncate">{person.name}</span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="truncate">{person.name}</span>
+                  <span className="text-accent/70 italic text-xs truncate">{person.subtitle}</span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => foodUpdateFor(person.kind)(person.id, { needs_food: true })}
+                  onClick={() => setNeedsFood(person.kind, person.id, true)}
                   className="text-xs py-1 px-2.5 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors shrink-0"
                 >
                   {t('Lägg till i matlistan', 'Add to food list')}

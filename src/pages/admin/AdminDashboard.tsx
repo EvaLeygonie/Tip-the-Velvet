@@ -61,8 +61,11 @@ import {
 import { getDoorSlots, getInfoLinkToken, infoLinkUrl } from '@/services/eventInfoService'
 import { collectMissingInfo, type MissingInfoPerson } from '@/lib/missingInfo'
 import { missingMusicItems } from '@/components/admin/event-plan/musicCoverage'
-import { FIXED_STAFF_ROLES, PRIZE_SLOT_COUNT } from '@/components/admin/event-plan/constants'
-import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
+import {
+  FIXED_STAFF_ROLES,
+  PRIZE_SLOT_COUNT,
+  type EventPlanTab,
+} from '@/components/admin/event-plan/constants'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { staffRoleLabel, sponsorTypeLabel } from '@/lib/contactLabels'
 import { formatDate } from '@/lib/utils'
@@ -364,6 +367,11 @@ export const AdminDashboard = () => {
     setSelectedEventId(eventId)
     navigate('/admin/event-plan', { state: { tab } })
   }
+  // Show planning and Travel & accommodation are tabs of the Artist booking page.
+  const goToArtistBooking = (eventId: string, tab: 'casting' | 'show' | 'travel') => {
+    setSelectedEventId(eventId)
+    navigate('/admin/casting', { state: { tab } })
+  }
   const goToCasting = (eventId: string) => {
     setSelectedEventId(eventId)
     navigate('/admin/casting')
@@ -497,7 +505,7 @@ export const AdminDashboard = () => {
                 .map((a) => a.performer_id)
             ).size
             const missingFoodCount =
-              ov.performers.filter((p) => !p.dietary_category).length +
+              ov.performers.filter((p) => p.needs_food && !p.dietary_category).length +
               groupedStaff.filter((p) => p.needs_food && !p.dietary_category).length
             const missingMusic = missingMusicItems(t, ov.staffRows, {
               hasBeforePlaylist: Boolean(ov.playlists.before_playlist?.trim()),
@@ -585,7 +593,7 @@ export const AdminDashboard = () => {
                   `Missing: ${missingNotesCount} artists`
                 ),
                 icon: <Drama className="h-4 w-4 shrink-0" />,
-                onClick: () => goToEventPlan(ov.eventId, 'show'),
+                onClick: () => goToArtistBooking(ov.eventId, 'show'),
                 onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'notes'),
                 emailTitle: t('Be om saknad information', 'Ask for missing info'),
               })
@@ -599,7 +607,7 @@ export const AdminDashboard = () => {
                   `Missing: ${missingActMusicCount} artists`
                 ),
                 icon: <Disc3 className="h-4 w-4 shrink-0" />,
-                onClick: () => goToEventPlan(ov.eventId, 'show'),
+                onClick: () => goToArtistBooking(ov.eventId, 'show'),
                 onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'music'),
                 emailTitle: t('Be om saknad information', 'Ask for missing info'),
               })
@@ -627,7 +635,7 @@ export const AdminDashboard = () => {
                   `Missing: ${missingReceipts.length}/${travelNeededCount}`
                 ),
                 icon: <Car className="h-4 w-4 shrink-0" />,
-                onClick: () => goToEventPlan(ov.eventId, 'travel'),
+                onClick: () => goToArtistBooking(ov.eventId, 'travel'),
                 onEmailAll: () => openMissingInfo(ov, !needsCastingAttention, 'receipt'),
                 emailTitle: t('Be om saknad information', 'Ask for missing info'),
               })
@@ -641,7 +649,7 @@ export const AdminDashboard = () => {
                   `Missing: ${missingHousingCount}/${accommodationNeededCount}`
                 ),
                 icon: <Hotel className="h-4 w-4 shrink-0" />,
-                onClick: () => goToEventPlan(ov.eventId, 'travel'),
+                onClick: () => goToArtistBooking(ov.eventId, 'travel'),
               })
             }
             // Time windows nobody has signed up for (two spots per window, only one needs a

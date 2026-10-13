@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -97,6 +98,7 @@ const blankSponsor = (): Sponsors => ({
   sponsor_details: null,
   logo_id: null,
   agreed_to_terms: null,
+  has_sponsored: false,
   club_id: null,
   instagram_link: null,
   other_link: null,
@@ -116,6 +118,7 @@ const blankVenue = (): Venue => ({
   practical_info_sv: null,
   practical_info_eng: null,
   door_code: null,
+  has_hosted: false,
   language: 'sv',
   created_at: new Date().toISOString(),
 })
@@ -135,8 +138,15 @@ const blankClub = (): Club => ({
 export const AdminContacts = () => {
   const { t } = useLanguage()
   const { upcomingEvents, selectedEventId } = useCurrentEvent()
+  // Other admin pages link straight to a person/sponsor/venue here via
+  // navigate(path, { state: { tab, search } }).
+  const linkState = useLocation().state as {
+    tab?: 'staff' | 'board' | 'sponsors' | 'venues' | 'clubs'
+    search?: string
+  } | null
+  const linkedSearch = (tab: string) => (linkState?.tab === tab ? (linkState.search ?? '') : '')
   const [activeTab, setActiveTab] = useState<'staff' | 'board' | 'sponsors' | 'venues' | 'clubs'>(
-    'staff'
+    linkState?.tab ?? 'staff'
   )
   const [loading, setLoading] = useState(true)
 
@@ -186,14 +196,23 @@ export const AdminContacts = () => {
   const [venueDrafts, setVenueDrafts] = useState<Venue[]>([])
   const [clubDrafts, setClubDrafts] = useState<Club[]>([])
 
-  const [staffSearch, setStaffSearch] = useState('')
+  const [staffSearch, setStaffSearch] = useState(() => linkedSearch('staff'))
   const [staffRoleFilter, setStaffRoleFilter] = useState('')
   const [staffWorkedWithOnly, setStaffWorkedWithOnly] = useState(false)
-  const [sponsorSearch, setSponsorSearch] = useState('')
+  const [sponsorSearch, setSponsorSearch] = useState(() => linkedSearch('sponsors'))
   const [sponsorTypeFilter, setSponsorTypeFilter] = useState('')
-  const [venueSearch, setVenueSearch] = useState('')
+  const [venueHostedOnly, setVenueHostedOnly] = useState(false)
+  const [sponsorSponsoredOnly, setSponsorSponsoredOnly] = useState(false)
+  const [venueSearch, setVenueSearch] = useState(() => linkedSearch('venues'))
   const [clubSearch, setClubSearch] = useState('')
   const [clubRegionFilter, setClubRegionFilter] = useState('')
+
+  const handleAddForActiveTab = () => {
+    if (activeTab === 'staff') setStaffDrafts((prev) => [blankStaff(), ...prev])
+    else if (activeTab === 'sponsors') setSponsorDrafts((prev) => [blankSponsor(), ...prev])
+    else if (activeTab === 'venues') setVenueDrafts((prev) => [blankVenue(), ...prev])
+    else if (activeTab === 'clubs') setClubDrafts((prev) => [blankClub(), ...prev])
+  }
 
   const [mailTarget, setMailTarget] = useState<{
     recipients: MailRecipient[]
@@ -324,12 +343,14 @@ export const AdminContacts = () => {
 
   const filteredSponsors = sponsorRows.filter((r) => {
     if (sponsorTypeFilter && r.sponsor_type !== sponsorTypeFilter) return false
+    if (sponsorSponsoredOnly && !r.has_sponsored) return false
     if (!sponsorSearch) return true
     const q = sponsorSearch.toLowerCase()
     return [r.name, r.email, r.sponsor_details].some((f) => f?.toLowerCase().includes(q))
   })
 
   const filteredVenues = venueRows.filter((r) => {
+    if (venueHostedOnly && !r.has_hosted) return false
     if (!venueSearch) return true
     const q = venueSearch.toLowerCase()
     return [r.name, r.location, r.contact_person, r.email].some((f) => f?.toLowerCase().includes(q))
@@ -610,62 +631,64 @@ export const AdminContacts = () => {
       <h1>{t('Kontakter', 'Contacts')}</h1>
       <div className="gold-divider" />
 
-      <div className="flex gap-2 justify-center my-6 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setActiveTab('staff')}
-          className={
-            activeTab === 'staff'
-              ? 'btn-gold text-xs py-2 px-4'
-              : 'btn-gold-outline text-xs py-2 px-4'
-          }
-        >
-          {t('Personal & Volontärer', 'Staff & Volunteers')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('sponsors')}
-          className={
-            activeTab === 'sponsors'
-              ? 'btn-gold text-xs py-2 px-4'
-              : 'btn-gold-outline text-xs py-2 px-4'
-          }
-        >
-          {t('Sponsorer', 'Sponsors')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('venues')}
-          className={
-            activeTab === 'venues'
-              ? 'btn-gold text-xs py-2 px-4'
-              : 'btn-gold-outline text-xs py-2 px-4'
-          }
-        >
-          {t('Platser', 'Venues')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('clubs')}
-          className={
-            activeTab === 'clubs'
-              ? 'btn-gold text-xs py-2 px-4'
-              : 'btn-gold-outline text-xs py-2 px-4'
-          }
-        >
-          {t('Klubbar', 'Clubs')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('board')}
-          className={
-            activeTab === 'board'
-              ? 'btn-gold text-xs py-2 px-4'
-              : 'btn-gold-outline text-xs py-2 px-4'
-          }
-        >
-          {t('Styrelse', 'Board')}
-        </button>
+      <div className="max-w-5xl mx-auto my-6 lg:relative">
+        <div className="flex gap-2 justify-center flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveTab('staff')}
+            className={
+              activeTab === 'staff'
+                ? 'btn-gold text-xs py-2 px-4'
+                : 'btn-gold-outline text-xs py-2 px-4'
+            }
+          >
+            {t('Personal & Volontärer', 'Staff & Volunteers')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('sponsors')}
+            className={
+              activeTab === 'sponsors'
+                ? 'btn-gold text-xs py-2 px-4'
+                : 'btn-gold-outline text-xs py-2 px-4'
+            }
+          >
+            {t('Sponsorer', 'Sponsors')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('venues')}
+            className={
+              activeTab === 'venues'
+                ? 'btn-gold text-xs py-2 px-4'
+                : 'btn-gold-outline text-xs py-2 px-4'
+            }
+          >
+            {t('Platser', 'Venues')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('clubs')}
+            className={
+              activeTab === 'clubs'
+                ? 'btn-gold text-xs py-2 px-4'
+                : 'btn-gold-outline text-xs py-2 px-4'
+            }
+          >
+            {t('Klubbar', 'Clubs')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('board')}
+            className={
+              activeTab === 'board'
+                ? 'btn-gold text-xs py-2 px-4'
+                : 'btn-gold-outline text-xs py-2 px-4'
+            }
+          >
+            {t('Styrelse', 'Board')}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -690,7 +713,7 @@ export const AdminContacts = () => {
                 toggleValue={staffWorkedWithOnly}
                 onToggleChange={setStaffWorkedWithOnly}
                 toggleLabel={t('Har jobbat med oss', 'Worked with us before')}
-                onAdd={() => setStaffDrafts((prev) => [blankStaff(), ...prev])}
+                onAdd={handleAddForActiveTab}
                 addLabel={t('Lägg till', 'Add')}
               />
               {upcomingEvents.length > 0 && (
@@ -757,22 +780,7 @@ export const AdminContacts = () => {
                 </div>
               )}
 
-              <div className="space-y-3">
-                {staffDrafts.map((d) => (
-                  <StaffVolunteerRow
-                    key={d.id}
-                    row={d}
-                    isNew
-                    roleOptions={roleOptions}
-                    onSave={handleSaveStaff}
-                    onDelete={handleDeleteStaff}
-                    onEmail={openMailModalForVolunteer}
-                    onCancelNew={(id) =>
-                      setStaffDrafts((prev) => prev.filter((d2) => d2.id !== id))
-                    }
-                  />
-                ))}
-              </div>
+              <div className="space-y-3"></div>
               {filteredStaff.length === 0 && staffDrafts.length === 0 ? (
                 <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
                   {t('Inga kontakter hittades.', 'No contacts found.')}
@@ -821,7 +829,10 @@ export const AdminContacts = () => {
                 onFilterChange={setSponsorTypeFilter}
                 filterOptions={sponsorTypeOptions}
                 filterAllLabel={t('Alla typer', 'All types')}
-                onAdd={() => setSponsorDrafts((prev) => [blankSponsor(), ...prev])}
+                toggleValue={sponsorSponsoredOnly}
+                onToggleChange={setSponsorSponsoredOnly}
+                toggleLabel={t('Har sponsrat oss', 'Has sponsored us')}
+                onAdd={handleAddForActiveTab}
                 addLabel={t('Lägg till', 'Add')}
               />
               {upcomingEvents.length > 0 && (
@@ -849,21 +860,6 @@ export const AdminContacts = () => {
                 </div>
               )}
               <div className="space-y-3">
-                {sponsorDrafts.map((d) => (
-                  <SponsorRow
-                    key={d.id}
-                    row={d}
-                    isNew
-                    sponsorTypeOptions={sponsorTypeOptions}
-                    clubOptions={clubOptions}
-                    onSave={handleSaveSponsor}
-                    onDelete={handleDeleteSponsor}
-                    onEmail={openMailModalForSponsor}
-                    onCancelNew={(id) =>
-                      setSponsorDrafts((prev) => prev.filter((d2) => d2.id !== id))
-                    }
-                  />
-                ))}
                 {filteredSponsors.length === 0 && sponsorDrafts.length === 0 ? (
                   <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
                     {t('Inga sponsorer hittades.', 'No sponsors found.')}
@@ -896,23 +892,13 @@ export const AdminContacts = () => {
                   'Sök namn, plats, kontakt...',
                   'Search name, location, contact...'
                 )}
-                onAdd={() => setVenueDrafts((prev) => [blankVenue(), ...prev])}
+                toggleValue={venueHostedOnly}
+                onToggleChange={setVenueHostedOnly}
+                toggleLabel={t('Vi har haft fest här', "We've held a party here")}
+                onAdd={handleAddForActiveTab}
                 addLabel={t('Lägg till', 'Add')}
               />
               <div className="space-y-3">
-                {venueDrafts.map((d) => (
-                  <VenueRow
-                    key={d.id}
-                    row={d}
-                    isNew
-                    onSave={handleSaveVenue}
-                    onDelete={handleDeleteVenue}
-                    onEmail={openMailModalForVenue}
-                    onCancelNew={(id) =>
-                      setVenueDrafts((prev) => prev.filter((d2) => d2.id !== id))
-                    }
-                  />
-                ))}
                 {filteredVenues.length === 0 && venueDrafts.length === 0 ? (
                   <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
                     {t('Inga platser hittades.', 'No venues found.')}
@@ -946,20 +932,10 @@ export const AdminContacts = () => {
                 onFilterChange={setClubRegionFilter}
                 filterOptions={clubRegionOptions}
                 filterAllLabel={t('Alla regioner', 'All regions')}
-                onAdd={() => setClubDrafts((prev) => [blankClub(), ...prev])}
+                onAdd={handleAddForActiveTab}
                 addLabel={t('Lägg till', 'Add')}
               />
               <div className="space-y-3">
-                {clubDrafts.map((d) => (
-                  <ClubRow
-                    key={d.id}
-                    row={d}
-                    isNew
-                    onSave={handleSaveClub}
-                    onDelete={handleDeleteClub}
-                    onCancelNew={(id) => setClubDrafts((prev) => prev.filter((d2) => d2.id !== id))}
-                  />
-                ))}
                 {filteredClubs.length === 0 && clubDrafts.length === 0 ? (
                   <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
                     {t('Inga klubbar hittades.', 'No clubs found.')}
@@ -980,6 +956,100 @@ export const AdminContacts = () => {
           )}
         </div>
       )}
+
+      {/* "Lägg till" opens the new contact's form in a modal instead of a loose row at the top of
+          the list; closing it discards the draft (the form's own Cancel does the same). */}
+      {(() => {
+        const drafts =
+          activeTab === 'staff'
+            ? staffDrafts
+            : activeTab === 'sponsors'
+              ? sponsorDrafts
+              : activeTab === 'venues'
+                ? venueDrafts
+                : activeTab === 'clubs'
+                  ? clubDrafts
+                  : []
+        if (drafts.length === 0) return null
+        const closeDrafts = () => {
+          if (activeTab === 'staff') setStaffDrafts([])
+          else if (activeTab === 'sponsors') setSponsorDrafts([])
+          else if (activeTab === 'venues') setVenueDrafts([])
+          else if (activeTab === 'clubs') setClubDrafts([])
+        }
+        return (
+          <div
+            className="fixed inset-0 z-50 flex justify-center bg-black/70 p-4 overflow-y-auto"
+            onClick={closeDrafts}
+          >
+            <div
+              className="w-full max-w-3xl my-auto bg-background rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-3">
+                {activeTab === 'staff' &&
+                  staffDrafts.map((d) => (
+                    <StaffVolunteerRow
+                      key={d.id}
+                      row={d}
+                      isNew
+                      roleOptions={roleOptions}
+                      onSave={handleSaveStaff}
+                      onDelete={handleDeleteStaff}
+                      onEmail={openMailModalForVolunteer}
+                      onCancelNew={(id) =>
+                        setStaffDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                      }
+                    />
+                  ))}
+                {activeTab === 'sponsors' &&
+                  sponsorDrafts.map((d) => (
+                    <SponsorRow
+                      key={d.id}
+                      row={d}
+                      isNew
+                      sponsorTypeOptions={sponsorTypeOptions}
+                      clubOptions={clubOptions}
+                      onSave={handleSaveSponsor}
+                      onDelete={handleDeleteSponsor}
+                      onEmail={openMailModalForSponsor}
+                      onCancelNew={(id) =>
+                        setSponsorDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                      }
+                    />
+                  ))}
+                {activeTab === 'venues' &&
+                  venueDrafts.map((d) => (
+                    <VenueRow
+                      key={d.id}
+                      row={d}
+                      isNew
+                      onSave={handleSaveVenue}
+                      onDelete={handleDeleteVenue}
+                      onEmail={openMailModalForVenue}
+                      onCancelNew={(id) =>
+                        setVenueDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                      }
+                    />
+                  ))}
+                {activeTab === 'clubs' &&
+                  clubDrafts.map((d) => (
+                    <ClubRow
+                      key={d.id}
+                      row={d}
+                      isNew
+                      onSave={handleSaveClub}
+                      onDelete={handleDeleteClub}
+                      onCancelNew={(id) =>
+                        setClubDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                      }
+                    />
+                  ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <ContactMailModal
         isOpen={!!mailTarget}

@@ -27,7 +27,7 @@ export const staffRoleLabel = (t: Translate, role: StaffVolunteerType): string =
       // Kept as 'doorman' at the DB level deliberately — see admin-portal-roadmap.md's
       // staffing redesign — the value is left free in case a paid security-guard role is
       // needed again later, but the current role is unpaid/optional door duty.
-      return t('Entrévärd', 'Entrance host')
+      return t('Dörrvakt', 'Guard')
     case 'other':
       return t('Övrigt', 'Other')
     case 'board':

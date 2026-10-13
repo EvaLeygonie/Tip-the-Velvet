@@ -156,7 +156,7 @@ export const StandardPostRow = ({
                     'No template for this post — write the text here.'
                   )
             }
-            className="w-full min-h-[160px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white"
+            className="velvet-textarea min-h-[160px] resize-y"
           />
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
             {generateText ? (

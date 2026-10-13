@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 
 type Language = 'sv' | 'eng'
 
@@ -29,7 +29,9 @@ const readStoredLanguage = (): Language => {
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguageState] = useState<Language>(readStoredLanguage)
 
-  const setLanguage = (lang: Language) => {
+  // Stable identity: effects list setLanguage as a dependency (the booking portal does), and a
+  // new function on every render made them re-run on each language change.
+  const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang)
     try {
       localStorage.setItem(STORAGE_KEY, lang)
@@ -37,7 +39,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
       // Private browsing / blocked storage — the toggle still works for the rest of this
       // session, it just won't survive a reload.
     }
-  }
+  }, [])
 
   const t = (sv: string | null | undefined, eng: string | null | undefined) => {
     const text = language === 'sv' ? sv : eng

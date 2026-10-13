@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Mail, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { LanguageMarker, LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { StaffVolunteers } from '@/types/types'
-import { useConfirm } from '@/contexts/ConfirmContext'
+import { useContactRow } from '@/hooks/useContactRow'
+import { ContactRowFooter } from './ContactRowFooter'
 
 interface BoardMemberRowProps {
   row: StaffVolunteers
@@ -22,9 +23,6 @@ interface BoardMemberRowProps {
 // individual shows the way staff/volunteers are.
 export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRowProps) => {
   const { t } = useLanguage()
-  const confirm = useConfirm()
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [draft, setDraft] = useState({
     name: row.name,
     email: row.email ?? '',
@@ -34,52 +32,35 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
     language: row.language,
   })
 
-  const handleSave = async () => {
-    if (!draft.name.trim()) {
-      toast.error(t('Namn krävs.', 'Name is required.'))
-      return
-    }
-    setIsSaving(true)
-    try {
-      await onSave(row.id, {
+  const { isExpanded, toggle, isSaving, rootRef, save, remove } = useContactRow({
+    id: row.id,
+    name: row.name,
+    onSave,
+    onDelete,
+  })
+
+  const handleSave = () =>
+    save(() => {
+      if (!draft.name.trim()) {
+        toast.error(t('Namn krävs.', 'Name is required.'))
+        return null
+      }
+      return {
         name: draft.name.trim(),
         email: draft.email.trim() || null,
         phone: draft.phone.trim() || null,
         fee: draft.fee === '' ? null : Number(draft.fee),
         role_details: draft.role_details.trim() || null,
         language: draft.language,
-      })
-      setIsExpanded(false)
-    } catch (err) {
-      console.error(err)
-      toast.error(t('Kunde inte spara.', 'Could not save.'))
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    const confirmed = await confirm({
-      message: t(
-        `Är du säker på att du vill radera ${row.name}?`,
-        `Are you sure you want to delete ${row.name}?`
-      ),
-      destructive: true,
+      }
     })
-    if (!confirmed) return
-    try {
-      await onDelete(row.id)
-    } catch (err) {
-      console.error(err)
-      toast.error(t('Kunde inte radera.', 'Could not delete.'))
-    }
-  }
 
   return (
     <div
+      ref={rootRef}
       className="admin-panel velvet-surface transition-all duration-300 overflow-hidden cursor-pointer"
       style={{ padding: 0 }}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={toggle}
     >
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
         <div className="grid grid-cols-12 gap-4 items-center flex-1 min-w-0">
@@ -149,7 +130,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
                 type="text"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -158,7 +139,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
                 type="email"
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -167,7 +148,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
                 type="text"
                 value={draft.phone}
                 onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -176,7 +157,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
                 type="number"
                 value={draft.fee}
                 onChange={(e) => setDraft({ ...draft, fee: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
@@ -184,7 +165,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
               <textarea
                 value={draft.role_details}
                 onChange={(e) => setDraft({ ...draft, role_details: e.target.value })}
-                className="w-full h-20 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                className="velvet-textarea h-20 resize-none"
               />
             </div>
           </div>
@@ -196,20 +177,7 @@ export const BoardMemberRow = ({ row, onSave, onDelete, onEmail }: BoardMemberRo
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-accent/10">
-            <button type="button" onClick={handleDelete} className="btn-red text-xs py-2 px-4">
-              {t('Radera', 'Delete')}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5"
-            >
-              {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {t('Spara', 'Save')}
-            </button>
-          </div>
+          <ContactRowFooter isSaving={isSaving} onSave={handleSave} onDelete={remove} />
         </div>
       )}
     </div>

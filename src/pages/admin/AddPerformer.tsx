@@ -19,7 +19,11 @@ export const AddPerformer = () => {
           <div className="section-header-triad">
             <div className="header-side-content md:justify-start" />
 
-            <h1>{t('Lägg till artist', 'Add performer')}</h1>
+            <h1>
+              {slug
+                ? t('Redigera artist', 'Edit performer')
+                : t('Lägg till artist', 'Add performer')}
+            </h1>
 
             <div className="hidden md:block"></div>
           </div>

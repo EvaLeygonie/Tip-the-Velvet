@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { AdminEventPerformerRow } from '@/services/eventService'
 import type { ReceiptItem } from '@/components/applications/BookedArtistForm'
+import { downloadBlob } from '@/lib/utils'
 
 interface TravelAccommodationTabProps {
   eventTitle: string
@@ -95,14 +96,7 @@ export const TravelAccommodationTab = ({
         })
       )
       const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const blobUrl = URL.createObjectURL(zipBlob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = `${eventTitle || 'event'}-reskvitton.zip`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
+      downloadBlob(zipBlob, `${eventTitle || 'event'}-reskvitton.zip`)
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte ladda ner kvittona.', 'Could not download the receipts.'))
@@ -184,7 +178,7 @@ export const TravelAccommodationTab = ({
                       defaultValue={row.notes ?? ''}
                       onBlur={(e) => onTravelNotesChanged(row.performer_id, e.target.value)}
                       placeholder={t('Anteckningar om resan...', 'Notes about the travel...')}
-                      className="min-w-[140px] flex-1 h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+                      className="min-w-[140px] flex-1 velvet-input-sm"
                     />
                     <div className="flex items-center gap-1.5 shrink-0">
                       {row.travels_by_car ? (
@@ -281,7 +275,7 @@ export const TravelAccommodationTab = ({
                   defaultValue={row.accommodation ?? ''}
                   onBlur={(e) => onAccommodationChanged(row.performer_id, e.target.value)}
                   placeholder={t('Var placerar vi dem?', 'Where will we put them?')}
-                  className="w-full h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+                  className="velvet-input-sm"
                 />
                 {/* Separate from "where" — logistics like dates matter too, e.g. Luminous
                     Starling and her +1 needing the room Friday–Sunday instead of just the
@@ -294,7 +288,7 @@ export const TravelAccommodationTab = ({
                     'Anteckningar om boendet, t.ex. datum (Fredag-söndag)...',
                     'Notes about the stay, e.g. dates (Friday-Sunday)...'
                   )}
-                  className="w-full h-7 text-xs bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white"
+                  className="velvet-input-sm"
                 />
               </div>
             ))}

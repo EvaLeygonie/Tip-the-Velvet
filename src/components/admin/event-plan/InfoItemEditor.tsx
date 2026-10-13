@@ -26,8 +26,7 @@ interface InfoItemEditorProps {
   onUndoTemplate?: () => Promise<void>
 }
 
-const inputClass =
-  'w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white'
+const inputClass = 'velvet-field'
 
 // One form for schedule rows (time + title) and text sections (title + body). Who sees the item
 // is a set of role chips; none ticked means everyone. (Documents aren't edited here — they are
@@ -111,41 +110,44 @@ export const InfoItemEditor = ({
 
   return (
     <div ref={rootRef} className="admin-panel velvet-surface p-4 space-y-3 text-left">
-      <div className="space-y-1">
-        <span className="form-label-gold block">
-          {t('Visas för (inget valt = alla)', 'Shown to (none = everyone)')}
-        </span>
-        <div className="flex flex-wrap gap-1.5">
-          {INFO_AUDIENCES.map((audience) => (
-            <button
-              key={audience}
-              type="button"
-              onClick={() => toggleAudience(audience)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                audiences.includes(audience)
-                  ? 'bg-accent text-black border-accent'
-                  : 'border-accent/30 text-foreground/70 hover:border-accent'
-              }`}
-            >
-              {infoAudienceLabel(t, audience)}
-            </button>
-          ))}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        {kind === 'schedule' ? (
+          <div className="space-y-1">
+            <label className="form-label-gold block">
+              {t('Tid (t.ex. 21:00 eller ca 22:30)', 'Time (e.g. 21:00 or ca 22:30)')}
+            </label>
+            <input
+              type="text"
+              value={timeText}
+              onChange={(e) => setTimeText(e.target.value)}
+              className={`${inputClass} h-9 sm:w-48`}
+            />
+          </div>
+        ) : (
+          <span />
+        )}
+        <div className="space-y-1 sm:text-right">
+          <span className="form-label-gold block">
+            {t('Visas för (inget valt = alla)', 'Shown to (none = everyone)')}
+          </span>
+          <div className="flex flex-wrap gap-1.5 sm:justify-end">
+            {INFO_AUDIENCES.map((audience) => (
+              <button
+                key={audience}
+                type="button"
+                onClick={() => toggleAudience(audience)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  audiences.includes(audience)
+                    ? 'bg-accent text-black border-accent'
+                    : 'border-accent/30 text-foreground/70 hover:border-accent'
+                }`}
+              >
+                {infoAudienceLabel(t, audience)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-
-      {kind === 'schedule' && (
-        <div className="space-y-1">
-          <label className="form-label-gold block">
-            {t('Tid (t.ex. 21:00 eller ca 22:30)', 'Time (e.g. 21:00 or ca 22:30)')}
-          </label>
-          <input
-            type="text"
-            value={timeText}
-            onChange={(e) => setTimeText(e.target.value)}
-            className={`${inputClass} h-9 sm:w-48`}
-          />
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
@@ -227,7 +229,7 @@ export const InfoItemEditor = ({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="btn-gold text-xs py-2 px-4"
+          className="btn-gold-outline !bg-[rgba(212,175,55,0.9)] !text-black text-xs py-2 px-4"
         >
           {saving ? t('Sparar…', 'Saving…') : t('Spara', 'Save')}
         </button>

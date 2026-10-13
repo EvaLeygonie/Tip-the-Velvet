@@ -63,7 +63,7 @@ export const getCastingApplicationByToken = async (id: string, token: string | n
   }
 
   // Går via en SECURITY DEFINER-funktion (inte en direkt .select()) så att RLS aldrig
-  // behöver tillåta anon att läsa tabellen rakt av — se supabase/migrations för detaljer.
+  // behöver tillåta anon att läsa tabellen rakt av.
   const { data, error } = await supabase.rpc('get_casting_application_by_token', {
     p_id: id,
     p_token: token,

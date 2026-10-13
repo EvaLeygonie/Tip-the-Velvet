@@ -71,7 +71,7 @@ export const collectMissingInfo = ({
 
   const artists: MissingInfoPerson[] = performers.flatMap((p) => {
     const items: MissingItem[] = []
-    if (!p.dietary_category) items.push('food')
+    if (p.needs_food && !p.dietary_category) items.push('food')
     const musicActs = actsMissingMusic
       .filter((a) => a.performer_id === p.performer_id)
       .map((a) => a.act_name)

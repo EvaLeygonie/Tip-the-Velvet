@@ -514,6 +514,34 @@ export const updateEventPerformerDietary = async (
   if (error) throw error
 }
 
+export const updateEventPerformerNeedsFood = async (
+  eventId: string,
+  performerId: string,
+  needsFood: boolean
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ needs_food: needsFood })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
+export const updateEventPerformerDietaryNotes = async (
+  eventId: string,
+  performerId: string,
+  notes: string | null
+): Promise<void> => {
+  const { error } = await supabase
+    .from('event_performers')
+    .update({ dietary_requirements: notes })
+    .eq('event_id', eventId)
+    .eq('performer_id', performerId)
+
+  if (error) throw error
+}
+
 // event_performers.notes was already wired into update_event_performer_via_token (the
 // artist's own booking form, via applicationService's updateEventPerformerDetails) but never
 // actually surfaced in that form's UI — free to repurpose here as the board's own travel-
@@ -771,11 +799,6 @@ export const updateEvent = (id: string, updatedData: Partial<CreateEventInput>) 
 
 export const toggleImageVisibility = (id: string, isVisible: boolean, isOldEvent: boolean) =>
   updateRow(isOldEvent ? 'old_event_images' : 'event_images', id, { is_visible: isVisible })
-
-export const updateImageOrder = (id: string, displayOrder: number, isOldEvent: boolean) =>
-  updateRow(isOldEvent ? 'old_event_images' : 'event_images', id, {
-    display_order: displayOrder,
-  })
 
 //=== DELETE ===///
 

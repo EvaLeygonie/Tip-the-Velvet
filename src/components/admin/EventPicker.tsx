@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 
@@ -6,7 +7,8 @@ interface EventPickerProps {
 }
 
 export const EventPicker = ({ className }: EventPickerProps) => {
-  const { upcomingEvents, archivedEvents, selectedEventId, setSelectedEventId } = useCurrentEvent()
+  const { upcomingEvents, archivedEvents, selectedEventId, selectedEvent, setSelectedEventId } =
+    useCurrentEvent()
   const { t } = useLanguage()
 
   if (upcomingEvents.length === 0 && archivedEvents.length === 0) return null
@@ -40,6 +42,14 @@ export const EventPicker = ({ className }: EventPickerProps) => {
           </optgroup>
         )}
       </select>
+      {selectedEvent?.slug && (
+        <Link
+          to={`/admin/event-editor/${selectedEvent.slug}`}
+          className="inline-block text-xs text-foreground/50 hover:text-accent underline"
+        >
+          {t('Redigera eventet', 'Edit the event')}
+        </Link>
+      )}
     </div>
   )
 }

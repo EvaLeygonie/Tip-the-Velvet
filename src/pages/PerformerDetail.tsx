@@ -107,7 +107,10 @@ export const PerformerDetail = () => {
       <div className="empty-state">
         <Seo
           noindex
-          title={t('Artisten hittades inte | Tip the Velvet', 'Performer not found | Tip the Velvet')}
+          title={t(
+            'Artisten hittades inte | Tip the Velvet',
+            'Performer not found | Tip the Velvet'
+          )}
         />
         <p>{t('Artisten hittades inte.', 'Performer not found.')}</p>
         <Link to="/performers" className="btn-gold mt-4">

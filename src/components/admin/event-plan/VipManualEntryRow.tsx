@@ -115,7 +115,7 @@ export const VipManualEntryRow = ({
                 type="text"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1">
@@ -124,7 +124,7 @@ export const VipManualEntryRow = ({
                 type="email"
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                className="w-full h-9 text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                className="velvet-input"
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
@@ -134,7 +134,7 @@ export const VipManualEntryRow = ({
                 onChange={(e) =>
                   setDraft({ ...draft, category: e.target.value as VipEntryCategory })
                 }
-                className="w-full h-9 flex items-center text-sm bg-black/40 border border-accent/20 rounded py-2 pl-2 pr-8 focus:border-accent text-white"
+                className="velvet-select"
               >
                 {CATEGORY_OPTIONS.map((category) => (
                   <option key={category} value={category}>
@@ -150,7 +150,7 @@ export const VipManualEntryRow = ({
             <textarea
               value={draft.note}
               onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-              className="w-full h-20 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+              className="velvet-textarea h-20 resize-none"
             />
           </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation } from 'react-router-dom'
 import {
   getApplicationsFromEvent,
   updateApplicationNotes,
@@ -15,6 +16,14 @@ import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import type { CastingApplication, CastingApplicationWithActs } from '@/types/types'
 import { CastingApplicationRow } from '@/components/admin/CastingApplicationRow'
 import { EventPicker } from '@/components/admin/EventPicker'
+import { ArtistShowTravelTab } from '@/components/admin/event-plan/ArtistShowTravelTab'
+import { DocumentsMenu } from '@/components/admin/event-plan/DocumentsMenu'
+import {
+  getEventActsForAdmin,
+  getEventPerformersForAdmin,
+  getEventStaffForAdmin,
+} from '@/services/eventService'
+import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { DollarSign, Music, Users, Mail, Loader2 } from 'lucide-react'
 import { withTimeout } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -25,6 +34,19 @@ export const AdminCasting = () => {
   const artistLabel = (count: number) =>
     t(count === 1 ? 'artist' : 'artister', count === 1 ? 'artist' : 'artists')
   const { selectedEventId, selectedEvent } = useCurrentEvent()
+  // The Dashboard's cards deep-link to a tab via navigate(path, { state: { tab } }).
+  const location = useLocation()
+  const [activeTab, setActiveTab] = useState<'casting' | 'show' | 'travel'>(
+    (location.state as { tab?: 'casting' | 'show' | 'travel' } | null)?.tab ?? 'casting'
+  )
+  // Links from other pages (or from the Documents menu on this one) switch tab the same way:
+  // a new navigation key means a new state.tab to follow.
+  const [seenLocationKey, setSeenLocationKey] = useState(location.key)
+  if (seenLocationKey !== location.key) {
+    setSeenLocationKey(location.key)
+    const linkedTab = (location.state as { tab?: 'casting' | 'show' | 'travel' } | null)?.tab
+    if (linkedTab) setActiveTab(linkedTab)
+  }
   const [applications, setApplications] = useState<CastingApplicationWithActs[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -409,6 +431,7 @@ export const AdminCasting = () => {
               key={app.id}
               application={app}
               eventTitle={selectedEvent?.title ?? ''}
+              onOpenTab={setActiveTab}
               onStatusChange={handleStatusChange}
               onSaveNotes={handleSaveNotes}
               onUpdateLogistics={handleUpdateLogisticsStatus}
@@ -423,42 +446,109 @@ export const AdminCasting = () => {
 
   const hasAnyApplications = applications.length > 0
 
+  // What the Documents menu needs, fetched when it opens so it is current.
+  const loadDocumentData = async () => {
+    const [performersData, acts, staff] = await Promise.all([
+      getEventPerformersForAdmin(selectedEventId),
+      getEventActsForAdmin(selectedEventId),
+      getEventStaffForAdmin(selectedEventId),
+    ])
+    return {
+      acts,
+      context: {
+        t,
+        eventTitle: selectedEvent?.title ?? 'Event',
+        eventStart: selectedEvent?.event_start ?? undefined,
+        acts,
+        performers: performersData.performers,
+        groupedStaff: groupStaffRowsByPerson(staff),
+      },
+    }
+  }
+
+  const documentsMenu = selectedEventId ? (
+    <DocumentsMenu
+      eventId={selectedEventId}
+      ids={['runOfShow', 'setList', 'soundLight', 'artistContacts']}
+      load={loadDocumentData}
+    />
+  ) : null
+
   return (
     <div className="page-shell">
       <div className="bg-glow-spot" />
-      <h1>{t('Casting-hantering', 'Casting handling')}</h1>
+      <h1>{t('Artistbokning', 'Artist booking')}</h1>
       <div className="gold-divider" />
 
       <EventPicker />
 
-      {hasAnyApplications && (
-        <div className="flex items-center justify-center gap-6 text-sm text-foreground/70 font-body -mt-4 mb-6 relative z-10">
+      {selectedEventId && (
+        <div className="max-w-5xl mx-auto mt-6 mb-6">
+          <div className="flex gap-2 justify-center flex-wrap">
+            {(
+              [
+                ['casting', t('Casting', 'Casting')],
+                ['show', t('Showplanering', 'Show planning')],
+                ['travel', t('Resa & boende', 'Travel & accommodation')],
+              ] as const
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={
+                  activeTab === tab
+                    ? 'btn-gold text-xs py-2 px-4'
+                    : 'btn-gold-outline text-xs py-2 px-4'
+                }
+              >
+                {label}
+              </button>
+            ))}
+            {documentsMenu}
+          </div>
+        </div>
+      )}
+
+      {selectedEventId && activeTab !== 'casting' && (
+        <div className="max-w-5xl mx-auto space-y-4">
+          <ArtistShowTravelTab
+            key={selectedEventId}
+            tab={activeTab}
+            eventId={selectedEventId}
+            eventTitle={selectedEvent?.title ?? 'Event'}
+          />
+        </div>
+      )}
+
+      {activeTab === 'casting' && hasAnyApplications && (
+        <div className="flex items-center justify-center gap-6 text-base text-foreground/70 font-body mt-10 mb-2 relative z-10">
           <span className="flex items-center gap-1.5">
-            <Users className="h-4 w-4 text-accent" />
+            <Users className="h-5 w-5 text-accent" />
             <span className="font-semibold text-foreground">{totalArtists}</span>
             {artistLabel(totalArtists)}
           </span>
           <span className="text-accent/30">•</span>
           <span className="flex items-center gap-1.5">
-            <Music className="h-4 w-4 text-accent" />
+            <Music className="h-5 w-5 text-accent" />
             <span className="font-semibold text-foreground">{totalActsSubmitted}</span>
             {actLabel(totalActsSubmitted)}
           </span>
         </div>
       )}
 
-      {error && (
+      {activeTab === 'casting' && error && (
         <div className="velvet-warning-box max-w-2xl mx-auto my-4">
           <span className="p-clean text-red-200">{error}</span>
         </div>
       )}
 
-      {loading ? (
+      {activeTab !== 'casting' ? null : loading ? (
         <div className="loading-container">
           <div className="loading-text">{t('Öppnar ridån...', 'Opening the curtain...')}</div>
         </div>
       ) : (
-        <div className="mt-8 relative z-10 max-w-5xl mx-auto space-y-6">
+        <div className="mt-2 relative z-10 max-w-5xl mx-auto space-y-6">
           {!hasAnyApplications ? (
             <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
               {t(
@@ -533,7 +623,7 @@ export const AdminCasting = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <span className="block text-[11px] uppercase tracking-wider text-gold font-mono">
+                  <span className="block font-decorative text-base text-accent text-center">
                     {t('Svenska', 'Swedish')}
                   </span>
                   <div className="space-y-1">
@@ -544,7 +634,7 @@ export const AdminCasting = () => {
                       type="text"
                       value={bulkSubjectSv}
                       onChange={(e) => setBulkSubjectSv(e.target.value)}
-                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                      className="velvet-field"
                     />
                   </div>
                   <div className="space-y-1">
@@ -555,7 +645,7 @@ export const AdminCasting = () => {
                       type="text"
                       value={bulkGreetingSv}
                       onChange={(e) => setBulkGreetingSv(e.target.value)}
-                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                      className="velvet-field"
                     />
                   </div>
                   <div className="space-y-1">
@@ -565,13 +655,13 @@ export const AdminCasting = () => {
                     <textarea
                       value={bulkBodySv}
                       onChange={(e) => setBulkBodySv(e.target.value)}
-                      className="w-full h-40 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                      className="velvet-textarea h-40 resize-none"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <span className="block text-[11px] uppercase tracking-wider text-gold font-mono">
+                  <span className="block font-decorative text-base text-accent text-center">
                     {t('Engelska', 'English')}
                   </span>
                   <div className="space-y-1">
@@ -582,7 +672,7 @@ export const AdminCasting = () => {
                       type="text"
                       value={bulkSubjectEn}
                       onChange={(e) => setBulkSubjectEn(e.target.value)}
-                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                      className="velvet-field"
                     />
                   </div>
                   <div className="space-y-1">
@@ -593,7 +683,7 @@ export const AdminCasting = () => {
                       type="text"
                       value={bulkGreetingEn}
                       onChange={(e) => setBulkGreetingEn(e.target.value)}
-                      className="w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white"
+                      className="velvet-field"
                     />
                   </div>
                   <div className="space-y-1">
@@ -603,7 +693,7 @@ export const AdminCasting = () => {
                     <textarea
                       value={bulkBodyEn}
                       onChange={(e) => setBulkBodyEn(e.target.value)}
-                      className="w-full h-40 text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+                      className="velvet-textarea h-40 resize-none"
                     />
                   </div>
                 </div>

@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 import { Download, Copy, Save, Sparkles, Users, Image, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { getImageSrc, generateEventHashtags } from '@/lib/utils'
+import { getImageSrc, generateEventHashtags, downloadBlob } from '@/lib/utils'
 import { saveEventHashtags } from '@/services/eventService'
 import type {
   EventMarketingData,
@@ -73,14 +73,7 @@ export const EventAssetPanel = ({
         })
       )
       const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const blobUrl = URL.createObjectURL(zipBlob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = `${event.title || 'artister'}-bilder.zip`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
+      downloadBlob(zipBlob, `${event.title || 'artister'}-bilder.zip`)
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte ladda ner bilderna.', 'Could not download the images.'))
@@ -162,14 +155,7 @@ export const EventAssetPanel = ({
         })
       )
       const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const blobUrl = URL.createObjectURL(zipBlob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = `${event.title || 'sponsorer'}-loggor.zip`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
+      downloadBlob(zipBlob, `${event.title || 'sponsorer'}-loggor.zip`)
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte ladda ner loggorna.', 'Could not download the logos.'))

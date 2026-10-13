@@ -1,12 +1,17 @@
+import { useState } from 'react'
+import { Mail } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { volunteerShiftLabel } from '@/lib/contactLabels'
 import { EventStaffRow } from './EventStaffRow'
+import { GroupMailModal } from './GroupMailModal'
+import { blankMailDefaults } from '@/lib/mailDefaults'
 import { VOLUNTEER_SHIFT_ORDER } from './constants'
 import type { AdminEventStaffRow } from '@/services/eventService'
 
 interface VolunteerShiftGroupsProps {
   rows: AdminEventStaffRow[]
   eventId: string
+  eventTitle: string
   onRemoved: (id: string) => void
   onUpdated: (id: string, patch: Partial<AdminEventStaffRow>) => void
 }
@@ -16,8 +21,15 @@ interface VolunteerShiftGroupsProps {
 // rendering as a flat list in AdminEventPlan.tsx, unchanged. Anyone without a shift set yet
 // (pre-migration confirmations, or confirmed without picking one) falls into a final
 // "no shift" bucket rather than being hidden.
-export const VolunteerShiftGroups = ({ rows, eventId, onRemoved, onUpdated }: VolunteerShiftGroupsProps) => {
+export const VolunteerShiftGroups = ({
+  rows,
+  eventId,
+  eventTitle,
+  onRemoved,
+  onUpdated,
+}: VolunteerShiftGroupsProps) => {
   const { t } = useLanguage()
+  const [mailGroup, setMailGroup] = useState<string | null>(null)
 
   const groups = [
     ...VOLUNTEER_SHIFT_ORDER.map((shift) => ({
@@ -42,9 +54,20 @@ export const VolunteerShiftGroups = ({ rows, eventId, onRemoved, onUpdated }: Vo
               <h6 className="text-xs uppercase tracking-wider text-foreground/50 font-semibold">
                 {group.label}
               </h6>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border bg-accent/5 border-accent/20 text-accent/80">
-                {group.rows.length}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMailGroup(group.key)}
+                  disabled={!group.rows.some((r) => r.staff.email)}
+                  title={t('Maila alla i passet', 'Email everyone in this shift')}
+                  className="p-1 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border bg-accent/5 border-accent/20 text-accent/80">
+                  {group.rows.length}
+                </span>
+              </div>
             </div>
             <div className="space-y-2">
               {group.rows.map((row) => (
@@ -60,6 +83,22 @@ export const VolunteerShiftGroups = ({ rows, eventId, onRemoved, onUpdated }: Vo
           </div>
         )
       })}
+      {mailGroup && (
+        <GroupMailModal
+          title={`${t('Mejla', 'Email')} ${groups.find((g) => g.key === mailGroup)?.label ?? ''}`}
+          recipients={
+            groups
+              .find((g) => g.key === mailGroup)
+              ?.rows.flatMap((r) =>
+                r.staff.email
+                  ? [{ email: r.staff.email, name: r.staff.name, language: r.staff.language }]
+                  : []
+              ) ?? []
+          }
+          defaults={blankMailDefaults(eventTitle)}
+          onClose={() => setMailGroup(null)}
+        />
+      )}
     </div>
   )
 }

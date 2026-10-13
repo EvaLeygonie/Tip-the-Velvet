@@ -72,3 +72,7 @@ export const SHOW_CONSTANT_SEGMENTS: { key: string; title: string; setNumber: 1 
   { key: 'costume_winners', title: 'Presentera kostymtävlingens vinnare', setNumber: 2 },
   { key: 'thank_you', title: 'Alla artister upp på scen för att tacka', setNumber: 2 },
 ]
+
+// The Event Plan page's tabs (the Dashboard deep-links into them). 'food' is the combined
+// Food & VIP tab. Show planning and Travel & accommodation live on the Artist booking page.
+export type EventPlanTab = 'staff' | 'sponsors' | 'food' | 'info'

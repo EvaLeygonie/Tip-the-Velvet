@@ -122,7 +122,7 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
             onChange={(e) => setDetails(e.target.value)}
             rows={3}
             placeholder={t('Mer att skriva om uppgiften...', 'More to write about the task...')}
-            className="w-full text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-none focus:border-accent text-white"
+            className="velvet-textarea"
           />
         </div>
 

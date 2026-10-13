@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { UtensilsCrossed, Download, FileText, Plus, SplitSquareVertical } from 'lucide-react'
+import { UtensilsCrossed, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
@@ -13,11 +13,9 @@ import {
   getEventPlaylists,
   getEventOrganizerFood,
   updateEventPerformerDietary,
-  updateEventPerformerTravelNotes,
-  updateEventPerformerAccommodation,
-  updateEventPerformerAccommodationDetails,
+  updateEventPerformerDietaryNotes,
+  updateEventPerformerNeedsFood,
   updateEvent,
-  reorderShowProgram,
 } from '@/services/eventService'
 import type {
   AdminEventPerformerRow,
@@ -41,14 +39,7 @@ import {
 } from '@/services/contactsService'
 import { staffRoleLabel, staffPersonRoleSummary, dietaryCategoryLabel } from '@/lib/contactLabels'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
-import {
-  buildVipSections,
-  downloadEventDocuments,
-  loadEventDocContext,
-  type EventDocContext,
-  type EventDocumentId,
-  type VipListItem,
-} from '@/lib/eventDocuments'
+import { buildVipSections, type EventDocContext } from '@/lib/eventDocuments'
 import { EventStaffRow } from '@/components/admin/event-plan/EventStaffRow'
 import { EntertainerProfileModal } from '@/components/admin/event-plan/EntertainerProfileModal'
 import { EventMusicSection } from '@/components/admin/event-plan/EventMusicSection'
@@ -59,20 +50,21 @@ import {
   type InlineAddPickerItem,
 } from '@/components/admin/event-plan/InlineAddPicker'
 import { VipManualEntryRow } from '@/components/admin/event-plan/VipManualEntryRow'
-import type { EventPlanTab } from '@/components/admin/event-plan/EventProgressOverview'
 import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCoverageStrip'
-import { ShowProgramBoard } from '@/components/admin/event-plan/ShowProgramBoard'
+import { DocumentsMenu } from '@/components/admin/event-plan/DocumentsMenu'
 import { InfoHubTab } from '@/components/admin/event-plan/InfoHubTab'
 import { FoodTab } from '@/components/admin/event-plan/FoodTab'
-import { TravelAccommodationTab } from '@/components/admin/event-plan/TravelAccommodationTab'
-import { STANDING_ORGANIZERS, ROLE_ORDER } from '@/components/admin/event-plan/constants'
+import {
+  STANDING_ORGANIZERS,
+  ROLE_ORDER,
+  type EventPlanTab,
+} from '@/components/admin/event-plan/constants'
 import type {
   VipManualEntry,
   CreateVipManualEntryInput,
   DietaryCategory,
   StaffVolunteerType,
 } from '@/types/types'
-import { useConfirm } from '@/contexts/ConfirmContext'
 
 const blankVipEntry = (eventId: string): VipManualEntry => ({
   id: crypto.randomUUID(),
@@ -86,12 +78,8 @@ const blankVipEntry = (eventId: string): VipManualEntry => ({
 
 // The print view builds a real HTML document from admin-entered strings (names/notes) —
 // escaped so a stray "&"/"<" in someone's name can't break the markup.
-const escapeHtml = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
 export const AdminEventPlan = () => {
   const { t } = useLanguage()
-  const confirm = useConfirm()
   const { selectedEventId, upcomingEvents } = useCurrentEvent()
   // Lets the Dashboard's highlight cards deep-link straight to a specific tab (e.g. "show"
   // for the stage-notes card) via navigate(path, { state: { tab } }) instead of always
@@ -108,7 +96,6 @@ export const AdminEventPlan = () => {
   const [vipEntries, setVipEntries] = useState<VipManualEntry[]>([])
   const [vipDrafts, setVipDrafts] = useState<VipManualEntry[]>([])
   const [loading, setLoading] = useState(false)
-  const [buildingTechPdf, setBuildingTechPdf] = useState(false)
   const [entertainerTarget, setEntertainerTarget] = useState<{
     staffId: string
     name: string
@@ -253,6 +240,7 @@ export const AdminEventPlan = () => {
           <VolunteerShiftGroups
             rows={rows}
             eventId={selectedEventId}
+            eventTitle={eventTitle}
             onRemoved={handleStaffRowRemoved}
             onUpdated={handleStaffRowUpdated}
           />
@@ -358,64 +346,39 @@ export const AdminEventPlan = () => {
         note: `${roleLabel} — ${sponsorName}`,
       },
     ])
-    setActiveTab('vip')
+    setActiveTab('food')
   }
   const handleRequestVipForSalesperson = (sponsorName: string) =>
     handleRequestVipForVendor(sponsorName, t('Säljare', 'Salesperson'))
   const handleRequestVipForExhibitor = (sponsorName: string) =>
     handleRequestVipForVendor(sponsorName, t('Utställare', 'Exhibitor'))
 
-  const handleActUpdated = (id: string, patch: Partial<AdminEventActRow>) => {
-    setActs((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)))
-  }
-  const handleActRemoved = (id: string) => {
-    setActs((prev) => prev.filter((a) => a.id !== id))
-  }
-  const handleActAdded = (row: AdminEventActRow) => {
-    setActs((prev) => [...prev, row])
-  }
-  const handleActsReordered = (next: AdminEventActRow[]) => {
-    setActs(next)
+  const handleUpdatePerformerDietaryNotes = async (performerId: string, notes: string | null) => {
+    if (!selectedEventId) return
+    try {
+      await updateEventPerformerDietaryNotes(selectedEventId, performerId, notes)
+      setPerformers((prev) =>
+        prev.map((p) =>
+          p.performer_id === performerId ? { ...p, dietary_requirements: notes } : p
+        )
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
   }
 
-  // Dragging every act across the Set 1/2 divide by hand turned out to be fiddly — direct
-  // feedback 2026-09-21. This gives a one-click sane starting point (real acts only, split
-  // by their CURRENT running order — first half to Set 1, the rest to Set 2; manual/constant
-  // segments keep whatever set they're already in) that the board can then fine-tune with
-  // the arrows or drag-and-drop, rather than having to build the whole split by hand. Because
-  // it splits on the order the board has already arranged (not a fixed position), getting
-  // the order right first and then splitting already gives full control over exactly where
-  // the cut lands.
-  const handleAutoSplit = async () => {
-    const confirmed = await confirm({
-      message: t(
-        'Dela upp alla akter jämnt mellan Set 1 och Set 2? Detta skriver över akternas nuvarande set-placering (egna och fasta moment påverkas inte).',
-        "Split all acts evenly between Set 1 and Set 2? This overwrites acts' current set assignment (manual and constant segments are left untouched)."
-      ),
-    })
-    if (!confirmed) return
-
-    const realActs = acts
-      .filter((a) => a.performer !== null)
-      .sort((a, b) => a.display_order - b.display_order)
-    const splitPoint = Math.ceil(realActs.length / 2)
-    const setByActId = new Map<string, 1 | 2>(
-      realActs.map((a, index) => [a.id, index < splitPoint ? 1 : 2])
-    )
-
-    setActs((prev) =>
-      prev.map((a) => {
-        const setNumber = setByActId.get(a.id)
-        return setNumber && setNumber !== a.set_number ? { ...a, set_number: setNumber } : a
-      })
-    )
-    reorderShowProgram(
-      realActs.map((a) => ({
-        id: a.id,
-        display_order: a.display_order,
-        set_number: setByActId.get(a.id) as 1 | 2,
-      }))
-    ).catch((err) => console.error('Kunde inte spara uppdelningen:', err))
+  const handleUpdatePerformerNeedsFood = async (performerId: string, needsFood: boolean) => {
+    if (!selectedEventId) return
+    try {
+      await updateEventPerformerNeedsFood(selectedEventId, performerId, needsFood)
+      setPerformers((prev) =>
+        prev.map((p) => (p.performer_id === performerId ? { ...p, needs_food: needsFood } : p))
+      )
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    }
   }
 
   const handleUpdatePerformerDietary = async (performerId: string, category: DietaryCategory) => {
@@ -424,50 +387,6 @@ export const AdminEventPlan = () => {
       await updateEventPerformerDietary(selectedEventId, performerId, category)
       setPerformers((prev) =>
         prev.map((p) => (p.performer_id === performerId ? { ...p, dietary_category: category } : p))
-      )
-    } catch (err) {
-      toast.error(t('Kunde inte spara.', 'Could not save.'))
-      console.error(err)
-    }
-  }
-
-  const handleTravelNotesChanged = async (performerId: string, notes: string) => {
-    if (!selectedEventId) return
-    const trimmed = notes.trim() || null
-    try {
-      await updateEventPerformerTravelNotes(selectedEventId, performerId, trimmed)
-      setPerformers((prev) =>
-        prev.map((p) => (p.performer_id === performerId ? { ...p, notes: trimmed } : p))
-      )
-    } catch (err) {
-      toast.error(t('Kunde inte spara.', 'Could not save.'))
-      console.error(err)
-    }
-  }
-
-  const handleAccommodationChanged = async (performerId: string, accommodation: string) => {
-    if (!selectedEventId) return
-    const trimmed = accommodation.trim() || null
-    try {
-      await updateEventPerformerAccommodation(selectedEventId, performerId, trimmed)
-      setPerformers((prev) =>
-        prev.map((p) => (p.performer_id === performerId ? { ...p, accommodation: trimmed } : p))
-      )
-    } catch (err) {
-      toast.error(t('Kunde inte spara.', 'Could not save.'))
-      console.error(err)
-    }
-  }
-
-  const handleAccommodationDetailsChanged = async (performerId: string, details: string) => {
-    if (!selectedEventId) return
-    const trimmed = details.trim() || null
-    try {
-      await updateEventPerformerAccommodationDetails(selectedEventId, performerId, trimmed)
-      setPerformers((prev) =>
-        prev.map((p) =>
-          p.performer_id === performerId ? { ...p, accommodation_details: trimmed } : p
-        )
       )
     } catch (err) {
       toast.error(t('Kunde inte spara.', 'Could not save.'))
@@ -544,100 +463,6 @@ export const AdminEventPlan = () => {
   // summary, progress overview) reads from this instead of raw staffRows.
   const groupedStaff = groupStaffRowsByPerson(staffRows)
 
-  // An A4-formatted HTML document with a real (if per-device, not synced) checkbox next to
-  // every name, saved straight to disk so it can be printed, reopened, or sent to someone
-  // else — not just a plain-text list. No PDF library needed for *this* format — just
-  // print-oriented CSS (@page size: A4); whoever opens the saved file can print it (or
-  // "Print to PDF") straight from their own browser's print dialog. Separate on-screen
-  // padding/max-width from the print `@page` margin — `@page` only applies once actually
-  // printing, so without this the file looks fine on paper but edge-to-edge and cramped
-  // when just opened and viewed in a browser (e.g. on an iPad at the door).
-  const handleDownloadVipList = () => {
-    const section = (title: string, items: VipListItem[]) => {
-      if (items.length === 0) return ''
-      return `
-        <h2>${escapeHtml(title)}</h2>
-        <ul>
-          ${items
-            .map(
-              (item) => `
-            <li>
-              <input type="checkbox" class="checkbox" />
-              <span class="name">${escapeHtml(item.name)}</span>
-              ${item.email ? `<span class="email">${escapeHtml(item.email)}</span>` : ''}
-              ${item.sub ? `<span class="sub">${escapeHtml(item.sub)}</span>` : ''}
-            </li>`
-            )
-            .join('')}
-        </ul>`
-    }
-
-    const html = `<!DOCTYPE html>
-<html lang="sv">
-<head>
-<meta charset="UTF-8" />
-<title>${escapeHtml(t('VIP-lista', 'VIP list'))} — ${escapeHtml(eventTitle)}</title>
-<style>
-  @page { size: A4; margin: 15mm; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a;
-    margin: 0; padding: 32px 20px 64px; background: #faf9f7;
-  }
-  .page { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 2px; }
-  .subtitle { color: #666; font-size: 13px; margin-bottom: 18px; }
-  h2 {
-    font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
-    border-bottom: 1px solid #999; padding-bottom: 4px;
-    margin: 20px 0 8px; break-after: avoid;
-  }
-  ul { list-style: none; margin: 0; padding: 0; }
-  li {
-    display: flex; align-items: center; gap: 10px; padding: 6px 2px;
-    border-bottom: 1px dotted #ccc; break-inside: avoid; font-size: 13px;
-  }
-  .checkbox {
-    -webkit-appearance: none; appearance: none;
-    width: 15px; height: 15px; margin: 0; border: 1.4px solid #333; flex-shrink: 0;
-    border-radius: 2px; cursor: pointer;
-  }
-  .checkbox:checked {
-    background: #333;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>');
-    background-repeat: no-repeat; background-position: center;
-  }
-  .name { font-weight: 600; }
-  .email { color: #777; font-size: 11px; }
-  .sub { color: #a67c00; font-size: 11px; font-style: italic; margin-left: auto; }
-  @media print {
-    body { padding: 0; background: none; }
-    .page { max-width: none; margin: 0; }
-  }
-</style>
-</head>
-<body>
-  <div class="page">
-    <h1>${escapeHtml(t('VIP-lista', 'VIP list'))}</h1>
-    <div class="subtitle">${escapeHtml(eventTitle)}</div>
-    ${buildVipSections(docContext)
-      .map((s) => section(s.title, s.items))
-      .join('')}
-  </div>
-</body>
-</html>`
-
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${eventTitle}-vip-lista.html`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
   const eventTitle = upcomingEvents.find((e) => e.id === selectedEventId)?.title ?? 'Event'
   const eventStart = upcomingEvents.find((e) => e.id === selectedEventId)?.event_start
   const docContext: EventDocContext = {
@@ -651,17 +476,6 @@ export const AdminEventPlan = () => {
     organizers: organizerFood,
     eventInfo: null,
   }
-  // Fetches the few things this page doesn't hold itself (event times) fresh, then downloads.
-  const handleDownloadDocument = async (id: EventDocumentId) => {
-    try {
-      const ctx = await loadEventDocContext(docContext, selectedEventId)
-      await downloadEventDocuments([id], ctx, setBuildingTechPdf)
-    } catch (err) {
-      console.error('Kunde inte skapa dokumentet:', err)
-      toast.error(t('Kunde inte skapa dokumentet.', 'Could not create the document.'))
-    }
-  }
-
   return (
     <div className="page-shell">
       <div className="bg-glow-spot" />
@@ -672,84 +486,58 @@ export const AdminEventPlan = () => {
 
       {selectedEventId && (
         <>
-          <div className="flex gap-2 justify-center mb-6 flex-wrap mt-6">
-            <button
-              type="button"
-              onClick={() => setActiveTab('staff')}
-              className={
-                activeTab === 'staff'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Bemanning', 'Staffing')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('sponsors')}
-              className={
-                activeTab === 'sponsors'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Sponsorer', 'Sponsors')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('show')}
-              className={
-                activeTab === 'show'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Showplanering', 'Show Planning')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('travel')}
-              className={
-                activeTab === 'travel'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Resa & boende', 'Travel & accommodation')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('food')}
-              className={
-                activeTab === 'food'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Mat', 'Food')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('vip')}
-              className={
-                activeTab === 'vip'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('VIP', 'VIP')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('info')}
-              className={
-                activeTab === 'info'
-                  ? 'btn-gold text-xs py-2 px-4'
-                  : 'btn-gold-outline text-xs py-2 px-4'
-              }
-            >
-              {t('Info & länkar', 'Info & links')}
-            </button>
+          <div className="max-w-5xl mx-auto mt-6 mb-6">
+            <div className="flex gap-2 justify-center flex-wrap">
+              <button
+                type="button"
+                onClick={() => setActiveTab('staff')}
+                className={
+                  activeTab === 'staff'
+                    ? 'btn-gold text-xs py-2 px-4'
+                    : 'btn-gold-outline text-xs py-2 px-4'
+                }
+              >
+                {t('Bemanning', 'Staffing')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('sponsors')}
+                className={
+                  activeTab === 'sponsors'
+                    ? 'btn-gold text-xs py-2 px-4'
+                    : 'btn-gold-outline text-xs py-2 px-4'
+                }
+              >
+                {t('Sponsorer', 'Sponsors')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('food')}
+                className={
+                  activeTab === 'food'
+                    ? 'btn-gold text-xs py-2 px-4'
+                    : 'btn-gold-outline text-xs py-2 px-4'
+                }
+              >
+                {t('Mat & VIP', 'Food & VIP')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('info')}
+                className={
+                  activeTab === 'info'
+                    ? 'btn-gold text-xs py-2 px-4'
+                    : 'btn-gold-outline text-xs py-2 px-4'
+                }
+              >
+                {t('Info & länkar', 'Info & links')}
+              </button>
+              <DocumentsMenu
+                eventId={selectedEventId}
+                ids={['vipList', 'foodList']}
+                load={async () => ({ context: docContext })}
+              />
+            </div>
           </div>
 
           {loading ? (
@@ -759,106 +547,245 @@ export const AdminEventPlan = () => {
           ) : (
             <div className="max-w-5xl mx-auto space-y-4">
               {activeTab === 'food' && (
-                <>
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadDocument('foodList')}
-                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {t('Ladda ner matlista', 'Download food list')}
-                    </button>
-                  </div>
-                  <FoodTab
-                    eventTitle={eventTitle}
-                    performers={performers}
-                    groupedStaff={groupedStaff}
-                    organizers={organizerFood}
-                    onUpdatePerformerDietary={handleUpdatePerformerDietary}
-                    onStaffFoodUpdated={handleStaffFoodUpdated}
-                    onOrganizerFoodUpdated={handleOrganizerFoodUpdated}
-                  />
-                </>
-              )}
-
-              {activeTab === 'travel' && (
-                <>
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadDocument('artistContacts')}
-                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {t('Ladda ner artistlista', 'Download artist list')}
-                    </button>
-                  </div>
-                  <TravelAccommodationTab
-                    eventTitle={eventTitle}
-                    performers={performers}
-                    onTravelNotesChanged={handleTravelNotesChanged}
-                    onAccommodationChanged={handleAccommodationChanged}
-                    onAccommodationDetailsChanged={handleAccommodationDetailsChanged}
-                  />
-                </>
-              )}
-
-              {activeTab === 'show' &&
-                (acts.length === 0 ? (
-                  <div className="callout-panel italic text-center text-foreground/40 bg-black/10 border-dashed border-accent/10 py-8">
-                    {t(
-                      'Inga akter registrerade för detta event ännu.',
-                      'No acts registered for this event yet.'
-                    )}
-                  </div>
-                ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8 items-start">
                   <div className="space-y-4">
-                    <div className="flex justify-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadDocument('setList')}
-                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        {t('Ladda ner set list', 'Download set list')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadDocument('soundLight')}
-                        disabled={buildingTechPdf}
-                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {t('Ladda ner ljud & ljus', 'Download sound & light')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadDocument('runOfShow')}
-                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {t('Ladda ner körschema', 'Download run of show')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleAutoSplit}
-                        className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                      >
-                        <SplitSquareVertical className="h-3.5 w-3.5" />
-                        {t('Dela upp jämnt i Set 1 & 2', 'Split evenly into Set 1 & 2')}
-                      </button>
-                    </div>
-                    <ShowProgramBoard
-                      acts={acts}
-                      eventId={selectedEventId}
-                      onUpdated={handleActUpdated}
-                      onRemoved={handleActRemoved}
-                      onAdded={handleActAdded}
-                      onReordered={handleActsReordered}
+                    <h4 className="font-decorative text-lg text-accent text-center">
+                      {t('Mat', 'Food')}
+                    </h4>
+
+                    <FoodTab
+                      eventTitle={eventTitle}
+                      performers={performers}
+                      groupedStaff={groupedStaff}
+                      organizers={organizerFood}
+                      onUpdatePerformerDietary={handleUpdatePerformerDietary}
+                      onUpdatePerformerDietaryNotes={handleUpdatePerformerDietaryNotes}
+                      onUpdatePerformerNeedsFood={handleUpdatePerformerNeedsFood}
+                      onStaffFoodUpdated={handleStaffFoodUpdated}
+                      onOrganizerFoodUpdated={handleOrganizerFoodUpdated}
                     />
                   </div>
-                ))}
+                  <div className="space-y-4">
+                    <h4 className="font-decorative text-lg text-accent text-center">
+                      {t('VIP-lista', 'VIP list')}
+                    </h4>
+                    <div className="space-y-4">
+                      <p className="text-center text-sm text-foreground/70">
+                        {t('Totalt på listan', 'Total on the list')}:{' '}
+                        <span className="font-mono text-accent">
+                          {buildVipSections(docContext).reduce((sum, s) => sum + s.items.length, 0)}
+                        </span>
+                      </p>
+
+                      <details className="group">
+                        <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
+                          {t('Arrangörer', 'Organizers')}
+                          <span className="text-xs font-mono text-foreground/40">
+                            {STANDING_ORGANIZERS.length}
+                          </span>
+                        </summary>
+                        <div className="space-y-2 pt-2">
+                          {STANDING_ORGANIZERS.map((organizer) => (
+                            <div
+                              key={organizer.email}
+                              className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
+                            >
+                              <span className="flex-1 min-w-0 truncate">{organizer.name}</span>
+                              <span className="text-foreground/50 text-xs shrink-0">
+                                {organizer.email}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+
+                      <details className="group">
+                        <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
+                          {t('Artister', 'Artists')}
+                          <span className="text-xs font-mono text-foreground/40">
+                            {performers.length}
+                          </span>
+                        </summary>
+                        <div className="space-y-2 pt-2">
+                          {performers.length === 0 ? (
+                            <p className="text-sm text-foreground/40 italic">
+                              {t('Inga bekräftade artister ännu.', 'No confirmed artists yet.')}
+                            </p>
+                          ) : (
+                            performers.map((row) => (
+                              <div
+                                key={row.performer_id}
+                                className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
+                              >
+                                <span className="flex-1 min-w-0 truncate">
+                                  {row.performer.performer_name}
+                                </span>
+                                {row.plus_one_name && (
+                                  <span
+                                    title={`+1: ${row.plus_one_name}`}
+                                    className="shrink-0 text-[10px] font-body font-semibold text-sky-400 border border-sky-400/30 rounded-full px-1.5 py-0.5"
+                                  >
+                                    +1
+                                  </span>
+                                )}
+                                <span
+                                  title={
+                                    row.dietary_category
+                                      ? dietaryCategoryLabel(t, row.dietary_category)
+                                      : t('Mat ej kategoriserad', 'Food not categorized')
+                                  }
+                                  className="shrink-0"
+                                >
+                                  <UtensilsCrossed
+                                    className={`h-3.5 w-3.5 ${row.dietary_category ? 'text-accent/50' : 'text-amber-400/70'}`}
+                                  />
+                                </span>
+                                {row.performer.email && (
+                                  <span className="text-foreground/50 text-xs shrink-0">
+                                    {row.performer.email}
+                                  </span>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </details>
+
+                      <details className="group">
+                        <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
+                          {t('Arbetare & volontärer', 'Staff & volunteers')}
+                          <span className="text-xs font-mono text-foreground/40">
+                            {groupedStaff.length}
+                          </span>
+                        </summary>
+                        <div className="space-y-2 pt-2">
+                          {groupedStaff.length === 0 ? (
+                            <p className="text-sm text-foreground/40 italic">
+                              {t('Ingen personal bekräftad ännu.', 'No staff confirmed yet.')}
+                            </p>
+                          ) : (
+                            groupedStaff.map((person) => (
+                              <div
+                                key={person.staff.id}
+                                className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
+                              >
+                                <span className="flex-1 min-w-0 truncate">{person.staff.name}</span>
+                                {person.needs_food && (
+                                  <span
+                                    title={
+                                      person.dietary_category
+                                        ? dietaryCategoryLabel(t, person.dietary_category)
+                                        : t('Mat ej kategoriserad', 'Food not categorized')
+                                    }
+                                    className="shrink-0"
+                                  >
+                                    <UtensilsCrossed
+                                      className={`h-3.5 w-3.5 ${person.dietary_category ? 'text-accent/50' : 'text-amber-400/70'}`}
+                                    />
+                                  </span>
+                                )}
+                                {person.staff.email && (
+                                  <span className="text-foreground/50 text-xs shrink-0">
+                                    {person.staff.email}
+                                  </span>
+                                )}
+                                <span className="text-accent italic text-xs shrink-0">
+                                  {staffPersonRoleSummary(t, person.rows)}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </details>
+
+                      <details className="group">
+                        <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
+                          {t('Artisternas +1', "Artists' +1")}
+                          <span className="text-xs font-mono text-foreground/40">
+                            {performers.filter((p) => p.plus_one_name).length}
+                          </span>
+                        </summary>
+                        <div className="space-y-2 pt-2">
+                          {performers.filter((p) => p.plus_one_name).length === 0 ? (
+                            <p className="text-sm text-foreground/40 italic">
+                              {t('Inga anmälda +1 ännu.', 'No +1s registered yet.')}
+                            </p>
+                          ) : (
+                            performers
+                              .filter((p) => p.plus_one_name)
+                              .map((row) => (
+                                <div
+                                  key={row.performer_id}
+                                  className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
+                                >
+                                  <span className="flex-1 min-w-0 truncate">
+                                    {row.plus_one_name}
+                                  </span>
+                                  {row.plus_one_email && (
+                                    <span className="text-foreground/50 text-xs shrink-0">
+                                      {row.plus_one_email}
+                                    </span>
+                                  )}
+                                  <span className="text-accent italic text-xs shrink-0">
+                                    +1 {row.performer.performer_name}
+                                  </span>
+                                </div>
+                              ))
+                          )}
+                        </div>
+                      </details>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between border-b border-accent/10 pb-2">
+                          <h5 className="font-decorative text-base text-foreground/80">
+                            {t('Övriga tillägg', 'Manual additions')}
+                          </h5>
+                          {!vipDrafts.length && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setVipDrafts((prev) => [...prev, blankVipEntry(selectedEventId)])
+                              }
+                              className="flex items-center gap-1.5 text-[11px] py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              {t('Lägg till', 'Add')}
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          {vipDrafts.map((d) => (
+                            <VipManualEntryRow
+                              key={d.id}
+                              row={d}
+                              isNew
+                              onSave={handleSaveVipEntry}
+                              onDelete={handleDeleteVipEntry}
+                              onCancelNew={(id) =>
+                                setVipDrafts((prev) => prev.filter((d2) => d2.id !== id))
+                              }
+                            />
+                          ))}
+                          {vipEntries.length === 0 && vipDrafts.length === 0 ? (
+                            <p className="text-sm text-foreground/40 italic">
+                              {t('Inga manuella tillägg ännu.', 'No manual additions yet.')}
+                            </p>
+                          ) : (
+                            vipEntries.map((row) => (
+                              <VipManualEntryRow
+                                key={row.id}
+                                row={row}
+                                onSave={handleSaveVipEntry}
+                                onDelete={handleDeleteVipEntry}
+                              />
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {activeTab === 'staff' &&
                 (staffRows.length === 0 ? (
@@ -955,233 +882,6 @@ export const AdminEventPlan = () => {
                   staffRows={staffRows}
                   acts={acts}
                 />
-              )}
-
-              {activeTab === 'vip' && (
-                <div className="space-y-4">
-                  <div className="flex justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDownloadVipList}
-                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {t('Ladda ner VIP-lista (A4)', 'Download VIP list (A4)')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadDocument('vipList')}
-                      className="flex items-center gap-1.5 text-xs py-2 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      {t('Ladda ner som PDF', 'Download as PDF')}
-                    </button>
-                  </div>
-
-                  <details className="group">
-                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
-                      {t('Arrangörer', 'Organizers')}
-                      <span className="text-xs font-mono text-foreground/40">
-                        {STANDING_ORGANIZERS.length}
-                      </span>
-                    </summary>
-                    <div className="space-y-2 pt-2">
-                      {STANDING_ORGANIZERS.map((organizer) => (
-                        <div
-                          key={organizer.email}
-                          className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
-                        >
-                          <span className="flex-1 min-w-0 truncate">{organizer.name}</span>
-                          <span className="text-foreground/50 text-xs shrink-0">
-                            {organizer.email}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-
-                  <details className="group">
-                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
-                      {t('Artister', 'Artists')}
-                      <span className="text-xs font-mono text-foreground/40">
-                        {performers.length}
-                      </span>
-                    </summary>
-                    <div className="space-y-2 pt-2">
-                      {performers.length === 0 ? (
-                        <p className="text-sm text-foreground/40 italic">
-                          {t('Inga bekräftade artister ännu.', 'No confirmed artists yet.')}
-                        </p>
-                      ) : (
-                        performers.map((row) => (
-                          <div
-                            key={row.performer_id}
-                            className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
-                          >
-                            <span className="flex-1 min-w-0 truncate">
-                              {row.performer.performer_name}
-                            </span>
-                            {row.plus_one_name && (
-                              <span
-                                title={`+1: ${row.plus_one_name}`}
-                                className="shrink-0 text-[10px] font-body font-semibold text-sky-400 border border-sky-400/30 rounded-full px-1.5 py-0.5"
-                              >
-                                +1
-                              </span>
-                            )}
-                            <span
-                              title={
-                                row.dietary_category
-                                  ? dietaryCategoryLabel(t, row.dietary_category)
-                                  : t('Mat ej kategoriserad', 'Food not categorized')
-                              }
-                              className="shrink-0"
-                            >
-                              <UtensilsCrossed
-                                className={`h-3.5 w-3.5 ${row.dietary_category ? 'text-accent/50' : 'text-amber-400/70'}`}
-                              />
-                            </span>
-                            {row.performer.email && (
-                              <span className="text-foreground/50 text-xs shrink-0">
-                                {row.performer.email}
-                              </span>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </details>
-
-                  <details className="group">
-                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
-                      {t('Arbetare & volontärer', 'Staff & volunteers')}
-                      <span className="text-xs font-mono text-foreground/40">
-                        {groupedStaff.length}
-                      </span>
-                    </summary>
-                    <div className="space-y-2 pt-2">
-                      {groupedStaff.length === 0 ? (
-                        <p className="text-sm text-foreground/40 italic">
-                          {t('Ingen personal bekräftad ännu.', 'No staff confirmed yet.')}
-                        </p>
-                      ) : (
-                        groupedStaff.map((person) => (
-                          <div
-                            key={person.staff.id}
-                            className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
-                          >
-                            <span className="flex-1 min-w-0 truncate">{person.staff.name}</span>
-                            {person.needs_food && (
-                              <span
-                                title={
-                                  person.dietary_category
-                                    ? dietaryCategoryLabel(t, person.dietary_category)
-                                    : t('Mat ej kategoriserad', 'Food not categorized')
-                                }
-                                className="shrink-0"
-                              >
-                                <UtensilsCrossed
-                                  className={`h-3.5 w-3.5 ${person.dietary_category ? 'text-accent/50' : 'text-amber-400/70'}`}
-                                />
-                              </span>
-                            )}
-                            {person.staff.email && (
-                              <span className="text-foreground/50 text-xs shrink-0">
-                                {person.staff.email}
-                              </span>
-                            )}
-                            <span className="text-accent italic text-xs shrink-0">
-                              {staffPersonRoleSummary(t, person.rows)}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </details>
-
-                  <details className="group">
-                    <summary className="cursor-pointer font-decorative text-base text-foreground/80 border-b border-accent/10 pb-2 flex items-center justify-between">
-                      {t('Artisternas +1', "Artists' +1")}
-                      <span className="text-xs font-mono text-foreground/40">
-                        {performers.filter((p) => p.plus_one_name).length}
-                      </span>
-                    </summary>
-                    <div className="space-y-2 pt-2">
-                      {performers.filter((p) => p.plus_one_name).length === 0 ? (
-                        <p className="text-sm text-foreground/40 italic">
-                          {t('Inga anmälda +1 ännu.', 'No +1s registered yet.')}
-                        </p>
-                      ) : (
-                        performers
-                          .filter((p) => p.plus_one_name)
-                          .map((row) => (
-                            <div
-                              key={row.performer_id}
-                              className="admin-panel velvet-surface p-3 flex items-center gap-3 text-sm text-foreground"
-                            >
-                              <span className="flex-1 min-w-0 truncate">{row.plus_one_name}</span>
-                              {row.plus_one_email && (
-                                <span className="text-foreground/50 text-xs shrink-0">
-                                  {row.plus_one_email}
-                                </span>
-                              )}
-                              <span className="text-accent italic text-xs shrink-0">
-                                +1 {row.performer.performer_name}
-                              </span>
-                            </div>
-                          ))
-                      )}
-                    </div>
-                  </details>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between border-b border-accent/10 pb-2">
-                      <h5 className="font-decorative text-base text-foreground/80">
-                        {t('Övriga tillägg', 'Manual additions')}
-                      </h5>
-                      {!vipDrafts.length && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setVipDrafts((prev) => [...prev, blankVipEntry(selectedEventId)])
-                          }
-                          className="flex items-center gap-1.5 text-[11px] py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          {t('Lägg till', 'Add')}
-                        </button>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {vipDrafts.map((d) => (
-                        <VipManualEntryRow
-                          key={d.id}
-                          row={d}
-                          isNew
-                          onSave={handleSaveVipEntry}
-                          onDelete={handleDeleteVipEntry}
-                          onCancelNew={(id) =>
-                            setVipDrafts((prev) => prev.filter((d2) => d2.id !== id))
-                          }
-                        />
-                      ))}
-                      {vipEntries.length === 0 && vipDrafts.length === 0 ? (
-                        <p className="text-sm text-foreground/40 italic">
-                          {t('Inga manuella tillägg ännu.', 'No manual additions yet.')}
-                        </p>
-                      ) : (
-                        vipEntries.map((row) => (
-                          <VipManualEntryRow
-                            key={row.id}
-                            row={row}
-                            onSave={handleSaveVipEntry}
-                            onDelete={handleDeleteVipEntry}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
               )}
             </div>
           )}

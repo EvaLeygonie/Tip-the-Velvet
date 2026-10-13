@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { updateVenueInfo, type EventAccessFields } from '@/services/eventInfoService'
@@ -11,8 +11,7 @@ interface VenueInfoCardProps {
   onSaved: (venue: Venue) => void
 }
 
-const inputClass =
-  'w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white'
+const inputClass = 'velvet-field'
 
 // The venue's details as they show on every info page: practical info (sv/eng) plus the entrance
 // code. They live on the venue itself (also editable under Contacts → Venues), so editing here
@@ -48,20 +47,39 @@ export const VenueInfoCard = ({ venue, onSaved }: VenueInfoCardProps) => {
 
   if (!editing) {
     return (
-      <div className="admin-panel velvet-surface p-4 flex items-start gap-3">
-        <div className="flex-1 min-w-0 space-y-1 text-sm">
-          <div className="flex flex-wrap items-center gap-2 text-foreground">
-            {t('Platsinfo', 'Venue details')} · {venue.name}
-            {!venue.door_code && (
-              <span className="text-xs px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-400">
-                {t('Ingen portkod', 'No entrance code')}
-              </span>
-            )}
-            {!info && (
-              <span className="text-xs px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-400">
-                {t('Ingen praktisk info', 'No practical info')}
-              </span>
-            )}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditing(true)}
+        onKeyDown={(e) => e.key === 'Enter' && setEditing(true)}
+        className="admin-panel velvet-surface p-4 cursor-pointer hover:bg-accent/5"
+      >
+        <div className="space-y-1 text-sm">
+          <div className="flex items-center gap-2 text-foreground">
+            <span className="min-w-0 truncate">
+              {t('Platsinfo', 'Venue details')} ·{' '}
+              <Link
+                to="/admin/contacts"
+                state={{ tab: 'venues', search: venue.name }}
+                onClick={(e) => e.stopPropagation()}
+                title={t('Öppna platsen i Kontakter', 'Open the venue in Contacts')}
+                className="hover:text-accent hover:underline"
+              >
+                {venue.name}
+              </Link>
+            </span>
+            <span className="ml-auto flex items-center gap-2 shrink-0">
+              {!venue.door_code && (
+                <span className="text-xs px-2 py-0.5 rounded-full border border-accent/20 text-foreground/60">
+                  {t('Ingen portkod än', 'No entrance code yet')}
+                </span>
+              )}
+              {!info && (
+                <span className="text-xs px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-400">
+                  {t('Ingen praktisk info', 'No practical info')}
+                </span>
+              )}
+            </span>
           </div>
           {venue.door_code && (
             <div className="text-foreground/80">
@@ -72,26 +90,27 @@ export const VenueInfoCard = ({ venue, onSaved }: VenueInfoCardProps) => {
             <div className="text-foreground/60 line-clamp-2 whitespace-pre-line">{info}</div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="p-1.5 text-foreground/50 hover:text-accent"
-          aria-label={t('Redigera', 'Edit')}
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
       </div>
     )
   }
 
   return (
     <div className="admin-panel velvet-surface p-4 space-y-3">
-      <div className="text-foreground text-sm">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditing(false)}
+        onKeyDown={(e) => e.key === 'Enter' && setEditing(false)}
+        className="text-foreground text-sm cursor-pointer"
+      >
         {t('Platsinfo', 'Venue details')} · {venue.name}
       </div>
       <div className="space-y-1">
         <label className="form-label-gold block">
-          {t('Portkod (visas 38 timmar före start)', 'Entrance code (shown 38 hours before start)')}
+          {t(
+            'Portkod (visas dagen före, när den finns)',
+            'Entrance code (shown the day before, once set)'
+          )}
         </label>
         <input
           type="text"
@@ -136,7 +155,7 @@ export const VenueInfoCard = ({ venue, onSaved }: VenueInfoCardProps) => {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="btn-gold text-xs py-2 px-4"
+          className="btn-gold-outline !bg-[rgba(212,175,55,0.9)] !text-black text-xs py-2 px-4"
         >
           {saving ? t('Sparar…', 'Saving…') : t('Spara', 'Save')}
         </button>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { ArtistNameLink } from '@/components/admin/ArtistNameLink'
 import { groupByEmail, joinNames } from '@/lib/emailGrouping'
 import { sendAdminEmail } from '@/services/emailService'
 import type { MissingInfoPerson, MissingItem } from '@/lib/missingInfo'
@@ -48,8 +49,7 @@ const firstName = (name: string): string => name.trim().split(/\s+/)[0]
 const greetingName = (p: MissingInfoPerson): string =>
   p.kind === 'staff' ? firstName(p.name) : p.name
 
-const inputClass =
-  'w-full text-sm bg-black/40 border border-accent/20 rounded p-2 focus:border-accent text-white'
+const inputClass = 'velvet-field'
 const labelClass = 'text-[11px] uppercase tracking-wider text-muted-foreground font-mono block'
 
 const LANGUAGE_LABELS: { value: Language; label: string }[] = [
@@ -303,7 +303,12 @@ export const MissingInfoModal = ({
             onChange={() => toggleExcluded(p.key)}
             className="h-4 w-4 accent-accent shrink-0"
           />
-          <span className="font-semibold text-foreground min-w-0 truncate">{p.name}</span>
+          <ArtistNameLink
+            href={p.bookingLink}
+            className="font-semibold text-foreground min-w-0 truncate"
+          >
+            {p.name}
+          </ArtistNameLink>
           <span className="text-[10px] font-mono text-accent/70 border border-accent/30 rounded px-1 leading-4">
             {p.language === 'eng' ? 'EN' : 'SV'}
           </span>

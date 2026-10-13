@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Download, Copy, ExternalLink, Mic2, Crown, Loader2, AtSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { ArtistNameLink } from '@/components/admin/ArtistNameLink'
+import { bookingPortalPath } from '@/lib/performerLinks'
 import {
   getImageSrc,
   toBoldSerif,
@@ -161,7 +163,15 @@ export const ArtistOverviewCard = ({ row, event, onChanged }: ArtistOverviewCard
       </div>
 
       <h4 className="font-decorative text-sm text-foreground truncate flex-1 min-w-0">
-        {performer.performer_name}
+        <ArtistNameLink
+          href={
+            row.castingApplicationId && row.castingApplicationToken
+              ? bookingPortalPath(row.castingApplicationId, row.castingApplicationToken)
+              : null
+          }
+        >
+          {performer.performer_name}
+        </ArtistNameLink>
       </h4>
 
       {badgeRoleLabel && (

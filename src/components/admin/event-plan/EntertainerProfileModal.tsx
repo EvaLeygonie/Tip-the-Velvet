@@ -26,10 +26,8 @@ interface EntertainerProfileModalProps {
   onSaved?: (patch: EntertainerProfilePatch) => void
 }
 
-const inputClass =
-  'w-full h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 focus:border-accent text-white'
-const textareaClass =
-  'w-full min-h-[84px] text-sm bg-black/40 border border-accent/20 font-sans p-2 leading-relaxed rounded resize-y focus:border-accent text-white'
+const inputClass = 'velvet-input px-2'
+const textareaClass = 'velvet-textarea min-h-[84px] resize-y'
 
 // The public profile for one pre-show entertainer at one event — stage name, title, a short
 // description (both languages), a photo and up to two links. Opened right after someone is

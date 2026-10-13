@@ -356,6 +356,18 @@ export const processUploadedImage = async (file: File): Promise<File> => {
   )
 }
 
+// Saves a blob to the user's downloads under `fileName`.
+export const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 export const formatDate = (language: string, dateString: string | null) => {
   if (!dateString) return 'TBA'
   const date = new Date(dateString)
