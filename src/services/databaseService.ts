@@ -31,13 +31,29 @@ export const deleteRow = async (table: TableName, id: string): Promise<void> => 
 
 //=== STORAGE ===///
 
+// Storage path for an upload: the time (keeps every upload unique and shows when it was made)
+// followed by the original file name, cleaned of characters storage doesn't accept, so a file in
+// the bucket can be recognised later.
+export const buildStorageFileName = (folder: string, file: File): string => {
+  const dot = file.name.lastIndexOf('.')
+  const base = dot > 0 ? file.name.slice(0, dot) : file.name
+  const ext = dot > 0 ? file.name.slice(dot + 1).toLowerCase() : ''
+  const safeBase =
+    base
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'file'
+  return `${folder}/${Date.now()}_${safeBase}${ext ? `.${ext}` : ''}`
+}
+
 export const uploadStorageFile = async (
   bucket: string,
   folder: string,
   file: File
 ): Promise<string> => {
-  const fileExt = file.name.split('.').pop()
-  const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+  const fileName = buildStorageFileName(folder, file)
 
   const { error } = await supabase.storage.from(bucket).upload(fileName, file, { upsert: true })
 
@@ -67,8 +83,7 @@ export const uploadStorageFileWithProgress = async (
   file: File,
   onProgress: (fraction: number) => void
 ): Promise<string> => {
-  const fileExt = file.name.split('.').pop()
-  const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+  const fileName = buildStorageFileName(folder, file)
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY
   const objectPath = fileName.split('/').map(encodeURIComponent).join('/')
   const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/${bucket}/${objectPath}`

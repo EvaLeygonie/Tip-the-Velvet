@@ -338,25 +338,27 @@ export const ShowProgramRow = ({
               )}
             </div>
           )}
-          <div className="space-y-1">
-            <label className="form-label-gold block">
-              {t('Scenförberedelser', 'Stage preparations')}
-            </label>
-            <textarea
-              value={draft.stage_preparations}
-              onChange={(e) => setDraft({ ...draft, stage_preparations: e.target.value })}
-              className="velvet-textarea min-h-[60px] resize-y"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="form-label-gold block">
-              {t('Plockning/städning', 'Pick up / cleaning')}
-            </label>
-            <textarea
-              value={draft.pick_up_cleaning}
-              onChange={(e) => setDraft({ ...draft, pick_up_cleaning: e.target.value })}
-              className="velvet-textarea min-h-[60px] resize-y"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="form-label-gold block">
+                {t('Scenförberedelser', 'Stage preparations')}
+              </label>
+              <textarea
+                value={draft.stage_preparations}
+                onChange={(e) => setDraft({ ...draft, stage_preparations: e.target.value })}
+                className="velvet-textarea min-h-[60px] resize-y"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="form-label-gold block">
+                {t('Plockning/städning', 'Pick up / cleaning')}
+              </label>
+              <textarea
+                value={draft.pick_up_cleaning}
+                onChange={(e) => setDraft({ ...draft, pick_up_cleaning: e.target.value })}
+                className="velvet-textarea min-h-[60px] resize-y"
+              />
+            </div>
           </div>
           <div className="space-y-1">
             <label className="form-label-gold block">

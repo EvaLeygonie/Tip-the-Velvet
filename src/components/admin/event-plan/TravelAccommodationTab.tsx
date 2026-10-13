@@ -5,7 +5,7 @@ import { Car, Hotel, Receipt, Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import type { AdminEventPerformerRow } from '@/services/eventService'
-import type { ReceiptItem } from '@/components/applications/BookedArtistForm'
+import type { ReceiptItem } from '@/components/applications/booked-artist/types'
 import { downloadBlob } from '@/lib/utils'
 
 interface TravelAccommodationTabProps {

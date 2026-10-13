@@ -1,24 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
-import CloudinaryImage from '@/components/CloudinaryImage'
 import { toast } from 'sonner'
-import {
-  Upload,
-  Save,
-  Loader2,
-  FileText,
-  Music,
-  ExternalLink,
-  Trash2,
-  Plus,
-  Crown,
-  Mic2,
-  Car,
-  X,
-} from 'lucide-react'
 import type { CastingApplicationPortalData, DietaryCategory } from '@/types/types'
-import { dietaryCategoryLabel } from '@/lib/contactLabels'
 import { uploadStorageFile, uploadStorageFileWithProgress } from '@/services/databaseService'
 import { supabase } from '@/lib/supabase'
 import {
@@ -34,21 +18,23 @@ import {
   getStoragePathFromUrl,
   getPublicFileUrl,
 } from '@/lib/utils'
+import {
+  isAudioTrackItemArray,
+  isReceiptItemArray,
+  type ActFormState,
+  type AudioTrackItem,
+  type BookedFormData,
+  type FormChangeEvent,
+  type PendingTrackFile,
+  type ReceiptItem,
+} from './booked-artist/types'
+import { PromoSection } from './booked-artist/PromoSection'
+import { ActMusicEditor } from './booked-artist/ActMusicEditor'
+import { LogisticsSection } from './booked-artist/LogisticsSection'
+import { AgreedCompensationCard } from './booked-artist/AgreedCompensationCard'
+import { FormSaveBar } from './booked-artist/FormSaveBar'
 
-export interface AudioTrackItem {
-  id: string
-  title: string
-  artist: string
-  fileName?: string
-  fileUrl?: string
-  filePath?: string
-}
-
-export interface ReceiptItem {
-  id: string
-  name: string
-  url: string
-}
+export type { AudioTrackItem, ReceiptItem } from './booked-artist/types'
 
 interface BookedArtistFormProps {
   application: CastingApplicationPortalData
@@ -56,40 +42,6 @@ interface BookedArtistFormProps {
 }
 
 const NOTHING_TO_ADD = 'N/A'
-
-interface ActFormState {
-  key: string
-  actId: string | null
-  label: string
-  act_name: string
-  act_description_sv: string
-  act_description_eng: string
-  stage_preparations: string
-  pick_up_cleaning: string
-  act_notes: string
-  audioTracks: AudioTrackItem[]
-}
-
-// Type Guards for Supabase Json/Jsonb conversion
-const isAudioTrackItemArray = (data: unknown): data is AudioTrackItem[] => {
-  if (!Array.isArray(data)) return false
-  return data.every(
-    (item) =>
-      typeof item === 'object' &&
-      item !== null &&
-      'id' in item &&
-      'title' in item &&
-      'artist' in item
-  )
-}
-
-const isReceiptItemArray = (data: unknown): data is ReceiptItem[] => {
-  if (!Array.isArray(data)) return false
-  return data.every(
-    (item) =>
-      typeof item === 'object' && item !== null && 'id' in item && 'name' in item && 'url' in item
-  )
-}
 
 export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   application,
@@ -100,33 +52,6 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
 
   const [submitting, setSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-
-  const [reachedFormEnd, setReachedFormEnd] = useState(false)
-  const [saveBarHeight, setSaveBarHeight] = useState(80)
-  const saveBarRef = useRef<HTMLDivElement | null>(null)
-  const formEndRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    const el = saveBarRef.current
-    if (!el) return
-    const resizeObserver = new ResizeObserver((entries) => {
-      const height = entries[0]?.contentRect.height
-      if (height) setSaveBarHeight(height)
-    })
-    resizeObserver.observe(el)
-    return () => resizeObserver.disconnect()
-  }, [])
-
-  useEffect(() => {
-    const el = formEndRef.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => setReachedFormEnd(entry.isIntersecting),
-      { rootMargin: `0px 0px -${saveBarHeight}px 0px` }
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [saveBarHeight])
 
   // Storage paths staged for deletion — only actually removed from the bucket once
   // the form is saved, so an accidental "x" click can't lose a file for good.
@@ -140,11 +65,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const [newTrackTitle, setNewTrackTitle] = useState('')
   const [newTrackArtist, setNewTrackArtist] = useState('')
   const [attachingTrackId, setAttachingTrackId] = useState<string | null>(null)
-  const [newTrackFile, setNewTrackFile] = useState<{
-    name: string
-    url: string
-    path: string
-  } | null>(null)
+  const [newTrackFile, setNewTrackFile] = useState<PendingTrackFile | null>(null)
 
   const isEng = application.language === 'eng'
 
@@ -185,7 +106,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   const [activeActIndex, setActiveActIndex] = useState(0)
   const activeAct = actsFormData[activeActIndex] ?? actsFormData[0]
 
-  const [formData, setFormData] = useState(() => {
+  const [formData, setFormData] = useState<BookedFormData>(() => {
     const perfData = application.performers
     const logisticsData = application.event_performers
 
@@ -222,9 +143,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: FormChangeEvent) => {
     const { name, value, type } = e.target
     const nextValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     setFormData((prev) => ({ ...prev, [name]: nextValue }))
@@ -669,73 +588,7 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* ===SEKTION 1: ARTIST PROMO === */}
-        <div className="login-card space-y-6">
-          <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
-            <h2>{t('Artist Promo', 'Artist Promo')}</h2>
-          </div>
-          <p className="text-sm text-foreground/90">
-            {t(
-              'Används för eventpromo och din artistprofil i vårt "Hall of Fame"',
-              'Used for event promo and your artist profile in our "Hall of Fame"'
-            )}
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
-            <div className="form-field md:col-span-4 flex flex-col h-full">
-              <label className="form-label-block">{t('Promobild', 'Promo Image')}</label>
-              <div className="relative flex-1 flex flex-col items-center justify-center border border-accent/20 rounded-lg p-2 bg-background/30 min-h-[220px]">
-                {application.promo_image_id ? (
-                  <CloudinaryImage
-                    publicId={application.promo_image_id}
-                    width={400}
-                    height={400}
-                    fit
-                    className="max-h-full max-w-full object-contain rounded"
-                  />
-                ) : (
-                  <span className="text-xs text-foreground/50">
-                    {t('Ingen bild tillgänglig', 'No image available')}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="md:col-span-8 flex flex-col gap-4">
-              <div className="form-field flex-1 flex flex-col">
-                <label className="form-label-gold text-xs block mb-1">
-                  {t('Promo text (Svenska)', 'Promo text (Swedish)')}
-                </label>
-                <textarea
-                  name="bio_sv"
-                  placeholder={t(
-                    'Din presentationstext på svenska...',
-                    'Your presentation in Swedish...'
-                  )}
-                  value={formData.bio_sv}
-                  onChange={handleChange}
-                  className="login-input flex-1 w-full resize-none p-3 min-h-[100px] text-sm"
-                />
-              </div>
-
-              <div className="form-field flex-1 flex flex-col">
-                <label className="form-label-gold text-xs block mb-1">
-                  {t('Promo text (Engelska)', 'Promo text (English)')}
-                </label>
-                <textarea
-                  name="bio_eng"
-                  placeholder={t(
-                    'Din presentationstext på engelska...',
-                    'Your presentation in English...'
-                  )}
-                  value={formData.bio_eng}
-                  onChange={handleChange}
-                  className="login-input flex-1 w-full resize-none p-3 min-h-[100px] text-sm"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <PromoSection application={application} formData={formData} onChange={handleChange} />
 
         {/* ================= SEKTION 2: ACT DETAILS ================= */}
         <div className="login-card space-y-6">
@@ -806,195 +659,28 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
             </div>
           </div>
 
-          {/* MUSIC */}
-          <div className="space-y-4 border-t border-border/40 pt-4">
-            <label className="form-label-block text-xs font-bold text-accent">
-              {t('Låtar för akten', 'Act songs & audio files')}
-            </label>
-
-            <div className="p-4 rounded-lg border border-accent/30 bg-accent/5 space-y-3">
-              <span className="text-xs font-semibold text-foreground/80 block">
-                {t('Lägg till låt', 'Add new song')}
-              </span>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  placeholder={t('Låttitel (t.ex. Feeling Good)', 'Track Title')}
-                  value={newTrackTitle}
-                  onChange={(e) => {
-                    setNewTrackTitle(e.target.value)
-                    setIsDirty(true)
-                  }}
-                  className="login-input text-xs"
-                />
-                <input
-                  type="text"
-                  placeholder={t('Låtartist / Kompositör (t.ex. Nina Simone)', 'Track Artist')}
-                  value={newTrackArtist}
-                  onChange={(e) => {
-                    setNewTrackArtist(e.target.value)
-                    setIsDirty(true)
-                  }}
-                  className="login-input text-xs"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 pt-1">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <label
-                    htmlFor="temp-audio-up"
-                    className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5 shrink-0"
-                  >
-                    {uploadingAudio ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Upload size={14} />
-                    )}
-                    {newTrackFile
-                      ? t('Byt ljudfil', 'Replace audio file')
-                      : t('Ladda upp ljudfil', 'Upload audio file')}
-                  </label>
-                  <input
-                    type="file"
-                    id="temp-audio-up"
-                    className="hidden"
-                    accept="audio/*"
-                    onChange={handleTempAudioUpload}
-                  />
-                  {uploadingAudio ? (
-                    <span className="text-xs text-accent truncate min-w-0">
-                      {t('Laddar upp', 'Uploading')} {Math.round(uploadProgress * 100)}%
-                    </span>
-                  ) : newTrackFile ? (
-                    <>
-                      <span className="text-xs text-accent truncate min-w-0">
-                        ✓ {newTrackFile.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={removePendingFile}
-                        title={t('Ta bort filen', 'Remove the file')}
-                        className="shrink-0 p-1 rounded-md text-foreground/60 hover:text-destructive transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    </>
-                  ) : (
-                    <span className="text-xs text-amber-400 italic truncate min-w-0">
-                      {t('Ingen uppladdad fil (krävs)', 'No uploaded file (required)')}
-                    </span>
-                  )}
-                </div>
-
-                {(() => {
-                  const canAddTrack = Boolean(
-                    newTrackTitle.trim() && newTrackArtist.trim() && newTrackFile
-                  )
-                  return (
-                    <button
-                      type="button"
-                      onClick={handleAddTrack}
-                      disabled={!canAddTrack}
-                      className={`text-xs py-1.5 px-4 flex items-center gap-1.5 shrink-0 rounded-lg ${
-                        canAddTrack ? 'btn-gold btn-gold-glow-active' : 'btn-gold-inactive'
-                      }`}
-                    >
-                      <Plus size={14} />
-                      {t('Lägg till låt i akten', 'Add song to act')}
-                    </button>
-                  )
-                })()}
-              </div>
-            </div>
-
-            {/* Lista över sparade låtar */}
-            {(activeAct?.audioTracks.length ?? 0) > 0 ? (
-              <div className="space-y-2 pt-2">
-                <span className="text-xs font-medium text-foreground/70 block">
-                  {t('Tillagda låtar:', 'Added tracks:')}
-                </span>
-                {(activeAct?.audioTracks ?? []).map((track, idx) => {
-                  const hasFile = Boolean(track.fileUrl || track.filePath)
-                  return (
-                    <div
-                      key={track.id}
-                      className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border border-border/60 bg-background/40"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <Music className="w-4 h-4 text-accent shrink-0" />
-                        <div className="min-w-0 flex-1 flex flex-col items-start">
-                          <p className="text-xs font-semibold text-foreground truncate w-full text-left">
-                            {idx + 1}. {track.title || t('Namnlös låt', 'Untitled track')}
-                            {track.artist ? ` - ${track.artist}` : ''}
-                          </p>
-                          {hasFile ? (
-                            <p className="text-[10px] text-accent truncate w-full text-left">
-                              ✓ {track.fileName || t('Fil uppladdad', 'File uploaded')}
-                            </p>
-                          ) : (
-                            <p className="text-[10px] text-amber-400 w-full text-left">
-                              {t('Ingen ljudfil uppladdad än', 'No audio file uploaded yet')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {!hasFile && (
-                          <>
-                            <label
-                              htmlFor={`track-file-${track.id}`}
-                              className="btn-gold-outline text-[11px] py-1 px-2.5 cursor-pointer flex items-center gap-1.5"
-                            >
-                              {attachingTrackId === track.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Upload size={12} />
-                              )}
-                              {attachingTrackId === track.id
-                                ? `${Math.round(uploadProgress * 100)}%`
-                                : t('Ladda upp fil', 'Upload file')}
-                            </label>
-                            <input
-                              type="file"
-                              id={`track-file-${track.id}`}
-                              className="hidden"
-                              accept="audio/*"
-                              onChange={(e) => handleAttachFile(track.id, e)}
-                            />
-                          </>
-                        )}
-                        {track.fileUrl && (
-                          <a
-                            href={track.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
-                            title={t('Lyssna/Öppna', 'Listen/Open')}
-                          >
-                            <ExternalLink size={14} />
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeTrack(track.id)}
-                          className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
-                          title={t('Ta bort', 'Remove')}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-foreground/50 italic pt-1">
-                {t('Inga låtar tillagda ännu.', 'No songs added yet.')}
-              </p>
-            )}
-          </div>
+          <ActMusicEditor
+            tracks={activeAct?.audioTracks ?? []}
+            newTrackTitle={newTrackTitle}
+            newTrackArtist={newTrackArtist}
+            newTrackFile={newTrackFile}
+            onTitleChange={(value) => {
+              setNewTrackTitle(value)
+              setIsDirty(true)
+            }}
+            onArtistChange={(value) => {
+              setNewTrackArtist(value)
+              setIsDirty(true)
+            }}
+            uploadingAudio={uploadingAudio}
+            attachingTrackId={attachingTrackId}
+            uploadProgress={uploadProgress}
+            onPendingUpload={handleTempAudioUpload}
+            onRemovePendingFile={removePendingFile}
+            onAddTrack={handleAddTrack}
+            onAttachFile={handleAttachFile}
+            onRemoveTrack={removeTrack}
+          />
 
           {/* SCENFÄLT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/40 pt-4">
@@ -1065,348 +751,23 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
           </div>
         </div>
 
-        {/* ================= SEKTION 3: LOGISTIK ================= */}
-        <div className="login-card space-y-6">
-          <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
-            <h2>{t('Logistik', 'Logistics')}</h2>
-          </div>
+        <LogisticsSection
+          application={application}
+          formData={formData}
+          onChange={handleChange}
+          receiptFiles={receiptFiles}
+          uploadingReceipt={uploadingReceipt}
+          onReceiptUpload={handleReceiptUpload}
+          onRemoveReceipt={removeReceiptFile}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="form-field">
-              <label className="form-label-block text-xs">
-                {t('Matpreferens', 'Food preference')}
-              </label>
-              <select
-                name="dietary_category"
-                value={formData.dietary_category}
-                onChange={handleChange}
-                className="login-input"
-              >
-                <option value="" disabled>
-                  {t('Välj...', 'Select...')}
-                </option>
-                {(['all_eater', 'vegetarian', 'vegan'] as DietaryCategory[]).map((option) => (
-                  <option key={option} value={option}>
-                    {dietaryCategoryLabel(t, option)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field">
-              <label className="form-label-block text-xs">
-                {t('Allergier & övrigt', 'Allergies & other notes')}
-              </label>
-              <input
-                type="text"
-                name="dietary_requirements"
-                placeholder={t(
-                  'T.ex. nötallergi – lämna tomt om inga',
-                  'e.g. nut allergy – leave empty if none'
-                )}
-                value={formData.dietary_requirements}
-                onChange={handleChange}
-                className="login-input"
-              />
-            </div>
-          </div>
+        <AgreedCompensationCard
+          application={application}
+          travelCovered={formData.travel_covered}
+          actCount={actsFormData.length}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border/40 pt-4">
-            <div className="form-field">
-              <label className="form-label-block text-xs">
-                {t('Plus One Namn', 'Plus One Name')}
-              </label>
-              <input
-                type="text"
-                name="plus_one_name"
-                placeholder={t('T.ex. Anna Karlsson', 'e.g. Anna Karlsson')}
-                value={formData.plus_one_name}
-                onChange={handleChange}
-                className="login-input"
-              />
-            </div>
-            <div className="form-field">
-              <label className="form-label-block text-xs">
-                {t('Plus One mail', 'Plus One Email')}
-              </label>
-              <input
-                type="text"
-                name="plus_one_email"
-                placeholder={t('T.ex. anna.karlsson@example.com', 'e.g. anna.karlsson@example.com')}
-                value={formData.plus_one_email}
-                onChange={handleChange}
-                className="login-input"
-              />
-            </div>
-            {/* Only shown when the artist themselves needs housing — a +1 sharing that
-                accommodation is meaningless otherwise. Direct feedback 2026-09-22, the
-                Luminous Starling case. */}
-            {application.needs_accommodation && (
-              <label className="flex items-center gap-2 cursor-pointer select-none md:col-span-2">
-                <input
-                  type="checkbox"
-                  name="plus_one_needs_accommodation"
-                  checked={formData.plus_one_needs_accommodation}
-                  onChange={handleChange}
-                  className="accent-accent h-4 w-4 rounded"
-                />
-                <span className="text-xs font-medium text-foreground">
-                  {t('Mitt plus one behöver också boende', 'My plus one also needs accommodation')}
-                </span>
-              </label>
-            )}
-          </div>
-
-          <div className="form-field border-t border-border/40 pt-4">
-            <label className="form-label-block text-xs">
-              {t('Övrig anteckning till styrelsen', 'Other note for the board')}
-            </label>
-            <input
-              type="text"
-              name="artist_note"
-              placeholder={t(
-                'T.ex. "Reser med bil tillsammans med ..."',
-                'E.g. "Travelling by car together with ..."'
-              )}
-              value={formData.artist_note}
-              onChange={handleChange}
-              className="login-input"
-            />
-          </div>
-
-          {(application.needs_travel_costs || (application.travel_cost_amount ?? 0) > 0) && (
-            <div className="form-field border-t border-border/40 pt-4 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                <div className="form-field flex-1">
-                  <label className="form-label-block text-xs">
-                    {t('Slutliga reseräkning', 'Final Travel Reimbursement')}
-                  </label>
-                  <input
-                    type="number"
-                    name="travel_covered"
-                    placeholder={
-                      application.travel_cost_amount
-                        ? t(
-                            `Uppskattat ca ${application.travel_cost_amount}`,
-                            `Estimated ~${application.travel_cost_amount}`
-                          )
-                        : t('T.ex. 500', 'e.g. 500')
-                    }
-                    value={formData.travel_covered}
-                    onChange={handleChange}
-                    className="login-input"
-                  />
-                </div>
-
-                <label className="flex items-center gap-2 cursor-pointer select-none shrink-0 sm:pb-2.5">
-                  <input
-                    type="checkbox"
-                    name="travels_by_car"
-                    checked={formData.travels_by_car}
-                    onChange={handleChange}
-                    className="accent-accent h-4 w-4 rounded shrink-0"
-                  />
-                  <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                    <Car className="h-3.5 w-3.5 text-accent shrink-0" />
-                    {t(
-                      'Reser med bil (inget resekvitto - summan betalas med gaget)',
-                      'Traveling by car (no travel receipt - the amount is paid with the fee)'
-                    )}
-                  </span>
-                </label>
-              </div>
-
-              {/* No receipt to upload when traveling by car — the sum above is paid out
-                  directly instead. Direct feedback 2026-09-22. */}
-              {!formData.travels_by_car && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <label className="form-label-block text-xs">
-                      {t('Resekvitton (PDF/Bild)', 'Travel Receipts (PDF/Image)')}
-                    </label>
-                    <label
-                      htmlFor="receipt-up-multi"
-                      className="btn-gold-outline text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5 shrink-0"
-                    >
-                      {uploadingReceipt ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Plus size={14} />
-                      )}
-                      {t('Ladda upp kvitto(n)', 'Upload receipt(s)')}
-                    </label>
-                    <input
-                      type="file"
-                      id="receipt-up-multi"
-                      className="hidden"
-                      accept="image/*,.pdf"
-                      multiple
-                      onChange={handleReceiptUpload}
-                    />
-                  </div>
-
-                  {receiptFiles.length > 0 ? (
-                    <div className="space-y-2">
-                      {receiptFiles.map((receipt, idx) => (
-                        <div
-                          key={receipt.id}
-                          className="flex items-center justify-between p-3 rounded-lg border border-accent/40 bg-accent/10"
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                            <FileText className="w-5 h-5 text-accent shrink-0" />
-                            <div className="min-w-0 flex-1 flex flex-col items-start">
-                              <p className="text-xs font-semibold text-foreground truncate w-full text-left">
-                                {idx + 1}. {receipt.name}
-                              </p>
-                              <p className="text-[10px] text-accent font-medium text-left">
-                                ✓ Kvitto bifogat
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <a
-                              href={receipt.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 rounded-md border border-border hover:border-accent text-foreground/80 hover:text-accent transition-colors"
-                              title={t('Öppna kvitto', 'Open receipt')}
-                            >
-                              <ExternalLink size={14} />
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => removeReceiptFile(receipt.id)}
-                              className="p-1.5 rounded-md border border-destructive/30 hover:bg-destructive/20 text-destructive transition-colors"
-                              title={t('Ta bort', 'Remove')}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-foreground/50 italic pt-1">
-                      {t('Inga kvitton uppladdade ännu.', 'No receipts uploaded yet.')}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ================= SEKTION 4: ÖVERENSKOMMET GAGE (READ-ONLY) =================
-            Fee comes from proposed_fee (fixed at offer time, not editable here — no fee
-            field exists in this form). Travel reads formData.travel_covered live, since
-            that IS the editable "final reimbursement" field just above, so this summary
-            stays in sync as the artist fills it in.
-
-            Three states, not two — travel being *part of the offer* (needs_travel_costs)
-            and travel having a *settled amount* (travel_covered, filled in by the artist
-            once they actually know it) are different things. Real case that caught this:
-            an artist offered travel reimbursement, not yet booked her trip, saw nothing
-            about travel at all here — the "no travel" and "travel not decided yet" states
-            looked identical. Now: no line when travel isn't part of the offer at all; a
-            firm "+ Travel: X SEK" + "= Total" once she's entered a real figure; and, in
-            between, a "+ Travel costs: TBD (~offered estimate)" placeholder with no "="
-            line — a real total shouldn't be stated until travel actually has a number. */}
-        {(() => {
-          const proposedFee = Number(application.proposed_fee) || 0
-          const travelCovered = Number(formData.travel_covered) || 0
-          const needsTravel = application.needs_travel_costs || false
-          const offeredTravelEstimate = Number(application.travel_cost_amount) || 0
-          const actCount = actsFormData.length
-          const roleLabel =
-            application.lineup_role === 'host'
-              ? 'Host'
-              : application.lineup_role === 'headliner'
-                ? 'Headliner'
-                : null
-
-          return (
-            <div className="login-card space-y-3">
-              <div className="flex items-center gap-2 text-lg font-bold text-accent border-b border-border/50 pb-3 justify-center">
-                <h2>{t('Överenskommet Gage', 'Agreed Compensation')}</h2>
-              </div>
-              <div className="text-sm text-foreground space-y-1.5 font-mono">
-                <p>
-                  {proposedFee} SEK
-                  {actCount > 1 && ` ${t('för', 'for')} ${actCount} ${t('akter', 'acts')}`}
-                </p>
-                {needsTravel && travelCovered > 0 && (
-                  <>
-                    <p>
-                      + {t('Reseersättning', 'Travel Reimbursement')}: {travelCovered} SEK
-                    </p>
-                    <p className="text-accent font-bold pt-1.5 border-t border-border/30">
-                      = {t('Totalt', 'Total')}: {proposedFee + travelCovered} SEK
-                    </p>
-                  </>
-                )}
-                {needsTravel && travelCovered === 0 && (
-                  <>
-                    <p className="text-foreground/60 italic">
-                      +{' '}
-                      {t(
-                        `Reseersättning tillkommer (uppskattat ca ${offeredTravelEstimate} SEK)`,
-                        `Travel reimbursement to be added (estimated ~${offeredTravelEstimate} SEK)`
-                      )}
-                    </p>
-                    <p className="text-foreground/60 italic">
-                      {t(
-                        'Fyll i den slutliga summan ovan när den är klar.',
-                        'Fill in the final amount above once known.'
-                      )}
-                    </p>
-                  </>
-                )}
-                {roleLabel && (
-                  <p className="pt-1.5 border-t border-border/30 flex items-center justify-center gap-1.5 text-center">
-                    {application.lineup_role === 'host' ? (
-                      <Mic2 className="w-3.5 h-3.5 text-accent" />
-                    ) : (
-                      <Crown className="w-3.5 h-3.5 text-accent" />
-                    )}
-                    {t('Roll', 'Role')}: <span className="text-accent font-bold">{roleLabel}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-          )
-        })()}
-
-        {/* SPARA-FÄLT — fast position längst ner i skärmen medan man scrollar genom
-            formuläret; landar i sitt normala flödesläge så fort formulärets sanna slut
-            (markerat av formEndRef) syns, så den aldrig hamnar ovanpå sidfoten. */}
-        <div ref={formEndRef}>
-          {!reachedFormEnd && <div style={{ height: saveBarHeight }} />}
-          <div
-            ref={saveBarRef}
-            className={
-              reachedFormEnd
-                ? 'z-40 border-t border-accent/30 bg-background/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.35)]'
-                : 'fixed bottom-0 left-0 right-0 z-40 border-t border-accent/30 bg-background/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.35)]'
-            }
-          >
-            <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
-              {isDirty && !submitting && (
-                <span className="text-xs text-accent/90 italic mr-auto">
-                  {t('Osparade ändringar', 'Unsaved changes')}
-                </span>
-              )}
-              <button
-                type="submit"
-                disabled={submitting || !isDirty}
-                className={`flex items-center gap-2 py-3 px-6 text-sm font-semibold rounded-lg ${
-                  isDirty ? 'btn-gold btn-gold-glow-active' : 'btn-gold-inactive'
-                }`}
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={16} />}
-                {t('Spara information', 'Save Information')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <FormSaveBar isDirty={isDirty} submitting={submitting} />
       </form>
     </div>
   )

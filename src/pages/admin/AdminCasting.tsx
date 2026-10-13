@@ -431,7 +431,10 @@ export const AdminCasting = () => {
               key={app.id}
               application={app}
               eventTitle={selectedEvent?.title ?? ''}
-              onOpenTab={setActiveTab}
+              onOpenTab={(tab) => {
+                setActiveTab(tab)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
               onStatusChange={handleStatusChange}
               onSaveNotes={handleSaveNotes}
               onUpdateLogistics={handleUpdateLogisticsStatus}

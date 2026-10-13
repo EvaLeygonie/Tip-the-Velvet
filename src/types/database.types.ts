@@ -75,6 +75,7 @@ export type Database = {
           lineup_role: Database['public']['Enums']['event_performer_role']
           needs_accommodation: boolean | null
           needs_travel_costs: boolean | null
+          original_travel_estimate: number | null
           other_link: string | null
           performer_id: string | null
           performer_name: string
@@ -106,6 +107,7 @@ export type Database = {
           lineup_role?: Database['public']['Enums']['event_performer_role']
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
+          original_travel_estimate?: number | null
           other_link?: string | null
           performer_id?: string | null
           performer_name: string
@@ -137,6 +139,7 @@ export type Database = {
           lineup_role?: Database['public']['Enums']['event_performer_role']
           needs_accommodation?: boolean | null
           needs_travel_costs?: boolean | null
+          original_travel_estimate?: number | null
           other_link?: string | null
           performer_id?: string | null
           performer_name?: string

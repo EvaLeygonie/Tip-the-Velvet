@@ -1,4 +1,4 @@
-import type { AudioTrackItem, ReceiptItem } from '@/components/applications/BookedArtistForm'
+import type { AudioTrackItem, ReceiptItem } from '@/components/applications/booked-artist/types'
 import { supabase } from '@/lib/supabase'
 import type { Json } from '@/types/database.types'
 import type {
