@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ClipboardList, Clock, FileText, KeyRound, MapPin, Music2, Phone } from 'lucide-react'
+import {
+  ClipboardList,
+  Clock,
+  FileText,
+  KeyRound,
+  ListMusic,
+  MapPin,
+  Music2,
+  Phone,
+} from 'lucide-react'
+import { hubLinkExpiry, saveMyLink } from '@/lib/myLinks'
 import { useLanguage } from '@/contexts/LanguageContext'
 import {
   claimDoorSlot,
@@ -10,7 +20,6 @@ import {
   type EventInfoPayload,
 } from '@/services/eventInfoService'
 import {
-  INFO_TOKEN_STORAGE_KEY,
   formatClock,
   doorPlanSentence,
   formatDateLong,
@@ -65,7 +74,15 @@ export const EventInfoHub = () => {
         if (cancelled) return
         setInfo(data)
         setSlots(data.door_slots ?? [])
-        writeStorage(INFO_TOKEN_STORAGE_KEY, token)
+        saveMyLink(
+          {
+            path: `/info/${token}`,
+            kind: 'hub',
+            eventTitle: data.event.title,
+            audience: data.audience,
+          },
+          hubLinkExpiry(data.event.event_start)
+        )
       } catch (err) {
         console.error('Kunde inte hämta eventinfo:', err)
         if (!cancelled) setInfo(null)
@@ -209,6 +226,16 @@ export const EventInfoHub = () => {
   const others = info.contacts.filter((c) => c.kind !== 'general')
   // Only once the board has released the VIP list to this link (it is also a document item).
   const hasVipList = audience === 'volunteer' && documents.some((i) => i.doc_key === 'vipList')
+  const playlistSlots = [
+    {
+      key: 'before',
+      label: t('Innan showen / insläpp', 'Before the show / doors'),
+      url: info.playlists?.before,
+    },
+    { key: 'intermission', label: t('Paus', 'Intermission'), url: info.playlists?.intermission },
+    { key: 'afterparty', label: t('Afterparty', 'Afterparty'), url: info.playlists?.afterparty },
+  ]
+  const missingPlaylists = playlistSlots.filter((p) => !p.url).length
   const venueInfo = venue ? pick(venue.practical_info_sv, venue.practical_info_eng) : ''
 
   const doorPlan = planDoorShifts(slots, info.door_people ?? 0)
@@ -235,6 +262,97 @@ export const EventInfoHub = () => {
       <div className="gold-divider" />
 
       <div className="max-w-3xl mx-auto space-y-6 text-left">
+        {/* Documents — generated fresh on each download */}
+        {documents.length > 0 && (
+          <section className="space-y-3">
+            <h2>{t('Dokument', 'Documents')}</h2>
+            <ul className="admin-panel velvet-surface divide-y divide-accent/10">
+              {documents.map((item) =>
+                item.doc_key ? (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      disabled={busyDoc === item.doc_key}
+                      onClick={() => handleDownload(item.doc_key as InfoDocKey)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-foreground hover:text-accent disabled:opacity-60"
+                    >
+                      <FileText className="h-4 w-4 shrink-0" />
+                      {pick(item.title_sv, item.title_eng)}
+                      <span className="ml-auto text-xs text-foreground/50">
+                        {busyDoc === item.doc_key
+                          ? t('Skapar…', 'Creating…')
+                          : t('Ladda ner PDF', 'Download PDF')}
+                      </span>
+                    </button>
+                    {item.doc_key === 'soundLight' && (
+                      <button
+                        type="button"
+                        disabled={busyZip}
+                        onClick={handleMusicZip}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-foreground hover:text-accent disabled:opacity-60"
+                      >
+                        <Music2 className="h-4 w-4 shrink-0" />
+                        {t('Alla musikfiler', 'All music files')}
+                        <span className="ml-auto text-xs text-foreground/50">
+                          {busyZip
+                            ? t('Samlar filerna…', 'Gathering files…')
+                            : t('Ladda ner ZIP', 'Download ZIP')}
+                        </span>
+                      </button>
+                    )}
+                  </li>
+                ) : null
+              )}
+            </ul>
+          </section>
+        )}
+
+        {/* Ambient playlists (technician link only) */}
+        {audience === 'technician' && (
+          <section className="space-y-3">
+            <h2 className="flex items-center gap-2">
+              <ListMusic className="h-5 w-5 text-accent" />
+              {t('Spellistor', 'Playlists')}
+            </h2>
+            {missingPlaylists > 0 && (
+              <p className="velvet-warning-box text-sm">
+                {t(
+                  `${missingPlaylists} av 3 spellistor saknas än – vi lägger upp dem här så fort de är klara.`,
+                  `${missingPlaylists} of 3 playlists are still missing – we'll add them here as soon as they're ready.`
+                )}
+              </p>
+            )}
+            <ul className="admin-panel velvet-surface divide-y divide-accent/10">
+              {playlistSlots.map((p) => (
+                <li key={p.key}>
+                  {p.url ? (
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-foreground hover:text-accent"
+                    >
+                      <Music2 className="h-4 w-4 shrink-0" />
+                      {p.label}
+                      <span className="ml-auto text-xs text-foreground/50">
+                        {t('Öppna', 'Open')}
+                      </span>
+                    </a>
+                  ) : (
+                    <div className="w-full flex items-center gap-3 px-4 py-3 text-foreground/50">
+                      <Music2 className="h-4 w-4 shrink-0" />
+                      {p.label}
+                      <span className="ml-auto text-xs italic text-accent/80">
+                        {t('Saknas än', 'Not added yet')}
+                      </span>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* Access + contacts */}
         {(access?.door_code ||
           access?.has_checkin_url ||
@@ -455,51 +573,6 @@ export const EventInfoHub = () => {
             </div>
           </section>
         ))}
-
-        {/* Documents — generated fresh on each download */}
-        {documents.length > 0 && (
-          <section className="space-y-3">
-            <h2>{t('Dokument', 'Documents')}</h2>
-            <ul className="admin-panel velvet-surface divide-y divide-accent/10">
-              {documents.map((item) =>
-                item.doc_key ? (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      disabled={busyDoc === item.doc_key}
-                      onClick={() => handleDownload(item.doc_key as InfoDocKey)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-foreground hover:text-accent disabled:opacity-60"
-                    >
-                      <FileText className="h-4 w-4 shrink-0" />
-                      {pick(item.title_sv, item.title_eng)}
-                      <span className="ml-auto text-xs text-foreground/50">
-                        {busyDoc === item.doc_key
-                          ? t('Skapar…', 'Creating…')
-                          : t('Ladda ner PDF', 'Download PDF')}
-                      </span>
-                    </button>
-                    {item.doc_key === 'soundLight' && (
-                      <button
-                        type="button"
-                        disabled={busyZip}
-                        onClick={handleMusicZip}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-foreground hover:text-accent disabled:opacity-60"
-                      >
-                        <Music2 className="h-4 w-4 shrink-0" />
-                        {t('Alla musikfiler', 'All music files')}
-                        <span className="ml-auto text-xs text-foreground/50">
-                          {busyZip
-                            ? t('Samlar filerna…', 'Gathering files…')
-                            : t('Ladda ner ZIP', 'Download ZIP')}
-                        </span>
-                      </button>
-                    )}
-                  </li>
-                ) : null
-              )}
-            </ul>
-          </section>
-        )}
       </div>
     </div>
   )

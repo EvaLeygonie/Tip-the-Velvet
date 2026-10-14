@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Copy, Download, ExternalLink, Mail, Plus, Trash2 } from 'lucide-react'
+import { Copy, Download, ExternalLink, Mail, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
@@ -46,7 +46,7 @@ import { getDocumentHint } from '@/lib/documentHints'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { downloadEventDocuments, loadEventDocContext } from '@/lib/eventDocuments'
 import { GroupMailModal, type MailRecipient as Recipient } from './GroupMailModal'
-import { infoMailDefaults } from '@/lib/mailDefaults'
+import { infoMailDefaults, infoUpdateMailDefaults } from '@/lib/mailDefaults'
 import { InfoItemEditor } from './InfoItemEditor'
 import { VenueInfoCard } from './VenueInfoCard'
 import { InfoDoorShifts } from './InfoDoorShifts'
@@ -87,7 +87,10 @@ export const InfoHubTab = ({
     previousRow: InfoTemplateItem | null
     previousItemKey: string | null
   } | null>(null)
-  const [mailTarget, setMailTarget] = useState<InfoAudience | null>(null)
+  const [mailTarget, setMailTarget] = useState<{
+    audience: InfoAudience
+    kind: 'info' | 'update'
+  } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -355,11 +358,24 @@ export const InfoHubTab = ({
                 <button
                   type="button"
                   disabled={count === 0}
-                  onClick={() => setMailTarget(audience)}
+                  onClick={() => setMailTarget({ audience, kind: 'info' })}
                   className="flex items-center gap-1.5 text-xs py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <Mail className="h-3.5 w-3.5" />
                   {t('Mejla gruppen', 'Email group')}
+                </button>
+                <button
+                  type="button"
+                  disabled={count === 0}
+                  onClick={() => setMailTarget({ audience, kind: 'update' })}
+                  title={t(
+                    'Skicka uppdatering – något har ändrats',
+                    'Send update – something changed'
+                  )}
+                  aria-label={t('Skicka uppdatering', 'Send update')}
+                  className="flex items-center gap-1.5 text-xs py-1.5 px-2.5 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
                 </button>
               </li>
             )
@@ -576,9 +592,12 @@ export const InfoHubTab = ({
 
       {mailTarget && links && (
         <GroupMailModal
-          title={`${t('Mejla', 'Email')} ${infoAudienceLabel(t, mailTarget)}`}
-          recipients={recipients.get(mailTarget) ?? []}
-          defaults={infoMailDefaults(eventTitle, infoLinkUrl(links[mailTarget]))}
+          title={`${mailTarget.kind === 'update' ? t('Skicka uppdatering till', 'Send update to') : t('Mejla', 'Email')} ${infoAudienceLabel(t, mailTarget.audience)}`}
+          recipients={recipients.get(mailTarget.audience) ?? []}
+          defaults={(mailTarget.kind === 'update' ? infoUpdateMailDefaults : infoMailDefaults)(
+            eventTitle,
+            infoLinkUrl(links[mailTarget.audience])
+          )}
           onClose={() => setMailTarget(null)}
         />
       )}

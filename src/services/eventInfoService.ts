@@ -35,6 +35,12 @@ export interface EventInfoPayload {
     practical_info_eng: string | null
   } | null
   items: EventInfoItem[]
+  // Technician link only: the ambient playlists for the evening (empty ones are left out).
+  playlists?: {
+    before: string | null
+    intermission: string | null
+    afterparty: string | null
+  } | null
   // Only sent to the volunteer link.
   door_slots: DoorSlot[] | null
   // Volunteer link only: how many door staff there are (for the "about X each" guidance).

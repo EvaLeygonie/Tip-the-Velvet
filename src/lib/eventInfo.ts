@@ -3,9 +3,6 @@ import type { StaffVolunteerType } from '@/types/types'
 // The info hub: one token link per role per event.
 // An item with no audiences is shown to everyone.
 
-// Lets the Navigation show an "Event info" link once someone has opened their link on this device.
-export const INFO_TOKEN_STORAGE_KEY = 'ttv_info_token'
-
 export type InfoAudience = 'artist' | 'technician' | 'stage_kitten' | 'photographer' | 'volunteer'
 export type InfoItemKind = 'schedule' | 'text' | 'document'
 export type InfoDocKey = 'setList' | 'soundLight' | 'vipList'

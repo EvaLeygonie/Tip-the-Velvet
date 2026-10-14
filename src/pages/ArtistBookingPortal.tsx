@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useSearchParams, useParams } from 'react-router-dom'
 import type { CastingApplicationPortalData } from '@/types/types'
+import { hubLinkExpiry, saveMyLink } from '@/lib/myLinks'
 import { getCastingApplicationByToken } from '@/services/applicationService'
 import { BookingDecisionCard } from '@/components/applications/BookingDecisionCard'
 import { BookedArtistForm } from '@/components/applications/BookedArtistForm'
@@ -36,6 +37,17 @@ export const ArtistBookingPortal = () => {
         const app = await getCastingApplicationByToken(id, token)
         if (isMounted) {
           setApplication(app)
+          if (app && id && token) {
+            const ev = Array.isArray(app.events) ? app.events[0] : app.events
+            saveMyLink(
+              {
+                path: `/casting/confirm/${id}?token=${token}`,
+                kind: 'booking',
+                eventTitle: ev?.title ?? 'Tip the Velvet',
+              },
+              ev?.event_start ? hubLinkExpiry(ev.event_start) : undefined
+            )
+          }
 
           if (app?.language && !appliedSavedLanguage.current) {
             appliedSavedLanguage.current = true
