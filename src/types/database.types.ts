@@ -1414,6 +1414,7 @@ export type Database = {
           location: string
           map_link: string
           name: string
+          nearest_stop: string | null
           phone: string | null
           practical_info_eng: string | null
           practical_info_sv: string | null
@@ -1430,6 +1431,7 @@ export type Database = {
           location: string
           map_link: string
           name: string
+          nearest_stop?: string | null
           phone?: string | null
           practical_info_eng?: string | null
           practical_info_sv?: string | null
@@ -1446,6 +1448,7 @@ export type Database = {
           location?: string
           map_link?: string
           name?: string
+          nearest_stop?: string | null
           phone?: string | null
           practical_info_eng?: string | null
           practical_info_sv?: string | null

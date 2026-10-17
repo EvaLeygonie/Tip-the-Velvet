@@ -26,11 +26,18 @@ export interface EventInfoPayload {
   } | null
   // Who to call, picked per group by get_event_info: the volunteers' generals first (volunteer
   // link only), then the board member(s) for that area, backups last.
-  contacts: { name: string; phone: string; kind: 'general' | 'primary' | 'backup' }[]
+  contacts: {
+    name: string
+    phone: string
+    kind: 'general' | 'primary' | 'backup'
+    // Generals only: the shift they are in charge of (setup, guestlist, takedown…).
+    shift?: string | null
+  }[]
   venue: {
     name: string
     location: string
     map_link: string
+    nearest_stop?: string | null
     practical_info_sv: string | null
     practical_info_eng: string | null
   } | null
@@ -45,6 +52,8 @@ export interface EventInfoPayload {
   door_slots: DoorSlot[] | null
   // Volunteer link only: how many door staff there are (for the "about X each" guidance).
   door_people?: number | null
+  // Volunteer link only: names of the door staff, for the sign-up dropdown.
+  door_names?: string[] | null
 }
 
 export const getEventInfoByToken = async (token: string): Promise<EventInfoPayload> => {
@@ -282,6 +291,7 @@ export interface EventAccessFields {
     name: string
     location: string | null
     door_code: string | null
+    nearest_stop: string | null
     practical_info_sv: string | null
     practical_info_eng: string | null
   } | null
@@ -292,7 +302,7 @@ export const getEventAccessFields = async (eventId: string): Promise<EventAccess
   const { data, error } = await supabase
     .from('events')
     .select(
-      'event_start, checkin_url, venue:venues(id, name, location, door_code, practical_info_sv, practical_info_eng)'
+      'event_start, checkin_url, venue:venues(id, name, location, door_code, nearest_stop, practical_info_sv, practical_info_eng)'
     )
     .eq('id', eventId)
     .maybeSingle()
@@ -306,6 +316,7 @@ export const getEventAccessFields = async (eventId: string): Promise<EventAccess
 
 export type VenueInfoPatch = {
   door_code: string | null
+  nearest_stop: string | null
   practical_info_sv: string | null
   practical_info_eng: string | null
 }

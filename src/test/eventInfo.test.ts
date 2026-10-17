@@ -4,6 +4,7 @@ import {
   buildDoorSlots,
   countUncoveredDoorWindows,
   doorPlanSentence,
+  buildDoorShiftsForPeople,
   findUnplacedDoorStaff,
   formatClock,
   formatDuration,
@@ -191,6 +192,21 @@ describe('planDoorShifts', () => {
   })
 })
 
+describe('buildDoorShiftsForPeople', () => {
+  const start = new Date('2026-10-24T17:00:00Z')
+  const end = new Date('2026-10-24T23:00:00Z')
+
+  it('doubles the earliest hours so spots equal people', () => {
+    const plan = buildDoorShiftsForPeople(start, end, 60, 10)
+    expect(plan.slots).toHaveLength(10)
+    expect(plan.doubled).toBe(4)
+  })
+
+  it('flags hours that cannot be covered', () => {
+    expect(buildDoorShiftsForPeople(start, end, 60, 4).emptyHours).toBe(2)
+  })
+})
+
 describe('duration formatting', () => {
   it('writes minutes, hours and half hours in both languages', () => {
     expect(formatDuration(45, 'sv')).toBe('45 min')
@@ -211,10 +227,10 @@ describe('duration formatting', () => {
       buildDoorSlots(new Date('2026-10-24T17:00:00Z'), new Date('2026-10-24T23:00:00Z'), 60, 2),
       4
     )!
-    expect(doorPlanSentence(plan, 'eng')).toBe(
-      'With 4 people and 6 hours to cover, that is about 1.5 hours each – or 3 hours if you would rather sit two at a time.'
+    expect(doorPlanSentence(plan, 'eng')).toContain(
+      'We are 4 door volunteers with 6 hours to cover, so it comes to about 1.5 hours each on average.'
     )
-    expect(doorPlanSentence(plan, 'sv')).toContain('Med 4 personer')
+    expect(doorPlanSentence(plan, 'sv')).toContain('Vi är 4 dörrvolontärer')
   })
 })
 

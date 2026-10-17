@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, X } from 'lucide-react'
+import { Link2, X } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { infoAudienceLabel } from '@/lib/eventInfo'
 import {
@@ -11,7 +11,7 @@ import {
   type MyLink,
 } from '@/lib/myLinks'
 
-// Shown under the logo, and only on a browser that has opened a private link.
+// Icon button next to the login icon, and only on a browser that has opened a private link.
 export const MyLinksMenu = () => {
   const { t } = useLanguage()
   const [links, setLinks] = useState<MyLink[]>(getMyLinks)
@@ -46,17 +46,15 @@ export const MyLinksMenu = () => {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-1 mx-auto text-[11px] uppercase tracking-[0.2em] text-accent/80 hover:text-accent transition-colors"
+        aria-label={t('Mina länkar', 'My links')}
+        title={t('Mina länkar', 'My links')}
+        className="text-accent/80 hover:text-accent transition-all p-2"
       >
-        {t('Mina länkar', 'My links')}
-        <ChevronDown
-          size={12}
-          className={open ? 'rotate-180 transition-transform' : 'transition-transform'}
-        />
+        <Link2 size={22} strokeWidth={1.8} />
       </button>
 
       {open && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 admin-panel velvet-surface p-2 text-left">
+        <div className="absolute right-0 top-full mt-2 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-accent/30 bg-background shadow-2xl shadow-black/60 p-2 text-left">
           <ul className="divide-y divide-accent/10">
             {links.map((link) => (
               <li key={link.path} className="flex items-center gap-2">

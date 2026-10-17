@@ -102,7 +102,6 @@ export const Navigation = () => {
                 className={`transition-all duration-500 object-contain w-auto ${isScrolled ? 'h-[80px]' : 'h-[100px]'}`}
               />
             </Link>
-            <MyLinksMenu />
           </div>
 
           {/* HÖGER: Högerlänkar & Login */}
@@ -120,6 +119,7 @@ export const Navigation = () => {
             </div>
 
             <div className="nav-auth-group">
+              <MyLinksMenu />
               {!user ? (
                 <Link
                   to={`/admin/login?redirectTo=${encodeURIComponent(location.pathname)}`}

@@ -1,7 +1,8 @@
 import type { StaffVolunteerType } from '@/types/types'
 
 // The info hub: one token link per role per event.
-// An item with no audiences is shown to everyone.
+// An item with no stored audiences is shown to everyone; see audiencesToStored for how the editor
+// maps "all roles ticked" and "none ticked" onto that.
 
 export type InfoAudience = 'artist' | 'technician' | 'stage_kitten' | 'photographer' | 'volunteer'
 export type InfoItemKind = 'schedule' | 'text' | 'document'
@@ -14,6 +15,32 @@ export const INFO_AUDIENCES: InfoAudience[] = [
   'photographer',
   'volunteer',
 ]
+
+// Stored in `audiences` for an item that is hidden from every role for this event. It matches no
+// link's audience, so get_event_info leaves the item out without any server-side change.
+export const HIDDEN_AUDIENCE = 'hidden'
+
+// Editor <-> database: the editor shows exactly who sees an item. Every role ticked is stored as
+// [] (what the server treats as "everyone"), none ticked as ['hidden'].
+export const audiencesFromStored = (stored: string[]): InfoAudience[] =>
+  stored.length === 0 ? [...INFO_AUDIENCES] : INFO_AUDIENCES.filter((a) => stored.includes(a))
+
+export const audiencesToStored = (selected: InfoAudience[]): InfoAudience[] =>
+  selected.length === INFO_AUDIENCES.length
+    ? []
+    : selected.length === 0
+      ? ([HIDDEN_AUDIENCE] as unknown as InfoAudience[])
+      : selected
+
+// The venue's note (stage size, dressing rooms…) is only shown to these roles; everyone with a
+// link sees the address and the nearest stop. Earlier versions used a "---" line to split the
+// note in two — stripped here so an old note doesn't show the line.
+export const VENUE_NOTE_AUDIENCES: InfoAudience[] = ['artist']
+export const cleanVenueNote = (text: string | null | undefined): string =>
+  (text ?? '')
+    .replace(/^\s*---+\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 
 export const infoAudienceLabel = (
   t: (sv: string, eng: string) => string,
@@ -61,7 +88,7 @@ export const INFO_DOCUMENTS: {
 }[] = [
   {
     key: 'setList',
-    audiences: ['stage_kitten'],
+    audiences: ['stage_kitten', 'artist'],
     title_sv: 'Setlista & scenanteckningar',
     title_eng: 'Set list & stage notes',
   },
@@ -205,6 +232,13 @@ export interface DoorPlan {
   // Alone on the door / sharing a shift with someone (double the time).
   soloMinutes: number
   tandemMinutes: number
+  // Total time to cover divided by the people, to the nearest 5 minutes — what each person sits
+  // on average (the half-hour rounding above is only a rough planning aid).
+  averageMinutes: number
+  // How many spots exist and how long one is. When there are exactly as many spots as people,
+  // everyone simply works one shift.
+  spots: number
+  slotMinutes: number
 }
 
 const roundToHalfHour = (minutes: number): number => Math.max(30, Math.round(minutes / 30) * 30)
@@ -224,7 +258,20 @@ export const planDoorShifts = (
   const coverageMinutes = Array.from(windows.values()).reduce((sum, ms) => sum + ms / 60_000, 0)
   if (coverageMinutes <= 0) return null
   const soloMinutes = roundToHalfHour(coverageMinutes / people)
-  return { people, coverageMinutes, soloMinutes, tandemMinutes: soloMinutes * 2 }
+  const averageMinutes = Math.max(5, Math.round(coverageMinutes / people / 5) * 5)
+  const first = slots[0]
+  const slotMinutes = Math.round(
+    (new Date(first.slot_end).getTime() - new Date(first.slot_start).getTime()) / 60_000
+  )
+  return {
+    people,
+    coverageMinutes,
+    soloMinutes,
+    tandemMinutes: soloMinutes * 2,
+    averageMinutes,
+    spots: slots.length,
+    slotMinutes,
+  }
 }
 
 export const formatDuration = (minutes: number, language: 'sv' | 'eng'): string => {
@@ -248,11 +295,91 @@ export const formatDurationShort = (minutes: number, language: 'sv' | 'eng'): st
 
 export const doorPlanSentence = (plan: DoorPlan, language: 'sv' | 'eng'): string => {
   const total = formatDuration(plan.coverageMinutes, language)
-  const solo = formatDuration(plan.soloMinutes, language)
-  const tandem = formatDuration(plan.tandemMinutes, language)
+  if (plan.spots === plan.people) {
+    const one = formatDuration(plan.slotMinutes, language)
+    return language === 'sv'
+      ? `Vi är ${plan.people} dörrvolontärer och ${total} att täcka – du står ett pass på ${one}. Välj ditt pass på infosidan.`
+      : `We are ${plan.people} door volunteers with ${total} to cover – you work one shift of ${one}. Pick yours on the info page.`
+  }
+  const average = formatDuration(plan.averageMinutes, language)
   return language === 'sv'
-    ? `Med ${plan.people} personer och ${total} att täcka blir det ungefär ${solo} var – eller ${tandem} om du vill sitta två och två.`
-    : `With ${plan.people} people and ${total} to cover, that is about ${solo} each – or ${tandem} if you would rather sit two at a time.`
+    ? `Vi är ${plan.people} dörrvolontärer och ${total} att täcka, så det blir i snitt ungefär ${average} var. Varje pass måste ha minst en person, så skriv upp dig på minst ett – och ta gärna fler om det behövs.`
+    : `We are ${plan.people} door volunteers with ${total} to cover, so it comes to about ${average} each on average. Every shift needs at least one person, so please sign up for at least one – and take more if you can.`
+}
+
+// One-hour shifts with exactly as many spots as there are people: every hour gets one spot,
+// and the extra people become a second spot in the earliest hours — two at the door as far into
+// the night as the numbers allow, then one on the last hours.
+export const buildDoorShiftsForPeople = (
+  start: Date,
+  end: Date,
+  minutes: number,
+  people: number
+) => {
+  const windows = buildDoorSlots(start, end, minutes, 1)
+  const doubled = Math.min(Math.max(people - windows.length, 0), windows.length)
+  return {
+    slots: windows.flatMap((w, i) => (i < doubled ? [w, { ...w }] : [w])),
+    windows: windows.length,
+    doubled,
+    // People who would not fit even with two spots in every hour / hours that would stay empty.
+    unplaced: Math.max(people - windows.length * 2, 0),
+    emptyHours: Math.max(windows.length - people, 0),
+  }
+}
+
+// The volunteer page's line above the door shifts, built from the shifts that actually exist:
+// how many people, how long each works, and how the second spots are spread over the evening.
+export const doorShiftSummary = (
+  slots: Pick<DoorSlot, 'slot_start' | 'slot_end'>[],
+  people: number,
+  language: 'sv' | 'eng'
+): string | null => {
+  const windows: { start: string; end: string; seats: number }[] = []
+  for (const s of slots) {
+    const last = windows[windows.length - 1]
+    if (last && last.start === s.slot_start) last.seats += 1
+    else windows.push({ start: s.slot_start, end: s.slot_end, seats: 1 })
+  }
+  if (windows.length === 0) return null
+  const sv = language === 'sv'
+  const minutes = Math.round(
+    (new Date(windows[0].end).getTime() - new Date(windows[0].start).getTime()) / 60_000
+  )
+  const doubled = windows.filter((w) => w.seats >= 2).length
+  const doublesFirst =
+    windows.slice(0, doubled).every((w) => w.seats >= 2) &&
+    windows.slice(doubled).every((w) => w.seats === 1)
+  const from = formatClock(windows[0].start)
+  const split = formatClock(windows[Math.max(doubled - 1, 0)].end)
+
+  const each =
+    slots.length !== people
+      ? sv
+        ? `${people} volontärer – ${slots.length} platser.`
+        : `${people} volunteers – ${slots.length} spots.`
+      : minutes === 60
+        ? sv
+          ? `${people} volontärer – en timme var.`
+          : `${people} volunteers – one hour each.`
+        : sv
+          ? `${people} volontärer – ett pass var.`
+          : `${people} volunteers – one shift each.`
+
+  let spread: string
+  if (doubled === 0) spread = sv ? 'En person per pass.' : 'One person per shift.'
+  else if (doubled === windows.length)
+    spread = sv ? 'Två personer per pass.' : 'Two people per shift.'
+  else if (doublesFirst)
+    spread = sv
+      ? `Två personer per timme ${from}–${split}, sedan en person (ni får såklart sitta fler om ni vill).`
+      : `Two people per hour ${from}–${split}, then one (or more if you want).`
+  else
+    spread = sv
+      ? `${doubled} av passen har plats för två personer.`
+      : `${doubled} of the shifts have room for two people.`
+
+  return `${each} ${spread}`
 }
 
 type Seed = Omit<EventInfoItemInput, 'sort_order'>
@@ -346,6 +473,14 @@ const RAW_DEFAULT_INFO_ITEMS: Seed[] = [
   {
     ...none,
     kind: 'schedule',
+    audiences: ['volunteer'],
+    time_text: 'ca 01:45–02:15',
+    title_sv: 'Nedmontering börjar',
+    title_eng: 'Takedown starts',
+  },
+  {
+    ...none,
+    kind: 'schedule',
     audiences: [],
     time_text: '02:00',
     title_sv: 'Alla gäster ute',
@@ -376,7 +511,7 @@ const RAW_DEFAULT_INFO_ITEMS: Seed[] = [
   {
     ...none,
     kind: 'text',
-    audiences: ['artist'],
+    audiences: ['artist', 'stage_kitten'],
     title_sv: 'Brunch på söndagen',
     title_eng: 'Sunday brunch',
     body_sv:
@@ -391,9 +526,9 @@ const RAW_DEFAULT_INFO_ITEMS: Seed[] = [
     title_sv: 'Dörrpass',
     title_eng: 'Door shifts',
     body_sv:
-      'Dörren ska bemannas hela kvällen, i turer. Dörrpersonalen kommer mellan 18:00 och 18:30 för en genomgång innan dörrarna öppnar. Skriv ditt namn på det pass du vill ta i tabellen nedan. Har du inte skrivit upp dig innan eventet sätter vi ett pass åt dig.\n\nNär showen pågår får du stå vid dörren till showsalen i stället för vid lokalens entré – så kan du både jobba och se showen. Vi försöker göra det rättvist så att alla får se en del av showen.',
+      'Dörrvolontärer kommer till lokalen mellan 18:00 och 18:30 för en genomgång innan dörrarna öppnar.\n\nI dörren checkar du in gästerna: bocka av dem på den vanliga gästlistan eller på VIP-listan (länkarna finns under Länkar). Ladda om gästlistan i telefonen så ser du vilka som redan har checkats in av andra volontärer. Är du osäker på något – fråga en av generalerna.\n\nNär showen pågår står du vid dörren till showsalen i stället för vid lokalens entré – så kan du både jobba och se showen. Vi försöker göra det rättvist så att alla får se en del av showen.',
     body_eng:
-      'The door needs to be staffed all night, in turns. Door staff arrive between 18:00 and 18:30 for a rundown before doors open. Write your name on the shift you want in the table below. If you have not signed up before the event, we will assign you a shift.\n\nWhile the show is on you can stand at the door to the show room instead of the venue entrance – so you can work and watch the show at the same time. We try to make it fair, so everyone gets to see part of the show.',
+      'Door volunteers arrive at the venue between 18:00 and 18:30 for a rundown before doors open.\n\nAt the door you check the guests in: tick them off on the regular guest list or on the VIP list (the links are under Links). Reload the guest list on your phone to see who has already been checked in by other volunteers. If you are unsure about anything, ask one of the generals.\n\nWhile the show is on, you stand at the door to the show room instead of the venue entrance – so you can work and watch the show at the same time. We try to make it fair, so everyone gets to see part of the show.',
   },
 ]
 

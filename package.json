@@ -12,6 +12,8 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@audio/encode-flac": "^1.4.3",
+    "@breezystack/lamejs": "^1.2.7",
     "@cloudinary/react": "^1.14.4",
     "@cloudinary/url-gen": "^1.22.0",
     "@dnd-kit/core": "^6.3.1",

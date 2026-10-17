@@ -204,7 +204,12 @@ export const buildSetListSections = (ctx: EventDocContext) => {
 // label/value row each for stage prep, pick-up/cleaning, and a blank Anteckningar row for
 // stage kittens to hand-write on) — direct feedback 2026-09-21, replacing the previous
 // plain-text layout.
-export const createStageKittenPdf = (ctx: EventDocContext): GeneratedDocument => {
+// `orderOnly` is the artists' version: just the running order, without the stage notes (other
+// artists' props and cleaning needs aren't theirs to see).
+export const createStageKittenPdf = (
+  ctx: EventDocContext,
+  { orderOnly = false }: { orderOnly?: boolean } = {}
+): GeneratedDocument => {
   const { t, eventTitle } = ctx
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const margin = 18
@@ -218,7 +223,7 @@ export const createStageKittenPdf = (ctx: EventDocContext): GeneratedDocument =>
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
   doc.setTextColor(20)
-  doc.text(t('Set List', 'Set List'), margin, y)
+  doc.text(orderOnly ? t('Showordning', 'Show order') : t('Set List', 'Set List'), margin, y)
   y += 7
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
@@ -312,6 +317,11 @@ export const createStageKittenPdf = (ctx: EventDocContext): GeneratedDocument =>
         )
       }
 
+      if (orderOnly) {
+        y += 3
+        return
+      }
+
       drawRow(
         t('Scenförberedelser:', 'Stage preparations:'),
         row.stage_preparations ?? '',
@@ -330,7 +340,7 @@ export const createStageKittenPdf = (ctx: EventDocContext): GeneratedDocument =>
     })
   })
 
-  return { doc, fileName: `${eventTitle}-set-list.pdf` }
+  return { doc, fileName: `${eventTitle}-${orderOnly ? 'show-order' : 'set-list'}.pdf` }
 }
 
 // Every uploaded sound file in running order, named "position - artist - act - file".

@@ -3,6 +3,8 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import {
   INFO_AUDIENCES,
+  audiencesFromStored,
+  audiencesToStored,
   infoAudienceLabel,
   type EventInfoItem,
   type EventInfoItemInput,
@@ -29,7 +31,7 @@ interface InfoItemEditorProps {
 const inputClass = 'velvet-field'
 
 // One form for schedule rows (time + title) and text sections (title + body). Who sees the item
-// is a set of role chips; none ticked means everyone. (Documents aren't edited here — they are
+// is a set of role chips; none ticked hides the item from every role. (Documents aren't edited here — they are
 // generated live and just released per role from the Documents panel.)
 export const InfoItemEditor = ({
   kind,
@@ -49,7 +51,9 @@ export const InfoItemEditor = ({
   useEffect(() => {
     rootRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [])
-  const [audiences, setAudiences] = useState<InfoAudience[]>(item?.audiences ?? [])
+  const [audiences, setAudiences] = useState<InfoAudience[]>(
+    item ? audiencesFromStored(item.audiences) : [...INFO_AUDIENCES]
+  )
   const [timeText, setTimeText] = useState(item?.time_text ?? '')
   const [titleSv, setTitleSv] = useState(item?.title_sv ?? '')
   const [titleEng, setTitleEng] = useState(item?.title_eng ?? '')
@@ -63,7 +67,7 @@ export const InfoItemEditor = ({
 
   const buildInput = (): EventInfoItemInput => ({
     kind,
-    audiences,
+    audiences: audiencesToStored(audiences),
     sort_order: item?.sort_order ?? nextSortOrder,
     time_text: kind === 'schedule' ? timeText.trim() : null,
     title_sv: titleSv.trim() || null,
@@ -123,14 +127,18 @@ export const InfoItemEditor = ({
               className={`${inputClass} h-9 sm:w-48`}
             />
           </div>
-        ) : (
-          <span />
-        )}
-        <div className="space-y-1 sm:text-right">
-          <span className="form-label-gold block">
-            {t('Visas för (inget valt = alla)', 'Shown to (none = everyone)')}
+        ) : null}
+        <div
+          className={
+            kind === 'schedule'
+              ? 'space-y-1'
+              : 'flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:w-full'
+          }
+        >
+          <span className={`form-label-gold ${kind === 'schedule' ? 'block' : ''}`}>
+            {t('Visas för', 'Shown to')}
           </span>
-          <div className="flex flex-wrap gap-1.5 sm:justify-end">
+          <div className="flex flex-wrap items-center gap-1.5">
             {INFO_AUDIENCES.map((audience) => (
               <button
                 key={audience}
@@ -145,6 +153,11 @@ export const InfoItemEditor = ({
                 {infoAudienceLabel(t, audience)}
               </button>
             ))}
+            {audiences.length === 0 && (
+              <span className="text-xs text-amber-400">
+                {t('Dold för alla', 'Hidden from all')}
+              </span>
+            )}
           </div>
         </div>
       </div>

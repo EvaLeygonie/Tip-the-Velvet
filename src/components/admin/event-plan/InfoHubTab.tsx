@@ -7,6 +7,7 @@ import { useConfirm } from '@/contexts/ConfirmContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import {
   INFO_AUDIENCES,
+  audiencesFromStored,
   INFO_DOCUMENTS,
   audienceForStaffRole,
   isDoorStaffRow,
@@ -304,7 +305,11 @@ export const InfoHubTab = ({
   const audienceChips = (item: EventInfoItem) =>
     item.audiences.length === 0
       ? t('Alla', 'Everyone')
-      : item.audiences.map((a) => infoAudienceLabel(t, a)).join(', ')
+      : audiencesFromStored(item.audiences).length === 0
+        ? t('Dold', 'Hidden')
+        : audiencesFromStored(item.audiences)
+            .map((a) => infoAudienceLabel(t, a))
+            .join(', ')
 
   if (loading) {
     return (
@@ -406,29 +411,27 @@ export const InfoHubTab = ({
             const hint = getDocumentHint(t, def.key, acts)
             return (
               <li key={def.key} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="flex-1 min-w-48">
-                  <div className="text-foreground">
-                    {language === 'sv' ? def.title_sv : def.title_eng}
-                    <span className="ml-2 text-xs text-foreground/50">
-                      → {def.audiences.map((a) => infoAudienceLabel(t, a)).join(', ')}
-                    </span>
-                  </div>
+                <div className="flex-1 min-w-48 text-foreground">
+                  {language === 'sv' ? def.title_sv : def.title_eng}
                   {hint && (
                     <Link
                       to="/admin/casting"
                       state={{ tab: 'show' }}
                       title={t('Öppna showplaneringen', 'Open show planning')}
-                      className="block text-xs text-amber-400 hover:underline"
+                      className="ml-1.5 text-xs text-amber-400 hover:underline"
                     >
-                      {hint}
+                      ({hint})
                     </Link>
                   )}
+                  <span className="ml-2 text-xs text-foreground/50">
+                    → {def.audiences.map((a) => infoAudienceLabel(t, a)).join(', ')}
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => handlePreviewDocument(def.key)}
                   title={t('Ladda ner för kontroll', 'Download to check')}
-                  className="flex items-center gap-1.5 text-xs py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                  className="flex items-center justify-center gap-1.5 w-40 text-xs py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
                 >
                   <Download className="h-3.5 w-3.5" />
                   {t('Förhandsgranska', 'Preview')}
@@ -439,13 +442,15 @@ export const InfoHubTab = ({
                   title={
                     released ? t('Klicka för att dra tillbaka', 'Click to withdraw') : undefined
                   }
-                  className={`whitespace-nowrap ${
+                  className={`flex items-center justify-center w-40 whitespace-nowrap text-xs py-1.5 px-3 border rounded transition-colors ${
                     released
-                      ? 'btn-gold text-xs py-1.5 px-3'
-                      : 'btn-gold-outline text-xs py-1.5 px-3'
+                      ? 'bg-accent text-black border-accent hover:bg-accent/80'
+                      : 'border-accent/20 text-accent hover:bg-accent hover:text-black'
                   }`}
                 >
-                  {t('Släpp till sidan', 'Release to page')}
+                  {released
+                    ? t('Släppt till sidan', 'Released to page')
+                    : t('Släpp till sidan', 'Release to page')}
                 </button>
               </li>
             )
@@ -504,7 +509,7 @@ export const InfoHubTab = ({
                 <button
                   type="button"
                   onClick={() => setEditing({ kind })}
-                  className="btn-gold p-1.5"
+                  className="flex h-7 w-7 items-center justify-center rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-black transition-colors"
                   aria-label={
                     kind === 'schedule'
                       ? t('Lägg till tid i schemat', 'Add schedule row')

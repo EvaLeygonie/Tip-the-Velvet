@@ -15,22 +15,17 @@ export const getDocumentHint = (
   if (key === 'setList') {
     const missing = real.filter((a) => !a.stage_preparations?.trim()).length
     return missing > 0
-      ? t(
-          `${missing} av ${real.length} akter saknar scenanteckningar`,
-          `${missing} of ${real.length} acts have no stage notes yet`
-        )
+      ? t(`${missing} utan scenanteckning`, `${missing} without stage notes`)
       : null
   }
   if (key === 'soundLight') {
     const noMusic = real.filter((a) => !actHasMusic(a.audio_files)).length
     const noNotes = real.filter((a) => !a.act_notes?.trim()).length
     const parts = [
-      noMusic > 0 ? t(`${noMusic} utan musikfil`, `${noMusic} without a music file`) : null,
-      noNotes > 0
-        ? t(`${noNotes} utan ljus-/ljudönskemål`, `${noNotes} without light/sound notes`)
-        : null,
+      noMusic > 0 ? t(`${noMusic} utan musik`, `${noMusic} without music`) : null,
+      noNotes > 0 ? t(`${noNotes} utan ljus/ljud`, `${noNotes} without light/sound`) : null,
     ].filter(Boolean)
-    return parts.length > 0 ? `${t('Av', 'Of')} ${real.length}: ${parts.join(', ')}` : null
+    return parts.length > 0 ? parts.join(', ') : null
   }
   return null
 }

@@ -14,6 +14,7 @@ interface VolunteerShiftGroupsProps {
   eventTitle: string
   onRemoved: (id: string) => void
   onUpdated: (id: string, patch: Partial<AdminEventStaffRow>) => void
+  onShiftsChanged: () => Promise<void> | void
 }
 
 // Splits the Volontär role section into its real shift subsections (driving/setup/
@@ -27,6 +28,7 @@ export const VolunteerShiftGroups = ({
   eventTitle,
   onRemoved,
   onUpdated,
+  onShiftsChanged,
 }: VolunteerShiftGroupsProps) => {
   const { t } = useLanguage()
   const [mailGroup, setMailGroup] = useState<string | null>(null)
@@ -77,6 +79,8 @@ export const VolunteerShiftGroups = ({
                   eventId={eventId}
                   onRemoved={onRemoved}
                   onUpdated={onUpdated}
+                  siblingShifts={rows.filter((r) => r.staff.id === row.staff.id && r.id !== row.id)}
+                  onShiftsChanged={onShiftsChanged}
                 />
               ))}
             </div>

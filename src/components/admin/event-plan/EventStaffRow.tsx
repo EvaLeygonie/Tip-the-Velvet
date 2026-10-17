@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Loader2, Crown, Mail, Phone } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, Crown, Mail, Phone, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { volunteerShiftLabel } from '@/lib/contactLabels'
@@ -9,6 +9,7 @@ import {
   updateEventStaffShift,
   updateEventStaffFee,
   setStaffInCharge,
+  confirmStaffForEvent,
   removeStaffFromEvent,
 } from '@/services/contactsService'
 import { VOLUNTEER_SHIFT_ORDER } from './constants'
@@ -22,18 +23,30 @@ interface EventStaffRowProps {
   eventId: string
   onRemoved: (id: string) => void
   onUpdated: (id: string, patch: Partial<AdminEventStaffRow>) => void
+  // Volunteers only: this person's other volunteer rows at the same event, and a refetch for
+  // after a shift is added/removed (the row set changes, so a local patch isn't enough).
+  siblingShifts?: AdminEventStaffRow[]
+  onShiftsChanged?: () => Promise<void> | void
 }
 
 // Event Planning's operational view of one confirmed assignment — editing the logistics
 // note and removing them from this event. Everything else about the contact (name/email/
 // which roles they hold) is still only editable via Contacts.
-export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaffRowProps) => {
+export const EventStaffRow = ({
+  row,
+  eventId,
+  onRemoved,
+  onUpdated,
+  siblingShifts = [],
+  onShiftsChanged,
+}: EventStaffRowProps) => {
   const { t } = useLanguage()
   const confirm = useConfirm()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isTogglingInCharge, setIsTogglingInCharge] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [togglingShift, setTogglingShift] = useState<VolunteerShift | null>(null)
   const isVolunteer = row.role === 'volunteer'
   // Pre-show entertainers also carry a public profile (photo, text, links) — see
   // EntertainerProfileModal. Flagged here while it's still empty.
@@ -46,7 +59,6 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
   const resolvedFee = row.fee ?? row.staff.fee
   const [draft, setDraft] = useState({
     role_details: row.role_details ?? '',
-    shift: row.shift,
     fee: resolvedFee !== null ? String(resolvedFee) : '',
   })
 
@@ -55,12 +67,10 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
     try {
       const patch = {
         role_details: draft.role_details.trim() || null,
-        shift: isVolunteer ? draft.shift : row.shift,
         fee: isVolunteer ? row.fee : draft.fee.trim() === '' ? null : Number(draft.fee),
       }
       await Promise.all([
         updateEventStaffRoleDetails(row.id, patch.role_details),
-        ...(isVolunteer ? [updateEventStaffShift(row.id, patch.shift)] : []),
         ...(isVolunteer ? [] : [updateEventStaffFee(row.id, patch.fee)]),
       ])
       onUpdated(row.id, patch)
@@ -88,6 +98,37 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
       console.error(err)
     } finally {
       setIsTogglingInCharge(false)
+    }
+  }
+
+  // Shift badges: gold = this person holds that shift. Each shift is its own roster row, so
+  // selecting adds one (or fills in this row if it has no shift yet) and deselecting drops it
+  // — except the person's last remaining shift, which is just cleared so they stay on the event.
+  const handleToggleShift = async (shift: VolunteerShift, active: boolean) => {
+    setTogglingShift(shift)
+    try {
+      if (!active) {
+        if (row.shift === null) await updateEventStaffShift(row.id, shift)
+        else
+          await confirmStaffForEvent(
+            eventId,
+            row.staff.id,
+            row.staff.name,
+            'volunteer',
+            null,
+            shift
+          )
+      } else if (row.shift === shift && siblingShifts.length === 0) {
+        await updateEventStaffShift(row.id, null)
+      } else {
+        await removeStaffFromEvent(eventId, row.staff.id, 'volunteer', shift)
+      }
+      await onShiftsChanged?.()
+    } catch (err) {
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      console.error(err)
+    } finally {
+      setTogglingShift(null)
     }
   }
 
@@ -121,15 +162,7 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
         <span className="font-decorative text-sm text-foreground flex-1 min-w-0 truncate">
-          <Link
-            to="/admin/contacts"
-            state={{ tab: 'staff', search: row.staff.name }}
-            onClick={(e) => e.stopPropagation()}
-            title={t('Öppna i Kontakter', 'Open in Contacts')}
-            className="hover:text-accent hover:underline"
-          >
-            {row.staff.name}
-          </Link>
+          {row.staff.name}
         </span>
         {isVolunteer && row.staff.worked_with && (
           <span
@@ -203,23 +236,32 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
           className="border-t border-accent/10 bg-black/20 p-4 space-y-3 cursor-default"
           onClick={(e) => e.stopPropagation()}
         >
-          {isVolunteer && (
+          {isVolunteer && onShiftsChanged && (
             <div className="space-y-1">
-              <label className="form-label-gold block">{t('Pass', 'Shift')}</label>
-              <select
-                value={draft.shift ?? ''}
-                onChange={(e) =>
-                  setDraft({ ...draft, shift: (e.target.value || null) as VolunteerShift | null })
-                }
-                className="velvet-select"
-              >
-                <option value="">{t('Inget pass', 'No shift')}</option>
-                {VOLUNTEER_SHIFT_ORDER.map((shift) => (
-                  <option key={shift} value={shift}>
-                    {volunteerShiftLabel(t, shift)}
-                  </option>
-                ))}
-              </select>
+              <label className="form-label-gold block">{t('Pass', 'Shifts')}</label>
+              <div className="flex flex-wrap gap-2">
+                {VOLUNTEER_SHIFT_ORDER.map((shift) => {
+                  const active = row.shift === shift || siblingShifts.some((r) => r.shift === shift)
+                  return (
+                    <button
+                      key={shift}
+                      type="button"
+                      disabled={togglingShift !== null}
+                      onClick={() => handleToggleShift(shift, active)}
+                      className={`text-xs px-3 py-1 rounded-full border transition-colors disabled:opacity-50 ${
+                        active
+                          ? 'bg-accent text-black border-accent'
+                          : 'border-accent/30 text-accent hover:bg-accent/10'
+                      }`}
+                    >
+                      {togglingShift === shift && (
+                        <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                      )}
+                      {volunteerShiftLabel(t, shift)}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
           {(!isVolunteer || isEntertainer) && (
@@ -261,6 +303,15 @@ export const EventStaffRow = ({ row, eventId, onRemoved, onUpdated }: EventStaff
             />
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm">
+            <Link
+              to="/admin/contacts"
+              state={{ tab: 'staff', search: row.staff.name }}
+              title={t('Öppna i Kontakter', 'Open in Contacts')}
+              aria-label={t('Öppna i Kontakter', 'Open in Contacts')}
+              className="flex items-center text-accent hover:text-accent/70"
+            >
+              <UserRound className="h-4 w-4" />
+            </Link>
             {row.staff.email && (
               <a
                 href={`mailto:${row.staff.email}`}

@@ -8,7 +8,7 @@ import {
   type EventDocContext,
 } from '@/lib/eventDocuments'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
-import type { InfoDocKey } from '@/lib/eventInfo'
+import type { InfoAudience, InfoDocKey } from '@/lib/eventInfo'
 import { downloadBlob } from '@/lib/utils'
 import { buildVipListHtml } from '@/lib/vipListHtml'
 
@@ -54,7 +54,8 @@ const loadDocContext = async (
 export const downloadHubDocument = async (
   token: string,
   doc: InfoDocKey,
-  t: (sv: string, eng: string) => string
+  t: (sv: string, eng: string) => string,
+  audience?: InfoAudience
 ): Promise<void> => {
   const ctx = await loadDocContext(token, doc, t)
   // The sound & light PDF's own "download all music" link needs an upload to storage (admin
@@ -62,7 +63,7 @@ export const downloadHubDocument = async (
   // (downloadHubMusicZip), and the per-song links stay inside the PDF.
   const generated =
     doc === 'setList'
-      ? createStageKittenPdf(ctx)
+      ? createStageKittenPdf(ctx, { orderOnly: audience === 'artist' })
       : doc === 'soundLight'
         ? createTechNotesPdf(ctx, null)
         : createVipListPdf(ctx)

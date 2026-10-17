@@ -165,30 +165,30 @@ export const ActMusicEditor = ({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {!hasFile && (
-                    <>
-                      <label
-                        htmlFor={`track-file-${track.id}`}
-                        className="btn-gold-outline text-[11px] py-1 px-2.5 cursor-pointer flex items-center gap-1.5"
-                      >
-                        {attachingTrackId === track.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Upload size={12} />
-                        )}
-                        {attachingTrackId === track.id
-                          ? `${Math.round(uploadProgress * 100)}%`
+                  <>
+                    <label
+                      htmlFor={`track-file-${track.id}`}
+                      className="btn-gold-outline text-[11px] py-1 px-2.5 cursor-pointer flex items-center gap-1.5"
+                    >
+                      {attachingTrackId === track.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Upload size={12} />
+                      )}
+                      {attachingTrackId === track.id
+                        ? `${Math.round(uploadProgress * 100)}%`
+                        : hasFile
+                          ? t('Byt fil', 'Change file')
                           : t('Ladda upp fil', 'Upload file')}
-                      </label>
-                      <input
-                        type="file"
-                        id={`track-file-${track.id}`}
-                        className="hidden"
-                        accept="audio/*"
-                        onChange={(e) => onAttachFile(track.id, e)}
-                      />
-                    </>
-                  )}
+                    </label>
+                    <input
+                      type="file"
+                      id={`track-file-${track.id}`}
+                      className="hidden"
+                      accept="audio/*"
+                      onChange={(e) => onAttachFile(track.id, e)}
+                    />
+                  </>
                   {track.fileUrl && (
                     <a
                       href={track.fileUrl}

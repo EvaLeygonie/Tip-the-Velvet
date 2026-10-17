@@ -243,6 +243,7 @@ export const AdminEventPlan = () => {
             eventTitle={eventTitle}
             onRemoved={handleStaffRowRemoved}
             onUpdated={handleStaffRowUpdated}
+            onShiftsChanged={async () => setStaffRows(await getEventStaffForAdmin(selectedEventId))}
           />
         ) : (
           <div className="space-y-2">

@@ -3,7 +3,12 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import { toast } from 'sonner'
 import type { CastingApplicationPortalData, DietaryCategory } from '@/types/types'
-import { uploadStorageFile, uploadStorageFileWithProgress } from '@/services/databaseService'
+import { COMPRESS_ABOVE_BYTES, prepareAudioForUpload } from '@/lib/audioCompression'
+import {
+  UploadError,
+  uploadStorageFile,
+  uploadStorageFileWithProgress,
+} from '@/services/databaseService'
 import { supabase } from '@/lib/supabase'
 import {
   updatePerformerAct,
@@ -203,12 +208,40 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
   }
 
   // --- MUSIC ---
+  // Big files (typically WAVs) are re-encoded first so they fit under the storage limit:
+  // losslessly as FLAC where possible, as high-bitrate MP3 only if even that is too big.
+  const compressIfLarge = async (file: File) => {
+    if (file.size <= COMPRESS_ABOVE_BYTES) return file
+    const toastId = toast.loading(
+      t(
+        'Förbereder ljudfilen så att den ryms – det kan ta en stund …',
+        'Preparing the audio file so it fits – this can take a moment …'
+      )
+    )
+    try {
+      const prepared = await prepareAudioForUpload(file)
+      if (prepared.type === 'audio/mpeg') {
+        toast.warning(
+          t(
+            'Filen var för stor för att bevaras förlustfritt och sparades som MP3 (320 kbps).',
+            'The file was too large to keep lossless and was saved as MP3 (320 kbps).'
+          ),
+          { duration: 8000 }
+        )
+      }
+      return prepared
+    } finally {
+      toast.dismiss(toastId)
+    }
+  }
+
   const handleTempAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const original = e.target.files?.[0]
+    if (!original) return
 
     setUploadingAudio(true)
     try {
+      const file = await compressIfLarge(original)
       // Replacing a file that was never added to the act: the old upload would be orphaned.
       if (newTrackFile) await removeStoredFile(newTrackFile.path)
       const folderPath = getStorageFolderPath('audio-tracks')
@@ -237,11 +270,17 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
       )
     } catch (err) {
       console.error(err)
+      const tooLarge = err instanceof UploadError && err.status === 413
       toast.error(
-        t(
-          'Kunde inte ladda upp ljudfilen just nu – servern var upptagen. Vänta en stund och försök igen.',
-          'Could not upload the audio file right now – the server was busy. Wait a moment and try again.'
-        )
+        tooLarge
+          ? t(
+              'Ljudfilen är för stor (max 50 MB). Exportera som MP3 och försök igen.',
+              'The audio file is too large (max 50 MB). Export it as an MP3 and try again.'
+            )
+          : t(
+              'Kunde inte ladda upp ljudfilen just nu. Försök igen om en stund, eller kontakta oss om det fortsätter.',
+              'Could not upload the audio file right now. Try again in a moment, or contact us if it keeps happening.'
+            )
       )
     } finally {
       setUploadingAudio(false)
@@ -311,12 +350,13 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
     setIsDirty(true)
   }
 
-  // Upload a file straight onto a song that was added without one.
+  // Upload a file onto a song: either one added without a file, or to replace its current file.
   const handleAttachFile = async (trackId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const original = e.target.files?.[0]
+    if (!original) return
     setAttachingTrackId(trackId)
     try {
+      const file = await compressIfLarge(original)
       setUploadProgress(0)
       const rawPath = await uploadStorageFileWithProgress(
         'artist-files',
@@ -324,11 +364,16 @@ export const BookedArtistForm: React.FC<BookedArtistFormProps> = ({
         file,
         setUploadProgress
       )
+      // A replaced file is only staged for deletion; it goes once the form is saved (see removeTrack).
+      const replaced = activeAct?.audioTracks.find((item) => item.id === trackId)
+      const oldPath = replaced && resolveStoragePath(replaced.filePath, replaced.fileUrl)
+      if (oldPath) setPendingDeletePaths((prev) => [...prev, oldPath])
       patchActiveTrack(trackId, {
         fileName: file.name,
         fileUrl: getPublicFileUrl(rawPath),
         filePath: rawPath,
       })
+      setIsDirty(true)
       toast.success(
         t(
           'Ljudfilen är kopplad till låten. Glöm inte att spara formuläret.',

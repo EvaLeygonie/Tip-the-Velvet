@@ -115,6 +115,7 @@ const blankVenue = (): Venue => ({
   email: null,
   phone: null,
   price: null,
+  nearest_stop: null,
   practical_info_sv: null,
   practical_info_eng: null,
   door_code: null,

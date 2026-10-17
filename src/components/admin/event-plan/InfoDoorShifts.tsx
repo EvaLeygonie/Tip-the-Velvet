@@ -1,15 +1,13 @@
 import { useState } from 'react'
-import { AlertTriangle, Trash2 } from 'lucide-react'
+import { AlertTriangle, Minus, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import {
-  buildDoorSlots,
+  buildDoorShiftsForPeople,
   countUncoveredDoorWindows,
-  formatDurationShort,
   findUnplacedDoorStaff,
   formatClock,
-  planDoorShifts,
   type DoorSlot,
 } from '@/lib/eventInfo'
 import { createDoorSlots, deleteDoorSlots, setDoorSlotName } from '@/services/eventInfoService'
@@ -38,8 +36,11 @@ const timeOnDay = (day: Date, hhmm: string): Date | null => {
   )
 }
 
-// Volunteers fill these in themselves from their info link; anything still empty near the show
-// is for the board to assign — hence the unfilled count and the auto-fill button.
+// One-hour shifts, always. The generator makes exactly as many spots as there are door staff: one
+// per hour, with the extra people as a second spot in the earliest hours (two at the door as far
+// into the night as the numbers allow, then one). Individual hours can be given or lose a second
+// spot afterwards with the +/- buttons. Volunteers pick their own name from their info link;
+// anything still empty near the show is for the board to assign.
 export const InfoDoorShifts = ({
   eventId,
   eventStart,
@@ -51,8 +52,6 @@ export const InfoDoorShifts = ({
   const confirm = useConfirm()
   const [from, setFrom] = useState('19:00')
   const [to, setTo] = useState('01:00')
-  const [minutes, setMinutes] = useState(60)
-  const [seats, setSeats] = useState(2) // two spots per slot, only one needs filling
   const [busy, setBusy] = useState(false)
 
   // One row per time window, holding its (usually two) spots.
@@ -68,16 +67,16 @@ export const InfoDoorShifts = ({
     slots.map((s) => s.volunteer_name)
   )
   const uncovered = countUncoveredDoorWindows(slots)
-  // Guidance for what's typed in the generator right now (not for shifts already created), so
-  // the board sees the effect of changing the hours before creating anything.
+  // What the generator would make with the hours typed in right now, so the effect shows before
+  // anything is created.
   const formPlan = (() => {
     if (!eventStart) return null
     const day = new Date(eventStart)
     const start = timeOnDay(day, from)
     let end = timeOnDay(day, to)
-    if (!start || !end || minutes < 15) return null
+    if (!start || !end) return null
     if (end <= start) end = new Date(end.getTime() + 24 * 3_600_000)
-    return planDoorShifts(buildDoorSlots(start, end, minutes, 1), volunteerNames.length)
+    return buildDoorShiftsForPeople(start, end, 60, volunteerNames.length)
   })()
 
   const handleGenerate = async () => {
@@ -85,7 +84,7 @@ export const InfoDoorShifts = ({
     const day = new Date(eventStart)
     const start = timeOnDay(day, from)
     let end = timeOnDay(day, to)
-    if (!start || !end || minutes < 15 || seats < 1) {
+    if (!start || !end) {
       toast.error(t('Kontrollera tiderna (HH:MM).', 'Check the times (HH:MM).'))
       return
     }
@@ -103,7 +102,10 @@ export const InfoDoorShifts = ({
       return
     setBusy(true)
     try {
-      const created = await createDoorSlots(eventId, buildDoorSlots(start, end, minutes, seats))
+      const created = await createDoorSlots(
+        eventId,
+        buildDoorShiftsForPeople(start, end, 60, volunteerNames.length).slots
+      )
       onSlotsChange([...slots, ...created].sort((a, b) => a.slot_start.localeCompare(b.slot_start)))
     } catch (err) {
       console.error(err)
@@ -133,6 +135,31 @@ export const InfoDoorShifts = ({
       console.error(err)
       toast.error(t('Kunde inte radera.', 'Could not delete.'))
     }
+  }
+
+  // Give an hour a second spot, or take one away (only an empty one, and never the last).
+  const handleAddSeat = async (group: DoorSlot[]) => {
+    setBusy(true)
+    try {
+      const [created] = await createDoorSlots(eventId, [
+        { slot_start: group[0].slot_start, slot_end: group[0].slot_end },
+      ])
+      onSlotsChange([...slots, created].sort((a, b) => a.slot_start.localeCompare(b.slot_start)))
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte skapa platsen.', 'Could not add the spot.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRemoveSeat = async (group: DoorSlot[]) => {
+    const spare = [...group].reverse().find((s) => !s.volunteer_name)
+    if (group.length < 2 || !spare) {
+      toast.info(t('Ta först bort namnet på platsen.', 'Clear the name on a spot first.'))
+      return
+    }
+    await handleDelete([spare.id])
   }
 
   // Volunteers who haven't picked anything yet go into the remaining empty seats, in order.
@@ -197,27 +224,6 @@ export const InfoDoorShifts = ({
             className={`${inputClass} w-24`}
           />
         </label>
-        <label className="space-y-1">
-          <span className="form-label-gold block">{t('Passlängd', 'Shift length')}</span>
-          <select
-            value={minutes}
-            onChange={(e) => setMinutes(Number(e.target.value))}
-            className={`${inputClass} w-32`}
-          >
-            <option value={30}>{t('30 minuter', '30 minutes')}</option>
-            <option value={60}>{t('1 timme', '1 hour')}</option>
-          </select>
-        </label>
-        <label className="space-y-1">
-          <span className="form-label-gold block">{t('Personer/pass', 'People/shift')}</span>
-          <input
-            type="number"
-            min={1}
-            value={seats}
-            onChange={(e) => setSeats(Number(e.target.value))}
-            className={`${inputClass} w-24`}
-          />
-        </label>
         <button
           type="button"
           onClick={handleGenerate}
@@ -226,13 +232,34 @@ export const InfoDoorShifts = ({
         >
           {t('Skapa pass', 'Create shifts')}
         </button>
-        <div className="ml-auto text-sm text-foreground/70 whitespace-nowrap text-right leading-tight">
-          <div>{t(`${volunteerNames.length} personer`, `${volunteerNames.length} people`)}</div>
+        <div className="ml-auto text-sm text-foreground/70 text-right leading-tight">
+          <div>
+            {t(
+              `${volunteerNames.length} personer · pass om 1 timme`,
+              `${volunteerNames.length} people · 1-hour shifts`
+            )}
+          </div>
           {formPlan && (
             <div>
               {t(
-                `ca ${formatDurationShort(formPlan.soloMinutes, 'sv')} var · ${formatDurationShort(formPlan.tandemMinutes, 'sv')} i par`,
-                `~${formatDurationShort(formPlan.soloMinutes, 'eng')} each · ${formatDurationShort(formPlan.tandemMinutes, 'eng')} in pairs`
+                `${formPlan.windows} timmar: ${formPlan.doubled} med två personer, ${formPlan.windows - formPlan.doubled} med en`,
+                `${formPlan.windows} hours: ${formPlan.doubled} with two people, ${formPlan.windows - formPlan.doubled} with one`
+              )}
+            </div>
+          )}
+          {formPlan && formPlan.emptyHours > 0 && (
+            <div className="text-amber-400">
+              {t(
+                `${formPlan.emptyHours} timmar får ingen – för få volontärer`,
+                `${formPlan.emptyHours} hours would get nobody – too few volunteers`
+              )}
+            </div>
+          )}
+          {formPlan && formPlan.unplaced > 0 && (
+            <div className="text-amber-400">
+              {t(
+                `${formPlan.unplaced} personer får ingen plats`,
+                `${formPlan.unplaced} people would not fit`
               )}
             </div>
           )}
@@ -309,6 +336,26 @@ export const InfoDoorShifts = ({
                     </select>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  disabled={busy || group.length < 2}
+                  onClick={() => handleRemoveSeat(group)}
+                  className="p-1.5 text-foreground/40 hover:text-accent disabled:opacity-30"
+                  aria-label={t('Ta bort en plats', 'Remove a spot')}
+                  title={t('Ta bort en plats', 'Remove a spot')}
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || group.length >= 2}
+                  onClick={() => handleAddSeat(group)}
+                  className="p-1.5 text-foreground/40 hover:text-accent disabled:opacity-30"
+                  aria-label={t('Lägg till en plats', 'Add a spot')}
+                  title={t('Lägg till en plats', 'Add a spot')}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   onClick={() => handleDelete(group.map((s) => s.id))}

@@ -40,6 +40,7 @@ export const VenueRow = ({
     practical_info_sv: row.practical_info_sv ?? '',
     practical_info_eng: row.practical_info_eng ?? '',
     door_code: row.door_code ?? '',
+    nearest_stop: row.nearest_stop ?? '',
     has_hosted: row.has_hosted ?? false,
     language: row.language,
   })
@@ -75,6 +76,7 @@ export const VenueRow = ({
         practical_info_sv: draft.practical_info_sv.trim() || null,
         practical_info_eng: draft.practical_info_eng.trim() || null,
         door_code: draft.door_code.trim() || null,
+        nearest_stop: draft.nearest_stop.trim() || null,
         has_hosted: draft.has_hosted,
         language: draft.language,
       }
@@ -184,6 +186,27 @@ export const VenueRow = ({
               />
             </div>
             <div className="space-y-1">
+              <label className="form-label-gold block">
+                {t('Närmaste hållplats (visas för alla)', 'Nearest stop (shown to everyone)')}
+              </label>
+              <input
+                type="text"
+                value={draft.nearest_stop}
+                placeholder={t('T.ex. Järntorget', 'e.g. Järntorget')}
+                onChange={(e) => setDraft({ ...draft, nearest_stop: e.target.value })}
+                className="velvet-input"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="form-label-gold block">{t('Kartlänk', 'Map link')}</label>
+              <input
+                type="text"
+                value={draft.map_link}
+                onChange={(e) => setDraft({ ...draft, map_link: e.target.value })}
+                className="velvet-input"
+              />
+            </div>
+            <div className="space-y-1">
               <label className="form-label-gold block">{t('E-post', 'Email')}</label>
               <input
                 type="email"
@@ -212,22 +235,13 @@ export const VenueRow = ({
                 className="velvet-input"
               />
             </div>
-            <div className="space-y-1">
-              <label className="form-label-gold block">{t('Pris (SEK)', 'Price (SEK)')}</label>
-              <input
-                type="number"
-                value={draft.price}
-                onChange={(e) => setDraft({ ...draft, price: e.target.value })}
-                className="velvet-input"
-              />
-            </div>
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="form-label-gold block">{t('Kartlänk', 'Map link')}</label>
+                <label className="form-label-gold block">{t('Pris (SEK)', 'Price (SEK)')}</label>
                 <input
-                  type="text"
-                  value={draft.map_link}
-                  onChange={(e) => setDraft({ ...draft, map_link: e.target.value })}
+                  type="number"
+                  value={draft.price}
+                  onChange={(e) => setDraft({ ...draft, price: e.target.value })}
                   className="velvet-input"
                 />
               </div>
@@ -244,17 +258,14 @@ export const VenueRow = ({
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="form-label-gold block">
-                  {t(
-                    'Praktisk info för artister & crew (svenska)',
-                    'Practical info for artists & crew (Swedish)'
-                  )}
+                  {t('Info till artisterna (svenska)', 'Info for the artists (Swedish)')}
                 </label>
                 <textarea
                   rows={6}
                   value={draft.practical_info_sv}
                   placeholder={t(
-                    'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
-                    'Tram, stage size, load-in, mirrors, food nearby…'
+                    'Scenmått, loading, sminkspeglar, mat i närheten…',
+                    'Stage size, load-in, mirrors, food nearby…'
                   )}
                   onChange={(e) => setDraft({ ...draft, practical_info_sv: e.target.value })}
                   className="velvet-field"
@@ -262,17 +273,14 @@ export const VenueRow = ({
               </div>
               <div className="space-y-1">
                 <label className="form-label-gold block">
-                  {t(
-                    'Praktisk info för artister & crew (engelska)',
-                    'Practical info for artists & crew (English)'
-                  )}
+                  {t('Info till artisterna (engelska)', 'Info for the artists (English)')}
                 </label>
                 <textarea
                   rows={6}
                   value={draft.practical_info_eng}
                   placeholder={t(
-                    'Spårvagn, scenmått, loading, sminkspeglar, mat i närheten…',
-                    'Tram, stage size, load-in, mirrors, food nearby…'
+                    'Scenmått, loading, sminkspeglar, mat i närheten…',
+                    'Stage size, load-in, mirrors, food nearby…'
                   )}
                   onChange={(e) => setDraft({ ...draft, practical_info_eng: e.target.value })}
                   className="velvet-field"

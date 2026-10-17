@@ -62,13 +62,19 @@ export const uploadStorageFile = async (
   return fileName
 }
 
-class UploadError extends Error {
+export class UploadError extends Error {
   retryable: boolean
-  constructor(message: string, retryable: boolean) {
+  status?: number
+  constructor(message: string, retryable: boolean, status?: number) {
     super(message)
     this.retryable = retryable
+    this.status = status
   }
 }
+
+// Storage reports an oversized file as HTTP 400 with `statusCode: "413"` in the JSON body.
+const isPayloadTooLarge = (status: number, body: string) =>
+  status === 413 || /"statusCode"\s*:\s*"?413"?/.test(body)
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -105,7 +111,8 @@ export const uploadStorageFileWithProgress = async (
           : reject(
               new UploadError(
                 `Upload failed (${xhr.status}): ${xhr.responseText}`,
-                xhr.status === 429 || xhr.status >= 500
+                xhr.status === 429 || xhr.status >= 500,
+                isPayloadTooLarge(xhr.status, xhr.responseText) ? 413 : xhr.status
               )
             )
       xhr.onerror = () => reject(new UploadError('Upload failed (network error)', true))
