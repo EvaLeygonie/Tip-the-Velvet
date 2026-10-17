@@ -54,6 +54,8 @@ export interface EventInfoPayload {
   door_people?: number | null
   // Volunteer link only: names of the door staff, for the sign-up dropdown.
   door_names?: string[] | null
+  // Is door shift booking open on the volunteer link? (off until the board switches it on)
+  door_signup_open?: boolean
 }
 
 export const getEventInfoByToken = async (token: string): Promise<EventInfoPayload> => {
@@ -286,6 +288,7 @@ export const deleteDoorSlots = async (ids: string[]): Promise<void> => {
 
 export interface EventAccessFields {
   event_start: string | null
+  door_signup_open: boolean
   venue: {
     id: string
     name: string
@@ -302,16 +305,25 @@ export const getEventAccessFields = async (eventId: string): Promise<EventAccess
   const { data, error } = await supabase
     .from('events')
     .select(
-      'event_start, checkin_url, venue:venues(id, name, location, door_code, nearest_stop, practical_info_sv, practical_info_eng)'
+      'event_start, checkin_url, door_signup_open, venue:venues(id, name, location, door_code, nearest_stop, practical_info_sv, practical_info_eng)'
     )
     .eq('id', eventId)
     .maybeSingle()
   if (error) throw error
   return {
     event_start: data?.event_start ?? null,
+    door_signup_open: data?.door_signup_open ?? false,
     venue: data?.venue ?? null,
     checkin_url: data?.checkin_url ?? null,
   }
+}
+
+export const setDoorSignupOpen = async (eventId: string, open: boolean): Promise<void> => {
+  const { error } = await supabase
+    .from('events')
+    .update({ door_signup_open: open })
+    .eq('id', eventId)
+  if (error) throw error
 }
 
 export type VenueInfoPatch = {

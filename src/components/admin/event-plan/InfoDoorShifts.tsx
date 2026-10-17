@@ -19,9 +19,15 @@ interface InfoDoorShiftsProps {
   volunteerNames: string[]
   slots: DoorSlot[]
   onSlotsChange: (slots: DoorSlot[]) => void
+  // Called after 1-hour shifts were split into 30-minute ones, with the names that were moved
+  // (they now only have the first half-hour and need to pick another).
+  onSplit?: (movedNames: string[]) => void
 }
 
 const inputClass = 'velvet-input'
+
+const durationOf = (s: Pick<DoorSlot, 'slot_start' | 'slot_end'>) =>
+  Math.round((new Date(s.slot_end).getTime() - new Date(s.slot_start).getTime()) / 60_000)
 
 // "HH:MM" on the event's date (local time of the browser — the board plans in Swedish time).
 const timeOnDay = (day: Date, hhmm: string): Date | null => {
@@ -36,7 +42,7 @@ const timeOnDay = (day: Date, hhmm: string): Date | null => {
   )
 }
 
-// One-hour shifts, always. The generator makes exactly as many spots as there are door staff: one
+// One-hour shifts by default (30 minutes is possible too). The generator makes exactly as many spots as there are door staff: one
 // per hour, with the extra people as a second spot in the earliest hours (two at the door as far
 // into the night as the numbers allow, then one). Individual hours can be given or lose a second
 // spot afterwards with the +/- buttons. Volunteers pick their own name from their info link;
@@ -47,11 +53,13 @@ export const InfoDoorShifts = ({
   volunteerNames,
   slots,
   onSlotsChange,
+  onSplit,
 }: InfoDoorShiftsProps) => {
   const { t } = useLanguage()
   const confirm = useConfirm()
   const [from, setFrom] = useState('19:00')
   const [to, setTo] = useState('01:00')
+  const [minutes, setMinutes] = useState(60)
   const [busy, setBusy] = useState(false)
 
   // One row per time window, holding its (usually two) spots.
@@ -76,7 +84,7 @@ export const InfoDoorShifts = ({
     let end = timeOnDay(day, to)
     if (!start || !end) return null
     if (end <= start) end = new Date(end.getTime() + 24 * 3_600_000)
-    return buildDoorShiftsForPeople(start, end, 60, volunteerNames.length)
+    return buildDoorShiftsForPeople(start, end, minutes, volunteerNames.length)
   })()
 
   const handleGenerate = async () => {
@@ -104,7 +112,7 @@ export const InfoDoorShifts = ({
     try {
       const created = await createDoorSlots(
         eventId,
-        buildDoorShiftsForPeople(start, end, 60, volunteerNames.length).slots
+        buildDoorShiftsForPeople(start, end, minutes, volunteerNames.length).slots
       )
       onSlotsChange([...slots, ...created].sort((a, b) => a.slot_start.localeCompare(b.slot_start)))
     } catch (err) {
@@ -134,6 +142,72 @@ export const InfoDoorShifts = ({
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte radera.', 'Could not delete.'))
+    }
+  }
+
+  // Split every 1-hour shift into two 30-minute ones. Everyone keeps their name on the first half
+  // and the second half opens up, so each person has to pick one more 30-minute shift (an hour in
+  // total, as before). Done as create-new, name, delete-old so nothing is lost if a step fails.
+  const handleSplitToHalfHours = async () => {
+    if (slots.length === 0 || slots.some((s) => durationOf(s) !== 60)) {
+      toast.error(
+        t('Det går bara att dela upp pass som är 1 timme.', 'Only 1-hour shifts can be split.')
+      )
+      return
+    }
+    const moved = Array.from(
+      new Set(slots.map((s) => s.volunteer_name).filter((n): n is string => Boolean(n)))
+    )
+    const ok = await confirm({
+      message: t(
+        `Dela alla pass i två på 30 minuter? ${moved.length} personer flyttas till första halvtimmen och behöver välja ett pass till.`,
+        `Split every shift into two 30-minute ones? ${moved.length} people move to the first half-hour and need to pick one more.`
+      ),
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const halves = slots.flatMap((s) => {
+        const mid = new Date(
+          (new Date(s.slot_start).getTime() + new Date(s.slot_end).getTime()) / 2
+        ).toISOString()
+        return [
+          { slot_start: s.slot_start, slot_end: mid },
+          { slot_start: mid, slot_end: s.slot_end },
+        ]
+      })
+      const created = await createDoorSlots(eventId, halves)
+      // Names go on the first half of their hour, in the order they were seated.
+      const namesByStart = new Map<string, string[]>()
+      for (const s of slots) {
+        if (!s.volunteer_name) continue
+        namesByStart.set(s.slot_start, [
+          ...(namesByStart.get(s.slot_start) ?? []),
+          s.volunteer_name,
+        ])
+      }
+      const assigned = new Map<string, string>()
+      const seen = new Map<string, number>()
+      for (const c of created) {
+        const names = namesByStart.get(c.slot_start)
+        if (!names) continue
+        const i = seen.get(c.slot_start) ?? 0
+        if (names[i]) assigned.set(c.id, names[i])
+        seen.set(c.slot_start, i + 1)
+      }
+      await Promise.all(Array.from(assigned).map(([id, n]) => setDoorSlotName(id, n)))
+      await deleteDoorSlots(slots.map((s) => s.id))
+      onSlotsChange(
+        created
+          .map((c) => ({ ...c, volunteer_name: assigned.get(c.id) ?? null }))
+          .sort((a, b) => a.slot_start.localeCompare(b.slot_start))
+      )
+      if (moved.length > 0) onSplit?.(moved)
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte dela upp passen.', 'Could not split the shifts.'))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -224,6 +298,17 @@ export const InfoDoorShifts = ({
             className={`${inputClass} w-24`}
           />
         </label>
+        <label className="space-y-1">
+          <span className="form-label-gold block">{t('Passlängd', 'Shift length')}</span>
+          <select
+            value={minutes}
+            onChange={(e) => setMinutes(Number(e.target.value))}
+            className={`${inputClass} w-32`}
+          >
+            <option value={60}>{t('1 timme', '1 hour')}</option>
+            <option value={30}>{t('30 minuter', '30 minutes')}</option>
+          </select>
+        </label>
         <button
           type="button"
           onClick={handleGenerate}
@@ -235,23 +320,23 @@ export const InfoDoorShifts = ({
         <div className="ml-auto text-sm text-foreground/70 text-right leading-tight">
           <div>
             {t(
-              `${volunteerNames.length} personer · pass om 1 timme`,
-              `${volunteerNames.length} people · 1-hour shifts`
+              `${volunteerNames.length} personer · pass om ${minutes === 60 ? '1 timme' : '30 min'}`,
+              `${volunteerNames.length} people · ${minutes === 60 ? '1-hour' : '30-minute'} shifts`
             )}
           </div>
           {formPlan && (
             <div>
               {t(
-                `${formPlan.windows} timmar: ${formPlan.doubled} med två personer, ${formPlan.windows - formPlan.doubled} med en`,
-                `${formPlan.windows} hours: ${formPlan.doubled} with two people, ${formPlan.windows - formPlan.doubled} with one`
+                `${formPlan.windows} pass: ${formPlan.doubled} med två personer, ${formPlan.windows - formPlan.doubled} med en`,
+                `${formPlan.windows} shifts: ${formPlan.doubled} with two people, ${formPlan.windows - formPlan.doubled} with one`
               )}
             </div>
           )}
           {formPlan && formPlan.emptyHours > 0 && (
             <div className="text-amber-400">
               {t(
-                `${formPlan.emptyHours} timmar får ingen – för få volontärer`,
-                `${formPlan.emptyHours} hours would get nobody – too few volunteers`
+                `${formPlan.emptyHours} pass får ingen – för få volontärer`,
+                `${formPlan.emptyHours} shifts would get nobody – too few volunteers`
               )}
             </div>
           )}
@@ -288,6 +373,16 @@ export const InfoDoorShifts = ({
                   className="btn-gold-outline text-xs py-1.5 px-3"
                 >
                   {t('Fyll lediga med volontärer', 'Fill open spots with volunteers')}
+                </button>
+              )}
+              {slots.length > 0 && slots.every((s) => durationOf(s) === 60) && (
+                <button
+                  type="button"
+                  onClick={handleSplitToHalfHours}
+                  disabled={busy}
+                  className="btn-gold-outline text-xs py-1.5 px-3"
+                >
+                  {t('Dela upp i 30 min', 'Split into 30 min')}
                 </button>
               )}
               <button

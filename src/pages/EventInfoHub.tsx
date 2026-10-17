@@ -258,7 +258,18 @@ export const EventInfoHub = () => {
 
   // Names for the sign-up dropdown (door staff). Without them the page falls back to typing a name.
   const doorNames = info.door_names ?? null
-  const placedNames = new Set(slots.map((sl) => sl.volunteer_name?.toLowerCase()).filter(Boolean))
+  // The board switches door shift booking on and off per event (Info & links tab).
+  const signupOpen = info.door_signup_open === true
+  // 30-minute shifts mean two per person: a name stays selectable until it has all of them.
+  const shiftsPerPerson = Math.max(Math.round(slots.length / Math.max(info.door_people ?? 1, 1)), 1)
+  const bookedCount = new Map<string, number>()
+  for (const sl of slots) {
+    const key = sl.volunteer_name?.toLowerCase()
+    if (key) bookedCount.set(key, (bookedCount.get(key) ?? 0) + 1)
+  }
+  const placedNames = {
+    has: (name: string) => (bookedCount.get(name) ?? 0) >= shiftsPerPerson,
+  }
 
   // Door shifts grouped by start time — a slot with two seats is two rows with the same start.
   const slotGroups = slots.reduce<{ start: string; end: string; rows: DoorSlot[] }[]>(
@@ -720,7 +731,18 @@ export const EventInfoHub = () => {
     <div className="space-y-5">
       {doorCodeBlock}
       {linksBlock}
-      {doorBlock && (
+      {doorBlock && !signupOpen && (
+        <div className="space-y-2 border-t border-accent/10 pt-5">
+          <h3 className="font-decorative text-lg text-accent">{t('Dörrpass', 'Door shifts')}</h3>
+          <p className="text-sm text-left text-foreground/80">
+            {t(
+              'Bokningen av dörrpass är pausad just nu medan vi reder ut några praktiska detaljer. Vi skickar ett mejl till dig så fort den är öppen igen och du kan välja ditt pass.',
+              'Booking of door shifts is on hold for the moment while we sort out some logistics. We will send you an email as soon as it is ready and you can pick your shift.'
+            )}
+          </p>
+        </div>
+      )}
+      {doorBlock && signupOpen && (
         <div className="space-y-3 border-t border-accent/10 pt-5">
           <h3 className="font-decorative text-lg text-accent">
             {t('Dörrpass – skriv upp dig', 'Door shifts – sign up')}

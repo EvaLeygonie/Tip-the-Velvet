@@ -317,14 +317,16 @@ export const buildDoorShiftsForPeople = (
   people: number
 ) => {
   const windows = buildDoorSlots(start, end, minutes, 1)
-  const doubled = Math.min(Math.max(people - windows.length, 0), windows.length)
+  // With 30-minute shifts each person takes two, so there are twice as many spots as people.
+  const spots = people * Math.max(Math.round(60 / minutes), 1)
+  const doubled = Math.min(Math.max(spots - windows.length, 0), windows.length)
   return {
     slots: windows.flatMap((w, i) => (i < doubled ? [w, { ...w }] : [w])),
     windows: windows.length,
     doubled,
-    // People who would not fit even with two spots in every hour / hours that would stay empty.
-    unplaced: Math.max(people - windows.length * 2, 0),
-    emptyHours: Math.max(windows.length - people, 0),
+    // People who would not fit even with two spots in every window / windows that would stay empty.
+    unplaced: Math.max(spots - windows.length * 2, 0),
+    emptyHours: Math.max(windows.length - spots, 0),
   }
 }
 
@@ -354,17 +356,21 @@ export const doorShiftSummary = (
   const split = formatClock(windows[Math.max(doubled - 1, 0)].end)
 
   const each =
-    slots.length !== people
+    minutes === 30 && slots.length === people * 2
       ? sv
-        ? `${people} volontärer – ${slots.length} platser.`
-        : `${people} volunteers – ${slots.length} spots.`
-      : minutes === 60
+        ? `${people} volontärer – två pass på 30 minuter var (en timme totalt).`
+        : `${people} volunteers – two 30-minute shifts each (one hour in total).`
+      : slots.length !== people
         ? sv
-          ? `${people} volontärer – en timme var.`
-          : `${people} volunteers – one hour each.`
-        : sv
-          ? `${people} volontärer – ett pass var.`
-          : `${people} volunteers – one shift each.`
+          ? `${people} volontärer – ${slots.length} platser.`
+          : `${people} volunteers – ${slots.length} spots.`
+        : minutes === 60
+          ? sv
+            ? `${people} volontärer – en timme var.`
+            : `${people} volunteers – one hour each.`
+          : sv
+            ? `${people} volontärer – ett pass var.`
+            : `${people} volunteers – one shift each.`
 
   let spread: string
   if (doubled === 0) spread = sv ? 'En person per pass.' : 'One person per shift.'

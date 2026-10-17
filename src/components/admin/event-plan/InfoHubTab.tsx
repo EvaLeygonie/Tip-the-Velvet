@@ -36,6 +36,7 @@ import {
   saveTemplateItem,
   infoLinkUrl,
   updateInfoItem,
+  setDoorSignupOpen,
   type EventAccessFields,
 } from '@/services/eventInfoService'
 import type {
@@ -47,7 +48,7 @@ import { getDocumentHint } from '@/lib/documentHints'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { downloadEventDocuments, loadEventDocContext } from '@/lib/eventDocuments'
 import { GroupMailModal, type MailRecipient as Recipient } from './GroupMailModal'
-import { infoMailDefaults, infoUpdateMailDefaults } from '@/lib/mailDefaults'
+import { doorSplitMailDefaults, infoMailDefaults, infoUpdateMailDefaults } from '@/lib/mailDefaults'
 import { InfoItemEditor } from './InfoItemEditor'
 import { VenueInfoCard } from './VenueInfoCard'
 import { InfoDoorShifts } from './InfoDoorShifts'
@@ -88,6 +89,7 @@ export const InfoHubTab = ({
     previousRow: InfoTemplateItem | null
     previousItemKey: string | null
   } | null>(null)
+  const [doorSplitMail, setDoorSplitMail] = useState<Recipient[] | null>(null)
   const [mailTarget, setMailTarget] = useState<{
     audience: InfoAudience
     kind: 'info' | 'update'
@@ -188,6 +190,42 @@ export const InfoHubTab = ({
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte radera.', 'Could not delete.'))
+    }
+  }
+
+  const handleToggleSignup = async (open: boolean) => {
+    try {
+      await setDoorSignupOpen(eventId, open)
+      setAccess((prev) => (prev ? { ...prev, door_signup_open: open } : prev))
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+    }
+  }
+
+  // After 1-hour shifts were split into 30 minutes: offer an email to everyone who was moved.
+  const handleDoorSplit = (movedNames: string[]) => {
+    const wanted = new Set(movedNames.map((n) => n.toLowerCase()))
+    const seen = new Set<string>()
+    const people: Recipient[] = []
+    for (const row of staffRows.filter(isDoorStaffRow)) {
+      const key = row.staff.name.toLowerCase()
+      if (!wanted.has(key) || seen.has(key) || !row.staff.email) continue
+      seen.add(key)
+      people.push({
+        email: row.staff.email,
+        name: row.staff.name,
+        language: row.staff.language === 'eng' ? 'eng' : 'sv',
+      })
+    }
+    if (people.length > 0) setDoorSplitMail(people)
+    if (!access?.door_signup_open) {
+      toast.info(
+        t(
+          'Dörrpassen är fortfarande dolda för volontärerna – slå på dem innan du mejlar.',
+          'The door shifts are still hidden from volunteers – switch them on before you email.'
+        )
+      )
     }
   }
 
@@ -352,10 +390,13 @@ export const InfoHubTab = ({
                   {t('Kopiera länk', 'Copy link')}
                 </button>
                 <a
-                  href={links ? infoLinkUrl(links[audience]) : '#'}
+                  href={links?.[audience] ? infoLinkUrl(links[audience]) : undefined}
+                  aria-disabled={!links?.[audience]}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors"
+                  className={`flex items-center gap-1.5 text-xs py-1.5 px-3 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors ${
+                    links?.[audience] ? '' : 'opacity-30 pointer-events-none'
+                  }`}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   {t('Förhandsgranska', 'Preview')}
@@ -586,14 +627,40 @@ export const InfoHubTab = ({
             'Volunteers sign up themselves on their link. Whatever is still open before the event, you fill in here.'
           )}
         </p>
+        <label className="admin-panel velvet-surface flex cursor-pointer items-center gap-3 px-4 py-3">
+          <input
+            type="checkbox"
+            checked={access?.door_signup_open ?? false}
+            onChange={(e) => handleToggleSignup(e.target.checked)}
+            className="h-4 w-4 accent-accent"
+          />
+          <span className="text-foreground">
+            {t('Visa dörrpassen på volontärsidan', 'Show the door shifts on the volunteer page')}
+          </span>
+          <span className="ml-auto text-xs text-foreground/50">
+            {access?.door_signup_open
+              ? t('Volontärerna kan boka', 'Volunteers can book')
+              : t('Dold – de ser ett "pausad"-meddelande', 'Hidden – they see an "on hold" notice')}
+          </span>
+        </label>
         <InfoDoorShifts
           eventId={eventId}
           eventStart={access?.event_start ?? null}
           volunteerNames={volunteerNames}
           slots={slots}
           onSlotsChange={setSlots}
+          onSplit={handleDoorSplit}
         />
       </section>
+
+      {doorSplitMail && links && (
+        <GroupMailModal
+          title={t('Be om ett pass till', 'Ask for one more shift')}
+          recipients={doorSplitMail}
+          defaults={doorSplitMailDefaults(eventTitle, infoLinkUrl(links.volunteer))}
+          onClose={() => setDoorSplitMail(null)}
+        />
+      )}
 
       {mailTarget && links && (
         <GroupMailModal

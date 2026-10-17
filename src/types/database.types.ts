@@ -742,6 +742,7 @@ export type Database = {
           created_at: string
           description_eng: string | null
           description_sv: string | null
+          door_signup_open: boolean
           event_end: string | null
           event_start: string | null
           facebook_event: string | null
@@ -783,6 +784,7 @@ export type Database = {
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
+          door_signup_open?: boolean
           event_end?: string | null
           event_start?: string | null
           facebook_event?: string | null
@@ -824,6 +826,7 @@ export type Database = {
           created_at?: string
           description_eng?: string | null
           description_sv?: string | null
+          door_signup_open?: boolean
           event_end?: string | null
           event_start?: string | null
           facebook_event?: string | null
