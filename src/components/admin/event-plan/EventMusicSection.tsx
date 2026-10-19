@@ -2,34 +2,25 @@ import { useState } from 'react'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { EventStaffRow } from './EventStaffRow'
-import { InlineAddPicker, type InlineAddPickerItem } from './InlineAddPicker'
-import type { AdminEventStaffRow } from '@/services/eventService'
 
 interface EventMusicSectionProps {
-  djRows: AdminEventStaffRow[]
-  eventId: string
-  beforePlaylist: string | null
-  intermissionPlaylist: string | null
+  // Before the show and between the acts.
+  prePartyPlaylist: string | null
   afterpartyPlaylist: string | null
-  onRemoved: (id: string) => void
-  onUpdated: (id: string, patch: Partial<AdminEventStaffRow>) => void
-  onSaveBeforePlaylist: (value: string) => Promise<void>
-  onSaveIntermissionPlaylist: (value: string) => Promise<void>
+  onSavePrePartyPlaylist: (value: string) => Promise<void>
   onSaveAfterpartyPlaylist: (value: string) => Promise<void>
-  fetchDjCandidates: () => Promise<InlineAddPickerItem[]>
-  onAddDj: (item: InlineAddPickerItem) => Promise<void>
 }
 
 interface PlaylistFieldProps {
-  label?: string
+  label: string
+  hint?: string
   value: string | null
   onSave: (value: string) => Promise<void>
 }
 
-// One save-on-click playlist input — shared by all three slots below so the input/save/toast
-// wiring exists in exactly one place.
-const PlaylistField = ({ label, value, onSave }: PlaylistFieldProps) => {
+// One save-on-click playlist input — shared by both slots below so the input/save/toast wiring
+// exists in exactly one place.
+const PlaylistField = ({ label, hint, value, onSave }: PlaylistFieldProps) => {
   const { t } = useLanguage()
   const [draft, setDraft] = useState(value ?? '')
   const [isSaving, setIsSaving] = useState(false)
@@ -49,11 +40,12 @@ const PlaylistField = ({ label, value, onSave }: PlaylistFieldProps) => {
 
   return (
     <div className="space-y-1.5">
-      {label && (
-        <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold">
-          {label}
-        </span>
-      )}
+      <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold">
+        {label}
+        {hint && (
+          <span className="ml-1.5 normal-case tracking-normal text-foreground/40">{hint}</span>
+        )}
+      </span>
       <div className="flex items-center gap-2">
         <input
           type="text"
@@ -62,9 +54,6 @@ const PlaylistField = ({ label, value, onSave }: PlaylistFieldProps) => {
           placeholder={t('Länk till spellista...', 'Link to playlist...')}
           className="flex-1 h-9 text-sm bg-black/40 border border-accent/20 rounded px-2 text-foreground focus:border-accent"
         />
-        {/* A plain small icon button, not btn-gold — that class's min-h-[44px]/glow/hover-
-            scale is built for standalone actions and looked oversized and clumsy stacked
-            next to a compact playlist input. Direct feedback 2026-09-21. */}
         <button
           onClick={handleSave}
           disabled={isSaving}
@@ -78,30 +67,14 @@ const PlaylistField = ({ label, value, onSave }: PlaylistFieldProps) => {
   )
 }
 
-// Music for the whole evening in one place — before doors, the intermission between acts, and
-// the afterparty — rather than scattered across tabs. The afterparty slot sits next to a
-// single DJ slot, since that's the one moment a human DJ can also cover (see
-// StaffingCoverageStrip's "DJ" card, which treats either a booked DJ or a saved playlist here
-// as coverage). Pulled out of the regular role-grouped list (which only renders a section when
-// it has confirmed rows) into its own always-visible section, since the playlist fields need
-// to be reachable even with 0 DJs assigned. Originally "Afterparty"-only, direct request
-// 2026-09-02; widened to all three slots per direct request 2026-09-19; laid out as 2x2 (two
-// playlists per row) with the DJ as a single sponsor-style slot instead of a header "+" picker,
-// direct feedback 2026-09-21 — the wide single-column layout wasted the extra page width the
-// admin pages just gained.
+// The evening's two playlists on one row: the pre-party list (before the show and between the
+// acts) and the after-party list. A booked DJ can cover the afterparty instead of a playlist —
+// the DJ is added in the staff list below, next to "Övrigt".
 export const EventMusicSection = ({
-  djRows,
-  eventId,
-  beforePlaylist,
-  intermissionPlaylist,
+  prePartyPlaylist,
   afterpartyPlaylist,
-  onRemoved,
-  onUpdated,
-  onSaveBeforePlaylist,
-  onSaveIntermissionPlaylist,
+  onSavePrePartyPlaylist,
   onSaveAfterpartyPlaylist,
-  fetchDjCandidates,
-  onAddDj,
 }: EventMusicSectionProps) => {
   const { t } = useLanguage()
 
@@ -113,58 +86,16 @@ export const EventMusicSection = ({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <PlaylistField
-          label={t('Före showen', 'Before the show')}
-          value={beforePlaylist}
-          onSave={onSaveBeforePlaylist}
+          label={t('Pre-party', 'Pre-party')}
+          hint={t('före showen & mellan akterna', 'before the show & between acts')}
+          value={prePartyPlaylist}
+          onSave={onSavePrePartyPlaylist}
         />
         <PlaylistField
-          label={t('Mellanakt', 'Intermission')}
-          value={intermissionPlaylist}
-          onSave={onSaveIntermissionPlaylist}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <PlaylistField
-          label={t('Efterfest', 'Afterparty')}
+          label={t('After-party', 'After-party')}
           value={afterpartyPlaylist}
           onSave={onSaveAfterpartyPlaylist}
         />
-
-        <div className="space-y-1.5">
-          <span className="block uppercase tracking-wider text-[10px] text-accent/50 font-semibold">
-            {t('DJ', 'DJ')}
-          </span>
-          {djRows.length > 0 ? (
-            <div className="space-y-2">
-              {djRows.map((row) => (
-                <EventStaffRow
-                  key={row.id}
-                  row={row}
-                  eventId={eventId}
-                  onRemoved={onRemoved}
-                  onUpdated={onUpdated}
-                />
-              ))}
-            </div>
-          ) : (
-            <InlineAddPicker
-              fetchItems={fetchDjCandidates}
-              onSelect={onAddDj}
-              placeholder={t('Sök kontakt...', 'Search contacts...')}
-              emptyMessage={t('Inga fler kontakter att lägga till.', 'No more contacts to add.')}
-              renderTrigger={(onOpen) => (
-                <button
-                  type="button"
-                  onClick={onOpen}
-                  className="w-full h-9 border border-dashed border-accent/15 rounded flex items-center justify-center text-xs text-foreground/30 italic hover:border-accent/40 hover:text-accent/60 transition-colors"
-                >
-                  {t('Tom plats — lägg till DJ', 'Empty slot — add DJ')}
-                </button>
-              )}
-            />
-          )}
-        </div>
       </div>
     </div>
   )

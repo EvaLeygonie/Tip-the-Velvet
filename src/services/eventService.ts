@@ -684,8 +684,8 @@ export const getEventVenueId = async (eventId: string): Promise<string | null> =
 }
 
 export interface EventPlaylists {
+  // The pre-party playlist: before the show and between the acts.
   before_playlist: string | null
-  intermission_playlist: string | null
   afterparty_playlist: string | null
 }
 
@@ -695,14 +695,13 @@ export interface EventPlaylists {
 export const getEventPlaylists = async (eventId: string): Promise<EventPlaylists> => {
   const { data, error } = await supabase
     .from('events')
-    .select('before_playlist, intermission_playlist, afterparty_playlist')
+    .select('before_playlist, afterparty_playlist')
     .eq('id', eventId)
     .maybeSingle()
 
   if (error) throw error
   return {
     before_playlist: data?.before_playlist ?? null,
-    intermission_playlist: data?.intermission_playlist ?? null,
     afterparty_playlist: data?.afterparty_playlist ?? null,
   }
 }

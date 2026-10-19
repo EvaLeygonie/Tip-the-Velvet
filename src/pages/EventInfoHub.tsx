@@ -9,20 +9,27 @@ import {
   ListMusic,
   MapPin,
   Music2,
+  ListOrdered,
   Phone,
+  Plus,
 } from 'lucide-react'
 import { hubLinkExpiry, saveMyLink } from '@/lib/myLinks'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import {
+  addDoorSpot,
   claimDoorSlot,
   getEventInfoByToken,
+  getShowOrder,
+  type ShowOrderRow,
   releaseDoorSlot,
   type EventInfoPayload,
 } from '@/services/eventInfoService'
 import {
   formatClock,
-  doorShiftSummary,
+  doorBookingInfo,
+  slotPartyPhase,
+  showStartMinutesFromItems,
   formatDateLong,
   infoAudienceLabel,
   sortInfoItems,
@@ -64,6 +71,7 @@ export const EventInfoHub = () => {
   const [busySlot, setBusySlot] = useState<string | null>(null)
   const [busyDoc, setBusyDoc] = useState<InfoDocKey | null>(null)
   const [busyZip, setBusyZip] = useState(false)
+  const [showOrder, setShowOrder] = useState<ShowOrderRow[] | null>(null)
   const [busyVip, setBusyVip] = useState(false)
 
   const [reloadKey, setReloadKey] = useState(0)
@@ -78,6 +86,12 @@ export const EventInfoHub = () => {
         if (cancelled) return
         setInfo(data)
         setSlots(data.door_slots ?? [])
+        // Artists and stage kittens get the running order as a quick section on the page.
+        const hasSetList = data.items.some((i) => i.kind === 'document' && i.doc_key === 'setList')
+        if (hasSetList && (data.audience === 'artist' || data.audience === 'stage_kitten')) {
+          const order = await getShowOrder(token)
+          if (!cancelled) setShowOrder(order)
+        }
         saveMyLink(
           {
             path: `/info/${token}`,
@@ -175,6 +189,21 @@ export const EventInfoHub = () => {
     }
   }
 
+  const handleAddSpot = async (slotStart: string) => {
+    if (!token) return
+    setBusySlot(slotStart)
+    try {
+      await addDoorSpot(token, slotStart)
+    } catch {
+      toast.error(
+        t('Det gick inte att lägga till en plats just nu.', 'Could not add a spot right now.')
+      )
+    } finally {
+      setBusySlot(null)
+      reload()
+    }
+  }
+
   const handleRelease = async (slot: DoorSlot) => {
     if (!token) return
     const confirmed = await confirm({
@@ -241,12 +270,14 @@ export const EventInfoHub = () => {
   const others = info.contacts.filter((c) => c.kind !== 'general')
   const playlistSlots = [
     {
-      key: 'before',
-      label: t('Innan showen / insläpp', 'Before the show / doors'),
+      key: 'preparty',
+      label: t(
+        'Pre-party – innan showen & mellan akterna',
+        'Pre-party – before the show & between acts'
+      ),
       url: info.playlists?.before,
     },
-    { key: 'intermission', label: t('Paus', 'Intermission'), url: info.playlists?.intermission },
-    { key: 'afterparty', label: t('Afterparty', 'Afterparty'), url: info.playlists?.afterparty },
+    { key: 'afterparty', label: t('After-party', 'After-party'), url: info.playlists?.afterparty },
   ]
   const missingPlaylists = playlistSlots.filter((p) => !p.url).length
   // Everyone sees the address and nearest stop; the note (stage size, mirrors…) only goes to the
@@ -261,12 +292,24 @@ export const EventInfoHub = () => {
   // The board switches door shift booking on and off per event (Info & links tab).
   const signupOpen = info.door_signup_open === true
   // 30-minute shifts mean two per person: a name stays selectable until it has all of them.
-  const shiftsPerPerson = Math.max(Math.round(slots.length / Math.max(info.door_people ?? 1, 1)), 1)
+  const firstSlot = slots[0]
+  // Two 30-minute shifts make an hour; with 1-hour shifts everyone takes one.
+  const shiftsPerPerson =
+    firstSlot &&
+    (new Date(firstSlot.slot_end).getTime() - new Date(firstSlot.slot_start).getTime()) / 60_000 <=
+      30
+      ? 2
+      : 1
+  // Approximate stage of the party at each shift (mingle, show, break, show, dancefloor).
+  const showStart = showStartMinutesFromItems(items)
   const bookedCount = new Map<string, number>()
   for (const sl of slots) {
     const key = sl.volunteer_name?.toLowerCase()
-    if (key) bookedCount.set(key, (bookedCount.get(key) ?? 0) + 1)
+    if (!key) continue
+    bookedCount.set(key, (bookedCount.get(key) ?? 0) + 1)
   }
+  // Done = all their shifts booked (two half-hours). Done names move to the bottom of the
+  // dropdown but can still be picked.
   const placedNames = {
     has: (name: string) => (bookedCount.get(name) ?? 0) >= shiftsPerPerson,
   }
@@ -317,10 +360,10 @@ export const EventInfoHub = () => {
           <span className="w-28 shrink-0 font-mono text-accent text-sm pt-0.5">
             {item.time_text}
           </span>
-          <span className="text-foreground">
+          <span className="min-w-0 text-foreground [overflow-wrap:anywhere]">
             {pick(item.title_sv, item.title_eng)}
             {pick(item.body_sv, item.body_eng) && (
-              <span className="block text-sm text-foreground/60 whitespace-pre-line">
+              <span className="block text-sm text-foreground/60 whitespace-pre-line [overflow-wrap:anywhere]">
                 {pick(item.body_sv, item.body_eng)}
               </span>
             )}
@@ -334,7 +377,7 @@ export const EventInfoHub = () => {
     <section key={item.id} className="space-y-3 break-inside-avoid">
       <h2>{pick(item.title_sv, item.title_eng)}</h2>
       <div className="admin-panel velvet-surface p-5">
-        <p className="text-foreground/80 whitespace-pre-line">
+        <p className="text-foreground/80 whitespace-pre-line [overflow-wrap:anywhere]">
           {pick(item.body_sv, item.body_eng)}
         </p>
       </div>
@@ -396,8 +439,8 @@ export const EventInfoHub = () => {
       {missingPlaylists > 0 && (
         <p className="velvet-warning-box text-sm">
           {t(
-            `${missingPlaylists} av 3 spellistor saknas än – vi lägger upp dem här så fort de är klara.`,
-            `${missingPlaylists} of 3 playlists are still missing – we'll add them here as soon as they're ready.`
+            `${missingPlaylists} av 2 spellistor saknas än – vi lägger upp dem här så fort de är klara.`,
+            `${missingPlaylists} of 2 playlists are still missing – we'll add them here as soon as they're ready.`
           )}
         </p>
       )}
@@ -521,6 +564,38 @@ export const EventInfoHub = () => {
     </section>
   )
 
+  const showOrderBlock = showOrder && showOrder.length > 0 && (
+    <section className="space-y-3">
+      <h2 className="flex items-center justify-center gap-2">
+        <ListOrdered className="h-5 w-5 text-accent" />
+        {t('Showordning', 'Show order')}
+      </h2>
+      <div className="admin-panel velvet-surface px-4">
+        <ol className="divide-y divide-accent/10">
+          {showOrder.map((row, i) => (
+            <li key={row.position}>
+              {row.setNumber === 2 && showOrder[i - 1]?.setNumber === 1 && (
+                <div className="py-2 text-center text-xs font-semibold uppercase tracking-widest text-accent">
+                  {t('— Paus —', '— Break —')}
+                </div>
+              )}
+              <div className="flex gap-3 py-2.5">
+                <span className="w-7 shrink-0 font-mono text-accent text-sm pt-0.5">
+                  {row.position}.
+                </span>
+                <span className="min-w-0 text-foreground">
+                  {row.performer && <span className="font-semibold">{row.performer}</span>}
+                  {row.performer && row.act ? ' – ' : ''}
+                  <span className={row.performer ? 'text-foreground/70' : ''}>{row.act}</span>
+                </span>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  )
+
   const venueBlock = venue && (venue.location || venueNote) && (
     <section className="flex flex-col gap-3 break-inside-avoid">
       <h2 className="flex items-center justify-center gap-2">
@@ -550,10 +625,87 @@ export const EventInfoHub = () => {
             {t('Närmaste hållplats', 'Nearest stop')}: {venue.nearest_stop}
           </p>
         )}
-        {venueNote && <p className="text-foreground/80 whitespace-pre-line">{venueNote}</p>}
+        {venueNote && (
+          <p className="text-foreground/80 whitespace-pre-line [overflow-wrap:anywhere]">
+            {venueNote}
+          </p>
+        )}
       </div>
     </section>
   )
+
+  // Once every time slot has at least one person, a one-person slot can get a second spot (+).
+  const allSlotsCovered =
+    slotGroups.length > 0 && slotGroups.every((g) => g.rows.some((r) => r.volunteer_name))
+
+  // Fair booking with 30-minute shifts: one shift in the first two hours (the easiest ones) and
+  // one after. Names that already have a shift in a part are greyed out on the other slots there.
+  const earlyEndMs = slots[0] ? new Date(slots[0].slot_start).getTime() + 2 * 3_600_000 : 0
+  const namesIn = (early: boolean) =>
+    new Set(
+      slots
+        .filter(
+          (sl) => sl.volunteer_name && new Date(sl.slot_start).getTime() < earlyEndMs === early
+        )
+        .map((sl) => sl.volunteer_name!.toLowerCase())
+    )
+  const earlyEndClock = formatClock(new Date(earlyEndMs).toISOString())
+  const earlyNames = namesIn(true)
+  const lateNames = namesIn(false)
+
+  // The dropdown's options for one time slot: names still to book first, then "done" (all their
+  // shifts booked — still pickable), then names already on an early shift (not pickable for
+  // another early slot).
+  const renderNameOptions = (group: { start: string; rows: DoorSlot[] }, names: string[]) => {
+    const early = new Date(group.start).getTime() < earlyEndMs
+    const inRow = (n: string) =>
+      group.rows.some((r) => r.volunteer_name?.toLowerCase() === n.toLowerCase())
+    const blocked = (n: string) =>
+      shiftsPerPerson === 2 && (early ? earlyNames : lateNames).has(n.toLowerCase())
+    const free = names.filter((n) => !inRow(n) && !blocked(n) && !placedNames.has(n.toLowerCase()))
+    const done = names.filter((n) => !inRow(n) && !blocked(n) && placedNames.has(n.toLowerCase()))
+    const alreadyInPart = names.filter((n) => !inRow(n) && blocked(n))
+    return (
+      <>
+        <option value="">{t('Välj ditt namn…', 'Choose your name…')}</option>
+        {free.map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+        {done.length > 0 && (
+          <optgroup label={t('Klara', 'Done')}>
+            {done.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {alreadyInPart.length > 0 && (
+          <optgroup
+            label={
+              early
+                ? t(
+                    `Har redan ett pass före ${earlyEndClock} – ett per del`,
+                    `Already has a shift before ${earlyEndClock} – one per part`
+                  )
+                : t(
+                    `Har redan ett pass efter ${earlyEndClock} – ett per del`,
+                    `Already has a shift after ${earlyEndClock} – one per part`
+                  )
+            }
+          >
+            {alreadyInPart.map((n) => (
+              <option key={n} value={n} disabled>
+                {n}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </>
+    )
+  }
 
   const doorBlock = slotGroups.length > 0 && (
     <div className="space-y-3">
@@ -562,13 +714,33 @@ export const EventInfoHub = () => {
           <li key={group.start} className="py-2.5 flex items-center gap-4">
             <span className="w-28 shrink-0 font-mono text-accent text-sm">
               {formatClock(group.start)}–{formatClock(group.end)}
+              {showStart !== null && (
+                <span
+                  className={`block font-body text-[11px] italic ${
+                    slotPartyPhase(group.start, showStart) === 'show'
+                      ? 'text-accent'
+                      : 'text-foreground/50'
+                  }`}
+                >
+                  (
+                  {
+                    {
+                      mingle: t('mingel', 'mingle'),
+                      show: 'show',
+                      break: t('paus', 'break'),
+                      dancefloor: t('dansgolv', 'dancefloor'),
+                    }[slotPartyPhase(group.start, showStart)]
+                  }
+                  )
+                </span>
+              )}
             </span>
-            <div className="flex-1 flex flex-wrap items-center gap-3">
+            <div className="grid flex-1 grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_1fr_2rem]">
               {group.rows.map((slot) =>
                 slot.volunteer_name ? (
                   <div
                     key={slot.id}
-                    className="flex min-w-48 flex-1 items-center justify-between gap-2 text-sm"
+                    className="flex min-w-0 items-center justify-between gap-2 text-sm"
                   >
                     <span
                       className={
@@ -583,7 +755,7 @@ export const EventInfoHub = () => {
                       type="button"
                       disabled={busySlot === slot.id}
                       onClick={() => handleRelease(slot)}
-                      className="text-xs text-foreground/50 hover:text-red-400"
+                      className="text-xs text-red-400 hover:text-red-300"
                     >
                       {t('Ta bort', 'Remove')}
                     </button>
@@ -594,27 +766,9 @@ export const EventInfoHub = () => {
                     value=""
                     disabled={busySlot === slot.id}
                     onChange={(e) => e.target.value && handleClaim(slot.id, e.target.value)}
-                    className="velvet-input min-w-48 flex-1"
+                    className="velvet-input min-w-0"
                   >
-                    <option value="">{t('Välj ditt namn…', 'Choose your name…')}</option>
-                    {doorNames
-                      .filter((n) => !placedNames.has(n.toLowerCase()))
-                      .map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    {doorNames.some((n) => placedNames.has(n.toLowerCase())) && (
-                      <optgroup label={t('Redan bokade', 'Already booked')}>
-                        {doorNames
-                          .filter((n) => placedNames.has(n.toLowerCase()))
-                          .map((n) => (
-                            <option key={n} value={n} disabled>
-                              {n}
-                            </option>
-                          ))}
-                      </optgroup>
-                    )}
+                    {renderNameOptions(group, doorNames)}
                   </select>
                 ) : (
                   <button
@@ -630,6 +784,18 @@ export const EventInfoHub = () => {
                     {t('Ta det här passet', 'Take this shift')}
                   </button>
                 )
+              )}
+              {allSlotsCovered && group.rows.length === 1 && doorNames && (
+                <button
+                  type="button"
+                  disabled={busySlot === group.start}
+                  onClick={() => handleAddSpot(group.start)}
+                  title={t('Lägg till en plats så ni kan vara två', 'Add a spot so two can sit')}
+                  aria-label={t('Lägg till en plats', 'Add a spot')}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-accent/40 bg-accent/10 text-accent transition-colors hover:bg-accent hover:text-black sm:col-start-3"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               )}
             </div>
           </li>
@@ -650,7 +816,7 @@ export const EventInfoHub = () => {
     if (people.length === 0) return null
     return (
       <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-lg border border-accent/40 bg-accent/10 px-4 py-3">
-        <span className="form-label-gold">
+        <span className="form-label-gold text-center">
           {people.length > 1
             ? t('Generalerna som ansvarar för ditt pass:', 'The generals in charge of your shift:')
             : t('Generalen som ansvarar för ditt pass:', 'The general in charge of your shift:')}
@@ -690,7 +856,7 @@ export const EventInfoHub = () => {
         {shiftTexts.map((item) => (
           <div key={item.id} className="space-y-1.5">
             <h3 className="form-label-gold">{pick(item.title_sv, item.title_eng)}</h3>
-            <p className="text-foreground/80 whitespace-pre-line">
+            <p className="text-foreground/80 whitespace-pre-line [overflow-wrap:anywhere]">
               {pick(item.body_sv, item.body_eng)}
             </p>
           </div>
@@ -736,8 +902,8 @@ export const EventInfoHub = () => {
           <h3 className="font-decorative text-lg text-accent">{t('Dörrpass', 'Door shifts')}</h3>
           <p className="text-sm text-left text-foreground/80">
             {t(
-              'Bokningen av dörrpass är pausad just nu medan vi reder ut några praktiska detaljer. Vi skickar ett mejl till dig så fort den är öppen igen och du kan välja ditt pass.',
-              'Booking of door shifts is on hold for the moment while we sort out some logistics. We will send you an email as soon as it is ready and you can pick your shift.'
+              'Bokningen av dörrpass är pausad just nu medan vi reder ut några praktiska detaljer. Vi skickar ett mejl till dig så fort den är öppen igen och du kan välja ditt/dina pass.',
+              'Booking of door shifts is on hold for the moment while we sort out some logistics. We will send you an email as soon as it is ready and you can pick your shift(s).'
             )}
           </p>
         </div>
@@ -747,10 +913,7 @@ export const EventInfoHub = () => {
           <h3 className="font-decorative text-lg text-accent">
             {t('Dörrpass – skriv upp dig', 'Door shifts – sign up')}
           </h3>
-          <p className="text-sm text-left text-foreground/80">
-            {t('Sätt ditt namn på ett av passen.', 'Put your name on one of the slots.')}{' '}
-            {doorShiftSummary(slots, info.door_people ?? 0, language)}
-          </p>
+          <p className="text-sm text-left text-foreground/80">{doorBookingInfo(slots, language)}</p>
           {doorBlock}
         </div>
       )}
@@ -776,7 +939,7 @@ export const EventInfoHub = () => {
       {isVolunteer ? (
         <div className="space-y-10 text-left mt-10">
           {(accessBlock || venueBlock) && (
-            <div className="grid gap-6 lg:grid-cols-2 items-stretch">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
               {venueBlock}
               {accessBlock}
             </div>
@@ -785,7 +948,7 @@ export const EventInfoHub = () => {
           <section className="space-y-5">
             {renderSectionTitle(t('Uppsättning & nedmontering', 'Setup & takedown'))}
             {renderGeneralsRow(['setup', 'takedown'])}
-            <div className="grid gap-6 lg:grid-cols-2 items-stretch">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
               {pairCards.map((card) => {
                 const content = renderShiftContent(card.key)
                 return (
@@ -811,7 +974,7 @@ export const EventInfoHub = () => {
             <div className="admin-panel velvet-surface p-5 md:p-6 space-y-6">
               {(guestlistContent || guestlistSide) && (
                 <div
-                  className={`grid gap-8 items-start ${guestlistContent && guestlistSide ? 'lg:grid-cols-2' : ''}`}
+                  className={`grid grid-cols-1 gap-8 items-start ${guestlistContent && guestlistSide ? 'lg:grid-cols-2' : ''}`}
                 >
                   {guestlistContent}
                   {guestlistSide}
@@ -825,18 +988,19 @@ export const EventInfoHub = () => {
           )}
         </div>
       ) : (
-        <div className="grid gap-8 lg:grid-cols-2 items-start text-left mt-10">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 items-start text-left mt-10">
           {/* Artists have the most text, so contact goes at the top of the left column and documents
               below the schedule. The photographer has contact and place together on the left and
               the schedule on the right. Every other role: place and schedule on the left, contact
               and documents at the top of the right column. */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {(audience === 'artist' || audience === 'photographer') && accessBlock}
             {venueBlock}
             {audience !== 'photographer' && scheduleBlock}
+            {showOrderBlock}
             {audience === 'artist' && documentsBlock}
           </div>
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {audience === 'photographer' && (
               <>
                 {documentsBlock}

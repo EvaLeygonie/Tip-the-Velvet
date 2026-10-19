@@ -8,6 +8,7 @@ import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import {
   INFO_AUDIENCES,
   audiencesFromStored,
+  showStartMinutesFromItems,
   INFO_DOCUMENTS,
   audienceForStaffRole,
   isDoorStaffRow,
@@ -623,8 +624,8 @@ export const InfoHubTab = ({
         </h4>
         <p className="text-sm text-foreground/60">
           {t(
-            'Volontärer skriver upp sig själva på sin länk. Det som är ledigt inför eventet fyller du i här.',
-            'Volunteers sign up themselves on their link. Whatever is still open before the event, you fill in here.'
+            'Alla tar två pass på 30 min: ett under de första två timmarna och ett efter. På sidan går det inte att ta två pass i samma del, men här kan du lägga in vem som helst var som helst. Man får ta fler än två. När varje tid har minst en person visas en + på tider med en person, så man kan lägga till en plats och vara två. Det som är ledigt inför eventet fyller du i här.',
+            'Everyone takes two 30-minute shifts: one in the first two hours and one after. On the page nobody can take two in the same part, but here you can put anyone anywhere. You can take more than two. Once every time slot has at least one person, a + appears on slots with one person, so a spot can be added to sit two. Whatever is still open before the event, you fill in here.'
           )}
         </p>
         <label className="admin-panel velvet-surface flex cursor-pointer items-center gap-3 px-4 py-3">
@@ -647,6 +648,7 @@ export const InfoHubTab = ({
           eventId={eventId}
           eventStart={access?.event_start ?? null}
           volunteerNames={volunteerNames}
+          showStartMinutes={showStartMinutesFromItems(items)}
           slots={slots}
           onSlotsChange={setSlots}
           onSplit={handleDoorSplit}
@@ -666,10 +668,11 @@ export const InfoHubTab = ({
         <GroupMailModal
           title={`${mailTarget.kind === 'update' ? t('Skicka uppdatering till', 'Send update to') : t('Mejla', 'Email')} ${infoAudienceLabel(t, mailTarget.audience)}`}
           recipients={recipients.get(mailTarget.audience) ?? []}
-          defaults={(mailTarget.kind === 'update' ? infoUpdateMailDefaults : infoMailDefaults)(
-            eventTitle,
-            infoLinkUrl(links[mailTarget.audience])
-          )}
+          defaults={
+            mailTarget.kind === 'update'
+              ? infoUpdateMailDefaults(eventTitle, infoLinkUrl(links[mailTarget.audience]))
+              : infoMailDefaults(eventTitle, infoLinkUrl(links[mailTarget.audience]))
+          }
           onClose={() => setMailTarget(null)}
         />
       )}

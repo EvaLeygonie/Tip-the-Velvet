@@ -1,3 +1,4 @@
+import { useRememberedTab } from '@/hooks/useRememberedTab'
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Mail } from 'lucide-react'
@@ -146,8 +147,11 @@ export const AdminContacts = () => {
     search?: string
   } | null
   const linkedSearch = (tab: string) => (linkState?.tab === tab ? (linkState.search ?? '') : '')
-  const [activeTab, setActiveTab] = useState<'staff' | 'board' | 'sponsors' | 'venues' | 'clubs'>(
-    linkState?.tab ?? 'staff'
+  const [activeTab, setActiveTab] = useRememberedTab(
+    'contacts',
+    ['staff', 'board', 'sponsors', 'venues', 'clubs'] as const,
+    'staff',
+    linkState?.tab
   )
   const [loading, setLoading] = useState(true)
 

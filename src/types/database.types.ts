@@ -213,6 +213,72 @@ export type Database = {
         }
         Relationships: []
       }
+      event_print_items: {
+        Row: {
+          created_at: string
+          done: boolean
+          event_id: string
+          hidden: boolean
+          id: string
+          copies: number | null
+          label: string | null
+          professional: boolean | null
+          sort_order: number
+          standard_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          event_id: string
+          hidden?: boolean
+          id?: string
+          copies?: number | null
+          label?: string | null
+          professional?: boolean | null
+          sort_order?: number
+          standard_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          event_id?: string
+          hidden?: boolean
+          id?: string
+          copies?: number | null
+          label?: string | null
+          professional?: boolean | null
+          sort_order?: number
+          standard_id?: string | null
+        }
+        Relationships: []
+      }
+      print_standard_items: {
+        Row: {
+          copies: number
+          created_at: string
+          id: string
+          label: string
+          professional: boolean
+          sort_order: number
+        }
+        Insert: {
+          copies?: number
+          created_at?: string
+          id?: string
+          label: string
+          professional?: boolean
+          sort_order?: number
+        }
+        Update: {
+          copies?: number
+          created_at?: string
+          id?: string
+          label?: string
+          professional?: boolean
+          sort_order?: number
+        }
+        Relationships: []
+      }
       door_shift_slots: {
         Row: {
           created_at: string
@@ -1637,6 +1703,10 @@ export type Database = {
           p_new_review_status: Database['public']['Enums']['casting_review_status']
         }
         Returns: Json
+      }
+      add_door_spot: {
+        Args: { p_slot_start: string; p_token: string }
+        Returns: undefined
       }
       claim_door_slot: {
         Args: { p_name: string; p_slot_id: string; p_token: string }

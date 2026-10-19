@@ -8,12 +8,11 @@ import type { StaffVolunteerType } from '@/types/types'
 
 interface StaffingCoverageStripProps {
   staffRows: AdminEventStaffRow[]
-  // The before-show and intermission slots only ever have one way to be covered — an actual
-  // saved playlist, there's no "or a person" option for those the way afterparty has a DJ.
-  hasBeforePlaylist: boolean
-  hasIntermissionPlaylist: boolean
-  // Afterparty is the one slot a DJ can cover instead of a playlist — feeds the "dj"/"Musik"
-  // card's status below, direct feedback 2026-09-02.
+  // The pre-party playlist (before the show and between the acts) can only be covered by an
+  // actual saved playlist.
+  hasPrePartyPlaylist: boolean
+  // The afterparty can be covered by its own playlist or by a booked DJ — feeds the "Musik"
+  // card's status below.
   hasAfterpartyPlaylist: boolean
 }
 
@@ -23,7 +22,7 @@ const STAGE_KITTEN_MIN = 2
 // Shorter labels for this strip specifically (not staffRoleLabel itself, which stays full
 // everywhere else — section headers, the Contacts role dropdown, etc.) — these two cards
 // were the widest, and space here is at a premium per feedback. "dj" specifically is
-// relabeled "Musik"/"Music" here since that card now covers all three playlist slots, not
+// relabeled "Musik"/"Music" here since that card now covers the two music slots, not
 // just whether a DJ is booked — see the "dj" branch below.
 const shortLabel = (t: (sv: string, en: string) => string, role: StaffVolunteerType): string => {
   if (role === 'doorman') return t('Dörrvakt', 'Guard')
@@ -44,8 +43,7 @@ const COVERAGE_CARD_ROLES = ROLE_ORDER.filter((role) => role !== 'other')
 // number; photographer/technician/stage_kitten/doorman/dj each get a bespoke rule below.
 export const StaffingCoverageStrip = ({
   staffRows,
-  hasBeforePlaylist,
-  hasIntermissionPlaylist,
+  hasPrePartyPlaylist,
   hasAfterpartyPlaylist,
 }: StaffingCoverageStripProps) => {
   const { t } = useLanguage()
@@ -65,30 +63,24 @@ export const StaffingCoverageStrip = ({
         // every other role).
         const count = new Set(staffRows.filter((r) => r.role === role).map((r) => r.staff.id)).size
         // What the card actually displays — a plain headcount for every role except
-        // "dj"/Musik, which shows a 0–3 coverage count instead (see below).
+        // "dj"/Musik, which shows a 0–2 coverage count instead (see below).
         let displayCount = count
 
         let filled = false
         let missing = false
         // DJ/"Musik" card only: the afterparty slot is covered by a playlist even with 0 DJ
-        // staff — shown as a music icon instead of the usual checkmark so it's clear *how*
-        // it's covered. But before/intermission have no such substitute — both need their
-        // own saved playlist regardless of DJ staffing, so the card overall is only "filled"
-        // once all three are actually covered. Direct feedback 2026-09-19.
+        // staff — shown as a music icon so it's clear *how* it's covered. The pre-party slot has
+        // no such substitute, so the card is only "filled" once both are covered.
         let coveredByPlaylist = false
 
         if (role === 'dj') {
-          // Showing the DJ headcount here was misleading — a fully-covered event with 0 DJs
-          // (both playlists saved, afterparty covered by its own playlist too) displayed
-          // "0" despite being green. Shows 0–3 instead: one point per music "moment"
-          // (before/intermission/afterparty), matching missingMusicItems' own 3 possible
-          // gaps — 3/3 is what actually makes the card green. Direct feedback 2026-09-21.
+          // Shows 0–2 instead of a DJ headcount: one point for the pre-party playlist and one
+          // for the afterparty (its own playlist or a DJ) — 2/2 is what makes the card green.
           const missingMusic = missingMusicItems(t, staffRows, {
-            hasBeforePlaylist,
-            hasIntermissionPlaylist,
+            hasPrePartyPlaylist,
             hasAfterpartyPlaylist,
           })
-          displayCount = 3 - missingMusic.length
+          displayCount = 2 - missingMusic.length
           coveredByPlaylist = count === 0 && hasAfterpartyPlaylist
           filled = missingMusic.length === 0
           missing = !filled

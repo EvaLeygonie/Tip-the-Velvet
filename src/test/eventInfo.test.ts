@@ -4,6 +4,13 @@ import {
   buildDoorSlots,
   countUncoveredDoorWindows,
   doorPlanSentence,
+  findPhoneForName,
+  partyPhase,
+  slotPartyPhase,
+  buildDoorReport,
+  buildDoorNeed,
+  doorBookingInfo,
+  showStartMinutesFromItems,
   buildDoorShiftsForPeople,
   findUnplacedDoorStaff,
   formatClock,
@@ -207,6 +214,147 @@ describe('buildDoorShiftsForPeople', () => {
   })
 })
 
+describe('door report', () => {
+  const at = (hhmm: string) => new Date(`2026-10-24T${hhmm}:00+02:00`).toISOString()
+  const slot = (from: string, to: string, name: string | null) => ({
+    slot_start: at(from),
+    slot_end: at(to),
+    volunteer_name: name,
+  })
+
+  it('finds the show start from the schedule row', () => {
+    expect(
+      showStartMinutesFromItems([
+        {
+          kind: 'schedule',
+          time_text: '19:00',
+          title_sv: 'Dörrarna öppnas',
+          title_eng: 'Doors open',
+        },
+        {
+          kind: 'schedule',
+          time_text: '21:00',
+          title_sv: 'Showen börjar – akt 1',
+          title_eng: null,
+        },
+      ])
+    ).toBe(21 * 60)
+  })
+
+  it('works out how many extra volunteers the open slots need', () => {
+    const slots = [
+      slot('19:00', '19:30', 'Anna'),
+      slot('19:30', '20:00', null),
+      slot('20:00', '20:30', null),
+      slot('20:30', '21:00', null),
+      slot('20:30', '21:00', null),
+    ]
+    const need = buildDoorNeed(slots, buildDoorReport(slots, ['Anna', 'Bo'], null))
+    expect(need.openSpots).toBe(4)
+    expect(need.uncoveredSlots).toBe(3)
+    expect(need.uncoveredMinutes).toBe(90)
+    // Anna still owes 30 min and Bo 60: 90 min covers the 90 min of empty time.
+    expect(need.owedMinutes).toBe(90)
+    expect(need.extraVolunteers).toBe(0)
+  })
+
+  it('treats setup volunteers as done at 30 minutes, or as free when they have no door shift', () => {
+    const report = buildDoorReport(
+      [slot('19:00', '19:30', 'Sam')],
+      ['Sam', 'Kat', 'Dan'],
+      21 * 60,
+      ['sam', 'Kat']
+    )
+    expect(report.done).toEqual([{ name: 'Sam', minutes: 30, show: false, early: 30, target: 30 }])
+    expect(report.setupFree).toEqual(['Kat'])
+    expect(report.notBooked).toEqual(['Dan'])
+    expect(report.needsMore).toEqual([])
+  })
+
+  it('splits people into not booked, needs more and done (a show shift alone is not done)', () => {
+    const report = buildDoorReport(
+      [
+        slot('19:00', '19:30', 'Anna'),
+        slot('20:00', '20:30', 'Anna'),
+        slot('19:30', '20:00', 'Bo'),
+        slot('21:00', '21:30', 'Cia'),
+      ],
+      ['Anna', 'Bo', 'Cia', 'Dan'],
+      21 * 60
+    )
+    expect(report.notBooked).toEqual(['Dan'])
+    expect(report.needsMore).toEqual([
+      { name: 'Bo', minutes: 30, show: false, early: 30, target: 60 },
+      { name: 'Cia', minutes: 30, show: true, early: 0, target: 60 },
+    ])
+    expect(report.done).toEqual([{ name: 'Anna', minutes: 60, show: false, early: 60, target: 60 }])
+  })
+})
+
+describe('doorBookingInfo', () => {
+  const half = (from: string, to: string) => ({
+    slot_start: new Date(`2026-10-24T${from}:00+02:00`).toISOString(),
+    slot_end: new Date(`2026-10-24T${to}:00+02:00`).toISOString(),
+  })
+
+  it('explains the fair way to book 30-minute shifts: one before and one after the first two hours', () => {
+    const sv = doorBookingInfo([half('19:00', '19:30')], 'sv')!
+    expect(sv).toContain('ett före 21:00 och ett efter')
+    expect(doorBookingInfo([half('19:00', '19:30')], 'eng')).toContain(
+      'one before 21:00 and one after'
+    )
+  })
+
+  it('falls back to a general instruction for other shift lengths', () => {
+    expect(doorBookingInfo([half('19:00', '20:00')], 'sv')).toBe('Skriv upp dig på ett pass.')
+  })
+
+  it('has nothing to say without shifts', () => {
+    expect(doorBookingInfo([], 'sv')).toBeNull()
+  })
+})
+
+describe('partyPhase', () => {
+  it('runs mingle, show, break, show, dancefloor from the show start', () => {
+    expect([-120, -30, 0, 30, 59, 60, 89, 90, 149, 150, 200].map(partyPhase)).toEqual([
+      'mingle',
+      'mingle',
+      'show',
+      'show',
+      'show',
+      'break',
+      'break',
+      'show',
+      'show',
+      'dancefloor',
+      'dancefloor',
+    ])
+  })
+})
+
+describe('findPhoneForName', () => {
+  const people = [
+    { name: 'Sam O Cleirigh', phone: '070 111' },
+    { name: 'Krister Johansson', phone: '070 222' },
+    { name: 'Anna Berg', phone: '070 333' },
+    { name: 'Anna Lind', phone: '070 444' },
+    { name: 'Linnea Lind', phone: null },
+  ]
+
+  it('matches the exact name, ignoring case', () => {
+    expect(findPhoneForName('sam o cleirigh', people)).toBe('070 111')
+  })
+
+  it('matches on first name when it is unique, ignoring text in parentheses', () => {
+    expect(findPhoneForName('Krister (arrangör)', people)).toBe('070 222')
+  })
+
+  it('does not guess when the first name is shared or the person has no number', () => {
+    expect(findPhoneForName('Anna', people)).toBeNull()
+    expect(findPhoneForName('Linnea Lind', people)).toBeNull()
+  })
+})
+
 describe('duration formatting', () => {
   it('writes minutes, hours and half hours in both languages', () => {
     expect(formatDuration(45, 'sv')).toBe('45 min')
@@ -269,5 +417,14 @@ describe('template helpers', () => {
     ).toBe(true)
     expect(sameAsTemplate({ ...template, body_eng: 'Changed' }, template)).toBe(false)
     expect(sameAsTemplate({ ...template, audiences: ['artist'] }, template)).toBe(false)
+  })
+})
+
+describe('slotPartyPhase', () => {
+  it('counts shifts after midnight as the end of the evening', () => {
+    const at = (iso: string) => new Date(iso).toISOString()
+    expect(slotPartyPhase(at('2026-10-24T22:00:00+02:00'), 21 * 60)).toBe('break')
+    expect(slotPartyPhase(at('2026-10-25T00:00:00+02:00'), 21 * 60)).toBe('dancefloor')
+    expect(slotPartyPhase(at('2026-10-24T19:30:00+02:00'), 21 * 60)).toBe('mingle')
   })
 })

@@ -1,3 +1,4 @@
+import { useRememberedTab } from '@/hooks/useRememberedTab'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
@@ -36,8 +37,11 @@ export const AdminCasting = () => {
   const { selectedEventId, selectedEvent } = useCurrentEvent()
   // The Dashboard's cards deep-link to a tab via navigate(path, { state: { tab } }).
   const location = useLocation()
-  const [activeTab, setActiveTab] = useState<'casting' | 'show' | 'travel'>(
-    (location.state as { tab?: 'casting' | 'show' | 'travel' } | null)?.tab ?? 'casting'
+  const [activeTab, setActiveTab] = useRememberedTab(
+    'casting',
+    ['casting', 'show', 'travel'] as const,
+    'casting',
+    (location.state as { tab?: 'casting' | 'show' | 'travel' } | null)?.tab
   )
   // Links from other pages (or from the Documents menu on this one) switch tab the same way:
   // a new navigation key means a new state.tab to follow.

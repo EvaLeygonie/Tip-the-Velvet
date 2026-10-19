@@ -2,7 +2,20 @@ import { jsPDF } from 'jspdf'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { parseActTracks, trackFileUrl } from '@/lib/actMusic'
 import { staffPersonRoleSummary, vipCategoryLabel } from '@/lib/contactLabels'
-import { ensureInfoLinks, infoLinkUrl } from '@/services/eventInfoService'
+import {
+  ensureInfoLinks,
+  getDoorSlots,
+  getShowStartMinutes,
+  infoLinkUrl,
+} from '@/services/eventInfoService'
+import { getStaffVolunteers } from '@/services/contactsService'
+import {
+  doorRecommendation,
+  findPhoneForName,
+  slotPartyPhase,
+  formatClock as formatSwedishClock,
+  type DoorSlot,
+} from '@/lib/eventInfo'
 import {
   FIXED_STAFF_ROLES,
   STANDING_ORGANIZERS,
@@ -41,6 +54,14 @@ export interface EventDocContext {
   omitEmails?: boolean
   // Needed for the sound & light PDF's link to the technician's info page.
   eventId?: string
+  // The guest list door shifts, for the printable door sheet.
+  doorSlots?: DoorSlot[]
+  // Phone number per name written on a door shift, for the printed door sheet.
+  doorPhones?: Record<string, string>
+  // When the show starts (minutes after midnight, Swedish time) — the door sheet marks the two
+  // half-hours that fall during the show.
+  showStartMinutes?: number | null
+  // People housed who aren't booked artists — an extra page at the end of the artist list.
 }
 
 export interface GeneratedDocument {
@@ -238,106 +259,132 @@ export const createStageKittenPdf = (
     }
   }
 
+  interface RowSpec {
+    left: string
+    right: string
+    leftWidth: number
+    opts: { bold?: boolean; italicLeft?: boolean; minHeight?: number }
+  }
+
   // One bordered two-column row — sized to whichever cell needs more wrapped lines, so a
-  // long note doesn't overflow its box.
-  const drawRow = (
-    leftText: string,
-    rightText: string,
-    leftWidth: number,
-    opts: { bold?: boolean; italicLeft?: boolean; minHeight?: number } = {}
-  ) => {
-    const rightWidth = contentWidth - leftWidth
-    const leftLines = doc.splitTextToSize(leftText, leftWidth - cellPad * 2) as string[]
-    const rightLines = rightText
-      ? (doc.splitTextToSize(rightText, rightWidth - cellPad * 2) as string[])
+  // long note doesn't overflow its box. Measured first so a whole act can be kept together.
+  const measureRow = (spec: RowSpec) => {
+    const rightWidth = contentWidth - spec.leftWidth
+    const leftLines = doc.splitTextToSize(spec.left, spec.leftWidth - cellPad * 2) as string[]
+    const rightLines = spec.right
+      ? (doc.splitTextToSize(spec.right, rightWidth - cellPad * 2) as string[])
       : []
     const linesNeeded = Math.max(leftLines.length, rightLines.length, 1)
-    const rowHeight = Math.max(linesNeeded * lineHeight + cellPad * 2, opts.minHeight ?? 0)
-    ensureSpace(rowHeight)
+    const height = Math.max(linesNeeded * lineHeight + cellPad * 2, spec.opts.minHeight ?? 0)
+    return { spec, leftLines, rightLines, height }
+  }
+
+  const drawRow = (m: ReturnType<typeof measureRow>, keepOnPage: boolean) => {
+    const { spec, leftLines, rightLines, height } = m
+    // An act taller than a whole page can't be kept together; fall back to breaking per row.
+    if (!keepOnPage) ensureSpace(height)
 
     doc.setDrawColor(180)
-    doc.rect(margin, y, leftWidth, rowHeight)
-    doc.rect(margin + leftWidth, y, rightWidth, rowHeight)
+    doc.rect(margin, y, spec.leftWidth, height)
+    doc.rect(margin + spec.leftWidth, y, contentWidth - spec.leftWidth, height)
 
-    doc.setFont('helvetica', opts.bold ? 'bold' : opts.italicLeft ? 'italic' : 'normal')
+    doc.setFont('helvetica', spec.opts.bold ? 'bold' : spec.opts.italicLeft ? 'italic' : 'normal')
     doc.setFontSize(9.5)
     doc.setTextColor(20)
     doc.text(leftLines, margin + cellPad, y + cellPad + 3)
 
     if (rightLines.length > 0) {
-      doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+      doc.setFont('helvetica', spec.opts.bold ? 'bold' : 'normal')
       doc.setTextColor(40)
-      doc.text(rightLines, margin + leftWidth + cellPad, y + cellPad + 3)
+      doc.text(rightLines, margin + spec.leftWidth + cellPad, y + cellPad + 3)
     }
 
-    y += rowHeight
+    y += height
+  }
+
+  const headerLeftWidth = contentWidth / 2
+  const labelWidth = 46
+
+  // One act = its number plus the whole table. Built and measured up front so the table is never
+  // split across two pages — it moves to the next page as a block instead.
+  const buildAct = (row: (typeof ctx.acts)[number], position: number) => {
+    const specs: RowSpec[] = [
+      row.performer
+        ? {
+            left: `${t('Artist', 'Artist')}: ${row.performer.performer_name}`,
+            right: `${t('Akt', 'Act')}: ${row.act_name}`,
+            leftWidth: headerLeftWidth,
+            opts: { bold: true },
+          }
+        : {
+            left: t('Moment', 'Segment'),
+            right: row.act_name || t('(Namnlöst)', '(Untitled)'),
+            leftWidth: headerLeftWidth,
+            opts: { bold: true },
+          },
+    ]
+    if (!orderOnly) {
+      specs.push(
+        {
+          left: t('Scenförberedelser:', 'Stage preparations:'),
+          right: row.stage_preparations ?? '',
+          leftWidth: labelWidth,
+          opts: { italicLeft: true },
+        },
+        {
+          left: t('Plockning/städning:', 'Pick up/cleaning:'),
+          right: row.pick_up_cleaning ?? '',
+          leftWidth: labelWidth,
+          opts: { italicLeft: true },
+        },
+        {
+          left: t('Anteckningar:', 'Notes:'),
+          right: '',
+          leftWidth: labelWidth,
+          opts: { italicLeft: true, minHeight: 16 },
+        }
+      )
+    }
+    const measured = specs.map(measureRow)
+    const numberHeight = 5
+    const height = numberHeight + measured.reduce((sum, m) => sum + m.height, 0)
+    const fits = height <= pageBottom - margin
+    return {
+      height,
+      draw: () => {
+        if (fits) ensureSpace(height)
+        else ensureSpace(numberHeight + (measured[0]?.height ?? 0))
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(166, 124, 0)
+        doc.text(`${position}.`, margin, y)
+        y += numberHeight
+        measured.forEach((m) => drawRow(m, fits))
+        y += orderOnly ? 3 : 6
+      },
+    }
   }
 
   buildSetListSections(ctx).forEach((section, sectionIndex) => {
     if (section.rows.length === 0) return
+    const acts = section.rows.map((row, index) => buildAct(row, section.offset + index + 1))
+    // The set heading (and the break before it) stays with its first act.
+    const headingHeight = (sectionIndex > 0 ? 9 : 0) + 7
+    ensureSpace(headingHeight + Math.min(acts[0].height, pageBottom - margin - headingHeight))
     if (sectionIndex > 0) {
-      ensureSpace(12)
       doc.setFont('helvetica', 'bolditalic')
       doc.setFontSize(11)
       doc.setTextColor(166, 124, 0)
       doc.text(t('— PAUS —', '— BREAK —'), pageWidth / 2, y, { align: 'center' })
       y += 9
     }
-    ensureSpace(10)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(13)
     doc.setTextColor(20)
     doc.text(section.label, margin, y)
     y += 7
 
-    const headerLeftWidth = contentWidth / 2
-    const labelWidth = 46
-
-    section.rows.forEach((row, index) => {
-      ensureSpace(6)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
-      doc.setTextColor(166, 124, 0)
-      doc.text(`${section.offset + index + 1}.`, margin, y)
-      y += 5
-
-      if (row.performer) {
-        drawRow(
-          `${t('Artist', 'Artist')}: ${row.performer.performer_name}`,
-          `${t('Akt', 'Act')}: ${row.act_name}`,
-          headerLeftWidth,
-          { bold: true }
-        )
-      } else {
-        drawRow(
-          t('Moment', 'Segment'),
-          row.act_name || t('(Namnlöst)', '(Untitled)'),
-          headerLeftWidth,
-          { bold: true }
-        )
-      }
-
-      if (orderOnly) {
-        y += 3
-        return
-      }
-
-      drawRow(
-        t('Scenförberedelser:', 'Stage preparations:'),
-        row.stage_preparations ?? '',
-        labelWidth,
-        { italicLeft: true }
-      )
-      drawRow(
-        t('Plockning/städning:', 'Pick up/cleaning:'),
-        row.pick_up_cleaning ?? '',
-        labelWidth,
-        { italicLeft: true }
-      )
-      drawRow(t('Anteckningar:', 'Notes:'), '', labelWidth, { italicLeft: true, minHeight: 16 })
-
-      y += 6
-    })
+    acts.forEach((act) => act.draw())
   })
 
   return { doc, fileName: `${eventTitle}-${orderOnly ? 'show-order' : 'set-list'}.pdf` }
@@ -904,6 +951,123 @@ export const createFoodListPdf = (ctx: EventDocContext): GeneratedDocument => {
   return { doc, fileName: `${eventTitle}-matlista.pdf` }
 }
 
+// The guest list door shifts as a sheet to print: one row per time window, a line per spot with
+// the name filled in where someone has booked and left blank otherwise. For the board, not the
+// volunteer page.
+export const createDoorShiftsPdf = (ctx: EventDocContext): GeneratedDocument => {
+  const { t, eventTitle, doorSlots = [], doorPhones = {}, showStartMinutes = null } = ctx
+  const page = startDocument(t('Dörrpass', 'Door shifts'), eventTitle)
+  const { doc } = page
+
+  const windows: { start: string; end: string; names: (string | null)[] }[] = []
+  for (const slot of doorSlots) {
+    const last = windows[windows.length - 1]
+    if (last && last.start === slot.slot_start) last.names.push(slot.volunteer_name)
+    else windows.push({ start: slot.slot_start, end: slot.slot_end, names: [slot.volunteer_name] })
+  }
+
+  if (windows.length === 0) {
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(11)
+    doc.setTextColor(...MUTED)
+    doc.text(t('Inga dörrpass skapade än.', 'No door shifts created yet.'), MARGIN, page.y)
+  } else {
+    // The recommendation, then one row per time window with the names in columns (always at
+    // least two, so a second person can be written in — sitting two is always fine).
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(10)
+    doc.setTextColor(...MUTED)
+    const note = doc.splitTextToSize(
+      doorRecommendation(windows[0].start, t('sv', 'eng') === 'sv' ? 'sv' : 'eng'),
+      PAGE_WIDTH - MARGIN * 2
+    ) as string[]
+    doc.text(note, MARGIN, page.y)
+    page.y += note.length * 4.5
+    if (showStartMinutes !== null) {
+      doc.text(
+        t(
+          'Kvällens moment (mingel, show, paus, dansgolv) är ungefärliga tider.',
+          'The evening stages (mingle, show, break, dancefloor) are approximate times.'
+        ),
+        MARGIN,
+        page.y
+      )
+      page.y += 4.5
+    }
+    page.y += 4
+  }
+
+  const columns = Math.max(2, ...windows.map((w) => w.names.length))
+  const timeWidth = 34
+  const nameWidth = (PAGE_WIDTH - MARGIN * 2 - timeWidth) / columns
+  // Tall enough for a name with its phone number underneath.
+  const rowHeight = 14
+  for (const w of windows) {
+    page.ensureSpace(rowHeight)
+    doc.setDrawColor(...MUTED)
+    doc.setLineWidth(0.2)
+    doc.rect(MARGIN, page.y, PAGE_WIDTH - MARGIN * 2, rowHeight)
+    for (let c = 0; c < columns; c++) {
+      doc.line(
+        MARGIN + timeWidth + nameWidth * c,
+        page.y,
+        MARGIN + timeWidth + nameWidth * c,
+        page.y + rowHeight
+      )
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(...INK)
+    // A small note under the time about what the party is doing then (approximate), counted
+    // from the show start: mingle, show, break, show, dancefloor. The show halves are gold.
+    const phase = showStartMinutes === null ? null : slotPartyPhase(w.start, showStartMinutes)
+    doc.text(
+      `${formatSwedishClock(w.start)}–${formatSwedishClock(w.end)}`,
+      MARGIN + 3,
+      phase ? page.y + 6 : page.y + rowHeight / 2 + 1.5
+    )
+    if (phase) {
+      const label = {
+        mingle: t('(mingel)', '(mingle)'),
+        show: t('(show)', '(show)'),
+        break: t('(paus)', '(break)'),
+        dancefloor: t('(dansgolv)', '(dancefloor)'),
+      }[phase]
+      doc.setFont('helvetica', 'italic')
+      doc.setFontSize(9)
+      doc.setTextColor(...(phase === 'show' ? GOLD : MUTED))
+      doc.text(label, MARGIN + 3, page.y + 10.5)
+    }
+
+    for (let c = 0; c < columns; c++) {
+      const name = w.names[c]
+      const left = MARGIN + timeWidth + nameWidth * c
+      if (name) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(12)
+        doc.setTextColor(...INK)
+        const phone = doorPhones[name]
+        doc.text(name, left + 3, page.y + (phone ? 5.5 : rowHeight / 2 + 1.5), {
+          maxWidth: nameWidth - 6,
+        })
+        if (phone) {
+          doc.setFontSize(9.5)
+          doc.setTextColor(...MUTED)
+          doc.text(phone, left + 3, page.y + 10.5, { maxWidth: nameWidth - 6 })
+        }
+      } else {
+        doc.setDrawColor(...MUTED)
+        doc.line(left + 3, page.y + rowHeight - 3, left + nameWidth - 3, page.y + rowHeight - 3)
+      }
+    }
+    page.y += rowHeight
+  }
+
+  addFooters(doc, `${eventTitle} · ${t('Dörrpass', 'Door shifts')}`)
+  return { doc, fileName: `${eventTitle}-dorrpass.pdf` }
+}
+
 // ---------------------------------------------------------------------------------------
 // Registry + download
 // ---------------------------------------------------------------------------------------
@@ -915,6 +1079,7 @@ export type EventDocumentId =
   | 'runOfShow'
   | 'artistContacts'
   | 'foodList'
+  | 'doorShifts'
 
 export const EVENT_DOCUMENTS: {
   id: EventDocumentId
@@ -963,6 +1128,14 @@ export const EVENT_DOCUMENTS: {
     label: ['Matlista', 'Food list'],
     description: ['Vem som äter vad, med allergier', 'Who eats what, with allergies'],
   },
+  {
+    id: 'doorShifts',
+    label: ['Dörrpass', 'Door shifts'],
+    description: [
+      'Gästlistans pass med namn, att skriva ut till dörren',
+      'The guest list shifts with names, to print for the door',
+    ],
+  },
 ]
 
 // The fields a caller may not have on hand (VIP entries, organizer food, event times) are
@@ -971,12 +1144,33 @@ export const loadEventDocContext = async (
   base: Omit<EventDocContext, 'vipEntries' | 'organizers' | 'eventInfo'>,
   eventId: string
 ): Promise<EventDocContext> => {
-  const [vipEntries, organizers, eventInfo] = await Promise.all([
-    getVipManualEntries(eventId),
-    getEventOrganizerFood(eventId),
-    getEventScheduleInfo(eventId),
-  ])
-  return { ...base, vipEntries, organizers, eventInfo, eventId }
+  const [vipEntries, organizers, eventInfo, doorSlots, staff, showStartMinutes] = await Promise.all(
+    [
+      getVipManualEntries(eventId),
+      getEventOrganizerFood(eventId),
+      getEventScheduleInfo(eventId),
+      getDoorSlots(eventId),
+      getStaffVolunteers(),
+      getShowStartMinutes(eventId),
+    ]
+  )
+  // Numbers for the names on the door sheet, so a shift that runs over can reach the next person.
+  const doorPhones: Record<string, string> = {}
+  for (const slot of doorSlots) {
+    if (!slot.volunteer_name || doorPhones[slot.volunteer_name]) continue
+    const phone = findPhoneForName(slot.volunteer_name, staff)
+    if (phone) doorPhones[slot.volunteer_name] = phone
+  }
+  return {
+    ...base,
+    vipEntries,
+    organizers,
+    eventInfo,
+    doorSlots,
+    doorPhones,
+    showStartMinutes,
+    eventId,
+  }
 }
 
 export const generateEventDocument = async (
@@ -996,6 +1190,8 @@ export const generateEventDocument = async (
       return createArtistContactsPdf(ctx)
     case 'foodList':
       return createFoodListPdf(ctx)
+    case 'doorShifts':
+      return createDoorShiftsPdf(ctx)
   }
 }
 

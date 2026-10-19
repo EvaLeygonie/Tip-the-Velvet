@@ -4,10 +4,13 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import {
+  buildDoorNeed,
+  buildDoorReport,
   buildDoorShiftsForPeople,
   countUncoveredDoorWindows,
   findUnplacedDoorStaff,
   formatClock,
+  formatDurationShort,
   type DoorSlot,
 } from '@/lib/eventInfo'
 import { createDoorSlots, deleteDoorSlots, setDoorSlotName } from '@/services/eventInfoService'
@@ -17,6 +20,10 @@ interface InfoDoorShiftsProps {
   eventStart: string | null
   // Door staff for this event (guest-list volunteers) — the dropdown options and auto-fill pool.
   volunteerNames: string[]
+  // When the show starts (minutes after midnight) — marks the show shifts in the report.
+  showStartMinutes?: number | null
+  // Door volunteers who also work setup — they only need 30 minutes, or nothing.
+  setupNames?: string[]
   slots: DoorSlot[]
   onSlotsChange: (slots: DoorSlot[]) => void
   // Called after 1-hour shifts were split into 30-minute ones, with the names that were moved
@@ -25,6 +32,7 @@ interface InfoDoorShiftsProps {
 }
 
 const inputClass = 'velvet-input'
+const OTHER_PERSON = '__other__'
 
 const durationOf = (s: Pick<DoorSlot, 'slot_start' | 'slot_end'>) =>
   Math.round((new Date(s.slot_end).getTime() - new Date(s.slot_start).getTime()) / 60_000)
@@ -51,16 +59,21 @@ export const InfoDoorShifts = ({
   eventId,
   eventStart,
   volunteerNames,
+  showStartMinutes = null,
+  setupNames = [],
   slots,
   onSlotsChange,
   onSplit,
 }: InfoDoorShiftsProps) => {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const confirm = useConfirm()
   const [from, setFrom] = useState('19:00')
   const [to, setTo] = useState('01:00')
   const [minutes, setMinutes] = useState(60)
   const [busy, setBusy] = useState(false)
+  // A spot where the board is typing a name that isn't in the door staff list (e.g. a board
+  // member sitting in for a bit).
+  const [typing, setTyping] = useState<{ id: string; value: string } | null>(null)
 
   // One row per time window, holding its (usually two) spots.
   const windows = slots.reduce<DoorSlot[][]>((groups, slot) => {
@@ -411,25 +424,51 @@ export const InfoDoorShifts = ({
                   {formatClock(group[0].slot_start)}–{formatClock(group[0].slot_end)}
                 </span>
                 <div className="flex flex-1 min-w-0 flex-wrap gap-2">
-                  {group.map((slot) => (
-                    <select
-                      key={slot.id}
-                      value={slot.volunteer_name ?? ''}
-                      onChange={(e) => handleName(slot, e.target.value)}
-                      className={`${inputClass} flex-1 min-w-32`}
-                    >
-                      <option value="">{t('Ledig', 'Open')}</option>
-                      {/* A name typed in by the volunteer themselves may not match a profile. */}
-                      {slot.volunteer_name && !volunteerNames.includes(slot.volunteer_name) && (
-                        <option value={slot.volunteer_name}>{slot.volunteer_name}</option>
-                      )}
-                      {volunteerNames.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  ))}
+                  {group.map((slot) =>
+                    typing?.id === slot.id ? (
+                      <input
+                        key={slot.id}
+                        autoFocus
+                        value={typing.value}
+                        maxLength={60}
+                        placeholder={t('Skriv ett namn…', 'Type a name…')}
+                        onChange={(e) => setTyping({ id: slot.id, value: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setTyping(null)
+                          if (e.key === 'Enter') e.currentTarget.blur()
+                        }}
+                        onBlur={() => {
+                          const value = typing.value.trim()
+                          setTyping(null)
+                          if (value) handleName(slot, value)
+                        }}
+                        className={`${inputClass} flex-1 min-w-32`}
+                      />
+                    ) : (
+                      <select
+                        key={slot.id}
+                        value={slot.volunteer_name ?? ''}
+                        onChange={(e) =>
+                          e.target.value === OTHER_PERSON
+                            ? setTyping({ id: slot.id, value: '' })
+                            : handleName(slot, e.target.value)
+                        }
+                        className={`${inputClass} flex-1 min-w-32`}
+                      >
+                        <option value="">{t('Ledig', 'Open')}</option>
+                        {/* A name typed in by hand may not match a profile. */}
+                        {slot.volunteer_name && !volunteerNames.includes(slot.volunteer_name) && (
+                          <option value={slot.volunteer_name}>{slot.volunteer_name}</option>
+                        )}
+                        {volunteerNames.map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                        <option value={OTHER_PERSON}>{t('Annan person…', 'Someone else…')}</option>
+                      </select>
+                    )
+                  )}
                 </div>
                 <button
                   type="button"
@@ -463,12 +502,100 @@ export const InfoDoorShifts = ({
             ))}
           </ul>
 
-          {unplaced.length > 0 && (
-            <p className="text-sm text-foreground/70">
-              {t('Inte på något pass än: ', 'Not on a shift yet: ')}
-              {unplaced.map((p) => p.name).join(', ')}
-            </p>
-          )}
+          {(() => {
+            // How long each door volunteer has booked: an hour is the target, ideally one shift in
+            // the first two hours and one after (a note marks people who have two in the same part).
+            const report = buildDoorReport(slots, volunteerNames, showStartMinutes, setupNames)
+            const need = buildDoorNeed(slots, report)
+            const person = (p: { name: string; minutes: number; show: boolean; early: number }) =>
+              `${p.name}: ${formatDurationShort(p.minutes, language)}${p.show ? ' (show)' : ''}${
+                p.minutes >= 60 && (p.early === 0 || p.early === p.minutes)
+                  ? t(' – två pass i samma del', ' – both shifts in the same part')
+                  : ''
+              }`
+            return (
+              <div className="admin-panel velvet-surface p-4 space-y-3 text-sm">
+                <h5 className="font-decorative text-base text-foreground/80">
+                  {t('Rapport – vem har bokat vad', 'Report – who has booked what')}
+                </h5>
+                <div className="rounded border border-accent/20 bg-black/20 p-3 space-y-1">
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-foreground/80">
+                    <span>
+                      {t('Lediga platser', 'Open spots')}:{' '}
+                      <strong className="text-foreground">
+                        {need.openSpots} {t('av', 'of')} {need.totalSpots}
+                      </strong>
+                    </span>
+                    <span>
+                      {t('Tider utan någon', 'Times with nobody')}:{' '}
+                      <strong
+                        className={need.uncoveredSlots > 0 ? 'text-amber-400' : 'text-emerald-400'}
+                      >
+                        {need.uncoveredSlots}
+                        {need.uncoveredSlots > 0 &&
+                          ` (${formatDurationShort(need.uncoveredMinutes, language)})`}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className={need.extraVolunteers > 0 ? 'text-amber-400' : 'text-emerald-400'}>
+                    {need.extraVolunteers > 0
+                      ? t(
+                          `Saknas: ungefär ${need.extraVolunteers} volontär${need.extraVolunteers > 1 ? 'er' : ''} till (1 timme var)`,
+                          `Short by about ${need.extraVolunteers} more volunteer${need.extraVolunteers > 1 ? 's' : ''} (1 hour each)`
+                        )
+                      : need.uncoveredSlots > 0
+                        ? t(
+                            'Räcker om alla som saknar tid bokar sitt pass.',
+                            'Enough if everyone who still owes time books their share.'
+                          )
+                        : t('Alla tider är täckta.', 'Every time is covered.')}
+                  </div>
+                </div>
+                <div>
+                  <div className="form-label-gold !text-amber-400">
+                    {t('Inget bokat', 'Nothing booked')} ({report.notBooked.length})
+                  </div>
+                  <p className="text-foreground/80">
+                    {report.notBooked.length > 0 ? report.notBooked.join(', ') : '–'}
+                  </p>
+                </div>
+                {report.setupFree.length > 0 && (
+                  <div>
+                    <div className="form-label-gold">
+                      {t('Jobbar redan med uppsättningen', 'Already working setup')} (
+                      {report.setupFree.length})
+                    </div>
+                    <p className="text-foreground/80">
+                      {report.setupFree.join(', ')}
+                      <span className="text-foreground/50">
+                        {' '}
+                        {t(
+                          '– 30 min räcker, helst inget om vi hittar fler',
+                          '– 30 min is enough, ideally none if we find more people'
+                        )}
+                      </span>
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <div className="form-label-gold">
+                    {t('Behöver mer tid', 'Needs more time')} ({report.needsMore.length})
+                  </div>
+                  <p className="text-foreground/80">
+                    {report.needsMore.length > 0 ? report.needsMore.map(person).join(', ') : '–'}
+                  </p>
+                </div>
+                <div>
+                  <div className="form-label-gold !text-emerald-400">
+                    {t('Klara', 'Done')} ({report.done.length})
+                  </div>
+                  <p className="text-foreground/80">
+                    {report.done.length > 0 ? report.done.map(person).join(', ') : '–'}
+                  </p>
+                </div>
+              </div>
+            )
+          })()}
         </>
       )}
     </div>

@@ -34,6 +34,12 @@ export const DownloadDocumentsModal = ({
 
   // Keeps the registry's order rather than click order.
   const chosen = EVENT_DOCUMENTS.filter((d) => selected.has(d.id)).map((d) => d.id)
+  const allSelected = chosen.length === EVENT_DOCUMENTS.length
+
+  // One button for both directions: untick everything to pick a single document quickly, or tick
+  // everything again.
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(EVENT_DOCUMENTS.map((d) => d.id)))
 
   return createPortal(
     <div
@@ -76,28 +82,38 @@ export const DownloadDocumentsModal = ({
           ))}
         </ul>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={toggleAll}
             disabled={isDownloading}
-            className="text-sm py-2 px-4 border border-accent/20 rounded text-foreground/70 hover:bg-accent/10 transition-colors disabled:opacity-50"
+            className="text-xs text-accent hover:underline disabled:opacity-50"
           >
-            {t('Avbryt', 'Cancel')}
+            {allSelected ? t('Avmarkera alla', 'Deselect all') : t('Markera alla', 'Select all')}
           </button>
-          <button
-            type="button"
-            onClick={() => onDownload(chosen)}
-            disabled={isDownloading || chosen.length === 0}
-            className="flex items-center gap-1.5 text-sm py-2 px-4 border border-accent/40 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-50 disabled:pointer-events-none"
-          >
-            {isDownloading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            {t(`Ladda ner (${chosen.length})`, `Download (${chosen.length})`)}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isDownloading}
+              className="text-sm py-2 px-4 border border-accent/20 rounded text-foreground/70 hover:bg-accent/10 transition-colors disabled:opacity-50"
+            >
+              {t('Avbryt', 'Cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => onDownload(chosen)}
+              disabled={isDownloading || chosen.length === 0}
+              className="flex items-center gap-1.5 text-sm py-2 px-4 border border-accent/40 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {t(`Ladda ner (${chosen.length})`, `Download (${chosen.length})`)}
+            </button>
+          </div>
         </div>
       </div>
     </div>,

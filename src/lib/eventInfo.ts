@@ -148,6 +148,28 @@ export const sortInfoItems = <T extends Pick<EventInfoItem, 'kind' | 'time_text'
     return a.sort_order - b.sort_order
   })
 
+// The phone number for a name written on a door shift: an exact name match, otherwise the first
+// name when only one person with a number has it (so "Krister (arrangör)" finds Krister). Text in
+// parentheses is ignored. Null when nothing matches clearly.
+export const findPhoneForName = (
+  name: string,
+  people: { name: string; phone: string | null }[]
+): string | null => {
+  const clean = (v: string) =>
+    v
+      .replace(/\(.*?\)/g, '')
+      .trim()
+      .toLowerCase()
+  const wanted = clean(name)
+  if (!wanted) return null
+  const withPhone = people.filter((p) => p.phone?.trim())
+  const exact = withPhone.find((p) => clean(p.name) === wanted)
+  if (exact) return exact.phone!.trim()
+  const first = wanted.split(/\s+/)[0]
+  const byFirstName = withPhone.filter((p) => clean(p.name).split(/\s+/)[0] === first)
+  return byFirstName.length === 1 ? byFirstName[0].phone!.trim() : null
+}
+
 // A volunteer's door-shift slot. Time-of-day is rendered in Swedish local time regardless of
 // the viewer's device so the page never disagrees with the printed schedule.
 export interface DoorSlot {
@@ -330,62 +352,196 @@ export const buildDoorShiftsForPeople = (
   }
 }
 
-// The volunteer page's line above the door shifts, built from the shifts that actually exist:
-// how many people, how long each works, and how the second spots are spread over the evening.
-export const doorShiftSummary = (
+// What the party is doing at a given time, counted from when the show starts (approximate): mingle
+// before it, the first show hour, a half-hour break, the second show hour, then the dancefloor. Used for the small note under each time on the printed door sheet.
+export type PartyPhase = 'mingle' | 'show' | 'break' | 'dancefloor'
+export const partyPhase = (minutesFromShowStart: number): PartyPhase =>
+  minutesFromShowStart < 0
+    ? 'mingle'
+    : minutesFromShowStart < 60
+      ? 'show'
+      : minutesFromShowStart < 90
+        ? 'break'
+        : minutesFromShowStart < 150
+          ? 'show'
+          : 'dancefloor'
+
+// When the show starts, in minutes after midnight, read from the schedule row titled "Showen
+// börjar"/"Show starts". Null when there is no such row.
+export const showStartMinutesFromItems = (
+  items: {
+    kind?: string
+    time_text: string | null
+    title_sv: string | null
+    title_eng: string | null
+  }[]
+): number | null => {
+  const row = items.find(
+    (i) =>
+      (i.kind === undefined || i.kind === 'schedule') &&
+      /show(en)? (börjar|starts?)/i.test(`${i.title_sv ?? ''} ${i.title_eng ?? ''}`)
+  )
+  const match = row?.time_text?.match(/(\d{1,2})[:.](\d{2})/)
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null
+}
+
+// Minutes after midnight (Swedish time) at which a door shift starts.
+export const slotStartMinutes = (slotStartIso: string): number => {
+  const [h, m] = formatClock(slotStartIso).split(':').map(Number)
+  return h * 60 + m
+}
+
+// What the party is doing at a door shift. Shifts after midnight (00:00, 00:30) count as the end
+// of the same evening, not as hours before the show.
+export const slotPartyPhase = (slotStartIso: string, showStartMinutes: number): PartyPhase => {
+  let diff = slotStartMinutes(slotStartIso) - showStartMinutes
+  if (diff < -12 * 60) diff += 24 * 60
+  return partyPhase(diff)
+}
+
+// Who has booked what for the door: nobody-yet, people who still need more time, and people who
+// are done — an hour is the target, ideally one shift in the first two hours and one after.
+export interface DoorReportPerson {
+  name: string
+  minutes: number
+  show: boolean
+  // Minutes of that in the first two hours of the door shifts (the easiest ones).
+  early: number
+  // How many minutes this person is expected to work in total.
+  target: number
+}
+export interface DoorReport {
+  notBooked: string[]
+  // Setup volunteers with no door shift: they already work the afternoon, so nothing is needed
+  // from them (and they can be replaced by new volunteers).
+  setupFree: string[]
+  needsMore: DoorReportPerson[]
+  done: DoorReportPerson[]
+}
+
+export const buildDoorReport = (
+  slots: Pick<DoorSlot, 'slot_start' | 'slot_end' | 'volunteer_name'>[],
+  doorStaffNames: string[],
+  showStartMinutes: number | null,
+  // People who already work setup only need a short door shift (30 min), or none at all.
+  setupNames: string[] = [],
+  targetMinutes = 60,
+  setupTargetMinutes = 30
+): DoorReport => {
+  const setupKeys = new Set(setupNames.map((n) => n.trim().toLowerCase()))
+  const targetFor = (name: string) =>
+    setupKeys.has(name.trim().toLowerCase()) ? setupTargetMinutes : targetMinutes
+  const isSetup = (name: string) => setupKeys.has(name.trim().toLowerCase())
+  const people = new Map<string, DoorReportPerson>()
+  const keyOf = (name: string) => name.trim().toLowerCase()
+  const firstStart = slots.reduce<number | null>((min, s) => {
+    const at = new Date(s.slot_start).getTime()
+    return min === null || at < min ? at : min
+  }, null)
+  const earlyEnd = firstStart === null ? 0 : firstStart + 2 * 3_600_000
+  for (const name of doorStaffNames)
+    people.set(keyOf(name), { name, minutes: 0, show: false, early: 0, target: targetFor(name) })
+  for (const slot of slots) {
+    if (!slot.volunteer_name) continue
+    const key = keyOf(slot.volunteer_name)
+    const person = people.get(key) ?? {
+      name: slot.volunteer_name,
+      minutes: 0,
+      show: false,
+      early: 0,
+      target: targetMinutes,
+    }
+    const slotMinutes = Math.round(
+      (new Date(slot.slot_end).getTime() - new Date(slot.slot_start).getTime()) / 60_000
+    )
+    person.minutes += slotMinutes
+    if (new Date(slot.slot_start).getTime() < earlyEnd) person.early += slotMinutes
+    if (showStartMinutes !== null && slotPartyPhase(slot.slot_start, showStartMinutes) === 'show')
+      person.show = true
+    people.set(key, person)
+  }
+  const all = Array.from(people.values()).sort((a, b) => a.name.localeCompare(b.name, 'sv'))
+  return {
+    notBooked: all.filter((p) => p.minutes === 0 && !isSetup(p.name)).map((p) => p.name),
+    setupFree: all.filter((p) => p.minutes === 0 && isSetup(p.name)).map((p) => p.name),
+    needsMore: all.filter((p) => p.minutes > 0 && p.minutes < targetFor(p.name)),
+    done: all.filter((p) => p.minutes > 0 && p.minutes >= targetFor(p.name)),
+  }
+}
+
+// The recommendation shown on the volunteer page and the printed door sheet: two at the door for
+// the first two hours of the door shifts, one is enough after that — and sitting two is always
+// fine. `from` is the start of the first shift.
+export const doorRecommendation = (fromIso: string, language: 'sv' | 'eng'): string => {
+  const from = formatClock(fromIso)
+  const to = formatClock(new Date(new Date(fromIso).getTime() + 2 * 3_600_000).toISOString())
+  return language === 'sv'
+    ? `De första två timmarna (${from}–${to}) rekommenderar vi att ni är två i dörren åt gången. Resten av kvällen räcker det med en, men ni får förstås alltid vara två om ni vill.`
+    : `For the first two hours (${from}–${to}) we recommend two people at the door at a time. For the rest of the evening one is enough, but you are of course always welcome to sit two.`
+}
+
+// How much of the door is still unbooked, and whether the people who still owe time can cover it.
+// "Required" is every time slot with nobody on it; second spots are optional. People who haven't
+// booked everything yet are expected to take up to their target, so the extra volunteers needed
+// is what's left of the required time after that.
+export interface DoorNeed {
+  totalSpots: number
+  openSpots: number
+  uncoveredSlots: number
+  uncoveredMinutes: number
+  // Minutes the people who haven't booked their share yet still have to book.
+  owedMinutes: number
+  extraVolunteers: number
+}
+
+export const buildDoorNeed = (
+  slots: Pick<DoorSlot, 'slot_start' | 'slot_end' | 'volunteer_name'>[],
+  report: DoorReport,
+  targetMinutes = 60
+): DoorNeed => {
+  const minutesOf = (s: Pick<DoorSlot, 'slot_start' | 'slot_end'>) =>
+    Math.round((new Date(s.slot_end).getTime() - new Date(s.slot_start).getTime()) / 60_000)
+  const windows = new Map<string, { minutes: number; covered: boolean }>()
+  for (const s of slots) {
+    const w = windows.get(s.slot_start) ?? { minutes: minutesOf(s), covered: false }
+    w.covered = w.covered || Boolean(s.volunteer_name)
+    windows.set(s.slot_start, w)
+  }
+  const uncovered = Array.from(windows.values()).filter((w) => !w.covered)
+  const uncoveredMinutes = uncovered.reduce((sum, w) => sum + w.minutes, 0)
+  const owedMinutes =
+    report.notBooked.length * targetMinutes +
+    report.needsMore.reduce((sum, p) => sum + Math.max(p.target - p.minutes, 0), 0)
+  return {
+    totalSpots: slots.length,
+    openSpots: slots.filter((s) => !s.volunteer_name).length,
+    uncoveredSlots: uncovered.length,
+    uncoveredMinutes,
+    owedMinutes,
+    extraVolunteers: Math.max(0, Math.ceil((uncoveredMinutes - owedMinutes) / targetMinutes)),
+  }
+}
+
+// The short text above the booking form on the volunteer page: how to book fairly. With 30-minute
+// shifts everyone takes two: one in the first (easiest) two hours and one after. Anything else —
+// extra shifts, being two at once — the board tells people directly.
+export const doorBookingInfo = (
   slots: Pick<DoorSlot, 'slot_start' | 'slot_end'>[],
-  people: number,
   language: 'sv' | 'eng'
 ): string | null => {
-  const windows: { start: string; end: string; seats: number }[] = []
-  for (const s of slots) {
-    const last = windows[windows.length - 1]
-    if (last && last.start === s.slot_start) last.seats += 1
-    else windows.push({ start: s.slot_start, end: s.slot_end, seats: 1 })
-  }
-  if (windows.length === 0) return null
+  if (slots.length === 0) return null
   const sv = language === 'sv'
+  const first = [...slots].sort((a, b) => a.slot_start.localeCompare(b.slot_start))[0]
   const minutes = Math.round(
-    (new Date(windows[0].end).getTime() - new Date(windows[0].start).getTime()) / 60_000
+    (new Date(first.slot_end).getTime() - new Date(first.slot_start).getTime()) / 60_000
   )
-  const doubled = windows.filter((w) => w.seats >= 2).length
-  const doublesFirst =
-    windows.slice(0, doubled).every((w) => w.seats >= 2) &&
-    windows.slice(doubled).every((w) => w.seats === 1)
-  const from = formatClock(windows[0].start)
-  const split = formatClock(windows[Math.max(doubled - 1, 0)].end)
-
-  const each =
-    minutes === 30 && slots.length === people * 2
-      ? sv
-        ? `${people} volontärer – två pass på 30 minuter var (en timme totalt).`
-        : `${people} volunteers – two 30-minute shifts each (one hour in total).`
-      : slots.length !== people
-        ? sv
-          ? `${people} volontärer – ${slots.length} platser.`
-          : `${people} volunteers – ${slots.length} spots.`
-        : minutes === 60
-          ? sv
-            ? `${people} volontärer – en timme var.`
-            : `${people} volunteers – one hour each.`
-          : sv
-            ? `${people} volontärer – ett pass var.`
-            : `${people} volunteers – one shift each.`
-
-  let spread: string
-  if (doubled === 0) spread = sv ? 'En person per pass.' : 'One person per shift.'
-  else if (doubled === windows.length)
-    spread = sv ? 'Två personer per pass.' : 'Two people per shift.'
-  else if (doublesFirst)
-    spread = sv
-      ? `Två personer per timme ${from}–${split}, sedan en person (ni får såklart sitta fler om ni vill).`
-      : `Two people per hour ${from}–${split}, then one (or more if you want).`
-  else
-    spread = sv
-      ? `${doubled} av passen har plats för två personer.`
-      : `${doubled} of the shifts have room for two people.`
-
-  return `${each} ${spread}`
+  if (minutes !== 30) return sv ? 'Skriv upp dig på ett pass.' : 'Put your name on a shift.'
+  const to = formatClock(
+    new Date(new Date(first.slot_start).getTime() + 2 * 3_600_000).toISOString()
+  )
+  return sv
+    ? `Alla jobbar en timme, uppdelat på två pass på 30 minuter: ett före ${to} och ett efter.`
+    : `Everyone works one hour, split into two 30-minute shifts: one before ${to} and one after.`
 }
 
 type Seed = Omit<EventInfoItemInput, 'sort_order'>

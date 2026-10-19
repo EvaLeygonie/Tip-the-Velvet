@@ -27,7 +27,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      // Supabase re-announces the same session whenever the tab regains focus; keep the existing
+      // user object then so nothing downstream re-renders or reloads.
+      const next = session?.user ?? null
+      setUser((prev) => (prev && next && prev.id === next.id ? prev : next))
       setLoading(false)
     })
     return () => subscription.unsubscribe()

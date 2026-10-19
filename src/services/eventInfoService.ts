@@ -3,6 +3,7 @@ import type { Tables } from '@/types/database.types'
 import {
   DEFAULT_INFO_ITEMS,
   INFO_AUDIENCES,
+  showStartMinutesFromItems,
   type DoorSlot,
   type EventInfoItem,
   type EventInfoItemInput,
@@ -64,11 +65,55 @@ export const getEventInfoByToken = async (token: string): Promise<EventInfoPaylo
   return data as unknown as EventInfoPayload
 }
 
+// The running order for a role's page — acts in order with the break between the sets, names
+// only (no stage notes). Comes from the same function the set list PDF uses, so it only works
+// once the board has released the set list to this link; otherwise there is no order to show.
+export interface ShowOrderRow {
+  position: number
+  setNumber: number
+  performer: string | null
+  act: string
+}
+
+export const getShowOrder = async (token: string): Promise<ShowOrderRow[] | null> => {
+  const { data, error } = await supabase.rpc('get_event_document_data', {
+    p_token: token,
+    p_doc: 'setList',
+  })
+  if (error) return null
+  const acts = ((data as unknown as { acts?: unknown[] })?.acts ?? []) as {
+    set_number: number
+    act_name: string | null
+    performer: { performer_name: string } | null
+  }[]
+  const rows: ShowOrderRow[] = []
+  for (const setNumber of [1, 2]) {
+    for (const a of acts.filter((x) => x.set_number === setNumber)) {
+      rows.push({
+        position: rows.length + 1,
+        setNumber,
+        performer: a.performer?.performer_name ?? null,
+        act: a.act_name ?? '',
+      })
+    }
+  }
+  return rows
+}
+
 export const claimDoorSlot = async (token: string, slotId: string, name: string) => {
   const { error } = await supabase.rpc('claim_door_slot', {
     p_token: token,
     p_slot_id: slotId,
     p_name: name,
+  })
+  if (error) throw error
+}
+
+// Adds a second spot to a one-person door shift (only allowed once every time slot has someone).
+export const addDoorSpot = async (token: string, slotStart: string) => {
+  const { error } = await supabase.rpc('add_door_spot', {
+    p_token: token,
+    p_slot_start: slotStart,
   })
   if (error) throw error
 }
@@ -247,6 +292,18 @@ export const seedDefaultInfoItems = async (
 }
 
 //=== DOOR SHIFTS (admin) ===//
+
+// When the show starts, in minutes after midnight (Swedish time), read from the schedule row
+// titled "Showen börjar"/"Show starts" on the info page. Null when there is no such row.
+export const getShowStartMinutes = async (eventId: string): Promise<number | null> => {
+  const { data, error } = await supabase
+    .from('event_info_items')
+    .select('time_text, title_sv, title_eng')
+    .eq('event_id', eventId)
+    .eq('kind', 'schedule')
+  if (error) throw error
+  return showStartMinutesFromItems(data ?? [])
+}
 
 export const getDoorSlots = async (eventId: string): Promise<DoorSlot[]> => {
   const { data, error } = await supabase

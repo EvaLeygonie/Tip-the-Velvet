@@ -55,15 +55,27 @@ export const ContactMailModal = ({
   onSent,
 }: ContactMailModalProps) => {
   const { t } = useLanguage()
+  // With one recipient the greeting field shows their actual name instead of "{name}"; with
+  // several it keeps the placeholder, which is filled in per recipient when sending.
+  const resolveGreeting = (draft: MailDraft): MailDraft =>
+    recipients.length === 1
+      ? {
+          ...draft,
+          greeting: draft.greeting.replaceAll(
+            '{name}',
+            recipients[0].greetingName ?? recipients[0].name
+          ),
+        }
+      : draft
   const [drafts, setDrafts] = useState<Record<Language, MailDraft>>({
-    sv: defaultSv,
-    eng: defaultEng,
+    sv: resolveGreeting(defaultSv),
+    eng: resolveGreeting(defaultEng),
   })
   const [isSending, setIsSending] = useState(false)
 
   useEffect(() => {
     const resetDrafts = () => {
-      if (isOpen) setDrafts({ sv: defaultSv, eng: defaultEng })
+      if (isOpen) setDrafts({ sv: resolveGreeting(defaultSv), eng: resolveGreeting(defaultEng) })
     }
     resetDrafts()
     // eslint-disable-next-line react-hooks/exhaustive-deps

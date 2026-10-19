@@ -1,3 +1,4 @@
+import { useRememberedTab } from '@/hooks/useRememberedTab'
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { UtensilsCrossed, Plus } from 'lucide-react'
@@ -85,8 +86,11 @@ export const AdminEventPlan = () => {
   // for the stage-notes card) via navigate(path, { state: { tab } }) instead of always
   // landing on the default Bemanning tab.
   const location = useLocation()
-  const [activeTab, setActiveTab] = useState<EventPlanTab>(
-    (location.state as { tab?: EventPlanTab } | null)?.tab ?? 'staff'
+  const [activeTab, setActiveTab] = useRememberedTab<EventPlanTab>(
+    'event-plan',
+    ['staff', 'sponsors', 'food', 'info'],
+    'staff',
+    (location.state as { tab?: EventPlanTab } | null)?.tab
   )
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [acts, setActs] = useState<AdminEventActRow[]>([])
@@ -105,7 +109,6 @@ export const AdminEventPlan = () => {
   // three playlist fields need their own dedicated fetch here, same as venue_id does elsewhere.
   const [playlists, setPlaylists] = useState<EventPlaylists>({
     before_playlist: null,
-    intermission_playlist: null,
     afterparty_playlist: null,
   })
 
@@ -201,8 +204,6 @@ export const AdminEventPlan = () => {
       // An entertainer also gets a public profile — open it straight away (skippable).
       if (role === 'entertainment') setEntertainerTarget({ staffId: item.id, name: item.label })
     }
-  const fetchDjCandidates = fetchStaffCandidatesForRole('dj')
-  const handleAddDj = handleAddStaffToRole('dj')
 
   // One role section (header + count + add-picker + rows), shared by both columns of the
   // Bemanning tab's split layout below — kept as a plain function rather than a component so
@@ -535,7 +536,7 @@ export const AdminEventPlan = () => {
               </button>
               <DocumentsMenu
                 eventId={selectedEventId}
-                ids={['vipList', 'foodList']}
+                ids={['vipList', 'foodList', 'doorShifts']}
                 load={async () => ({ context: docContext })}
               />
             </div>
@@ -800,24 +801,15 @@ export const AdminEventPlan = () => {
                   <div className="space-y-4">
                     <StaffingCoverageStrip
                       staffRows={staffRows}
-                      hasBeforePlaylist={Boolean(playlists.before_playlist?.trim())}
-                      hasIntermissionPlaylist={Boolean(playlists.intermission_playlist?.trim())}
+                      hasPrePartyPlaylist={Boolean(playlists.before_playlist?.trim())}
                       hasAfterpartyPlaylist={Boolean(playlists.afterparty_playlist?.trim())}
                     />
                     <EventMusicSection
                       key={selectedEventId}
-                      djRows={staffRows.filter((r) => r.role === 'dj')}
-                      eventId={selectedEventId}
-                      beforePlaylist={playlists.before_playlist}
-                      intermissionPlaylist={playlists.intermission_playlist}
+                      prePartyPlaylist={playlists.before_playlist}
                       afterpartyPlaylist={playlists.afterparty_playlist}
-                      onRemoved={handleStaffRowRemoved}
-                      onUpdated={handleStaffRowUpdated}
-                      onSaveBeforePlaylist={handleSavePlaylist('before_playlist')}
-                      onSaveIntermissionPlaylist={handleSavePlaylist('intermission_playlist')}
+                      onSavePrePartyPlaylist={handleSavePlaylist('before_playlist')}
                       onSaveAfterpartyPlaylist={handleSavePlaylist('afterparty_playlist')}
-                      fetchDjCandidates={fetchDjCandidates}
-                      onAddDj={handleAddDj}
                     />
                     {/* Volunteers (with their shifts) get their own column, split out from
                         every other role that just needs filling — the two lists have very
@@ -827,9 +819,14 @@ export const AdminEventPlan = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6 items-start mt-6 pt-6 border-t border-accent/10">
                       <div className="space-y-4">{renderStaffRoleSection('volunteer')}</div>
                       <div className="space-y-4">
-                        {ROLE_ORDER.filter((role) => role !== 'dj' && role !== 'volunteer').map(
-                          renderStaffRoleSection
-                        )}
+                        {/* The DJ sits just before "Övrigt" instead of in the music section. */}
+                        {[
+                          ...ROLE_ORDER.filter(
+                            (role) => role !== 'dj' && role !== 'volunteer' && role !== 'other'
+                          ),
+                          'dj' as const,
+                          'other' as const,
+                        ].map(renderStaffRoleSection)}
                       </div>
                     </div>
                   </div>

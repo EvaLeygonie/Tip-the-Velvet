@@ -1,3 +1,4 @@
+import { useRememberedTab } from '@/hooks/useRememberedTab'
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -119,7 +120,11 @@ export const AdminMarketing = () => {
   const [customPosts, setCustomPosts] = useState<CustomMarketingPost[]>([])
   const [showCustomPostForm, setShowCustomPostForm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'posts' | 'emails'>('posts')
+  const [activeTab, setActiveTab] = useRememberedTab(
+    'marketing',
+    ['posts', 'emails'] as const,
+    'posts'
+  )
 
   useEffect(() => {
     if (!selectedEventId) return

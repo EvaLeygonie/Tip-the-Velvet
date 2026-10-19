@@ -23,12 +23,13 @@ export const doorSplitMailDefaults = (eventTitle: string, link: string): MailDef
   bodyEng: `We have split the door shifts into 30-minute shifts. You are now on the first half-hour of the hour you chose. Please pick one more shift on the info page, so it adds up to one hour in total:\n${link}\n\nBest regards,\nTip the Velvet`,
 })
 
-// Sent by hand from the role's row when something on its page has changed — never automatic.
+// Sent by hand from the role's row when something on its page has changed — never automatic. Mostly
+// empty on purpose: what changed differs every time, so the board writes it in the blank at the top.
 export const infoUpdateMailDefaults = (eventTitle: string, link: string): MailDefaults => ({
   subjectSv: `Uppdaterad info inför ${eventTitle}`,
   subjectEng: `Updated info for ${eventTitle}`,
-  bodySv: `Vi har uppdaterat infosidan inför ${eventTitle} med ny information:\n${link}\n\nTitta gärna in och kolla vad som är nytt.\n\nTips: På hemsidan hittar du länken igen under länk-ikonen (“Mina länkar”) i menyn högst upp, bredvid inloggningsikonen, men bara på den dator eller telefon där du har öppnat länken. Spara därför gärna det här mejlet.\n\nVarma hälsningar,\nTip the Velvet`,
-  bodyEng: `We've updated the info page for ${eventTitle} with new information:\n${link}\n\nHave a look at what's new.\n\nTip: On the website you can find the link again under the link icon (“My links”) in the menu at the top, next to the login icon, but only on the computer or phone where you opened it. So please keep this email.\n\nBest regards,\nTip the Velvet`,
+  bodySv: `\n\nInfosidan finns här:\n${link}\n\nVarma hälsningar,\nTip the Velvet`,
+  bodyEng: `\n\nThe info page is here:\n${link}\n\nBest regards,\nTip the Velvet`,
 })
 
 // A plain starting point for a free-form message to everyone in a group.
