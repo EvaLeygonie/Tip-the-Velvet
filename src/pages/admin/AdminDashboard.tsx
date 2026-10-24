@@ -45,6 +45,7 @@ import {
   updateTodo,
   setTodoOrder,
   deleteTodo,
+  deleteTodosForEvent,
   renewRecurringTodo,
 } from '@/services/todoService'
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
@@ -135,7 +136,7 @@ const chunk = <T,>(items: T[], size: number): T[][] => {
 export const AdminDashboard = () => {
   const { t, language } = useLanguage()
   const navigate = useNavigate()
-  const { upcomingEvents, setSelectedEventId } = useCurrentEvent()
+  const { upcomingEvents, archivedEvents, setSelectedEventId } = useCurrentEvent()
   const [staffVolunteers, setStaffVolunteers] = useState<StaffVolunteers[]>([])
   const [sponsors, setSponsors] = useState<Sponsors[]>([])
   const [castingApplications, setCastingApplications] = useState<CastingApplicationWithEvent[]>([])
@@ -256,6 +257,11 @@ export const AdminDashboard = () => {
   const handleDeleteTodo = async (id: string) => {
     await deleteTodo(id)
     setTodos((prev) => prev.filter((td) => td.id !== id))
+  }
+
+  const handleClearEventTodos = async (eventId: string) => {
+    await deleteTodosForEvent(eventId)
+    setTodos((prev) => prev.filter((td) => td.event_id !== eventId))
   }
 
   // Scoped to whichever list (one event's tasks, or the org-wide ones) the arrow was clicked
@@ -716,14 +722,16 @@ export const AdminDashboard = () => {
                   {ov.eventTitle}
                 </h2>
                 <div className="flex flex-wrap justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openMissingInfo(ov, !needsCastingAttention, 'all')}
-                    className="flex items-center gap-1.5 py-1.5 px-3 rounded-full border border-accent/30 text-sm text-accent hover:bg-accent/10 transition-colors"
-                  >
-                    <Mail className="h-4 w-4 shrink-0" />
-                    {t('Skicka påminnelse till alla', 'Send reminders to everyone')}
-                  </button>
+                  {cards.some((c) => c.onEmailAll) && (
+                    <button
+                      type="button"
+                      onClick={() => openMissingInfo(ov, !needsCastingAttention, 'all')}
+                      className="flex items-center gap-1.5 py-1.5 px-3 rounded-full border border-accent/30 text-sm text-accent hover:bg-accent/10 transition-colors"
+                    >
+                      <Mail className="h-4 w-4 shrink-0" />
+                      {t('Skicka påminnelse till alla', 'Send reminders to everyone')}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setDocsTarget(ov)}
@@ -762,13 +770,129 @@ export const AdminDashboard = () => {
       )}
 
       {!loading && (
+        <div className="max-w-5xl mx-auto mt-8 space-y-3">
+          <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
+            {t('Nya ansökningar', 'New applications')}
+          </h2>
+
+          <div className="admin-panel velvet-surface p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-sm text-foreground/70">
+                <Drama className="h-4 w-4 text-accent/60" />
+                {t('Casting', 'Casting')}
+                <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
+                  {newCastingApplications.length}
+                </span>
+              </div>
+              {newCastingApplications.length === 0 ? (
+                <p className="text-sm text-foreground/40 italic text-left">
+                  {t('Inga nya ännu.', 'None yet.')}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {newCastingApplications.map((row) => (
+                    <div
+                      key={row.id}
+                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                    >
+                      <span className="flex-1 min-w-0 truncate text-foreground">
+                        {row.performer_name}
+                      </span>
+                      {row.event && (
+                        <span className="text-accent italic text-xs shrink-0 truncate max-w-[100px]">
+                          {row.event.title}
+                        </span>
+                      )}
+                      <span className="text-foreground/40 text-xs shrink-0">
+                        {formatDate(language, row.created_at)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-3 border-t border-accent/10 md:pt-0 md:border-t-0 md:border-l md:pl-4">
+              <div className="flex items-center gap-1.5 text-sm text-foreground/70">
+                <Users className="h-4 w-4 text-accent/60" />
+                {t('Personal & volontärer', 'Staff & volunteers')}
+                <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
+                  {newStaff.length}
+                </span>
+              </div>
+              {newStaff.length === 0 ? (
+                <p className="text-sm text-foreground/40 italic text-left">
+                  {t('Inga nya ännu.', 'None yet.')}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {newStaff.map((row) => (
+                    <div
+                      key={row.id}
+                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                    >
+                      <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
+                      <span className="text-accent italic text-xs shrink-0">
+                        {staffRoleLabel(t, row.role)}
+                      </span>
+                      <span className="text-foreground/40 text-xs shrink-0">
+                        {formatDate(language, row.created_at)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-3 border-t border-accent/10 md:pt-0 md:border-t-0 md:border-l md:pl-4">
+              <div className="flex items-center gap-1.5 text-sm text-foreground/70">
+                <Gift className="h-4 w-4 text-accent/60" />
+                {t('Sponsorer', 'Sponsors')}
+                <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
+                  {newSponsors.length}
+                </span>
+              </div>
+              {newSponsors.length === 0 ? (
+                <p className="text-sm text-foreground/40 italic text-left">
+                  {t('Inga nya ännu.', 'None yet.')}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {newSponsors.map((row) => (
+                    <div
+                      key={row.id}
+                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                    >
+                      <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
+                      {row.sponsor_type && (
+                        <span className="text-accent italic text-xs shrink-0">
+                          {sponsorTypeLabel(t, row.sponsor_type)}
+                        </span>
+                      )}
+                      <span className="text-foreground/40 text-xs shrink-0">
+                        {formatDate(language, row.created_at)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!loading && (
         <div className="max-w-5xl mx-auto mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <div ref={todoSectionRef} className="space-y-3 scroll-mt-6">
             <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
               {t('Att göra', 'To-do')}
             </h2>
 
-            {upcomingEvents.map((evt) => {
+            {[
+              ...upcomingEvents,
+              // Past events keep their list until someone archives it — follow-up tasks outlive the date.
+              ...archivedEvents.filter((evt) => todos.some((td) => td.event_id === evt.id)),
+            ].map((evt) => {
               const listTodos = todos.filter((td) => td.event_id === evt.id)
               return (
                 <TodoListCard
@@ -786,6 +910,7 @@ export const AdminDashboard = () => {
                   onMoveUp={(id) => handleMoveTodo(listTodos, id, -1)}
                   onMoveDown={(id) => handleMoveTodo(listTodos, id, 1)}
                   onDelete={handleDeleteTodo}
+                  onClearList={() => handleClearEventTodos(evt.id)}
                 />
               )
             })}
@@ -820,120 +945,6 @@ export const AdminDashboard = () => {
               {upcomingEvents.map((evt) => (
                 <ToPrintCard key={evt.id} eventId={evt.id} title={evt.title} />
               ))}
-            </div>
-
-            <div className="space-y-3">
-              <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
-                {t('Nya ansökningar', 'New applications')}
-              </h2>
-
-              <div className="admin-panel velvet-surface p-4 space-y-5">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-sm text-foreground/70">
-                    <Drama className="h-4 w-4 text-accent/60" />
-                    {t('Casting', 'Casting')}
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
-                      {newCastingApplications.length}
-                    </span>
-                  </div>
-                  {newCastingApplications.length === 0 ? (
-                    <p className="text-sm text-foreground/40 italic text-left">
-                      {t('Inga nya ännu.', 'None yet.')}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {newCastingApplications.map((row) => (
-                        <div
-                          key={row.id}
-                          className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
-                        >
-                          <span className="flex-1 min-w-0 truncate text-foreground">
-                            {row.performer_name}
-                          </span>
-                          {row.event && (
-                            <span className="text-accent italic text-xs shrink-0 truncate max-w-[100px]">
-                              {row.event.title}
-                            </span>
-                          )}
-                          <span className="text-foreground/40 text-xs shrink-0">
-                            {formatDate(language, row.created_at)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2 pt-3 border-t border-accent/10">
-                  <div className="flex items-center gap-1.5 text-sm text-foreground/70">
-                    <Users className="h-4 w-4 text-accent/60" />
-                    {t('Personal & volontärer', 'Staff & volunteers')}
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
-                      {newStaff.length}
-                    </span>
-                  </div>
-                  {newStaff.length === 0 ? (
-                    <p className="text-sm text-foreground/40 italic text-left">
-                      {t('Inga nya ännu.', 'None yet.')}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {newStaff.map((row) => (
-                        <div
-                          key={row.id}
-                          className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
-                        >
-                          <span className="flex-1 min-w-0 truncate text-foreground">
-                            {row.name}
-                          </span>
-                          <span className="text-accent italic text-xs shrink-0">
-                            {staffRoleLabel(t, row.role)}
-                          </span>
-                          <span className="text-foreground/40 text-xs shrink-0">
-                            {formatDate(language, row.created_at)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2 pt-3 border-t border-accent/10">
-                  <div className="flex items-center gap-1.5 text-sm text-foreground/70">
-                    <Gift className="h-4 w-4 text-accent/60" />
-                    {t('Sponsorer', 'Sponsors')}
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent ml-auto">
-                      {newSponsors.length}
-                    </span>
-                  </div>
-                  {newSponsors.length === 0 ? (
-                    <p className="text-sm text-foreground/40 italic text-left">
-                      {t('Inga nya ännu.', 'None yet.')}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {newSponsors.map((row) => (
-                        <div
-                          key={row.id}
-                          className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
-                        >
-                          <span className="flex-1 min-w-0 truncate text-foreground">
-                            {row.name}
-                          </span>
-                          {row.sponsor_type && (
-                            <span className="text-accent italic text-xs shrink-0">
-                              {sponsorTypeLabel(t, row.sponsor_type)}
-                            </span>
-                          )}
-                          <span className="text-foreground/40 text-xs shrink-0">
-                            {formatDate(language, row.created_at)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>

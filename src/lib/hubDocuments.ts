@@ -5,12 +5,13 @@ import {
   createStageKittenPdf,
   createTechNotesPdf,
   createVipListPdf,
+  buildVipSections,
   type EventDocContext,
+  type VipSection,
 } from '@/lib/eventDocuments'
 import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import type { InfoAudience, InfoDocKey } from '@/lib/eventInfo'
 import { downloadBlob } from '@/lib/utils'
-import { buildVipListHtml } from '@/lib/vipListHtml'
 
 // What get_event_document_data returns (the rpc itself is typed as plain Json).
 interface HubDocumentData {
@@ -87,25 +88,11 @@ export const downloadHubMusicZip = async (
   return { included, failed }
 }
 
-// The printable A4 VIP list (tick boxes) opened in a new tab, next to the guest list link on
-// the volunteer page. The tab is opened *before* the data is fetched — browsers only allow
-// window.open straight from a click, not after an await — and pointed at the page once it is
-// built. If the browser blocks the tab, the file is downloaded instead.
-export const openHubVipList = async (
+// The VIP list as plain sections, for the on-page list (/info/:token/vip).
+export const loadHubVipList = async (
   token: string,
   t: (sv: string, eng: string) => string
-): Promise<void> => {
-  const tab = window.open('', '_blank')
-  try {
-    const ctx = await loadDocContext(token, 'vipList', t)
-    const blob = new Blob([buildVipListHtml(ctx)], { type: 'text/html;charset=utf-8' })
-    if (tab) {
-      tab.location.href = URL.createObjectURL(blob)
-    } else {
-      downloadBlob(blob, safeName(`${ctx.eventTitle}-vip-lista.html`))
-    }
-  } catch (err) {
-    tab?.close()
-    throw err
-  }
+): Promise<{ eventTitle: string; sections: VipSection[] }> => {
+  const ctx = await loadDocContext(token, 'vipList', t)
+  return { eventTitle: ctx.eventTitle, sections: buildVipSections(ctx) }
 }

@@ -20,6 +20,7 @@ import { EventDetail } from '@/pages/EventDetail.tsx'
 import { CastingCall } from './pages/CastingCall'
 import { ArtistBookingPortal } from './pages/ArtistBookingPortal'
 import { EventInfoHub } from './pages/EventInfoHub'
+import { VipList } from './pages/VipList'
 import { About } from '@/pages/About'
 import { Dresscode } from '@/pages/Dresscode'
 import { JoinUs } from '@/pages/JoinUs'
@@ -80,6 +81,7 @@ export const App = () => (
 
                   <Route path="/casting/confirm/:id" element={<ArtistBookingPortal />} />
                   <Route path="/info/:token" element={<EventInfoHub />} />
+                  <Route path="/info/:token/vip" element={<VipList />} />
 
                   <Route path="/admin/login" element={<AdminLogin />} />
                   <Route path="/admin/register" element={<RegisterAdmin />} />

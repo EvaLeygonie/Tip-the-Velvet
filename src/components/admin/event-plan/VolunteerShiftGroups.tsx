@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Mail } from 'lucide-react'
+import { Copy, Mail } from 'lucide-react'
+import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { volunteerShiftLabel } from '@/lib/contactLabels'
 import { EventStaffRow } from './EventStaffRow'
@@ -46,6 +47,16 @@ export const VolunteerShiftGroups = ({
     },
   ]
 
+  const copyEmails = async (groupRows: AdminEventStaffRow[]) => {
+    const emails = [...new Set(groupRows.flatMap((r) => (r.staff.email ? [r.staff.email] : [])))]
+    try {
+      await navigator.clipboard.writeText(emails.join(', '))
+      toast.success(t(`${emails.length} adresser kopierade!`, `${emails.length} addresses copied!`))
+    } catch {
+      toast.error(t('Kunde inte kopiera.', 'Could not copy.'))
+    }
+  }
+
   return (
     <div className="space-y-3">
       {groups.map((group) => {
@@ -57,6 +68,15 @@ export const VolunteerShiftGroups = ({
                 {group.label}
               </h6>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => copyEmails(group.rows)}
+                  disabled={!group.rows.some((r) => r.staff.email)}
+                  title={t('Kopiera alla mejladresser', 'Copy all email addresses')}
+                  className="p-1 border border-accent/20 rounded text-accent hover:bg-accent hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => setMailGroup(group.key)}

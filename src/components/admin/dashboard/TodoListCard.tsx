@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, X, Pencil, Repeat, ChevronsUp, ChevronsDown } from 'lucide-react'
+import { Plus, X, Pencil, Repeat, ChevronsUp, ChevronsDown, Archive } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { TodoModal } from './TodoModal'
 import type { Todo } from '@/types/types'
@@ -25,6 +25,8 @@ interface TodoListCardProps {
   onMoveUp: (id: string) => void
   onMoveDown: (id: string) => void
   onDelete: (id: string) => Promise<void>
+  // Only passed for event lists — removes the whole list once the event is over.
+  onClearList?: () => Promise<void>
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -187,6 +189,7 @@ export const TodoListCard = ({
   onMoveUp,
   onMoveDown,
   onDelete,
+  onClearList,
 }: TodoListCardProps) => {
   const { t } = useLanguage()
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -233,7 +236,30 @@ export const TodoListCard = ({
   return (
     <div className="admin-panel velvet-surface p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="font-decorative text-sm text-foreground/80">{title}</h4>
+        <div className="flex items-center gap-2 min-w-0">
+          <h4 className="font-decorative text-sm text-foreground/80 truncate">{title}</h4>
+          {onClearList && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    t(
+                      `Ta bort hela listan för ${title}? Alla uppgifter raderas.`,
+                      `Remove the whole list for ${title}? All its tasks will be deleted.`
+                    )
+                  )
+                ) {
+                  onClearList()
+                }
+              }}
+              title={t('Arkivera lista', 'Archive list')}
+              className="text-foreground/30 hover:text-accent transition-colors shrink-0"
+            >
+              <Archive className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setIsAddOpen(true)}

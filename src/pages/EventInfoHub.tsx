@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   ClipboardList,
@@ -72,7 +72,6 @@ export const EventInfoHub = () => {
   const [busyDoc, setBusyDoc] = useState<InfoDocKey | null>(null)
   const [busyZip, setBusyZip] = useState(false)
   const [showOrder, setShowOrder] = useState<ShowOrderRow[] | null>(null)
-  const [busyVip, setBusyVip] = useState(false)
 
   const [reloadKey, setReloadKey] = useState(0)
   const reload = () => setReloadKey((k) => k + 1)
@@ -148,20 +147,6 @@ export const EventInfoHub = () => {
       toast.error(t('Kunde inte skapa dokumentet.', 'Could not create the document.'))
     } finally {
       setBusyDoc(null)
-    }
-  }
-
-  const handleOpenVipList = async () => {
-    if (!token) return
-    setBusyVip(true)
-    try {
-      const { openHubVipList } = await import('@/lib/hubDocuments')
-      await openHubVipList(token, t)
-    } catch (err) {
-      console.error(err)
-      toast.error(t('Kunde inte skapa dokumentet.', 'Could not create the document.'))
-    } finally {
-      setBusyVip(false)
     }
   }
 
@@ -875,14 +860,9 @@ export const EventInfoHub = () => {
       <FileText className="h-5 w-5 text-accent shrink-0 mt-0.5" />
       <div>
         <div className="form-label-gold">{t('VIP-lista', 'VIP list')}</div>
-        <button
-          type="button"
-          disabled={busyVip}
-          onClick={handleOpenVipList}
-          className="text-sm text-white hover:underline disabled:opacity-60"
-        >
-          {busyVip ? t('Öppnar…', 'Opening…') : t('Öppna VIP-listan', 'Open the VIP list')}
-        </button>
+        <Link to={`/info/${token}/vip`} className="text-sm text-white hover:underline">
+          {t('Öppna VIP-listan', 'Open the VIP list')}
+        </Link>
       </div>
     </div>
   )

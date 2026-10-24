@@ -80,3 +80,11 @@ export const deleteTodo = async (id: string): Promise<void> => {
 
   if (error) throw error
 }
+
+// Clears a whole event's checklist at once — used once the event is over and its leftover
+// tasks no longer matter.
+export const deleteTodosForEvent = async (eventId: string): Promise<void> => {
+  const { error } = await supabase.from('todos').delete().eq('event_id', eventId)
+
+  if (error) throw error
+}

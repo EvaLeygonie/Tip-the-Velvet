@@ -109,6 +109,26 @@ export const claimDoorSlot = async (token: string, slotId: string, name: string)
   if (error) throw error
 }
 
+// VIP list tick-offs, shared between everyone with the volunteer link. The rpcs are not in
+// database.types.ts yet, so they are called through a loosely typed handle until it is regenerated.
+type LooseRpc = (fn: string, args: object) => Promise<{ data: unknown; error: Error | null }>
+const looseRpc = supabase.rpc.bind(supabase) as unknown as LooseRpc
+
+export const getVipCheckins = async (token: string): Promise<string[]> => {
+  const { data, error } = await looseRpc('get_vip_checkins', { p_token: token })
+  if (error) throw error
+  return (data as string[] | null) ?? []
+}
+
+export const setVipCheckin = async (token: string, key: string, checked: boolean) => {
+  const { error } = await looseRpc('set_vip_checkin', {
+    p_token: token,
+    p_key: key,
+    p_checked: checked,
+  })
+  if (error) throw error
+}
+
 // Adds a second spot to a one-person door shift (only allowed once every time slot has someone).
 export const addDoorSpot = async (token: string, slotStart: string) => {
   const { error } = await supabase.rpc('add_door_spot', {
