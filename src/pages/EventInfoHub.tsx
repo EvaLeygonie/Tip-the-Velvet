@@ -14,6 +14,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { hubLinkExpiry, saveMyLink } from '@/lib/myLinks'
+import { staffRoleLabel } from '@/lib/contactLabels'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import {
@@ -39,6 +40,14 @@ import {
   type DoorSlot,
   type InfoDocKey,
 } from '@/lib/eventInfo'
+
+// Board members whose contact line says what they do on the night (swedish, english); the
+// other contacts are listed by name only.
+const CONTACT_TITLES: Record<string, [string, string]> = {
+  'Eva Leygonie': ['arrangör', 'organizer'],
+  'Andrea Jensen': ['arrangör', 'organizer'],
+  'Pontus Lindhé': ['show producent', 'show producer'],
+}
 
 const NAME_STORAGE_KEY = 'ttv_info_name'
 
@@ -1010,23 +1019,28 @@ interface ContactListProps {
   centered?: boolean
 }
 
-const ContactList = ({ label, contacts, centered }: ContactListProps) => (
-  <div className={centered ? 'text-center space-y-2' : 'flex items-start gap-3'}>
-    {!centered && <Phone className="h-5 w-5 text-accent shrink-0 mt-0.5" />}
-    <div className={centered ? 'space-y-2' : 'space-y-1'}>
-      <div className="form-label-gold !text-base">{label}</div>
-      <ul className={centered ? 'space-y-2' : 'space-y-0.5'}>
-        {contacts.map((c) => (
-          <li key={`${c.kind}-${c.name}`}>
-            <a
-              href={`tel:${c.phone.replace(/\s/g, '')}`}
-              className="text-foreground hover:text-accent"
-            >
-              {c.name} · {c.phone}
-            </a>
-          </li>
-        ))}
-      </ul>
+const ContactList = ({ label, contacts, centered }: ContactListProps) => {
+  const { t } = useLanguage()
+  return (
+    <div className={centered ? 'text-center space-y-2' : 'flex items-start gap-3'}>
+      {!centered && <Phone className="h-5 w-5 text-accent shrink-0 mt-0.5" />}
+      <div className={centered ? 'space-y-2' : 'space-y-1'}>
+        <div className="form-label-gold !text-base">{label}</div>
+        <ul className={centered ? 'space-y-2' : 'space-y-0.5'}>
+          {contacts.map((c) => (
+            <li key={`${c.kind}-${c.name}`}>
+              <a
+                href={`tel:${c.phone.replace(/\s/g, '')}`}
+                className="text-foreground hover:text-accent"
+              >
+                {c.name}
+                {c.kind === 'guard' && ` (${staffRoleLabel(t, 'doorman')})`}
+                {CONTACT_TITLES[c.name] && ` (${t(...CONTACT_TITLES[c.name])})`} · {c.phone}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
-  </div>
-)
+  )
+}

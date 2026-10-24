@@ -69,6 +69,13 @@ export const VipList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
+  // Arriving from the hub, mobile browsers can keep the old scroll position once the list has
+  // rendered, so go back to the top when it first appears (ScrollToTop only runs on navigation).
+  const hasList = list !== null
+  useEffect(() => {
+    if (hasList) window.scrollTo(0, 0)
+  }, [hasList])
+
   const refresh = useCallback(async () => {
     if (!token) return
     try {

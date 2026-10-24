@@ -75,8 +75,11 @@ body {
     @apply grid grid-cols-1 md:grid-cols-3 gap-8 w-full;
   }
 
+  /* Padding, not margin: inside a space-y-* parent (EventDetail, EventEditor) the parent's
+     margin-bottom: 0 rule overrides any mb-* here, which put the stacked mobile buttons on the
+     gold divider below. */
   .section-header-triad {
-    @apply grid grid-cols-1 md:grid-cols-3 items-center mb-8 md:mb-10 gap-3 md:gap-4 text-center md:text-inherit;
+    @apply grid grid-cols-1 md:grid-cols-3 items-center pb-8 md:pb-10 gap-3 md:gap-4 text-center md:text-inherit;
   }
 
   .header-side-content {

@@ -818,7 +818,8 @@ export const createRunOfShowPdf = (ctx: EventDocContext): GeneratedDocument => {
   })
 
   const contacts = [
-    ...FIXED_STAFF_ROLES.flatMap((role) =>
+    // The guard is a key contact on the night too, though not a role the board must fill.
+    ...[...FIXED_STAFF_ROLES, 'doorman' as const].flatMap((role) =>
       groupedStaff
         .filter((p) => p.rows.some((r) => r.role === role))
         .map((p) => ({ role: staffRoleLabel(t, role), name: p.staff.name, phone: p.staff.phone }))

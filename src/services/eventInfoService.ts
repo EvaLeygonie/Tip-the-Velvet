@@ -26,11 +26,11 @@ export interface EventInfoPayload {
     checkin_reveal_at: string
   } | null
   // Who to call, picked per group by get_event_info: the volunteers' generals first (volunteer
-  // link only), then the board member(s) for that area, backups last.
+  // link only), then the board member(s) for that area, backups, and the guard last.
   contacts: {
     name: string
     phone: string
-    kind: 'general' | 'primary' | 'backup'
+    kind: 'general' | 'primary' | 'backup' | 'guard'
     // Generals only: the shift they are in charge of (setup, guestlist, takedown…).
     shift?: string | null
   }[]
