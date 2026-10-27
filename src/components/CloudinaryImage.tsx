@@ -61,5 +61,5 @@ export default function CloudinaryImage({
     return image
   }, [publicId, width, height, fit, gravityFace])
 
-  return <AdvancedImage cldImg={myImage} className={className} alt={alt} />
+  return <AdvancedImage cldImg={myImage} className={className} alt={alt} loading="lazy" />
 }

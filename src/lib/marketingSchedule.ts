@@ -162,6 +162,13 @@ export const POST_SCHEDULE: PostScheduleItem[] = [
     labelEng: 'Evaluation',
     hasTemplate: false,
   },
+  {
+    type: 'photos_shared',
+    offset: { unit: 'days', amount: 7 },
+    labelSv: 'Bilderna är här!',
+    labelEng: 'Photos are up!',
+    hasTemplate: true,
+  },
 ]
 
 // Calendar-aware for months (so "6 months before Oct 24" lands on ~Apr 24, not a fixed day

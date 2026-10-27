@@ -200,6 +200,7 @@ export const EventEditor = () => {
       pinterest_link: formData.pinterest_link || null,
       facebook_event: formData.facebook_event || null,
       fb_album_url: formData.fb_album_url || null,
+      photobooth_url: formData.photobooth_url || null,
       checkin_url: formData.checkin_url || null,
       hashtags: formData.hashtags || null,
     }
@@ -551,8 +552,8 @@ export const EventEditor = () => {
             {t('Fler detaljer', 'More details')}
           </summary>
 
-          {/* PINTEREST, FACEBOOK EVENT & FACEBOOK ALBUM */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
+          {/* PINTEREST & FACEBOOK EVENT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
             <div className="field-row">
               <label className="form-label-gold">{t('Pinterest länk', 'Pinterest Link')}</label>
               <input
@@ -575,6 +576,10 @@ export const EventEditor = () => {
                 onChange={handleChange}
               />
             </div>
+          </div>
+
+          {/* FACEBOOK ALBUM & PHOTOBOOTH ALBUM */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
             <div className="field-row">
               <label className="form-label-gold">{t('Facebook album', 'Facebook Album')}</label>
               <input
@@ -583,6 +588,19 @@ export const EventEditor = () => {
                 placeholder="https://..."
                 className="editor-input"
                 value={formData.fb_album_url || ''}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="field-row">
+              <label className="form-label-gold">
+                {t('Fotohörne-album (alla bilder)', 'Photobooth Album (all photos)')}
+              </label>
+              <input
+                type="url"
+                name="photobooth_url"
+                placeholder="https://..."
+                className="editor-input"
+                value={formData.photobooth_url || ''}
                 onChange={handleChange}
               />
             </div>

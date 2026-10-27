@@ -53,6 +53,7 @@ import { buildShareLikeInviteText } from '@/components/admin/marketing/ShareLike
 import { buildEveningScheduleReminderText } from '@/components/admin/marketing/EveningScheduleReminderCard'
 import { buildLetsGoText } from '@/components/admin/marketing/LetsGoCard'
 import { buildThankYouText } from '@/components/admin/marketing/ThankYouCard'
+import { buildPhotosSharedText } from '@/components/admin/marketing/PhotosSharedCard'
 import { buildEvaluationText } from '@/components/admin/marketing/EvaluationCard'
 import { CustomPostForm } from '@/components/admin/marketing/CustomPostForm'
 import { CustomPostRow } from '@/components/admin/marketing/CustomPostRow'
@@ -79,6 +80,7 @@ const TEMPLATE_BUILDERS: Partial<
   share_like_invite: buildShareLikeInviteText,
   evening_schedule_reminder: buildEveningScheduleReminderText,
   evaluation: buildEvaluationText,
+  photos_shared: buildPhotosSharedText,
 }
 
 const ROLE_REVEAL_PRIORITY: Record<AdminEventPerformerRow['lineup_role'], number> = {
@@ -237,6 +239,24 @@ export const AdminMarketing = () => {
   // split layout below can render individual rows by type (artists_soon/
   // artists_all_together move into the Artists column) without duplicating this lookup
   // logic. Direct feedback 2026-09-22.
+  // The date a row is shown under: the board's own override if set, else the suggested one.
+  const effectiveDateIso = (item: PostScheduleItem): string | null => {
+    const saved = postRecords[item.type].postDate
+    if (saved) return saved
+    return eventData?.eventStart
+      ? toLocalIsoDate(computeSuggestedDate(eventData.eventStart, item.offset))
+      : null
+  }
+
+  // Schedule order, re-sorted by effective date so changing a row's date moves it in the list.
+  // Array.sort is stable, so equal/missing dates keep their schedule order.
+  const sortByEffectiveDate = (items: PostScheduleItem[]) =>
+    [...items].sort((a, b) => {
+      const dateA = effectiveDateIso(a)
+      const dateB = effectiveDateIso(b)
+      return dateA && dateB ? dateA.localeCompare(dateB) : 0
+    })
+
   const renderPostRow = (item: PostScheduleItem) => {
     const suggestedDate = eventData?.eventStart
       ? computeSuggestedDate(eventData.eventStart, item.offset)
@@ -355,8 +375,10 @@ export const AdminMarketing = () => {
                 </span>
               </div>
               <div className="space-y-2">
-                {POST_SCHEDULE.filter(
-                  (item) => item.type !== 'artists_soon' && item.type !== 'artists_all_together'
+                {sortByEffectiveDate(
+                  POST_SCHEDULE.filter(
+                    (item) => item.type !== 'artists_soon' && item.type !== 'artists_all_together'
+                  )
                 ).map(renderPostRow)}
               </div>
             </div>

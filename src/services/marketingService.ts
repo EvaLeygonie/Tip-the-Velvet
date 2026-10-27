@@ -24,6 +24,7 @@ export type FixedMarketingPostType =
   | 'lets_go'
   | 'thank_you'
   | 'evaluation'
+  | 'photos_shared'
 
 export interface FixedMarketingPost {
   isPosted: boolean
@@ -76,6 +77,7 @@ export const getMarketingPosts = async (
     lets_go: { ...EMPTY_FIXED_POST },
     thank_you: { ...EMPTY_FIXED_POST },
     evaluation: { ...EMPTY_FIXED_POST },
+    photos_shared: { ...EMPTY_FIXED_POST },
   }
   for (const row of data || []) {
     map[row.post_type as FixedMarketingPostType] = {

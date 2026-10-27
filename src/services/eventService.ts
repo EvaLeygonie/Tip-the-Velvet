@@ -148,6 +148,9 @@ export interface EventMarketingData {
   castingCallStart: string | null
   ticketReleaseDate: string | null
   pinterestLink: string | null
+  fbAlbumUrl: string | null
+  // Link to the full photobooth set (every guest gets ~5 shots, too many for the Facebook album).
+  photoboothUrl: string | null
   // The event's own assigned photographer (events.photographer_id) — used by
   // PhotoCornerCard.tsx to credit whoever's actually shooting this event instead of a
   // hardcoded default. null when no photographer is assigned yet.
@@ -163,7 +166,7 @@ export const getEventMarketingData = async (
   const { data, error } = await supabase
     .from('events')
     .select(
-      'id, title, subtitle, slug, image_id, description_sv, description_eng, ticket_url, hashtags, location, event_start, reveal_date, casting_call_deadline, casting_call_start, ticket_release_date, pinterest_link, photographer:public_photographers!events_photographer_id_fkey(name, link)'
+      'id, title, subtitle, slug, image_id, description_sv, description_eng, ticket_url, hashtags, location, event_start, reveal_date, casting_call_deadline, casting_call_start, ticket_release_date, pinterest_link, fb_album_url, photobooth_url, photographer:public_photographers!events_photographer_id_fkey(name, link)'
     )
     .eq('id', eventId)
     .maybeSingle()
@@ -187,6 +190,8 @@ export const getEventMarketingData = async (
     eventStart: data.event_start,
     revealDate: data.reveal_date,
     pinterestLink: data.pinterest_link,
+    fbAlbumUrl: data.fb_album_url,
+    photoboothUrl: data.photobooth_url,
     castingCallDeadline: data.casting_call_deadline,
     castingCallStart: data.casting_call_start,
     ticketReleaseDate: data.ticket_release_date,

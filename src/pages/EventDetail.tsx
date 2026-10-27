@@ -43,6 +43,8 @@ export const EventDetail = () => {
   const titleRef = useRef<HTMLHeadingElement>(null)
   const [event, setEvent] = useState<ExtendedEvent | OldEvent | null>(null)
   // Our own events only; the old board's archive has no feedback
+  // Only current events have a photobooth album link (old_events has no such column).
+  const photoboothUrl = event && 'photobooth_url' in event ? event.photobooth_url : null
   const feedbackSummary = useFeedbackSummary(!isOldEvent ? event?.id : undefined)
   const [eventPerformers, setEventPerformers] = useState<EventPerformerRow[]>([])
   const [entertainers, setEntertainers] = useState<PublicEventEntertainer[]>([])
@@ -65,8 +67,10 @@ export const EventDetail = () => {
       ? sortedImages
       : sortedImages.filter((img) => groupOf(img) === photoFilter)
 
+  // Lightbox slides are served resized + auto format/quality instead of the full uploaded file:
+  // Cloudinary's free plan is capped on bandwidth (credits), and the lightbox preloads neighbours.
   const lightBoxSlides = shownImages.map((img) => ({
-    src: getImageSrc(img.image_id),
+    src: getImageSrc(`f_auto,q_auto,c_limit,w_1600/${img.image_id}`),
     alt: img.event_slug || '',
   }))
 
@@ -192,34 +196,51 @@ export const EventDetail = () => {
           </>
         )}
 
-        {event?.fb_album_url && (
-          <div className="flex justify-center">
-            <a
-              href={event.fb_album_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-gold-outline"
-            >
-              <ExternalLink size={14} />
-              {t('Se Facebook-album', 'View Facebook Album')}
-            </a>
+        {(event?.fb_album_url || photoboothUrl) && (
+          <div className="flex flex-wrap justify-center gap-4">
+            {event?.fb_album_url && (
+              <a
+                href={event?.fb_album_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold-outline"
+              >
+                <ExternalLink size={14} />
+                {t('Se Facebook-album', 'View Facebook Album')}
+              </a>
+            )}
+            {photoboothUrl && (
+              <a
+                href={photoboothUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold-outline"
+              >
+                <Camera size={14} />
+                {t('Hämta alla fotohörnebilder', 'Get all your photobooth photos')}
+              </a>
+            )}
           </div>
         )}
 
         {/* FACEBOOK LÄNK */}
-        {event && 'facebook_event' in event && event.facebook_event && !event.fb_album_url && (
-          <div className="flex justify-center">
-            <a
-              href={event.facebook_event}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-gold-outline"
-            >
-              <ExternalLink size={14} />
-              {t('Se Facebook-event', 'View Facebook Event')}
-            </a>
-          </div>
-        )}
+        {event &&
+          'facebook_event' in event &&
+          event.facebook_event &&
+          !event.fb_album_url &&
+          !event.photobooth_url && (
+            <div className="flex justify-center">
+              <a
+                href={event.facebook_event}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold-outline"
+              >
+                <ExternalLink size={14} />
+                {t('Se Facebook-event', 'View Facebook Event')}
+              </a>
+            </div>
+          )}
       </div>
 
       <div className="gold-divider" />
@@ -349,6 +370,7 @@ export const EventDetail = () => {
         index={index}
         close={() => setIndex(-1)}
         slides={lightBoxSlides}
+        carousel={{ preload: 1 }}
       />
     </div>
   )

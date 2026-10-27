@@ -10,8 +10,8 @@ export const buildEvaluationText = (event: EventMarketingData): string => {
   const hashtagsSection = ['#Feedback', event.hashtags?.trim()].filter(Boolean).join(' ')
 
   return [
-    `🇸🇪 Åh, vilken natt! Bilder från ${event.title} kommer snart att publiceras på våra sociala medier & hemsida, så håll utkik!\n\nVill ni hjälpa oss att göra Tip the Velvet ännu bättre? Berätta vad ni tyckte om festen, det tar bara en minut! ⭐ ${feedbackUrl}`,
-    `🇬🇧 Oh, what a night! Pictures from ${event.title} will soon be published on our social media & website, so keep an eye out!\n\nWould you like to help us make Tip the Velvet even better? Tell us what you thought of the party, it only takes a minute! ⭐ ${feedbackUrl}`,
+    `🇸🇪 Åh, vilken natt! Bilder från ${event.title} kommer snart att publiceras på våra sociala medier & hemsida, så håll utkik!\n\nVill ni hjälpa oss att göra Tip the Velvet ännu bättre? Berätta vad ni tyckte om festen, det tar bara en minut!\n⭐ ${feedbackUrl}`,
+    `🇬🇧 Oh, what a night! Pictures from ${event.title} will soon be published on our social media & website, so keep an eye out!\n\nWould you like to help us make Tip the Velvet even better? Tell us what you thought of the party, it only takes a minute!\n⭐ ${feedbackUrl}`,
     hashtagsSection,
   ]
     .filter(Boolean)

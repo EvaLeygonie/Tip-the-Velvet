@@ -2066,6 +2066,7 @@ export type Database = {
         | 'lets_go'
         | 'thank_you'
         | 'evaluation'
+        | 'photos_shared'
       sponsor_type: 'prize' | 'creation' | 'sales' | 'promo' | 'partner' | 'other'
       staff_volunteer_type:
         | 'photographer'
@@ -2247,6 +2248,7 @@ export const Constants = {
         'lets_go',
         'thank_you',
         'evaluation',
+        'photos_shared',
       ],
       sponsor_type: ['prize', 'creation', 'sales', 'promo', 'partner', 'other'],
       staff_volunteer_type: [
