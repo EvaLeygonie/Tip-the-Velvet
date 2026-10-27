@@ -251,6 +251,7 @@ export type Database = {
       event_feedback: {
         Row: {
           aspect_ratings: Json
+          been_before: boolean | null
           created_at: string
           event_id: string
           extra_comment: string | null
@@ -273,9 +274,11 @@ export type Database = {
           updated_at: string
           voter_token: string
           would_recommend: string | null
+          would_recommend_note: string | null
         }
         Insert: {
           aspect_ratings?: Json
+          been_before?: boolean | null
           created_at?: string
           event_id: string
           extra_comment?: string | null
@@ -298,9 +301,11 @@ export type Database = {
           updated_at?: string
           voter_token: string
           would_recommend?: string | null
+          would_recommend_note?: string | null
         }
         Update: {
           aspect_ratings?: Json
+          been_before?: boolean | null
           created_at?: string
           event_id?: string
           extra_comment?: string | null
@@ -323,6 +328,7 @@ export type Database = {
           updated_at?: string
           voter_token?: string
           would_recommend?: string | null
+          would_recommend_note?: string | null
         }
         Relationships: [
           {
@@ -1958,6 +1964,7 @@ export type Database = {
       submit_event_feedback: {
         Args: {
           p_aspects?: Json
+          p_been_before?: boolean
           p_event_id: string
           p_extra_comment?: string
           p_how_found?: string
@@ -1970,6 +1977,7 @@ export type Database = {
           p_review?: string
           p_token: string
           p_would_recommend?: string
+          p_would_recommend_note?: string
         }
         Returns: undefined
       }
