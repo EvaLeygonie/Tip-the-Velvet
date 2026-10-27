@@ -51,17 +51,25 @@ export const EventDetail = () => {
   const [images, setImages] = useState<EventImage[]>([])
   const [index, setIndex] = useState<number>(-1)
 
+  // "All" shows performance, then stage, mingle and photobooth (uncategorised last); within each
+  // category the gallery editor's display order applies. Old events have no category, so they
+  // keep plain display order.
+  const CATEGORY_ORDER = ['performance', 'stage', 'party', 'photobooth']
+  const categoryRank = (img: EventImage) => {
+    const rank = CATEGORY_ORDER.indexOf(img.category ?? '')
+    return rank === -1 ? CATEGORY_ORDER.length : rank
+  }
   const sortedImages = [...images]
-    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    .sort(
+      (a, b) => categoryRank(a) - categoryRank(b) || (a.display_order ?? 0) - (b.display_order ?? 0)
+    )
     .filter((img) => img.is_visible)
 
-  // Stage / Mingle / Photobooth filter badges: only when at least two groups actually have photos
-  // (events only; each photo's category is set in the gallery editor)
+  // Stage / Mingle / Photobooth filter badges: always all three once any photo exists, so a 0
+  // tells visitors that group's photos are still on their way (events only; each photo's
+  // category is set in the gallery editor)
   const [photoFilter, setPhotoFilter] = useState<PhotoGroup | 'all'>('all')
   const groupOf = (img: EventImage) => publicPhotoGroup(img.category)
-  const groupsPresent = PHOTO_GROUPS.filter((g) =>
-    sortedImages.some((img) => groupOf(img) === g.key)
-  )
   const shownImages =
     photoFilter === 'all'
       ? sortedImages
@@ -304,9 +312,9 @@ export const EventDetail = () => {
           </div>
         )}
 
-        {!user && !isOldEvent && groupsPresent.length > 1 && (
+        {!user && !isOldEvent && images.length > 0 && (
           <div className="flex flex-wrap justify-center gap-2 mb-5">
-            {(['all', ...groupsPresent.map((g) => g.key)] as const).map((key) => {
+            {(['all', ...PHOTO_GROUPS.map((g) => g.key)] as const).map((key) => {
               const group = PHOTO_GROUPS.find((g) => g.key === key)
               const count =
                 key === 'all'
@@ -317,11 +325,9 @@ export const EventDetail = () => {
                   key={key}
                   type="button"
                   onClick={() => setPhotoFilter(key)}
-                  className={
-                    photoFilter === key
-                      ? 'btn-gold text-xs py-1.5 px-4'
-                      : 'btn-gold-outline text-xs py-1.5 px-4'
-                  }
+                  className={`${
+                    photoFilter === key ? 'btn-gold' : 'btn-gold-outline'
+                  } text-xs py-1.5 px-4 ${count === 0 && photoFilter !== key ? 'opacity-60' : ''}`}
                 >
                   {group ? t(group.sv, group.eng) : t('Alla', 'All')}{' '}
                   <span className="opacity-60">{count}</span>
@@ -329,6 +335,15 @@ export const EventDetail = () => {
               )
             })}
           </div>
+        )}
+
+        {!user && images.length > 0 && shownImages.length === 0 && (
+          <p className="text-center text-sm text-foreground/70 mb-6">
+            {t(
+              'Bilderna i den här kategorin kommer snart – håll utkik!',
+              'Photos in this category are coming soon – stay tuned!'
+            )}
+          </p>
         )}
 
         {!user && images.length > 0 && (

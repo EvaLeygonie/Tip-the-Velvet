@@ -268,7 +268,9 @@ export const GalleryEditor = ({
               </option>
               <option value={ImageCategory.PARTY}>{t('Party (Mingel)', 'Party (Mingel)')}</option>
               <option value={ImageCategory.PHOTOBOOTH}>{t('Photobooth', 'Photobooth')}</option>
-              <option value={ImageCategory.OLD_EVENT}>{t('Gammal Event', 'Old Event')}</option>
+              {isOldEvent && (
+                <option value={ImageCategory.OLD_EVENT}>{t('Gammal Event', 'Old Event')}</option>
+              )}
             </select>
           </div>
 
