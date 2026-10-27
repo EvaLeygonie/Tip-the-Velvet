@@ -118,6 +118,7 @@ export const AdminFeedback = () => {
       return { key, avg: average(values), n: values.length }
     })
     const recommend = visible.filter((r) => r.would_recommend)
+    const knownBefore = visible.filter((r) => r.been_before !== null)
     return {
       avg: average(rated),
       ratedCount: rated.length,
@@ -125,6 +126,8 @@ export const AdminFeedback = () => {
       aspectAverages,
       recommendYes: recommend.filter((r) => r.would_recommend === 'yes').length,
       recommendTotal: recommend.length,
+      newcomers: knownBefore.filter((r) => r.been_before === false).length,
+      beenBeforeTotal: knownBefore.length,
     }
   }, [visible])
 
@@ -580,6 +583,12 @@ export const AdminFeedback = () => {
                     {stats.ratedCount < visible.length &&
                       ' · ' +
                         t(`${stats.ratedCount} med betyg`, `${stats.ratedCount} with a rating`)}
+                    {stats.beenBeforeTotal > 0 &&
+                      ' · ' +
+                        t(
+                          `${stats.newcomers} av ${stats.beenBeforeTotal} var här för första gången`,
+                          `${stats.newcomers} of ${stats.beenBeforeTotal} were here for the first time`
+                        )}
                     {stats.recommendTotal > 0 &&
                       ' · ' +
                         t(
@@ -705,6 +714,7 @@ export const AdminFeedback = () => {
                           <span className="text-xs text-foreground/50">
                             {new Date(row.created_at).toLocaleDateString()}
                             {howFoundLabel(row.how_found) && ` · ${howFoundLabel(row.how_found)}`}
+                            {row.how_found_note && ` · “${row.how_found_note}”`}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -898,6 +908,16 @@ export const AdminFeedback = () => {
                             {t('Kan göras bättre', 'Can do better')}
                           </span>
                           {row.improve}
+                        </p>
+                      )}
+                      {showReviewPart && row.would_recommend_note && (
+                        <p className="text-sm">
+                          <span className="form-label-gold mr-2">
+                            {t('Rekommenderar', 'Recommends')}
+                            {row.would_recommend &&
+                              ` (${{ yes: t('ja', 'yes'), maybe: t('kanske', 'maybe'), no: t('nej', 'no') }[row.would_recommend]})`}
+                          </span>
+                          {row.would_recommend_note}
                         </p>
                       )}
                       {showReviewPart && row.extra_comment && (

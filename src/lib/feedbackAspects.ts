@@ -59,7 +59,6 @@ export const HOW_FOUND_OPTIONS: { key: string; sv: string; eng: string }[] = [
   { key: 'artists', sv: 'Genom artisterna', eng: 'From the artists' },
   { key: 'newsletter', sv: 'Nyhetsbrevet', eng: 'The newsletter' },
   { key: 'poster', sv: 'Affisch / flyer', eng: 'Poster / flyer' },
-  { key: 'returning', sv: 'Jag har varit förut', eng: "I've been before" },
   { key: 'other', sv: 'Annat', eng: 'Other' },
 ]
 

@@ -32,8 +32,14 @@ export interface FeedbackRow {
   // Topic tags from old tick-box questions (keys from feedbackAspects.ts); empty for new answers
   liked_aspects: string[] | null
   improve_aspects: string[] | null
+  // Been to Tip the Velvet before? (null = not answered)
+  been_before: boolean | null
   how_found: string | null
+  // Free comment next to how they found us (which poster, group ...)
+  how_found_note: string | null
   would_recommend: 'yes' | 'maybe' | 'no' | null
+  // Why (not): the guest's free comment next to that answer
+  would_recommend_note: string | null
   may_quote: boolean
   language: string | null
   source: string
@@ -61,8 +67,11 @@ export interface FeedbackInput {
   liked: string
   improve: string
   extraComment: string
+  beenBefore: string
   howFound: string
+  howFoundNote: string
   wouldRecommend: string
+  wouldRecommendNote: string
   mayQuote: boolean
   language: string
 }
@@ -159,8 +168,11 @@ export const submitFeedback = async (eventId: string, input: FeedbackInput): Pro
     p_liked: input.liked,
     p_improve: input.improve,
     p_extra_comment: input.extraComment,
+    p_been_before: input.beenBefore === '' ? undefined : input.beenBefore === 'yes',
     p_how_found: input.howFound,
+    p_how_found_note: input.howFoundNote,
     p_would_recommend: input.wouldRecommend || undefined,
+    p_would_recommend_note: input.wouldRecommendNote,
     p_may_quote: input.mayQuote,
     p_language: input.language,
   })

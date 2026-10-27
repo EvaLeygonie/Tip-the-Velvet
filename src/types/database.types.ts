@@ -255,6 +255,7 @@ export type Database = {
           event_id: string
           extra_comment: string | null
           how_found: string | null
+          how_found_note: string | null
           id: string
           improve: string | null
           improve_aspects: string[] | null
@@ -279,6 +280,7 @@ export type Database = {
           event_id: string
           extra_comment?: string | null
           how_found?: string | null
+          how_found_note?: string | null
           id?: string
           improve?: string | null
           improve_aspects?: string[] | null
@@ -303,6 +305,7 @@ export type Database = {
           event_id?: string
           extra_comment?: string | null
           how_found?: string | null
+          how_found_note?: string | null
           id?: string
           improve?: string | null
           improve_aspects?: string[] | null
@@ -1958,6 +1961,7 @@ export type Database = {
           p_event_id: string
           p_extra_comment?: string
           p_how_found?: string
+          p_how_found_note?: string
           p_improve?: string
           p_language?: string
           p_liked?: string

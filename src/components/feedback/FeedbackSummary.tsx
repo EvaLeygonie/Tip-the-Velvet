@@ -49,7 +49,7 @@ export const FeedbackBadge = ({
       {summary.is_open && (
         <Link
           to={`/events/event/${eventSlug}/feedback`}
-          className="btn-gold-outline text-xs py-1.5 px-4"
+          className="btn-gold-outline text-xs py-1.5 px-4 mt-3"
         >
           {t('Lämna ditt omdöme', 'Leave your feedback')}
         </Link>

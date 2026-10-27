@@ -26,24 +26,46 @@ export const EventFeedback = () => {
   const isPreview = searchParams.get('preview') === '1' && !!user
   const [event, setEvent] = useState<FeedbackEvent | null>(null)
   const [loading, setLoading] = useState(true)
-  const [failed, setFailed] = useState(false)
+  // Which part failed to save last (null = nothing), so the message shows next to that button
+  const [failedStage, setFailedStage] = useState<'stars' | 'review' | 'all' | 'autosave' | null>(
+    null
+  )
 
   const [rating, setRating] = useState(0)
   const [aspects, setAspects] = useState<Record<string, number>>({})
   const [liked, setLiked] = useState('')
   const [improve, setImprove] = useState('')
   const [extraComment, setExtraComment] = useState('')
+  const [beenBefore, setBeenBefore] = useState('')
   const [howFound, setHowFound] = useState('')
+  // A free comment on how they found us (which poster, which group ...), useful for marketing
+  const [howFoundNote, setHowFoundNote] = useState('')
   const [wouldRecommend, setWouldRecommend] = useState('')
+  // Why (not): a free comment next to the recommend answer
+  const [wouldRecommendNote, setWouldRecommendNote] = useState('')
   const [review, setReview] = useState('')
   // "Show my review on the website" — ticked by default; only used with the review text, and the board still approves each one
   const [mayQuote, setMayQuote] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<'stars' | 'review' | 'all' | null>(null)
-  // The review text that is already stored, so leaving the box without changes sends nothing, and a
-  // small "Saved" note shows after an automatic save.
+  // What is already stored, so each section can show it is sent (and offer "update" once the guest
+  // edits it again). The review text covers a button press and the automatic save when leaving the
+  // box; the private answers only count as sent when their own button was pressed.
   const [sentReview, setSentReview] = useState('')
-  const [autoSaved, setAutoSaved] = useState(false)
+  const [sentPrivate, setSentPrivate] = useState<string | null>(null)
+  const privateKey = JSON.stringify([
+    aspects,
+    liked,
+    improve,
+    extraComment,
+    beenBefore,
+    howFound,
+    howFoundNote,
+    wouldRecommend,
+    wouldRecommendNote,
+  ])
+  const reviewSent = sentReview !== '' && review.trim() === sentReview
+  const privateSent = sentPrivate !== null && sentPrivate === privateKey
   const detailsRef = useRef<HTMLDivElement>(null)
   const reviewRef = useRef<HTMLTextAreaElement>(null)
 
@@ -53,7 +75,6 @@ export const EventFeedback = () => {
     const start = el?.selectionStart ?? review.length
     const end = el?.selectionEnd ?? review.length
     setReview((review.slice(0, start) + emoji + review.slice(end)).slice(0, 2000))
-    setAutoSaved(false)
     window.setTimeout(() => {
       el?.focus()
       el?.setSelectionRange(start + emoji.length, start + emoji.length)
@@ -67,26 +88,28 @@ export const EventFeedback = () => {
     let cancelled = false
     getFeedbackEventBySlug(slug)
       .then((e) => !cancelled && setEvent(e))
-      .catch((err) => {
-        console.error(err)
-        if (!cancelled) setFailed(true)
-      })
+      .catch((err) => console.error(err))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
   }, [slug])
 
-  // 'autosave' = the review box lost focus: stored quietly, no thank-you message
+  // 'autosave' = the review box lost focus: stored quietly. Every send carries the whole answer, so
+  // the sections never overwrite each other.
   const send = async (stage: 'stars' | 'review' | 'all' | 'autosave', nextRating = rating) => {
     if (!event || website || nextRating < 0.5) return
+    const markSent = () => {
+      setSentReview(review.trim())
+      if (stage === 'all') setSentPrivate(privateKey)
+      setSaved(stage === 'autosave' ? 'review' : stage)
+    }
     if (isPreview) {
-      if (stage === 'autosave') setAutoSaved(true)
-      else setSaved(stage)
+      markSent()
       return
     }
     setSaving(true)
-    setFailed(false)
+    setFailedStage(null)
     try {
       await submitFeedback(event.id, {
         rating: nextRating,
@@ -95,20 +118,18 @@ export const EventFeedback = () => {
         liked,
         improve,
         extraComment,
+        beenBefore,
         howFound,
+        howFoundNote,
         wouldRecommend,
+        wouldRecommendNote,
         mayQuote,
         language,
       })
-      setSentReview(review.trim())
-      if (stage === 'autosave') setAutoSaved(true)
-      else {
-        setSaved(stage)
-        setAutoSaved(false)
-      }
+      markSent()
     } catch (err) {
       console.error(err)
-      setFailed(true)
+      setFailedStage(stage)
     } finally {
       setSaving(false)
     }
@@ -184,39 +205,19 @@ export const EventFeedback = () => {
           <div className="flex justify-center">
             <StarRating value={rating} onChange={pickRating} size={40} label="1-5" />
           </div>
-          {saved && (
-            <div className="space-y-2">
-              <p className="text-info">
-                {saved === 'all'
-                  ? t('Tack så mycket! Vi läser allt.', 'Thank you so much! We read everything.')
-                  : saved === 'review'
-                    ? t('Tack! Din recension är skickad.', 'Thank you! Your review has been sent.')
-                    : t(
-                        'Tack! Ditt betyg är sparat. Skriv gärna en recension nedan.',
-                        'Thank you! Your rating is saved. Feel free to write a review below.'
-                      )}
-              </p>
-              {saved === 'review' && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }
-                  className="gold-link text-sm"
-                >
-                  {t(
-                    'Vill du hjälpa oss bli ännu bättre? Svara på några frågor till ↓',
-                    'Want to help us get even better? Answer a few more questions ↓'
-                  )}
-                </button>
+          {saved === 'stars' && (
+            <p className="text-info">
+              {t(
+                'Tack! Ditt betyg är sparat. Skriv gärna en recension nedan.',
+                'Thank you! Your rating is saved. Feel free to write a review below.'
               )}
-            </div>
+            </p>
           )}
-          {failed && (
+          {failedStage === 'stars' && (
             <p className="velvet-warning-box">
               {t(
-                'Något gick fel och ditt svar sparades inte. Försök igen.',
-                "Something went wrong and your answer wasn't saved. Please try again."
+                'Något gick fel och ditt betyg sparades inte. Försök igen.',
+                "Something went wrong and your rating wasn't saved. Please try again."
               )}
             </p>
           )}
@@ -233,10 +234,7 @@ export const EventFeedback = () => {
                   rows={3}
                   maxLength={2000}
                   value={review}
-                  onChange={(e) => {
-                    setReview(e.target.value)
-                    setAutoSaved(false)
-                  }}
+                  onChange={(e) => setReview(e.target.value)}
                   onBlur={() => {
                     if (review.trim() && review.trim() !== sentReview) void send('autosave')
                   }}
@@ -244,33 +242,47 @@ export const EventFeedback = () => {
                 />
                 <EmojiPicker onPick={insertEmoji} />
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={mayQuote}
-                  onChange={(e) => setMayQuote(e.target.checked)}
-                  className="shrink-0"
-                />
-                <span className="text-info text-[13px]">
-                  {t(
-                    'Visa min recension anonymt på hemsidan',
-                    'Show my review anonymously on the website'
-                  )}
-                </span>
-              </label>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-info text-[13px]" aria-live="polite">
-                  {autoSaved && saved !== 'review' && t('Sparat ✓', 'Saved ✓')}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={mayQuote}
+                    onChange={(e) => setMayQuote(e.target.checked)}
+                    className="shrink-0"
+                  />
+                  <span className="text-info text-[13px]">
+                    {t(
+                      'Visa min recension anonymt på hemsidan',
+                      'Show my review anonymously on the website'
+                    )}
+                  </span>
+                </label>
                 <button
                   type="button"
-                  disabled={saving || !review.trim()}
+                  disabled={saving || !review.trim() || reviewSent}
                   onClick={() => void send('review')}
-                  className="btn-gold"
+                  className={`shrink-0 ${reviewSent ? 'btn-gold-outline' : 'btn-gold'}`}
                 >
-                  {saving ? t('Skickar...', 'Sending...') : t('Skicka recension', 'Send review')}
+                  {saving
+                    ? t('Skickar...', 'Sending...')
+                    : reviewSent
+                      ? t('Skickad ✓', 'Sent ✓')
+                      : sentReview
+                        ? t('Uppdatera recension', 'Update review')
+                        : t('Skicka recension', 'Send review')}
                 </button>
               </div>
+              <p className="text-[13px] text-emerald-400" aria-live="polite">
+                {reviewSent && t('✓ Recensionen är skickad. Tack!', '✓ Review sent. Thank you!')}
+              </p>
+              {(failedStage === 'review' || failedStage === 'autosave') && (
+                <p className="velvet-warning-box">
+                  {t(
+                    'Något gick fel och din recension sparades inte. Försök igen.',
+                    "Something went wrong and your review wasn't saved. Please try again."
+                  )}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -330,6 +342,37 @@ export const EventFeedback = () => {
                 />
               </div>
 
+              <div className="form-field">
+                <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                  <label className="form-label-gold">
+                    {t(
+                      'Har du varit på Tip the Velvet förut?',
+                      'Have you been to Tip the Velvet before?'
+                    )}
+                  </label>
+                  <div role="radiogroup" className="flex items-center gap-6">
+                    {(
+                      [
+                        ['yes', t('Ja', 'Yes')],
+                        ['no', t('Nej', 'No')],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label key={value} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="been-before"
+                          value={value}
+                          checked={beenBefore === value}
+                          onChange={() => setBeenBefore(value)}
+                          className="h-4 w-4 accent-accent"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="form-row-2-tight">
                 <div className="form-field">
                   <label className="form-label-gold">
@@ -350,18 +393,64 @@ export const EventFeedback = () => {
                 </div>
                 <div className="form-field">
                   <label className="form-label-gold">
+                    {t('Annat / kommentar', 'Other / comment')}
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={200}
+                    value={howFoundNote}
+                    onChange={(e) => setHowFoundNote(e.target.value)}
+                    placeholder={t(
+                      'T.ex. vilken affisch eller grupp',
+                      'E.g. which poster or group'
+                    )}
+                    className="velvet-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row-2-tight">
+                <div className="form-field">
+                  <label className="form-label-gold">
                     {t('Skulle du rekommendera oss?', 'Would you recommend us?')}
                   </label>
-                  <select
-                    className="velvet-select"
-                    value={wouldRecommend}
-                    onChange={(e) => setWouldRecommend(e.target.value)}
+                  <div
+                    role="radiogroup"
+                    className="flex h-9 flex-wrap items-center gap-x-6 gap-y-2"
                   >
-                    <option value="" />
-                    <option value="yes">{t('Ja', 'Yes')}</option>
-                    <option value="maybe">{t('Kanske', 'Maybe')}</option>
-                    <option value="no">{t('Nej', 'No')}</option>
-                  </select>
+                    {(
+                      [
+                        ['yes', t('Ja', 'Yes')],
+                        ['maybe', t('Kanske', 'Maybe')],
+                        ['no', t('Nej', 'No')],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label key={value} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="would-recommend"
+                          value={value}
+                          checked={wouldRecommend === value}
+                          onChange={() => setWouldRecommend(value)}
+                          className="h-4 w-4 accent-accent"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label className="form-label-gold">
+                    {t('Annat / kommentar', 'Other / comment')}
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={500}
+                    value={wouldRecommendNote}
+                    onChange={(e) => setWouldRecommendNote(e.target.value)}
+                    placeholder={t('Varför, eller varför inte?', 'Why, or why not?')}
+                    className="velvet-input"
+                  />
                 </div>
               </div>
 
@@ -399,10 +488,53 @@ export const EventFeedback = () => {
               onChange={(e) => setWebsite(e.target.value)}
             />
 
-            <div className="flex justify-end">
-              <button type="submit" disabled={saving} className="btn-gold">
-                {saving ? t('Skickar...', 'Sending...') : t('Skicka', 'Send')}
-              </button>
+            <div className="space-y-3" aria-live="polite">
+              {failedStage === 'all' && (
+                <p className="velvet-warning-box">
+                  {t(
+                    'Något gick fel och dina svar sparades inte. Försök igen.',
+                    "Something went wrong and your answers weren't saved. Please try again."
+                  )}
+                </p>
+              )}
+              {privateSent ? (
+                // Sent: thank them, and offer the way back. They are not sent away automatically,
+                // since they may not have written their review yet.
+                <div className="callout-panel space-y-3">
+                  <p className="text-emerald-400">
+                    {t('✓ Tack! Vi läser allt.', '✓ Thank you! We read everything.')}
+                  </p>
+                  {!reviewSent && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      }
+                      className="gold-link text-sm"
+                    >
+                      {t(
+                        'Du har inte skrivit någon recension än. Du kan göra det här ovanför ↑',
+                        "You haven't written a review yet. You can do that above ↑"
+                      )}
+                    </button>
+                  )}
+                  <div>
+                    <Link to={`/events/event/${event.slug}`} className="btn-gold inline-flex">
+                      {t('Tillbaka till eventet', 'Back to the event')}
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <button type="submit" disabled={saving} className="btn-gold">
+                    {saving
+                      ? t('Skickar...', 'Sending...')
+                      : sentPrivate !== null
+                        ? t('Uppdatera', 'Update')
+                        : t('Skicka', 'Send')}
+                  </button>
+                </div>
+              )}
             </div>
           </form>
         )}
