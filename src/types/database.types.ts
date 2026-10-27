@@ -251,7 +251,7 @@ export type Database = {
       event_feedback: {
         Row: {
           aspect_ratings: Json
-          been_before: boolean | null
+          been_before: string | null
           created_at: string
           event_id: string
           extra_comment: string | null
@@ -278,7 +278,7 @@ export type Database = {
         }
         Insert: {
           aspect_ratings?: Json
-          been_before?: boolean | null
+          been_before?: string | null
           created_at?: string
           event_id: string
           extra_comment?: string | null
@@ -305,7 +305,7 @@ export type Database = {
         }
         Update: {
           aspect_ratings?: Json
-          been_before?: boolean | null
+          been_before?: string | null
           created_at?: string
           event_id?: string
           extra_comment?: string | null
@@ -1964,7 +1964,7 @@ export type Database = {
       submit_event_feedback: {
         Args: {
           p_aspects?: Json
-          p_been_before?: boolean
+          p_been_before?: string
           p_event_id: string
           p_extra_comment?: string
           p_how_found?: string

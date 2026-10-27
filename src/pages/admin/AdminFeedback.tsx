@@ -118,7 +118,7 @@ export const AdminFeedback = () => {
       return { key, avg: average(values), n: values.length }
     })
     const recommend = visible.filter((r) => r.would_recommend)
-    const knownBefore = visible.filter((r) => r.been_before !== null)
+    const knownBefore = visible.filter((r) => r.been_before === 'yes' || r.been_before === 'no')
     return {
       avg: average(rated),
       ratedCount: rated.length,
@@ -126,7 +126,7 @@ export const AdminFeedback = () => {
       aspectAverages,
       recommendYes: recommend.filter((r) => r.would_recommend === 'yes').length,
       recommendTotal: recommend.length,
-      newcomers: knownBefore.filter((r) => r.been_before === false).length,
+      newcomers: knownBefore.filter((r) => r.been_before === 'no').length,
       beenBeforeTotal: knownBefore.length,
     }
   }, [visible])
@@ -908,16 +908,6 @@ export const AdminFeedback = () => {
                             {t('Kan göras bättre', 'Can do better')}
                           </span>
                           {row.improve}
-                        </p>
-                      )}
-                      {showReviewPart && row.would_recommend_note && (
-                        <p className="text-sm">
-                          <span className="form-label-gold mr-2">
-                            {t('Rekommenderar', 'Recommends')}
-                            {row.would_recommend &&
-                              ` (${{ yes: t('ja', 'yes'), maybe: t('kanske', 'maybe'), no: t('nej', 'no') }[row.would_recommend]})`}
-                          </span>
-                          {row.would_recommend_note}
                         </p>
                       )}
                       {showReviewPart && row.extra_comment && (

@@ -13,6 +13,55 @@ import {
 } from '@/services/feedbackService'
 import { HOW_FOUND_OPTIONS, resolveAspect } from '@/lib/feedbackAspects'
 
+// Radio questions laid out as one grid, so the four answers of every question line up in the same
+// columns whatever the question's length. "Not specified" is the last, empty-valued answer and is
+// selected by default, so no question ever stands in the way of sending. On a phone each question
+// is its own label plus a wrapping row of answers.
+const RadioQuestions = ({
+  questions,
+}: {
+  questions: {
+    label: string
+    name: string
+    value: string
+    options: readonly (readonly [string, string])[]
+    onChange: (value: string) => void
+  }[]
+}) => (
+  <div className="grid items-center gap-x-5 gap-y-4 sm:grid-cols-[auto_repeat(4,auto)] sm:justify-between">
+    {questions.map((question) => (
+      <div key={question.name} className="contents">
+        <label className="form-label-gold text-center sm:pr-3 sm:text-left">{question.label}</label>
+        <div
+          role="radiogroup"
+          aria-label={question.label}
+          className="flex flex-wrap justify-center gap-x-5 gap-y-2 sm:contents"
+        >
+          {question.options.map(([optionValue, optionLabel]) => (
+            <label
+              key={optionValue}
+              // "Not specified" is the default anyway, so it is only shown from tablet width up
+              className={`cursor-pointer items-center gap-2 whitespace-nowrap text-sm ${
+                optionValue === '' ? 'hidden sm:flex' : 'flex'
+              }`}
+            >
+              <input
+                type="radio"
+                name={question.name}
+                value={optionValue}
+                checked={question.value === optionValue}
+                onChange={() => question.onChange(optionValue)}
+                className="h-4 w-4 accent-accent"
+              />
+              {optionLabel}
+            </label>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
 // Public feedback page, reached by QR code / link after a show. Stars first: tapping a star
 // saves the rating straight away, so a guest who only taps still counts. The rest is optional
 // and, when sent, updates that same answer (the database keeps one row per device per event).
@@ -41,8 +90,6 @@ export const EventFeedback = () => {
   // A free comment on how they found us (which poster, which group ...), useful for marketing
   const [howFoundNote, setHowFoundNote] = useState('')
   const [wouldRecommend, setWouldRecommend] = useState('')
-  // Why (not): a free comment next to the recommend answer
-  const [wouldRecommendNote, setWouldRecommendNote] = useState('')
   const [review, setReview] = useState('')
   // "Show my review on the website" — ticked by default; only used with the review text, and the board still approves each one
   const [mayQuote, setMayQuote] = useState(true)
@@ -62,7 +109,6 @@ export const EventFeedback = () => {
     howFound,
     howFoundNote,
     wouldRecommend,
-    wouldRecommendNote,
   ])
   const reviewSent = sentReview !== '' && review.trim() === sentReview
   const privateSent = sentPrivate !== null && sentPrivate === privateKey
@@ -122,7 +168,6 @@ export const EventFeedback = () => {
         howFound,
         howFoundNote,
         wouldRecommend,
-        wouldRecommendNote,
         mayQuote,
         language,
       })
@@ -185,7 +230,7 @@ export const EventFeedback = () => {
     <div className="page-shell">
       <Seo title={title} noindex />
       <div className="bg-glow-spot" />
-      <div className="max-w-xl mx-auto px-4 text-center space-y-6">
+      <div className="max-w-3xl mx-auto px-4 text-center space-y-6">
         {isPreview && (
           <p className="velvet-warning-box">
             {t(
@@ -242,8 +287,8 @@ export const EventFeedback = () => {
                 />
                 <EmojiPicker onPick={insertEmoji} />
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                <label className="flex cursor-pointer items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-3 sm:justify-between">
+                <label className="flex cursor-pointer items-center justify-center gap-2 text-center sm:text-left">
                   <input
                     type="checkbox"
                     checked={mayQuote}
@@ -272,7 +317,10 @@ export const EventFeedback = () => {
                         : t('Skicka recension', 'Send review')}
                 </button>
               </div>
-              <p className="text-[13px] text-emerald-400" aria-live="polite">
+              <p
+                className="text-center text-[13px] text-emerald-400 sm:text-left"
+                aria-live="polite"
+              >
                 {reviewSent && t('✓ Recensionen är skickad. Tack!', '✓ Review sent. Thank you!')}
               </p>
               {(failedStage === 'review' || failedStage === 'autosave') && (
@@ -301,7 +349,7 @@ export const EventFeedback = () => {
               </p>
 
               {aspectRows.length > 0 && (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-x-10 gap-y-3 sm:grid-cols-2">
                   {aspectRows.map((aspect) => (
                     <div key={aspect.key} className="flex items-center justify-between gap-3">
                       <span className="text-body text-sm">{t(aspect.sv, aspect.eng)}</span>
@@ -342,36 +390,37 @@ export const EventFeedback = () => {
                 />
               </div>
 
-              <div className="form-field">
-                <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                  <label className="form-label-gold">
-                    {t(
+              <RadioQuestions
+                questions={[
+                  {
+                    label: t(
                       'Har du varit på Tip the Velvet förut?',
                       'Have you been to Tip the Velvet before?'
-                    )}
-                  </label>
-                  <div role="radiogroup" className="flex items-center gap-6">
-                    {(
-                      [
-                        ['yes', t('Ja', 'Yes')],
-                        ['no', t('Nej', 'No')],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <label key={value} className="flex cursor-pointer items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name="been-before"
-                          value={value}
-                          checked={beenBefore === value}
-                          onChange={() => setBeenBefore(value)}
-                          className="h-4 w-4 accent-accent"
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                    ),
+                    name: 'been-before',
+                    value: beenBefore,
+                    onChange: setBeenBefore,
+                    options: [
+                      ['yes', t('Ja', 'Yes')],
+                      ['no', t('Nej', 'No')],
+                      ['maybe', t('Kanske', 'Maybe')],
+                      ['', t('Ej angivet', 'Not specified')],
+                    ],
+                  },
+                  {
+                    label: t('Skulle du rekommendera oss?', 'Would you recommend us?'),
+                    name: 'would-recommend',
+                    value: wouldRecommend,
+                    onChange: setWouldRecommend,
+                    options: [
+                      ['yes', t('Ja', 'Yes')],
+                      ['no', t('Nej', 'No')],
+                      ['maybe', t('Kanske', 'Maybe')],
+                      ['', t('Ej angivet', 'Not specified')],
+                    ],
+                  },
+                ]}
+              />
 
               <div className="form-row-2-tight">
                 <div className="form-field">
@@ -404,51 +453,6 @@ export const EventFeedback = () => {
                       'T.ex. vilken affisch eller grupp',
                       'E.g. which poster or group'
                     )}
-                    className="velvet-input"
-                  />
-                </div>
-              </div>
-
-              <div className="form-row-2-tight">
-                <div className="form-field">
-                  <label className="form-label-gold">
-                    {t('Skulle du rekommendera oss?', 'Would you recommend us?')}
-                  </label>
-                  <div
-                    role="radiogroup"
-                    className="flex h-9 flex-wrap items-center gap-x-6 gap-y-2"
-                  >
-                    {(
-                      [
-                        ['yes', t('Ja', 'Yes')],
-                        ['maybe', t('Kanske', 'Maybe')],
-                        ['no', t('Nej', 'No')],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <label key={value} className="flex cursor-pointer items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name="would-recommend"
-                          value={value}
-                          checked={wouldRecommend === value}
-                          onChange={() => setWouldRecommend(value)}
-                          className="h-4 w-4 accent-accent"
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="form-field">
-                  <label className="form-label-gold">
-                    {t('Annat / kommentar', 'Other / comment')}
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={500}
-                    value={wouldRecommendNote}
-                    onChange={(e) => setWouldRecommendNote(e.target.value)}
-                    placeholder={t('Varför, eller varför inte?', 'Why, or why not?')}
                     className="velvet-input"
                   />
                 </div>
@@ -525,7 +529,7 @@ export const EventFeedback = () => {
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-end">
+                <div className="flex justify-center sm:justify-end">
                   <button type="submit" disabled={saving} className="btn-gold">
                     {saving
                       ? t('Skickar...', 'Sending...')
