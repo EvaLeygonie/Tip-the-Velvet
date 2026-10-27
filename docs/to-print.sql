@@ -88,6 +88,7 @@ from (values
   ('Artistlista', 1, false, 7),
   ('Ljud & Ljus', 1, false, 8),
   ('Dörr shifts', 1, false, 9),
-  ('Event poster', 1, true, 10)
+  ('Event poster', 1, true, 10),
+  ('QR-kod för omdömen (feedback)', 3, false, 11)
 ) as v(label, copies, professional, sort_order)
 where not exists (select 1 from public.print_standard_items p where p.label = v.label);

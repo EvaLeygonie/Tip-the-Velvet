@@ -783,9 +783,13 @@ export const createEvent = async (eventData: CreateEventInput): Promise<Event> =
 }
 
 export const createEventImage = async (eventData: CreateEventImageInput, isOldEvent: boolean) => {
-  const table = isOldEvent ? 'old_event_images' : 'event_images'
-
-  const { data, error } = await supabase.from(table).insert([eventData]).single()
+  // The old board's archive table has no category column, so it never gets one
+  const { data, error } = isOldEvent
+    ? await supabase
+        .from('old_event_images')
+        .insert([{ ...eventData, category: undefined }])
+        .single()
+    : await supabase.from('event_images').insert([eventData]).single()
 
   if (error) throw error
   return data
@@ -798,6 +802,11 @@ export const updateEvent = (id: string, updatedData: Partial<CreateEventInput>) 
 
 export const toggleImageVisibility = (id: string, isVisible: boolean, isOldEvent: boolean) =>
   updateRow(isOldEvent ? 'old_event_images' : 'event_images', id, { is_visible: isVisible })
+
+// Photo category for the Stage / Mingle / Photobooth filter on the public event page (events only —
+// the old board's archive has no category column).
+export const setEventImageCategory = (id: string, category: string | null) =>
+  updateRow('event_images', id, { category })
 
 //=== DELETE ===///
 

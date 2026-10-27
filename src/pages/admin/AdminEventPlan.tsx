@@ -58,6 +58,7 @@ import { FoodTab } from '@/components/admin/event-plan/FoodTab'
 import {
   STANDING_ORGANIZERS,
   ROLE_ORDER,
+  STAFF_ROLE_MIN,
   type EventPlanTab,
 } from '@/components/admin/event-plan/constants'
 import type {
@@ -214,6 +215,10 @@ export const AdminEventPlan = () => {
     // is still 1 person (same reasoning as StaffingCoverageStrip/EventProgressOverview);
     // every other role can only ever hold 1 row per person already, so this is a no-op there.
     const distinctCount = new Set(rows.map((r) => r.staff.id)).size
+    // Orange until the expected number is reached, then green (no expected number = plain gold
+    // count). Volunteers keep the plain count here: their minimums are shown per shift below.
+    const expected = role === 'volunteer' ? null : (STAFF_ROLE_MIN[role] ?? null)
+    const reached = expected !== null && distinctCount >= expected
 
     return (
       <div key={role} className="space-y-2">
@@ -222,8 +227,16 @@ export const AdminEventPlan = () => {
             {staffRoleLabel(t, role)}
           </h5>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent">
-              {distinctCount}
+            <span
+              className={`text-xs font-mono px-2.5 py-0.5 rounded-full border ${
+                expected === null
+                  ? 'bg-accent/10 border-accent/30 text-accent'
+                  : reached
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+              }`}
+            >
+              {expected === null ? distinctCount : `${distinctCount}/${expected}`}
             </span>
             <InlineAddPicker
               fetchItems={fetchStaffCandidatesForRole(role)}

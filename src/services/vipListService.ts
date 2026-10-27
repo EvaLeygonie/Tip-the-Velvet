@@ -18,11 +18,7 @@ export const getVipManualEntries = async (eventId: string): Promise<VipManualEnt
 export const createVipManualEntry = async (
   input: CreateVipManualEntryInput
 ): Promise<VipManualEntry> => {
-  const { data, error } = await supabase
-    .from('vip_manual_entries')
-    .insert(input)
-    .select()
-    .single()
+  const { data, error } = await supabase.from('vip_manual_entries').insert(input).select().single()
 
   if (error) throw error
   return data

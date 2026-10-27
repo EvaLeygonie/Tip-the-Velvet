@@ -6,12 +6,14 @@ import type { OldEvent, Event } from '@/types/types'
 import { FeaturedEventCard } from '@/components/events/featuredEventCard'
 import { ArchivedEventCard } from '@/components/events/archivedEventCard'
 import { fetchEvents } from '@/services/eventService'
+import { getFeedbackAverages } from '@/services/feedbackService'
 import { Seo } from '@/components/Seo'
 
 export const Events = () => {
   const [oldEvents, setOldEvents] = useState<OldEvent[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
+  const [ratings, setRatings] = useState<Record<string, { average: number; count: number }>>({})
   const { user } = useAuth()
   const { t } = useLanguage()
 
@@ -33,6 +35,10 @@ export const Events = () => {
     }
 
     fetchAllData()
+    // The star ratings on the cards are a bonus: the list works without them
+    getFeedbackAverages()
+      .then(setRatings)
+      .catch((err) => console.error(err))
   }, [])
 
   const upcomingEvents = events.filter((e) => e.status === 'published')
@@ -85,15 +91,28 @@ export const Events = () => {
             {upcomingEvents.length > 0 ? (
               upcomingEvents.map((e) => <FeaturedEventCard key={e.id} event={e} />)
             ) : (
-              <FeaturedEventCard
-                event={
-                  {
-                    title: t('TBA', 'TBA'),
-                    subtitle: t('Annonseras snart...', 'Stay tuned...'),
-                    image_id: null,
-                  } as Event
-                }
-              />
+              <div className="callout-panel w-full md:w-[calc(66.667%+1.333rem)] !mt-0 !p-4 !space-y-2">
+                <h2 className="!pb-0 font-decorative text-accent">TBA</h2>
+                <p className="text-sm text-foreground/70">
+                  {t(
+                    'Nästa event annonseras snart. Prenumerera på vårt nyhetsbrev så får du veta först!',
+                    'The next event will be announced soon. Subscribe to our newsletter to be the first to know!'
+                  )}
+                </p>
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById('newsletter')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    }
+                    className="btn-gold-outline !py-1.5"
+                  >
+                    {t('Till nyhetsbrevet', 'Go to the newsletter')}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </section>
@@ -103,7 +122,7 @@ export const Events = () => {
           <div className="gold-divider" />
           <div className="card-grid">
             {pastNewEvents.map((e) => (
-              <ArchivedEventCard key={e.id} event={e} />
+              <ArchivedEventCard key={e.id} event={e} rating={ratings[e.id]} />
             ))}
           </div>
         </section>

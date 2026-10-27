@@ -30,3 +30,6 @@ notes.md
 
 MailTest.html
 public/sitemap.xml
+
+# Guest feedback exported from the old Google forms (personal free text) — run, don't commit
+docs/imports/

@@ -21,7 +21,7 @@ export const LEGAL_INFO_ENG = [
   '• Photos & videos will be taken and may be posted on our channels',
   '• Your name will appear on the guest list – no physical ticket needed',
   '• Ticket issues? Check your email before retrying',
-  "• Selling your ticket? Contact us to update the name",
+  '• Selling your ticket? Contact us to update the name',
   '• Watch out for scammers – message us if uncertain',
 ].join('\n')
 

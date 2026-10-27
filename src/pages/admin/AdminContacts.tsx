@@ -164,13 +164,18 @@ export const AdminContacts = () => {
   const [confirmedSponsorIds, setConfirmedSponsorIds] = useState<Set<string>>(new Set())
   const [statusEventVenueId, setStatusEventVenueId] = useState<string | null>(null)
 
+  // Only an upcoming event can colour the contact lists: once a show is over its markings (interested /
+  // confirmed / contacted) are history, so with no upcoming event the lists stay neutral. Defaults to the
+  // shared selection when that is upcoming, otherwise the next upcoming event.
   useEffect(() => {
     const syncDefault = () => {
-      if (selectedEventId && !statusEventId) setStatusEventId(selectedEventId)
+      if (statusEventId) return
+      const next = upcomingEvents.find((e) => e.id === selectedEventId) ?? upcomingEvents[0]
+      if (next) setStatusEventId(next.id)
     }
     syncDefault()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEventId])
+  }, [selectedEventId, upcomingEvents.length])
 
   useEffect(() => {
     if (!statusEventId) return

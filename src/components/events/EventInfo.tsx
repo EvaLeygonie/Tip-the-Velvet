@@ -72,104 +72,107 @@ export const EventInfo = ({ event }: { event: EventWithVenue }) => {
         </div>
 
         {/* INFO */}
-        <div className="flex flex-col w-full max-w-[450px] mx-auto md:mx-0 text-center md:text-left">
-          {/* my-auto centers this card on the image's own vertical center — the ticket/
-              casting row below stays flush at the bottom (same as before), and the auto
-              margins split whatever space is left above/below the card evenly, rather than
-              it sitting flush at the top with all the slack left as one gap underneath.
-              Direct feedback 2026-09-24. */}
-          <div className="info-panel my-auto">
-            <div className="info-field-row-divided">
-              <Info className="icon-accent-md" strokeWidth={1.5} />
-              <div>
-                <span className="label-kicker">{t('Språk:', 'Language:')}</span>
-                <span className="text-foreground/90">
-                  {event.is_english
-                    ? t('Värden kommer att tala engelska', 'The host will be speaking English')
-                    : t('Värden kommer att tala svenska', 'The host will be speaking Swedish')}
-                </span>
-              </div>
-            </div>
-
-            <div className="info-field-row-divided">
-              <MapPin className="icon-accent-md" strokeWidth={1.5} />
-              <div>
-                <span className="label-kicker">{t('Plats:', 'Venue:')}</span>
-                <span className="text-foreground/90">
-                  {event.venues ? (
-                    <a
-                      href={event.venues.map_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-foreground hover:underline inline-flex items-center gap-1"
-                    >
-                      {event.venues.name}
-                      <ExternalLink size={12} className="opacity-70" />
-                    </a>
-                  ) : (
-                    event.location || 'TBA'
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <div className="info-field-row-divided">
-              <Calendar className="icon-accent-md" strokeWidth={1.5} />
-              <div>
-                <span className="label-kicker">{t('Start:', 'Starts:')}</span>
-                <span className="text-foreground/90">
-                  {formatDateTime(language, event.event_start)}
-                </span>
-              </div>
-            </div>
-
-            {event.event_end && (
-              <div className="info-field-row-divided">
-                <Calendar className="icon-accent-md" strokeWidth={1.5} />
+        <div className="flex flex-col gap-6 w-full max-w-[450px] mx-auto md:mx-0 text-center md:text-left">
+          {/* The card is centered on the image's own vertical center: it sits in the space above a
+              bottom row that always reserves the same height as the "See schedule" button under
+              the image (the ticket/casting links go there, and on past events it stays empty), so
+              both columns have the same usable height. Direct feedback 2026-10-26. */}
+          <div className="flex-1 flex items-center">
+            <div className="info-panel w-full">
+              <div className="info-field-row-divided last:border-b-0">
+                <Info className="icon-accent-md" strokeWidth={1.5} />
                 <div>
-                  <span className="label-kicker">{t('Slut:', 'Ends:')}</span>
-                  <span className="text-foreground/80">
-                    {formatDateTime(language, event.event_end)}
+                  <span className="label-kicker">{t('Språk:', 'Language:')}</span>
+                  <span className="text-foreground/90">
+                    {event.is_english
+                      ? t('Värden kommer att tala engelska', 'The host will be speaking English')
+                      : t('Värden kommer att tala svenska', 'The host will be speaking Swedish')}
                   </span>
                 </div>
               </div>
-            )}
+
+              <div className="info-field-row-divided last:border-b-0">
+                <MapPin className="icon-accent-md" strokeWidth={1.5} />
+                <div>
+                  <span className="label-kicker">{t('Plats:', 'Venue:')}</span>
+                  <span className="text-foreground/90">
+                    {event.venues ? (
+                      <a
+                        href={event.venues.map_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-foreground hover:underline inline-flex items-center gap-1"
+                      >
+                        {event.venues.name}
+                        <ExternalLink size={12} className="opacity-70" />
+                      </a>
+                    ) : (
+                      event.location || 'TBA'
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="info-field-row-divided last:border-b-0">
+                <Calendar className="icon-accent-md" strokeWidth={1.5} />
+                <div>
+                  <span className="label-kicker">{t('Start:', 'Starts:')}</span>
+                  <span className="text-foreground/90">
+                    {formatDateTime(language, event.event_start)}
+                  </span>
+                </div>
+              </div>
+
+              {event.event_end && (
+                <div className="info-field-row-divided last:border-b-0">
+                  <Calendar className="icon-accent-md" strokeWidth={1.5} />
+                  <div>
+                    <span className="label-kicker">{t('Slut:', 'Ends:')}</span>
+                    <span className="text-foreground/80">
+                      {formatDateTime(language, event.event_end)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* LINKS */}
-          {upcomingEvent &&
-            (() => {
-              const isCastingExpired = event.casting_call_deadline
-                ? new Date().getTime() > new Date(event.casting_call_deadline).getTime()
-                : false
+          {/* LINKS (the row keeps its height even when empty) */}
+          <div className="min-h-9">
+            {upcomingEvent &&
+              (() => {
+                const isCastingExpired = event.casting_call_deadline
+                  ? new Date().getTime() > new Date(event.casting_call_deadline).getTime()
+                  : false
 
-              return (
-                <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                  {/* BILJETTER */}
-                  <TicketButton
-                    ticket_release_date={event.ticket_release_date}
-                    ticket_url={event.ticket_url}
-                  />
+                return (
+                  <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                    {/* BILJETTER */}
+                    <TicketButton
+                      ticket_release_date={event.ticket_release_date}
+                      ticket_url={event.ticket_url}
+                    />
 
-                  {/* CASTING CALL */}
-                  {event.has_casting_call &&
-                    (!isCastingExpired ? (
-                      <Link
-                        to="/casting-call"
-                        className="btn-red shadow-lg transition-all duration-300"
-                      >
-                        <UserPlus className="w-4 h-4 text-red-400" />
-                        {t('Casting Call', 'Casting Call')}
-                      </Link>
-                    ) : (
-                      <span className="btn-red opacity-25 cursor-not-allowed">
-                        <UserPlus className="w-4 h-4 text-red-400/50 opacity-50" />
-                        {t('Casting Stängd', 'Casting Closed')}
-                      </span>
-                    ))}
-                </div>
-              )
-            })()}
+                    {/* CASTING CALL */}
+                    {event.has_casting_call &&
+                      (!isCastingExpired ? (
+                        <Link
+                          to="/casting-call"
+                          className="btn-red shadow-lg transition-all duration-300"
+                        >
+                          <UserPlus className="w-4 h-4 text-red-400" />
+                          {t('Casting Call', 'Casting Call')}
+                        </Link>
+                      ) : (
+                        <span className="btn-red opacity-25 cursor-not-allowed">
+                          <UserPlus className="w-4 h-4 text-red-400/50 opacity-50" />
+                          {t('Casting Stängd', 'Casting Closed')}
+                        </span>
+                      ))}
+                  </div>
+                )
+              })()}
+          </div>
         </div>
       </div>
 

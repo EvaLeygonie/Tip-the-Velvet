@@ -55,6 +55,45 @@ export const ROLE_ORDER: StaffVolunteerType[] = [
 // order for running a show.
 export const VOLUNTEER_SHIFT_ORDER: VolunteerShift[] = ['driving', 'setup', 'guestlist', 'takedown']
 
+// Minimum number of people each volunteer shift needs before the Volunteers card on the staffing
+// strip counts as covered (StaffingCoverageStrip.tsx). Setup 6, driving 1, guestlist (the door) 4 and
+// takedown 4 — set 2026-10-26. A shift missing here has no minimum and never warns.
+export const VOLUNTEER_SHIFT_MIN: Partial<Record<VolunteerShift, number>> = {
+  driving: 1,
+  setup: 6,
+  guestlist: 4,
+  takedown: 4,
+}
+
+// Needs at least 2 stage kittens, not just 1 — direct feedback 2026-09-02.
+export const STAGE_KITTEN_MIN = 2
+
+// How many people each role is expected to have; the count badge on a role section and its card turn
+// from orange to green once that number is reached. Volunteers are judged shift by shift instead
+// (VOLUNTEER_SHIFT_MIN). Roles not listed here have no expected number and show a plain count.
+export const STAFF_ROLE_MIN: Partial<Record<StaffVolunteerType, number>> = {
+  photographer: 1,
+  technician: 1,
+  stage_kitten: STAGE_KITTEN_MIN,
+}
+
+// People on one volunteer shift (a person on two rows still counts once).
+export const shiftPeopleCount = (
+  staffRows: { role: StaffVolunteerType; shift: VolunteerShift | null; staff: { id: string } }[],
+  shift: VolunteerShift
+): number =>
+  new Set(
+    staffRows.filter((r) => r.role === 'volunteer' && r.shift === shift).map((r) => r.staff.id)
+  ).size
+
+// True once every shift that has a minimum has that many people.
+export const allVolunteerShiftsCovered = (
+  staffRows: { role: StaffVolunteerType; shift: VolunteerShift | null; staff: { id: string } }[]
+): boolean =>
+  VOLUNTEER_SHIFT_ORDER.every(
+    (shift) => shiftPeopleCount(staffRows, shift) >= (VOLUNTEER_SHIFT_MIN[shift] ?? 0)
+  )
+
 // The 3 show-program segments that exist on every single show, regardless of lineup — the
 // board's own two costume-competition appearances and the closing all-artists thank-you
 // bow. Stored as performer_acts rows with performer_id: null and constant_key set to one of

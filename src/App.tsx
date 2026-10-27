@@ -13,6 +13,7 @@ import { Footer } from '@/components/footer'
 
 import { PrivateRouteRobots, HtmlLangSync } from '@/components/Seo'
 import { ScrollToTop } from '@/components/ScrollToTop'
+import { ScrollToTopButton } from '@/components/ScrollToTopButton'
 import { HomePage } from '@/pages/HomePage'
 import { NotFound } from '@/pages/NotFound'
 import { Events } from '@/pages/Events'
@@ -35,6 +36,8 @@ import { Performers } from '@/pages/Performers'
 import { PerformerDetail } from '@/pages/PerformerDetail'
 import { AdminCasting } from '@/pages/admin/AdminCasting'
 import { AdminContacts } from '@/pages/admin/AdminContacts'
+import { AdminFeedback } from '@/pages/admin/AdminFeedback'
+import { EventFeedback } from '@/pages/EventFeedback'
 import { AddPerformer } from '@/pages/admin/AddPerformer'
 
 const queryClient = new QueryClient()
@@ -67,11 +70,13 @@ export const App = () => (
               <PrivateRouteRobots />
               <Navigation />
               <ScrollToTop />
+              <ScrollToTopButton />
               <main className="layout-base">
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/events" element={<Events />} />
                   <Route path="/events/:type/:slug" element={<EventDetail />} />
+                  <Route path="/events/:type/:slug/feedback" element={<EventFeedback />} />
                   <Route path="/casting-call" element={<CastingCall />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/dresscode" element={<Dresscode />} />
@@ -157,6 +162,14 @@ export const App = () => (
                     element={
                       <ProtectedRoute>
                         <AdminContacts />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/feedback"
+                    element={
+                      <ProtectedRoute>
+                        <AdminFeedback />
                       </ProtectedRoute>
                     }
                   />

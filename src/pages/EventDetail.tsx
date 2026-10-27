@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -21,6 +21,9 @@ import { EventLineup } from '@/components/events/EventLineup'
 import { EventPreShow } from '@/components/events/EventPreShow'
 import { getPublicEventEntertainers } from '@/services/entertainerService'
 import { Seo } from '@/components/Seo'
+import { FeedbackBadge, FeedbackSummary } from '@/components/feedback/FeedbackSummary'
+import { useFeedbackSummary } from '@/hooks/useFeedbackSummary'
+import { PHOTO_GROUPS, publicPhotoGroup, type PhotoGroup } from '@/lib/photoGroups'
 
 type ExtendedEvent = Event & {
   public_photographers?: {
@@ -37,7 +40,10 @@ export const EventDetail = () => {
   const isOldEvent = type === 'old'
   const [loading, setLoading] = useState(true)
 
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const [event, setEvent] = useState<ExtendedEvent | OldEvent | null>(null)
+  // Our own events only; the old board's archive has no feedback
+  const feedbackSummary = useFeedbackSummary(!isOldEvent ? event?.id : undefined)
   const [eventPerformers, setEventPerformers] = useState<EventPerformerRow[]>([])
   const [entertainers, setEntertainers] = useState<PublicEventEntertainer[]>([])
   const [images, setImages] = useState<EventImage[]>([])
@@ -47,7 +53,19 @@ export const EventDetail = () => {
     .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
     .filter((img) => img.is_visible)
 
-  const lightBoxSlides = sortedImages.map((img) => ({
+  // Stage / Mingle / Photobooth filter badges: only when at least two groups actually have photos
+  // (events only; each photo's category is set in the gallery editor)
+  const [photoFilter, setPhotoFilter] = useState<PhotoGroup | 'all'>('all')
+  const groupOf = (img: EventImage) => publicPhotoGroup(img.category)
+  const groupsPresent = PHOTO_GROUPS.filter((g) =>
+    sortedImages.some((img) => groupOf(img) === g.key)
+  )
+  const shownImages =
+    photoFilter === 'all'
+      ? sortedImages
+      : sortedImages.filter((img) => groupOf(img) === photoFilter)
+
+  const lightBoxSlides = shownImages.map((img) => ({
     src: getImageSrc(img.image_id),
     alt: img.event_slug || '',
   }))
@@ -118,12 +136,18 @@ export const EventDetail = () => {
       />
       <div className="bg-glow-spot" />
       <div className="editor-container">
-        <FloatingBackLink to="/events" label={t('Tillbaka till events', 'Back to events')} />
-        <div className="section-header-triad">
+        <FloatingBackLink
+          to="/events"
+          label={t('Tillbaka till events', 'Back to events')}
+          alignTo={titleRef}
+        />
+        {/* items-start: the title and the Edit button share one top line instead of centring the
+            button on the whole title block (subtitle and rating included) */}
+        <div className="section-header-triad md:!items-start">
           <div className="header-side-content md:justify-start" />
 
           <div className="text-center space-y-1">
-            <h1 className="drop-shadow-[0_0_20px_currentColor] pb-1">
+            <h1 ref={titleRef} className="drop-shadow-[0_0_20px_currentColor] pb-1">
               {event?.title || t('Event hittades inte', 'Event not found')}
             </h1>
 
@@ -132,9 +156,12 @@ export const EventDetail = () => {
                 {event.subtitle}
               </h2>
             )}
+            {!isOldEvent && event && (
+              <FeedbackBadge summary={feedbackSummary} eventSlug={(event as Event).slug} />
+            )}
           </div>
 
-          <div className="header-side-content md:justify-end">
+          <div className="header-side-content md:justify-end md:pt-3">
             {user && !isOldEvent && (
               <Link to={`/admin/event-editor/${slug}`}>
                 <button className="btn-admin">{t('Redigera Event', 'Edit Event')}</button>
@@ -159,7 +186,7 @@ export const EventDetail = () => {
           <OldEventInfo event={event as OldEvent}></OldEventInfo>
         ) : (
           <>
-            <EventInfo event={event as Event}></EventInfo>
+            <EventInfo event={event as Event} />
             <EventLineup performers={eventPerformers} />
             <EventPreShow entertainers={entertainers} />
           </>
@@ -240,17 +267,52 @@ export const EventDetail = () => {
         )}
 
         {images.length === 0 && (
-          <div className="empty-state empty-state-lg">
+          <div className="empty-state py-6">
             <Images className="w-12 h-12" />
             <p className="font-decorative uppercase tracking-widest text-sm">
               {t('Inga bilder uppladdade ännu', 'No photos uploaded yet')}
             </p>
+            {!isOldEvent && (
+              <p className="max-w-md text-center text-sm normal-case tracking-normal">
+                {t(
+                  'Bilderna laddas upp här så fort fotografen är klar med dem. Det brukar ta en liten stund – tack för ditt tålamod!',
+                  'The photos will be uploaded here as soon as the photographer has finished with them. It usually takes a little while, thank you for your patience!'
+                )}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!user && !isOldEvent && groupsPresent.length > 1 && (
+          <div className="flex flex-wrap justify-center gap-2 mb-5">
+            {(['all', ...groupsPresent.map((g) => g.key)] as const).map((key) => {
+              const group = PHOTO_GROUPS.find((g) => g.key === key)
+              const count =
+                key === 'all'
+                  ? sortedImages.length
+                  : sortedImages.filter((img) => groupOf(img) === key).length
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setPhotoFilter(key)}
+                  className={
+                    photoFilter === key
+                      ? 'btn-gold text-xs py-1.5 px-4'
+                      : 'btn-gold-outline text-xs py-1.5 px-4'
+                  }
+                >
+                  {group ? t(group.sv, group.eng) : t('Alla', 'All')}{' '}
+                  <span className="opacity-60">{count}</span>
+                </button>
+              )
+            })}
           </div>
         )}
 
         {!user && images.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-w-6xl mx-auto">
-            {sortedImages.map((img, idx) => (
+            {shownImages.map((img, idx) => (
               <div
                 key={img.id}
                 onClick={() => setIndex(idx)}
@@ -268,6 +330,19 @@ export const EventDetail = () => {
           </div>
         )}
       </section>
+
+      {/* REVIEWS: last on the page, so approved comments can grow here without pushing the photos down */}
+      {!isOldEvent && event && (
+        <div className="px-4 sm:px-6 md:px-10 mb-12">
+          <div className="max-w-6xl mx-auto">
+            <FeedbackSummary
+              summary={feedbackSummary}
+              eventId={(event as Event).id}
+              eventSlug={(event as Event).slug}
+            />
+          </div>
+        </div>
+      )}
 
       <Lightbox
         open={index >= 0}

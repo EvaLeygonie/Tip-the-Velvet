@@ -129,7 +129,10 @@ export const Footer = () => {
           </div>
 
           {/* RIGHT: Newsletter */}
-          <div className="space-y-4 flex flex-col items-center md:items-start text-center md:text-left">
+          <div
+            id="newsletter"
+            className="space-y-4 flex flex-col items-center md:items-start text-center md:text-left"
+          >
             <h4>{t('Nyhetsbrev', 'Newsletter')}</h4>
 
             <form onSubmit={handleSubscribe} className="space-y-3 max-w-xs">

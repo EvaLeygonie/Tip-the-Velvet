@@ -1,7 +1,12 @@
 import { CheckCircle2, AlertTriangle, Music2 } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { staffRoleLabel } from '@/lib/contactLabels'
-import { ROLE_ORDER, FIXED_STAFF_ROLES } from './constants'
+import {
+  ROLE_ORDER,
+  FIXED_STAFF_ROLES,
+  STAGE_KITTEN_MIN,
+  allVolunteerShiftsCovered,
+} from './constants'
 import { missingMusicItems } from './musicCoverage'
 import type { AdminEventStaffRow } from '@/services/eventService'
 import type { StaffVolunteerType } from '@/types/types'
@@ -15,9 +20,6 @@ interface StaffingCoverageStripProps {
   // card's status below.
   hasAfterpartyPlaylist: boolean
 }
-
-// Needs at least 2 people, not just 1 — per direct feedback (2026-09-02).
-const STAGE_KITTEN_MIN = 2
 
 // Shorter labels for this strip specifically (not staffRoleLabel itself, which stays full
 // everywhere else — section headers, the Contacts role dropdown, etc.) — these two cards
@@ -84,9 +86,17 @@ export const StaffingCoverageStrip = ({
           coveredByPlaylist = count === 0 && hasAfterpartyPlaylist
           filled = missingMusic.length === 0
           missing = !filled
-        } else if (role === 'doorman') {
-          // Voluntary position — worth a checkmark when filled, but never a warning.
+        } else if (role === 'doorman' || role === 'entertainment') {
+          // Voluntary / optional positions — worth a checkmark once someone is added, but never a
+          // warning (entertainment: direct feedback 2026-10-26).
           filled = count > 0
+        } else if (role === 'volunteer') {
+          // Shows everyone who volunteers (all shifts); green only once every shift has its minimum
+          // (VOLUNTEER_SHIFT_MIN), otherwise a warning. Each shift's own count sits in its list
+          // section header (VolunteerShiftGroups.tsx).
+          const shiftsCovered = allVolunteerShiftsCovered(staffRows)
+          filled = shiftsCovered
+          missing = !shiftsCovered
         } else if (role === 'stage_kitten') {
           filled = count >= STAGE_KITTEN_MIN
           missing = count < STAGE_KITTEN_MIN

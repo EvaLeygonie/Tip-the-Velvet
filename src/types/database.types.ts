@@ -213,72 +213,6 @@ export type Database = {
         }
         Relationships: []
       }
-      event_print_items: {
-        Row: {
-          created_at: string
-          done: boolean
-          event_id: string
-          hidden: boolean
-          id: string
-          copies: number | null
-          label: string | null
-          professional: boolean | null
-          sort_order: number
-          standard_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          done?: boolean
-          event_id: string
-          hidden?: boolean
-          id?: string
-          copies?: number | null
-          label?: string | null
-          professional?: boolean | null
-          sort_order?: number
-          standard_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          done?: boolean
-          event_id?: string
-          hidden?: boolean
-          id?: string
-          copies?: number | null
-          label?: string | null
-          professional?: boolean | null
-          sort_order?: number
-          standard_id?: string | null
-        }
-        Relationships: []
-      }
-      print_standard_items: {
-        Row: {
-          copies: number
-          created_at: string
-          id: string
-          label: string
-          professional: boolean
-          sort_order: number
-        }
-        Insert: {
-          copies?: number
-          created_at?: string
-          id?: string
-          label: string
-          professional?: boolean
-          sort_order?: number
-        }
-        Update: {
-          copies?: number
-          created_at?: string
-          id?: string
-          label?: string
-          professional?: boolean
-          sort_order?: number
-        }
-        Relationships: []
-      }
       door_shift_slots: {
         Row: {
           created_at: string
@@ -314,8 +248,89 @@ export type Database = {
           },
         ]
       }
+      event_feedback: {
+        Row: {
+          aspect_ratings: Json
+          created_at: string
+          event_id: string
+          extra_comment: string | null
+          how_found: string | null
+          id: string
+          improve: string | null
+          improve_aspects: string[] | null
+          is_actioned: boolean
+          is_hidden: boolean
+          is_quote_approved: boolean
+          language: string | null
+          liked: string | null
+          liked_aspects: string[] | null
+          may_quote: boolean
+          rating: number | null
+          review: string | null
+          source: string
+          updated_at: string
+          voter_token: string
+          would_recommend: string | null
+        }
+        Insert: {
+          aspect_ratings?: Json
+          created_at?: string
+          event_id: string
+          extra_comment?: string | null
+          how_found?: string | null
+          id?: string
+          improve?: string | null
+          improve_aspects?: string[] | null
+          is_actioned?: boolean
+          is_hidden?: boolean
+          is_quote_approved?: boolean
+          language?: string | null
+          liked?: string | null
+          liked_aspects?: string[] | null
+          may_quote?: boolean
+          rating?: number | null
+          review?: string | null
+          source?: string
+          updated_at?: string
+          voter_token: string
+          would_recommend?: string | null
+        }
+        Update: {
+          aspect_ratings?: Json
+          created_at?: string
+          event_id?: string
+          extra_comment?: string | null
+          how_found?: string | null
+          id?: string
+          improve?: string | null
+          improve_aspects?: string[] | null
+          is_actioned?: boolean
+          is_hidden?: boolean
+          is_quote_approved?: boolean
+          language?: string | null
+          liked?: string | null
+          liked_aspects?: string[] | null
+          may_quote?: boolean
+          rating?: number | null
+          review?: string | null
+          source?: string
+          updated_at?: string
+          voter_token?: string
+          would_recommend?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_feedback_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       event_images: {
         Row: {
+          category: string | null
           created_at: string
           display_order: number | null
           event_id: string
@@ -325,6 +340,7 @@ export type Database = {
           is_visible: boolean
         }
         Insert: {
+          category?: string | null
           created_at?: string
           display_order?: number | null
           event_id: string
@@ -334,6 +350,7 @@ export type Database = {
           is_visible?: boolean
         }
         Update: {
+          category?: string | null
           created_at?: string
           display_order?: number | null
           event_id?: string
@@ -536,6 +553,60 @@ export type Database = {
             columns: ['performer_id']
             isOneToOne: false
             referencedRelation: 'public_performers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      event_print_items: {
+        Row: {
+          copies: number | null
+          created_at: string
+          done: boolean
+          event_id: string
+          hidden: boolean
+          id: string
+          label: string | null
+          professional: boolean | null
+          sort_order: number
+          standard_id: string | null
+        }
+        Insert: {
+          copies?: number | null
+          created_at?: string
+          done?: boolean
+          event_id: string
+          hidden?: boolean
+          id?: string
+          label?: string | null
+          professional?: boolean | null
+          sort_order?: number
+          standard_id?: string | null
+        }
+        Update: {
+          copies?: number | null
+          created_at?: string
+          done?: boolean
+          event_id?: string
+          hidden?: boolean
+          id?: string
+          label?: string | null
+          professional?: boolean | null
+          sort_order?: number
+          standard_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_print_items_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'event_print_items_standard_id_fkey'
+            columns: ['standard_id']
+            isOneToOne: false
+            referencedRelation: 'print_standard_items'
             referencedColumns: ['id']
           },
         ]
@@ -813,6 +884,8 @@ export type Database = {
           event_start: string | null
           facebook_event: string | null
           fb_album_url: string | null
+          feedback_aspects: string[] | null
+          feedback_mode: string
           glow_color: string | null
           has_casting_call: boolean
           hashtags: string | null
@@ -855,6 +928,8 @@ export type Database = {
           event_start?: string | null
           facebook_event?: string | null
           fb_album_url?: string | null
+          feedback_aspects?: string[] | null
+          feedback_mode?: string
           glow_color?: string | null
           has_casting_call?: boolean
           hashtags?: string | null
@@ -897,6 +972,8 @@ export type Database = {
           event_start?: string | null
           facebook_event?: string | null
           fb_album_url?: string | null
+          feedback_aspects?: string[] | null
+          feedback_mode?: string
           glow_color?: string | null
           has_casting_call?: boolean
           hashtags?: string | null
@@ -949,6 +1026,44 @@ export type Database = {
             columns: ['venue_id']
             isOneToOne: false
             referencedRelation: 'venues'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      feedback_custom_aspects: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          in_template: boolean
+          is_archived: boolean
+          key: string
+          label_eng: string
+          label_sv: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          in_template?: boolean
+          is_archived?: boolean
+          key: string
+          label_eng: string
+          label_sv: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          in_template?: boolean
+          is_archived?: boolean
+          key?: string
+          label_eng?: string
+          label_sv?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'feedback_custom_aspects_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
             referencedColumns: ['id']
           },
         ]
@@ -1323,6 +1438,33 @@ export type Database = {
         }
         Relationships: []
       }
+      print_standard_items: {
+        Row: {
+          copies: number
+          created_at: string
+          id: string
+          label: string
+          professional: boolean
+          sort_order: number
+        }
+        Insert: {
+          copies?: number
+          created_at?: string
+          id?: string
+          label: string
+          professional?: boolean
+          sort_order?: number
+        }
+        Update: {
+          copies?: number
+          created_at?: string
+          id?: string
+          label?: string
+          professional?: boolean
+          sort_order?: number
+        }
+        Relationships: []
+      }
       sponsors: {
         Row: {
           agreed_to_terms: boolean | null
@@ -1525,6 +1667,32 @@ export type Database = {
         }
         Relationships: []
       }
+      vip_checkins: {
+        Row: {
+          checked_at: string
+          entry_key: string
+          event_id: string
+        }
+        Insert: {
+          checked_at?: string
+          entry_key: string
+          event_id: string
+        }
+        Update: {
+          checked_at?: string
+          entry_key?: string
+          event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'vip_checkins_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       vip_manual_entries: {
         Row: {
           category: Database['public']['Enums']['vip_entry_category']
@@ -1697,16 +1865,16 @@ export type Database = {
       }
     }
     Functions: {
+      add_door_spot: {
+        Args: { p_slot_start: string; p_token: string }
+        Returns: undefined
+      }
       cancel_confirmed_booking: {
         Args: {
           p_application_id: string
           p_new_review_status: Database['public']['Enums']['casting_review_status']
         }
         Returns: Json
-      }
-      add_door_spot: {
-        Args: { p_slot_start: string; p_token: string }
-        Returns: undefined
       }
       claim_door_slot: {
         Args: { p_name: string; p_slot_id: string; p_token: string }
@@ -1721,6 +1889,8 @@ export type Database = {
         }
         Returns: Json
       }
+      event_feedback_is_open: { Args: { p_event_id: string }; Returns: boolean }
+      event_feedback_opens_at: { Args: { p_event_id: string }; Returns: string }
       event_status_handler: { Args: never; Returns: undefined }
       get_casting_application_by_token: {
         Args: { p_id: string; p_token: string }
@@ -1730,14 +1900,53 @@ export type Database = {
         Args: { p_doc: string; p_token: string }
         Returns: Json
       }
+      get_event_feedback_averages: {
+        Args: { p_min?: number }
+        Returns: {
+          average: number
+          count: number
+          event_id: string
+        }[]
+      }
+      get_event_feedback_reviews: {
+        Args: { p_event_id: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      get_event_feedback_summary: {
+        Args: { p_event_id: string; p_min?: number }
+        Returns: Json
+      }
       get_event_info: { Args: { p_token: string }; Returns: Json }
+      get_feedback_event: { Args: { p_slug: string }; Returns: Json }
+      get_vip_checkins: { Args: { p_token: string }; Returns: string[] }
       release_door_slot: {
         Args: { p_slot_id: string; p_token: string }
+        Returns: undefined
+      }
+      set_vip_checkin: {
+        Args: { p_checked: boolean; p_key: string; p_token: string }
         Returns: undefined
       }
       submit_casting_application: {
         Args: { p_acts: Json; p_application: Json }
         Returns: string
+      }
+      submit_event_feedback: {
+        Args: {
+          p_aspects?: Json
+          p_event_id: string
+          p_extra_comment?: string
+          p_how_found?: string
+          p_improve?: string
+          p_language?: string
+          p_liked?: string
+          p_may_quote?: boolean
+          p_rating: number
+          p_review?: string
+          p_token: string
+          p_would_recommend?: string
+        }
+        Returns: undefined
       }
       unaccent: { Args: { '': string }; Returns: string }
       update_event_performer_via_token: {

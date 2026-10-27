@@ -139,7 +139,10 @@ export const saveMarketingPostContent = async (
   const existing = await findFixedPostRow(eventId, postType)
 
   if (existing) {
-    const { error } = await supabase.from('marketing_posts').update({ content }).eq('id', existing.id)
+    const { error } = await supabase
+      .from('marketing_posts')
+      .update({ content })
+      .eq('id', existing.id)
     if (error) throw error
   } else {
     const { error } = await supabase

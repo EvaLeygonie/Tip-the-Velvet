@@ -4,12 +4,14 @@ import {
   createEventImage,
   toggleImageVisibility,
   deleteEventImage,
+  setEventImageCategory,
   type EventPerformerRow,
 } from '@/services/eventService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { buildEventFolderName, compressImage, createSlug } from '@/lib/utils'
 import { ImageCategory } from '@/types/media'
+import { photoGroup } from '@/lib/photoGroups'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Eye, EyeOff, Upload, Trash2, X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,6 +24,14 @@ interface GalleryEditorProps {
   onUpdate: () => void
   eventPerformers: EventPerformerRow[]
 }
+
+// The image types that can be filtered on the public page (see photoGroup in lib/photoGroups.ts)
+const PHOTO_CATEGORIES = [
+  ImageCategory.PERFORMANCE,
+  ImageCategory.STAGE,
+  ImageCategory.PARTY,
+  ImageCategory.PHOTOBOOTH,
+] as const
 
 interface PerformanceSelection {
   performerName: string
@@ -143,6 +153,9 @@ export const GalleryEditor = ({
     let succeeded = 0
     let failed = 0
     const baseOrder = images.length
+    const uploadCategory = (PHOTO_CATEGORIES as readonly string[]).includes(selectedType)
+      ? selectedType
+      : null
 
     await Promise.allSettled(
       fileArray.map(async (file, index) => {
@@ -163,6 +176,8 @@ export const GalleryEditor = ({
               image_id: publicId,
               is_visible: true,
               display_order: baseOrder + index,
+              // events only: the old archive's table has no category column
+              ...(isOldEvent ? {} : { category: uploadCategory }),
             },
             isOldEvent
           )
@@ -191,6 +206,16 @@ export const GalleryEditor = ({
       onUpdate()
     } catch (err) {
       console.error('Toggle visibility error:', err)
+      toast(t('Något gick fel', 'Something went wrong'))
+    }
+  }
+
+  const handleCategory = async (img: EventImage, value: string) => {
+    try {
+      await setEventImageCategory(img.id, value || null)
+      onUpdate()
+    } catch (err) {
+      console.error('Set category error:', err)
       toast(t('Något gick fel', 'Something went wrong'))
     }
   }
@@ -446,6 +471,20 @@ export const GalleryEditor = ({
                 >
                   {img.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>
+
+                {!isOldEvent && (
+                  <select
+                    value={photoGroup(img.category) ?? ''}
+                    onChange={(e) => void handleCategory(img, e.target.value)}
+                    className="absolute bottom-1 left-1 right-1 !w-auto !p-1 !text-[11px] !rounded bg-black/70"
+                    aria-label={t('Bildkategori', 'Photo category')}
+                  >
+                    <option value="">{t('Ingen kategori', 'No category')}</option>
+                    <option value="stage">Stage</option>
+                    <option value="party">{t('Mingel', 'Mingle')}</option>
+                    <option value="photobooth">Photobooth</option>
+                  </select>
+                )}
 
                 <button
                   onClick={() => handleDelete(img)}

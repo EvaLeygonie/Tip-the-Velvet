@@ -58,7 +58,7 @@ import { CustomPostForm } from '@/components/admin/marketing/CustomPostForm'
 import { CustomPostRow } from '@/components/admin/marketing/CustomPostRow'
 
 // Post types whose template only needs plain EventMarketingData. artists_all_together,
-// contest, sponsors_sales_table, one_week_left, and lets_go all need more (performers
+// contest, sponsors_sales_table, one_week_left, lets_go, and thank_you all need more (performers
 // and/or sponsorRows) — handled in buildGenerateTextFor below instead of this generic
 // lookup.
 const TEMPLATE_BUILDERS: Partial<
@@ -78,7 +78,6 @@ const TEMPLATE_BUILDERS: Partial<
   evening_schedule: buildEveningScheduleText,
   share_like_invite: buildShareLikeInviteText,
   evening_schedule_reminder: buildEveningScheduleReminderText,
-  thank_you: buildThankYouText,
   evaluation: buildEvaluationText,
 }
 
@@ -222,6 +221,9 @@ export const AdminMarketing = () => {
         return () => buildContestText(event, sponsorRows)
       case 'one_week_left':
         return () => buildOneWeekLeftText(event, sortArtistsForReveal(performers))
+      case 'thank_you':
+        return () =>
+          buildThankYouText(event, sortArtistsForReveal(performers), entertainers, sponsorRows)
       case 'lets_go':
         return () => buildLetsGoText(event, sortArtistsForReveal(performers), sponsorRows)
       default: {

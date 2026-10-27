@@ -13,6 +13,7 @@ import {
   X,
   LogIn,
   Megaphone,
+  Star,
 } from 'lucide-react'
 import { MyLinksMenu } from '@/components/MyLinksMenu'
 import logoFull from '@/assets/header-logo.png'
@@ -55,6 +56,7 @@ export const Navigation = () => {
     { to: '/admin/marketing', label: t('Marknadsföring', 'Marketing'), icon: Megaphone },
     { to: '/admin/casting', label: t('Artistbokning', 'Artist booking'), icon: Sparkles },
     { to: '/admin/event-plan', label: t('Eventplanering', 'Event Planning'), icon: Settings },
+    { to: '/admin/feedback', label: t('Omdömen', 'Feedback'), icon: Star },
     { to: '/admin/contacts', label: t('Kontakter', 'Contacts'), icon: Users },
   ]
 

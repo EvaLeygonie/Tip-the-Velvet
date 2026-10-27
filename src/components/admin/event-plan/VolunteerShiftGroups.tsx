@@ -6,7 +6,7 @@ import { volunteerShiftLabel } from '@/lib/contactLabels'
 import { EventStaffRow } from './EventStaffRow'
 import { GroupMailModal } from './GroupMailModal'
 import { blankMailDefaults } from '@/lib/mailDefaults'
-import { VOLUNTEER_SHIFT_ORDER } from './constants'
+import { VOLUNTEER_SHIFT_ORDER, VOLUNTEER_SHIFT_MIN } from './constants'
 import type { AdminEventStaffRow } from '@/services/eventService'
 
 interface VolunteerShiftGroupsProps {
@@ -60,7 +60,11 @@ export const VolunteerShiftGroups = ({
   return (
     <div className="space-y-3">
       {groups.map((group) => {
-        if (group.rows.length === 0) return null
+        const min = VOLUNTEER_SHIFT_MIN[group.key as keyof typeof VOLUNTEER_SHIFT_MIN] ?? 0
+        // A shift with a minimum stays visible even when empty, so a 0/6 doesn't just vanish.
+        if (group.rows.length === 0 && min === 0) return null
+        const people = new Set(group.rows.map((r) => r.staff.id)).size
+        const reached = people >= min
         return (
           <div key={group.key} className="space-y-1.5 pl-3 border-l border-accent/10">
             <div className="flex items-center justify-between">
@@ -86,8 +90,17 @@ export const VolunteerShiftGroups = ({
                 >
                   <Mail className="h-3.5 w-3.5" />
                 </button>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border bg-accent/5 border-accent/20 text-accent/80">
-                  {group.rows.length}
+                <span
+                  title={min > 0 ? t(`Minst ${min}`, `Minimum ${min}`) : undefined}
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                    min === 0
+                      ? 'bg-accent/5 border-accent/20 text-accent/80'
+                      : reached
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  }`}
+                >
+                  {min > 0 ? `${people}/${min}` : group.rows.length}
                 </span>
               </div>
             </div>
