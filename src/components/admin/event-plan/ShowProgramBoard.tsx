@@ -17,7 +17,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Plus } from 'lucide-react'
+import { Lock, LockOpen, Plus, SplitSquareVertical } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { createManualShowSegment, reorderShowProgram } from '@/services/eventService'
 import { ShowProgramRow } from './ShowProgramRow'
@@ -30,6 +30,11 @@ interface ShowProgramBoardProps {
   onRemoved: (id: string) => void
   onAdded: (row: AdminEventActRow) => void
   onReordered: (acts: AdminEventActRow[]) => void
+  // Locked sets can't be reordered or have rows moved in or out (rows can still be edited)
+  locks: { 1: boolean; 2: boolean }
+  onToggleLock: (setNumber: 1 | 2) => void
+  // Spreads the acts evenly over both sets (the icon on Set 1's header)
+  onSplit: () => void
 }
 
 const SET_CONTAINER_ID: Record<1 | 2, string> = { 1: 'set-1', 2: 'set-2' }
@@ -74,6 +79,9 @@ export const ShowProgramBoard = ({
   onRemoved,
   onAdded,
   onReordered,
+  locks,
+  onToggleLock,
+  onSplit,
 }: ShowProgramBoardProps) => {
   const { t } = useLanguage()
   const [addingTo, setAddingTo] = useState<1 | 2 | null>(null)
@@ -118,6 +126,8 @@ export const ShowProgramBoard = ({
     const activeSet = findSetNumber(String(active.id), set1, set2)
     const overSet = findSetNumber(String(over.id), set1, set2)
     if (!activeSet || !overSet) return
+    // Nothing moves out of or into a locked set
+    if (locks[activeSet] || locks[overSet]) return
 
     if (activeSet === overSet) {
       // Same-set reorder: arrayMove on that one list. (Previously this shared code path with
@@ -154,6 +164,7 @@ export const ShowProgramBoard = ({
   const handleMove = (id: string, direction: -1 | 1) => {
     const inSet1 = set1.some((a) => a.id === id)
     const setNumber: 1 | 2 = inSet1 ? 1 : 2
+    if (locks[setNumber]) return
     const rows = inSet1 ? set1 : set2
     const index = rows.findIndex((a) => a.id === id)
     if (index === -1) return
@@ -170,7 +181,8 @@ export const ShowProgramBoard = ({
       return
     }
 
-    // At an edge — cross into the other set if there is one to cross into.
+    // At an edge — cross into the other set if there is one to cross into (and it isn't locked).
+    if (locks[setNumber === 1 ? 2 : 1]) return
     if (direction === 1 && setNumber === 1) {
       const item = set1[index]
       commitSets(
@@ -188,6 +200,18 @@ export const ShowProgramBoard = ({
     // into, so it's a genuine no-op — same as isFirst/isLast already disabling the button.
   }
 
+  // The 1 | 2 marker on a row: puts the row at the end of that set
+  const handleSetChange = (id: string, target: 1 | 2) => {
+    const item = acts.find((a) => a.id === id)
+    if (!item || item.set_number === target || locks[1] || locks[2]) return
+    const without1 = set1.filter((a) => a.id !== id)
+    const without2 = set2.filter((a) => a.id !== id)
+    commitSets(
+      target === 1 ? [...without1, { ...item, set_number: 1 }] : without1,
+      target === 2 ? [...without2, { ...item, set_number: 2 }] : without2
+    )
+  }
+
   const handleAddSegment = async (setNumber: 1 | 2) => {
     setAddingTo(setNumber)
     try {
@@ -198,6 +222,55 @@ export const ShowProgramBoard = ({
     } finally {
       setAddingTo(null)
     }
+  }
+
+  // The set's title centred, with its icons at the far right of the row: lock / unlock, and on
+  // Set 1 also the one that splits the acts evenly over both sets.
+  const renderSetHeader = (setNumber: 1 | 2) => {
+    const locked = locks[setNumber]
+    const iconButton =
+      'flex h-8 w-8 items-center justify-center rounded-full border border-accent/20 text-accent/70 transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-30 disabled:hover:border-accent/20 disabled:hover:text-accent/70'
+    return (
+      <div className="relative flex items-center justify-center">
+        <h4 className="font-decorative text-lg text-accent text-center">
+          {t(`Set ${setNumber}`, `Set ${setNumber}`)}
+        </h4>
+        <div className="absolute right-0 flex items-center gap-2">
+          {setNumber === 1 && (
+            <button
+              type="button"
+              onClick={onSplit}
+              disabled={locks[1] || locks[2]}
+              title={t(
+                'Dela upp akterna jämnt i Set 1 & 2',
+                'Split the acts evenly into Set 1 & 2'
+              )}
+              aria-label={t('Dela upp jämnt', 'Split evenly')}
+              className={iconButton}
+            >
+              <SplitSquareVertical className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onToggleLock(setNumber)}
+            title={
+              locked
+                ? t(`Lås upp Set ${setNumber}`, `Unlock Set ${setNumber}`)
+                : t(
+                    `Lås ordningen i Set ${setNumber}`,
+                    `Lock the running order of Set ${setNumber}`
+                  )
+            }
+            aria-label={locked ? t('Lås upp', 'Unlock') : t('Lås', 'Lock')}
+            aria-pressed={locked}
+            className={`${iconButton} ${locked ? '!border-accent/60 !bg-accent/15 !text-accent' : ''}`}
+          >
+            {locked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const renderSet = (setNumber: 1 | 2, rows: AdminEventActRow[], offset: number) => (
@@ -212,8 +285,18 @@ export const ShowProgramBoard = ({
               // Only the very first row of Set 1 and the very last row of Set 2 are
               // genuine dead ends — every other edge (Set 1's last row, Set 2's first)
               // crosses into the other set instead of being disabled, see handleMove.
-              isFirst={setNumber === 1 && index === 0}
-              isLast={setNumber === 2 && index === rows.length - 1}
+              // (and a set's edge next to a locked set is a dead end too)
+              isFirst={
+                (setNumber === 1 && index === 0) || (setNumber === 2 && index === 0 && locks[1])
+              }
+              isLast={
+                (setNumber === 2 && index === rows.length - 1) ||
+                (setNumber === 1 && index === rows.length - 1 && locks[2])
+              }
+              setNumber={setNumber}
+              onSetChange={(target) => handleSetChange(row.id, target)}
+              locked={locks[setNumber]}
+              otherSetLocked={locks[setNumber === 1 ? 2 : 1]}
               onMoveUp={() => handleMove(row.id, -1)}
               onMoveDown={() => handleMove(row.id, 1)}
               onRemoved={onRemoved}
@@ -237,7 +320,7 @@ export const ShowProgramBoard = ({
   return (
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragEnd={handleDragEnd}>
       <div className="space-y-4">
-        <h4 className="font-decorative text-lg text-accent text-center">{t('Set 1', 'Set 1')}</h4>
+        {renderSetHeader(1)}
         {renderSet(1, set1, 0)}
       </div>
 
@@ -250,7 +333,7 @@ export const ShowProgramBoard = ({
       </div>
 
       <div className="space-y-4">
-        <h4 className="font-decorative text-lg text-accent text-center">{t('Set 2', 'Set 2')}</h4>
+        {renderSetHeader(2)}
         {renderSet(2, set2, set1.length)}
       </div>
     </DndContext>

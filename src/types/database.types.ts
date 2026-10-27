@@ -259,6 +259,7 @@ export type Database = {
           improve: string | null
           improve_aspects: string[] | null
           is_actioned: boolean
+          is_featured: boolean
           is_hidden: boolean
           is_quote_approved: boolean
           language: string | null
@@ -282,6 +283,7 @@ export type Database = {
           improve?: string | null
           improve_aspects?: string[] | null
           is_actioned?: boolean
+          is_featured?: boolean
           is_hidden?: boolean
           is_quote_approved?: boolean
           language?: string | null
@@ -305,6 +307,7 @@ export type Database = {
           improve?: string | null
           improve_aspects?: string[] | null
           is_actioned?: boolean
+          is_featured?: boolean
           is_hidden?: boolean
           is_quote_approved?: boolean
           language?: string | null
@@ -562,10 +565,11 @@ export type Database = {
           copies: number | null
           created_at: string
           done: boolean
-          event_id: string
+          event_id: string | null
           hidden: boolean
           id: string
           label: string | null
+          page_size: string | null
           professional: boolean | null
           sort_order: number
           standard_id: string | null
@@ -574,10 +578,11 @@ export type Database = {
           copies?: number | null
           created_at?: string
           done?: boolean
-          event_id: string
+          event_id?: string | null
           hidden?: boolean
           id?: string
           label?: string | null
+          page_size?: string | null
           professional?: boolean | null
           sort_order?: number
           standard_id?: string | null
@@ -586,10 +591,11 @@ export type Database = {
           copies?: number | null
           created_at?: string
           done?: boolean
-          event_id?: string
+          event_id?: string | null
           hidden?: boolean
           id?: string
           label?: string | null
+          page_size?: string | null
           professional?: boolean | null
           sort_order?: number
           standard_id?: string | null
@@ -898,7 +904,10 @@ export type Database = {
           photographer: string | null
           photographer_id: string | null
           pinterest_link: string | null
+          print_archived: boolean
           reveal_date: string | null
+          show_set1_locked: boolean
+          show_set2_locked: boolean
           slug: string
           staff_recruitment_open: boolean
           status: Database['public']['Enums']['event_status']
@@ -942,7 +951,10 @@ export type Database = {
           photographer?: string | null
           photographer_id?: string | null
           pinterest_link?: string | null
+          print_archived?: boolean
           reveal_date?: string | null
+          show_set1_locked?: boolean
+          show_set2_locked?: boolean
           slug: string
           staff_recruitment_open?: boolean
           status?: Database['public']['Enums']['event_status']
@@ -986,7 +998,10 @@ export type Database = {
           photographer?: string | null
           photographer_id?: string | null
           pinterest_link?: string | null
+          print_archived?: boolean
           reveal_date?: string | null
+          show_set1_locked?: boolean
+          show_set2_locked?: boolean
           slug?: string
           staff_recruitment_open?: boolean
           status?: Database['public']['Enums']['event_status']
@@ -1444,6 +1459,7 @@ export type Database = {
           created_at: string
           id: string
           label: string
+          page_size: string | null
           professional: boolean
           sort_order: number
         }
@@ -1452,6 +1468,7 @@ export type Database = {
           created_at?: string
           id?: string
           label: string
+          page_size?: string | null
           professional?: boolean
           sort_order?: number
         }
@@ -1460,6 +1477,7 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string
+          page_size?: string | null
           professional?: boolean
           sort_order?: number
         }
@@ -1579,6 +1597,7 @@ export type Database = {
           id: string
           is_done: boolean
           is_recurring: boolean
+          source: string | null
           title: string
         }
         Insert: {
@@ -1590,6 +1609,7 @@ export type Database = {
           id?: string
           is_done?: boolean
           is_recurring?: boolean
+          source?: string | null
           title: string
         }
         Update: {
@@ -1601,6 +1621,7 @@ export type Database = {
           id?: string
           is_done?: boolean
           is_recurring?: boolean
+          source?: string | null
           title?: string
         }
         Relationships: [

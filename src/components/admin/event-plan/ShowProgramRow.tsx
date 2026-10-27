@@ -28,6 +28,13 @@ interface ShowProgramRowProps {
   position: number
   isFirst: boolean
   isLast: boolean
+  // The set this row is in, and a quick way to put it in the other one (appended to that set)
+  setNumber: 1 | 2
+  onSetChange: (setNumber: 1 | 2) => void
+  // A locked set can't be reordered or have rows moved in or out, but its rows still open and edit
+  locked: boolean
+  // The other set is locked: nothing can be moved into it either
+  otherSetLocked: boolean
   onMoveUp: () => void
   onMoveDown: () => void
   onRemoved: (id: string) => void
@@ -47,6 +54,10 @@ export const ShowProgramRow = ({
   position,
   isFirst,
   isLast,
+  setNumber,
+  onSetChange,
+  locked,
+  otherSetLocked,
   onMoveUp,
   onMoveDown,
   onRemoved,
@@ -66,6 +77,7 @@ export const ShowProgramRow = ({
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
+    disabled: locked,
   })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -184,16 +196,21 @@ export const ShowProgramRow = ({
           type="button"
           {...attributes}
           {...listeners}
+          disabled={locked}
           onClick={(e) => e.stopPropagation()}
-          title={t('Dra för att flytta (även mellan set)', 'Drag to move (also between sets)')}
-          className="text-accent/40 hover:text-accent cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          title={
+            locked
+              ? t('Setet är låst', 'This set is locked')
+              : t('Dra för att flytta (även mellan set)', 'Drag to move (also between sets)')
+          }
+          className="text-accent/40 hover:text-accent cursor-grab active:cursor-grabbing shrink-0 touch-none disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:text-accent/40"
         >
           <GripVertical className="h-4 w-4" />
         </button>
         <div className="flex flex-col shrink-0 -my-1">
           <button
             type="button"
-            disabled={isFirst}
+            disabled={isFirst || locked}
             onClick={(e) => {
               e.stopPropagation()
               onMoveUp()
@@ -205,7 +222,7 @@ export const ShowProgramRow = ({
           </button>
           <button
             type="button"
-            disabled={isLast}
+            disabled={isLast || locked}
             onClick={(e) => {
               e.stopPropagation()
               onMoveDown()
@@ -259,6 +276,31 @@ export const ShowProgramRow = ({
               : t('Ingen ljudfil', 'No audio file')}
           </span>
         )}
+        {/* Which set the row is in; the other number puts it there (at the end of that set) */}
+        <div
+          role="group"
+          aria-label={t('Set', 'Set')}
+          className="flex shrink-0 overflow-hidden rounded border border-accent/25 text-[11px] font-mono"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {([1, 2] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              disabled={locked || otherSetLocked || n === setNumber}
+              onClick={() => onSetChange(n)}
+              title={t(`Flytta till Set ${n}`, `Move to Set ${n}`)}
+              aria-pressed={n === setNumber}
+              className={`px-1.5 py-0.5 transition-colors ${
+                n === setNumber
+                  ? 'bg-accent text-black'
+                  : 'text-accent/60 hover:bg-accent/15 disabled:opacity-30 disabled:hover:bg-transparent'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
         <div className="text-accent/50 shrink-0">
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>

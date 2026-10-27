@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
-import { SplitSquareVertical } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import {
   getEventActsForAdmin,
   getEventPerformersForAdmin,
+  getShowLocks,
+  setShowLock,
   reorderShowProgram,
   updateEventPerformerAccommodation,
   updateEventPerformerAccommodationDetails,
   updateEventPerformerTravelNotes,
   type AdminEventActRow,
   type AdminEventPerformerRow,
+  type ShowLocks,
 } from '@/services/eventService'
 import { PerformerLinksProvider, bookingPortalPath } from '@/lib/performerLinks'
 import { ShowProgramBoard } from './ShowProgramBoard'
@@ -23,8 +25,6 @@ interface ArtistShowTravelTabProps {
   eventTitle: string
 }
 
-const splitButtonClass = 'btn-gold-outline text-xs py-2 px-4'
-
 // The Show and Travel & accommodation tabs of the Artist booking page. Loads what they need
 // (confirmed performers, their acts, staff for the document headcounts) itself, so the page
 // around it only has to know which tab is showing.
@@ -34,19 +34,23 @@ export const ArtistShowTravelTab = ({ tab, eventId, eventTitle }: ArtistShowTrav
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [acts, setActs] = useState<AdminEventActRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [locks, setLocks] = useState<ShowLocks>({ 1: false, 2: false })
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       setLoading(true)
       try {
-        const [performersData, actsData] = await Promise.all([
+        const [performersData, actsData, lockData] = await Promise.all([
           getEventPerformersForAdmin(eventId),
           getEventActsForAdmin(eventId),
+          // Optional: the planning still works unlocked if this can't be read
+          getShowLocks(eventId).catch(() => ({ 1: false, 2: false }) as ShowLocks),
         ])
         if (cancelled) return
         setPerformers(performersData.performers)
         setActs(actsData)
+        setLocks(lockData)
       } catch (err) {
         console.error('Kunde inte hämta showplaneringen:', err)
       } finally {
@@ -69,6 +73,18 @@ export const ArtistShowTravelTab = ({ tab, eventId, eventTitle }: ArtistShowTrav
   // starting point (real acts only, split by their CURRENT running order — first half to Set 1,
   // the rest to Set 2; manual/constant segments keep whatever set they're already in) that can
   // then be fine-tuned with the arrows or drag-and-drop.
+  const handleToggleLock = async (setNumber: 1 | 2) => {
+    const next = !locks[setNumber]
+    setLocks((prev) => ({ ...prev, [setNumber]: next }))
+    try {
+      await setShowLock(eventId, setNumber, next)
+    } catch (err) {
+      console.error(err)
+      setLocks((prev) => ({ ...prev, [setNumber]: !next }))
+      toast.error(t('Kunde inte spara låset.', 'Could not save the lock.'))
+    }
+  }
+
   const handleAutoSplit = async () => {
     const confirmed = await confirm({
       message: t(
@@ -168,12 +184,6 @@ export const ArtistShowTravelTab = ({ tab, eventId, eventTitle }: ArtistShowTrav
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-center">
-        <button type="button" onClick={handleAutoSplit} className={splitButtonClass}>
-          <SplitSquareVertical className="h-3.5 w-3.5" />
-          {t('Dela upp jämnt i Set 1 & 2', 'Split evenly into Set 1 & 2')}
-        </button>
-      </div>
       <PerformerLinksProvider value={performerLinks}>
         <ShowProgramBoard
           acts={acts}
@@ -182,6 +192,9 @@ export const ArtistShowTravelTab = ({ tab, eventId, eventTitle }: ArtistShowTrav
           onRemoved={handleActRemoved}
           onAdded={handleActAdded}
           onReordered={handleActsReordered}
+          locks={locks}
+          onToggleLock={handleToggleLock}
+          onSplit={handleAutoSplit}
         />
       </PerformerLinksProvider>
     </div>

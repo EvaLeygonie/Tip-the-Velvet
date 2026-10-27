@@ -500,6 +500,33 @@ export const reorderShowProgram = async (
   )
 }
 
+// The show producer can lock a set's order once it is done: its rows can still be opened and
+// edited, but not moved by accident. Stored on the event (docs/show-locks.sql), so it holds on every
+// device.
+export type ShowLocks = { 1: boolean; 2: boolean }
+
+export const getShowLocks = async (eventId: string): Promise<ShowLocks> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('show_set1_locked, show_set2_locked')
+    .eq('id', eventId)
+    .single()
+  if (error) throw error
+  return { 1: data.show_set1_locked, 2: data.show_set2_locked }
+}
+
+export const setShowLock = async (
+  eventId: string,
+  setNumber: 1 | 2,
+  locked: boolean
+): Promise<void> => {
+  const { error } = await supabase
+    .from('events')
+    .update(setNumber === 1 ? { show_set1_locked: locked } : { show_set2_locked: locked })
+    .eq('id', eventId)
+  if (error) throw error
+}
+
 export const updateEventPerformerDietary = async (
   eventId: string,
   performerId: string,

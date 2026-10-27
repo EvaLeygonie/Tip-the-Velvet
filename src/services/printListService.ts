@@ -16,17 +16,23 @@ export interface PrintRow {
   professional: boolean
   // Number of copies to print.
   copies: number
+  // Page size (A4, A3 ...), null when not set.
+  pageSize: string | null
 }
 
-export const getPrintRows = async (eventId: string): Promise<PrintRow[]> => {
+// eventId null = the general list: things to print that belong to no event. It has no standard rows,
+// only its own custom ones.
+export const getPrintRows = async (eventId: string | null): Promise<PrintRow[]> => {
+  const stateQuery = supabase
+    .from('event_print_items')
+    .select('*')
+    .order('sort_order')
+    .order('created_at')
   const [standards, states] = await Promise.all([
-    supabase.from('print_standard_items').select('*').order('sort_order').order('created_at'),
-    supabase
-      .from('event_print_items')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('sort_order')
-      .order('created_at'),
+    eventId === null
+      ? Promise.resolve({ data: [], error: null })
+      : supabase.from('print_standard_items').select('*').order('sort_order').order('created_at'),
+    eventId === null ? stateQuery.is('event_id', null) : stateQuery.eq('event_id', eventId),
   ])
   if (standards.error) throw standards.error
   if (states.error) throw states.error
@@ -46,6 +52,7 @@ export const getPrintRows = async (eventId: string): Promise<PrintRow[]> => {
       done: state?.done ?? false,
       professional: state?.professional ?? std.professional,
       copies: state?.copies ?? std.copies,
+      pageSize: state?.page_size ?? std.page_size ?? null,
     })
   }
   for (const custom of (states.data ?? []).filter((s) => !s.standard_id)) {
@@ -57,6 +64,7 @@ export const getPrintRows = async (eventId: string): Promise<PrintRow[]> => {
       done: custom.done,
       professional: custom.professional ?? false,
       copies: custom.copies ?? 1,
+      pageSize: custom.page_size ?? null,
     })
   }
   return rows
@@ -64,7 +72,7 @@ export const getPrintRows = async (eventId: string): Promise<PrintRow[]> => {
 
 // This event's own choice — a standard row's default is left alone, since the workflow can vary.
 export const setPrintRowProfessional = async (
-  eventId: string,
+  eventId: string | null,
   row: PrintRow,
   professional: boolean
 ) => {
@@ -82,7 +90,7 @@ export const setPrintRowProfessional = async (
   if (error) throw error
 }
 
-export const setPrintRowCopies = async (eventId: string, row: PrintRow, copies: number) => {
+export const setPrintRowCopies = async (eventId: string | null, row: PrintRow, copies: number) => {
   const value = Math.max(1, Math.round(copies) || 1)
   if (row.stateId) {
     const { error } = await supabase
@@ -98,7 +106,7 @@ export const setPrintRowCopies = async (eventId: string, row: PrintRow, copies: 
   if (error) throw error
 }
 
-export const setPrintRowDone = async (eventId: string, row: PrintRow, done: boolean) => {
+export const setPrintRowDone = async (eventId: string | null, row: PrintRow, done: boolean) => {
   if (row.stateId) {
     const { error } = await supabase
       .from('event_print_items')
@@ -115,16 +123,18 @@ export const setPrintRowDone = async (eventId: string, row: PrintRow, done: bool
 
 // A custom row for this event only, or — with makeStandard — a new standard row for every event.
 export const addPrintRow = async (
-  eventId: string,
+  eventId: string | null,
   label: string,
   makeStandard: boolean,
   professional: boolean,
-  copies: number
+  copies: number,
+  pageSize: string | null
 ) => {
-  if (makeStandard) {
+  // The general list has no standard rows to add to
+  if (makeStandard && eventId !== null) {
     const { error } = await supabase
       .from('print_standard_items')
-      .insert({ label, professional, copies, sort_order: 1000 })
+      .insert({ label, professional, copies, page_size: pageSize, sort_order: 1000 })
     if (error) throw error
     return
   }
@@ -133,13 +143,14 @@ export const addPrintRow = async (
     label,
     professional,
     copies,
+    page_size: pageSize,
     sort_order: 1000,
   })
   if (error) throw error
 }
 
 // "This event only": a custom row is simply deleted; a standard row is hidden for the event.
-export const removePrintRowForEvent = async (eventId: string, row: PrintRow) => {
+export const removePrintRowForEvent = async (eventId: string | null, row: PrintRow) => {
   if (!row.standardId) {
     const { error } = await supabase.from('event_print_items').delete().eq('id', row.stateId!)
     if (error) throw error
@@ -166,11 +177,38 @@ export const deletePrintStandard = async (standardId: string) => {
 }
 
 // Manual reset: untick everything for this event.
-export const resetPrintRows = async (eventId: string) => {
-  const { error } = await supabase
-    .from('event_print_items')
-    .update({ done: false })
-    .eq('event_id', eventId)
+export const resetPrintRows = async (eventId: string | null) => {
+  const query = supabase.from('event_print_items').update({ done: false })
+  const { error } = await (eventId === null
+    ? query.is('event_id', null)
+    : query.eq('event_id', eventId))
+  if (error) throw error
+}
+
+// --- Past events ---
+
+// Past events whose print list is still on the dashboard: things may still need printing after the
+// show, so the list stays until someone archives it (the same idea as an event's to-do list).
+export interface PrintEvent {
+  id: string
+  title: string
+}
+
+export const getUnarchivedPastEvents = async (): Promise<PrintEvent[]> => {
+  const today = new Date().toISOString().slice(0, 10)
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, title')
+    .eq('print_archived', false)
+    .lt('event_start', today)
+    .order('event_start', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+// Archiving only hides the list from the dashboard; its rows are kept.
+export const archivePrintList = async (eventId: string) => {
+  const { error } = await supabase.from('events').update({ print_archived: true }).eq('id', eventId)
   if (error) throw error
 }
 
@@ -190,19 +228,30 @@ export const renamePrintStandard = async (standardId: string, label: string) => 
 //    choice, and a different text turns it into a one-off row for this event;
 //  - on a custom row: updated in place, or turned into a standard row when ticked.
 export const updatePrintRow = async (
-  eventId: string,
+  eventId: string | null,
   row: PrintRow,
-  next: { label: string; copies: number; professional: boolean; repeats: boolean }
+  next: {
+    label: string
+    copies: number
+    professional: boolean
+    pageSize: string | null
+    repeats: boolean
+  }
 ) => {
-  const { label, copies, professional } = next
+  const { label, copies, professional, pageSize } = next
   if (!row.standardId) {
     if (next.repeats) {
-      await promotePrintRowToStandard(eventId, row, { label, copies, professional })
+      await promotePrintRowToStandard(eventId, row, {
+        label,
+        copies,
+        professional,
+        page_size: pageSize,
+      })
       return
     }
     const { error } = await supabase
       .from('event_print_items')
-      .update({ label, copies, professional })
+      .update({ label, copies, professional, page_size: pageSize })
       .eq('id', row.stateId!)
     if (error) throw error
     return
@@ -211,13 +260,13 @@ export const updatePrintRow = async (
   if (next.repeats) {
     const { error } = await supabase
       .from('print_standard_items')
-      .update({ label, copies, professional })
+      .update({ label, copies, professional, page_size: pageSize })
       .eq('id', row.standardId)
     if (error) throw error
     if (row.stateId) {
       const { error: clearError } = await supabase
         .from('event_print_items')
-        .update({ copies: null, professional: null })
+        .update({ copies: null, professional: null, page_size: null })
         .eq('id', row.stateId)
       if (clearError) throw clearError
     }
@@ -233,6 +282,7 @@ export const updatePrintRow = async (
       label,
       copies,
       professional,
+      page_size: pageSize,
       done: row.done,
       sort_order: 1000,
     })
@@ -242,23 +292,27 @@ export const updatePrintRow = async (
   if (row.stateId) {
     const { error } = await supabase
       .from('event_print_items')
-      .update({ copies, professional })
+      .update({ copies, professional, page_size: pageSize })
       .eq('id', row.stateId)
     if (error) throw error
     return
   }
-  const { error } = await supabase
-    .from('event_print_items')
-    .insert({ event_id: eventId, standard_id: row.standardId, copies, professional })
+  const { error } = await supabase.from('event_print_items').insert({
+    event_id: eventId,
+    standard_id: row.standardId,
+    copies,
+    professional,
+    page_size: pageSize,
+  })
   if (error) throw error
 }
 
 // A custom row turned into a standard row ("repeats on all events"): a new standard row with the
 // same text and settings, this event's tick carried over, and the custom row removed.
 export const promotePrintRowToStandard = async (
-  eventId: string,
+  eventId: string | null,
   row: PrintRow,
-  next: { label: string; copies: number; professional: boolean }
+  next: { label: string; copies: number; professional: boolean; page_size: string | null }
 ) => {
   const { data, error } = await supabase
     .from('print_standard_items')

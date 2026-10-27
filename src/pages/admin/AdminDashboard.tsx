@@ -48,6 +48,11 @@ import {
   deleteTodosForEvent,
   renewRecurringTodo,
 } from '@/services/todoService'
+import {
+  archivePrintList,
+  getUnarchivedPastEvents,
+  type PrintEvent,
+} from '@/services/printListService'
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { ToPrintCard } from '@/components/admin/dashboard/ToPrintCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
@@ -144,6 +149,8 @@ export const AdminDashboard = () => {
   const [eventOverviews, setEventOverviews] = useState<EventOverviewData[]>([])
   const [eventOverviewsLoading, setEventOverviewsLoading] = useState(true)
   const [todos, setTodos] = useState<Todo[]>([])
+  // Past events whose "To print" list hasn't been archived yet
+  const [pastPrintEvents, setPastPrintEvents] = useState<PrintEvent[]>([])
   const [docsTarget, setDocsTarget] = useState<EventOverviewData | null>(null)
   const [isDownloadingDocs, setIsDownloadingDocs] = useState(false)
   const [missingInfoTarget, setMissingInfoTarget] = useState<MissingInfoTarget | null>(null)
@@ -156,16 +163,19 @@ export const AdminDashboard = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [staff, sponsorRows, castingRows, todoRows] = await Promise.all([
+        const [staff, sponsorRows, castingRows, todoRows, pastPrint] = await Promise.all([
           getStaffVolunteers(),
           getSponsors(),
           getRecentCastingApplications(),
           getTodos(),
+          // Optional: never let the print lists stop the rest of the Dashboard from loading
+          getUnarchivedPastEvents().catch(() => [] as PrintEvent[]),
         ])
         setStaffVolunteers(staff)
         setSponsors(sponsorRows)
         setCastingApplications(castingRows)
         setTodos(todoRows)
+        setPastPrintEvents(pastPrint)
       } catch (err) {
         console.error('Kunde inte hämta nya ansökningar:', err)
       } finally {
@@ -202,6 +212,27 @@ export const AdminDashboard = () => {
       details,
       display_order,
       is_recurring: isRecurring,
+    })
+    setTodos((prev) => [...prev, created])
+  }
+  // A feedback task added by hand (feedback given in person, in the guestbook ...), for the event the
+  // form asked about
+  const handleAddFeedbackTodo = async (
+    eventId: string,
+    title: string,
+    dueDate: string | null,
+    details: string | null,
+    isRecurring: boolean
+  ) => {
+    const sameList = todos.filter((td) => td.source === 'feedback' && td.event_id === eventId)
+    const created = await createTodo({
+      title,
+      event_id: eventId,
+      due_date: dueDate,
+      details,
+      display_order: nextOrderInGroup(sameList, dueDate),
+      is_recurring: isRecurring,
+      source: 'feedback',
     })
     setTodos((prev) => [...prev, created])
   }
@@ -257,6 +288,16 @@ export const AdminDashboard = () => {
   const handleDeleteTodo = async (id: string) => {
     await deleteTodo(id)
     setTodos((prev) => prev.filter((td) => td.id !== id))
+  }
+
+  const handleArchivePrintList = async (eventId: string) => {
+    try {
+      await archivePrintList(eventId)
+      setPastPrintEvents((prev) => prev.filter((evt) => evt.id !== eventId))
+    } catch (err) {
+      console.error('Kunde inte arkivera utskriftslistan:', err)
+      toast.error(t('Kunde inte arkivera listan.', 'Could not archive the list.'))
+    }
   }
 
   const handleClearEventTodos = async (eventId: string) => {
@@ -374,15 +415,12 @@ export const AdminDashboard = () => {
     setSelectedEventId(eventId)
     navigate('/admin/event-plan', { state: { tab } })
   }
-  // Show planning and Travel & accommodation are tabs of the Artist booking page.
+  // Casting, show planning and travel & accommodation are the artist tabs of the Event plan page.
   const goToArtistBooking = (eventId: string, tab: 'casting' | 'show' | 'travel') => {
     setSelectedEventId(eventId)
-    navigate('/admin/casting', { state: { tab } })
+    navigate('/admin/event-plan', { state: { tab } })
   }
-  const goToCasting = (eventId: string) => {
-    setSelectedEventId(eventId)
-    navigate('/admin/casting')
-  }
+  const goToCasting = (eventId: string) => goToArtistBooking(eventId, 'casting')
 
   // One panel for every "someone still owes us something" email (food, stage notes, travel
   // receipts): each person is asked once, in their own language, for everything they're
@@ -449,6 +487,19 @@ export const AdminDashboard = () => {
       setIsDownloadingDocs(false)
     }
   }
+
+  // An event's own to-do list: tasks made from guest feedback live in the Feedback section instead.
+  const eventTodos = (eventId: string) =>
+    todos.filter((td) => td.event_id === eventId && td.source !== 'feedback')
+
+  // The "New applications" rows lead to the application itself: the casting page with that
+  // application highlighted, or the contacts list searched for that person or sponsor.
+  const openCastingApplication = (row: CastingApplicationWithEvent) => {
+    if (row.event_id) setSelectedEventId(row.event_id)
+    navigate('/admin/event-plan', { state: { tab: 'casting', applicationId: row.id } })
+  }
+  const openContact = (tab: 'staff' | 'sponsors', name: string) =>
+    navigate('/admin/contacts', { state: { tab, search: name } })
 
   const newStaff = staffVolunteers
     .filter((row) => isRecent(row.created_at))
@@ -791,9 +842,12 @@ export const AdminDashboard = () => {
               ) : (
                 <div className="space-y-1.5">
                   {newCastingApplications.map((row) => (
-                    <div
+                    <button
+                      type="button"
                       key={row.id}
-                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                      onClick={() => openCastingApplication(row)}
+                      title={t('Öppna ansökan', 'Open the application')}
+                      className="admin-panel velvet-surface p-2.5 flex w-full items-center gap-2 text-sm text-left cursor-pointer transition-colors hover:border-accent/40"
                     >
                       <span className="flex-1 min-w-0 truncate text-foreground">
                         {row.performer_name}
@@ -806,7 +860,7 @@ export const AdminDashboard = () => {
                       <span className="text-foreground/40 text-xs shrink-0">
                         {formatDate(language, row.created_at)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -827,9 +881,12 @@ export const AdminDashboard = () => {
               ) : (
                 <div className="space-y-1.5">
                   {newStaff.map((row) => (
-                    <div
+                    <button
+                      type="button"
                       key={row.id}
-                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                      onClick={() => openContact('staff', row.name)}
+                      title={t('Öppna i kontakter', 'Open in contacts')}
+                      className="admin-panel velvet-surface p-2.5 flex w-full items-center gap-2 text-sm text-left cursor-pointer transition-colors hover:border-accent/40"
                     >
                       <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
                       <span className="text-accent italic text-xs shrink-0">
@@ -838,7 +895,7 @@ export const AdminDashboard = () => {
                       <span className="text-foreground/40 text-xs shrink-0">
                         {formatDate(language, row.created_at)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -859,9 +916,12 @@ export const AdminDashboard = () => {
               ) : (
                 <div className="space-y-1.5">
                   {newSponsors.map((row) => (
-                    <div
+                    <button
+                      type="button"
                       key={row.id}
-                      className="admin-panel velvet-surface p-2.5 flex items-center gap-2 text-sm"
+                      onClick={() => openContact('sponsors', row.name)}
+                      title={t('Öppna i kontakter', 'Open in contacts')}
+                      className="admin-panel velvet-surface p-2.5 flex w-full items-center gap-2 text-sm text-left cursor-pointer transition-colors hover:border-accent/40"
                     >
                       <span className="flex-1 min-w-0 truncate text-foreground">{row.name}</span>
                       {row.sponsor_type && (
@@ -872,7 +932,7 @@ export const AdminDashboard = () => {
                       <span className="text-foreground/40 text-xs shrink-0">
                         {formatDate(language, row.created_at)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -891,9 +951,9 @@ export const AdminDashboard = () => {
             {[
               ...upcomingEvents,
               // Past events keep their list until someone archives it — follow-up tasks outlive the date.
-              ...archivedEvents.filter((evt) => todos.some((td) => td.event_id === evt.id)),
+              ...archivedEvents.filter((evt) => eventTodos(evt.id).length > 0),
             ].map((evt) => {
-              const listTodos = todos.filter((td) => td.event_id === evt.id)
+              const listTodos = eventTodos(evt.id)
               return (
                 <TodoListCard
                   key={evt.id}
@@ -914,6 +974,51 @@ export const AdminDashboard = () => {
                 />
               )
             })}
+
+            {/* FEEDBACK: tasks made from guest comments on /admin/feedback, as one list with a
+                golden divider and the event's name for each event's tasks */}
+            {(() => {
+              const feedbackTodos = todos.filter((td) => td.source === 'feedback' && td.event_id)
+              const feedbackEvents = [...upcomingEvents, ...archivedEvents].filter((evt) =>
+                feedbackTodos.some((td) => td.event_id === evt.id)
+              )
+              // Always there: feedback given in person or in the guestbook is added with its +
+              // Moving, editing and re-dating work within the event the task belongs to
+              const sameEventTodos = (id: string) => {
+                const eventId = feedbackTodos.find((td) => td.id === id)?.event_id
+                return feedbackTodos.filter((td) => td.event_id === eventId)
+              }
+              return (
+                <TodoListCard
+                  title="Feedback"
+                  todos={feedbackTodos}
+                  eventChoices={[...upcomingEvents, ...archivedEvents].map((evt) => ({
+                    id: evt.id,
+                    label: evt.title,
+                  }))}
+                  onAdd={(title, dueDate, details, isRecurring, eventId) =>
+                    eventId
+                      ? handleAddFeedbackTodo(eventId, title, dueDate, details, isRecurring)
+                      : Promise.resolve()
+                  }
+                  groups={feedbackEvents.map((evt) => ({
+                    key: evt.id,
+                    label: evt.title,
+                    todos: feedbackTodos.filter((td) => td.event_id === evt.id),
+                  }))}
+                  onEdit={(id, title, dueDate, details, isRecurring) =>
+                    handleEditTodo(sameEventTodos(id), id, title, dueDate, details, isRecurring)
+                  }
+                  onToggle={handleToggleTodo}
+                  onSetDueDate={(id, dueDate) =>
+                    handleSetTodoDueDate(sameEventTodos(id), id, dueDate)
+                  }
+                  onMoveUp={(id) => handleMoveTodo(sameEventTodos(id), id, -1)}
+                  onMoveDown={(id) => handleMoveTodo(sameEventTodos(id), id, 1)}
+                  onDelete={handleDeleteTodo}
+                />
+              )
+            })()}
 
             {(() => {
               const orgTodos = todos.filter((td) => !td.event_id)
@@ -945,6 +1050,18 @@ export const AdminDashboard = () => {
               {upcomingEvents.map((evt) => (
                 <ToPrintCard key={evt.id} eventId={evt.id} title={evt.title} />
               ))}
+              {/* The show that just was keeps its list, since things may still need printing
+                  after it, until someone archives it (same idea as its to-do list) */}
+              {pastPrintEvents.map((evt) => (
+                <ToPrintCard
+                  key={evt.id}
+                  eventId={evt.id}
+                  title={evt.title}
+                  onArchive={() => handleArchivePrintList(evt.id)}
+                />
+              ))}
+              {/* Things to print that belong to no event: always here, all year */}
+              <ToPrintCard eventId={null} title={t('Allmänt', 'General')} />
             </div>
           </div>
         </div>

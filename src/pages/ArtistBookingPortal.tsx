@@ -146,7 +146,7 @@ export const ArtistBookingPortal = () => {
           meaningful to "go back" to. */}
       {user && (
         <FloatingBackLink
-          to="/admin/casting"
+          to="/admin/event-plan"
           label={t('Tillbaka till Casting', 'Back to Casting')}
         />
       )}

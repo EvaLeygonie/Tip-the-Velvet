@@ -10,6 +10,7 @@ import {
   EyeOff,
   ListPlus,
   Quote,
+  Star,
   Trash2,
   CheckCheck,
 } from 'lucide-react'
@@ -19,6 +20,7 @@ import { useConfirm } from '@/contexts/ConfirmContext'
 import { EventPicker } from '@/components/admin/EventPicker'
 import { StarRating } from '@/components/feedback/StarRating'
 import { createTodo } from '@/services/todoService'
+import { TodoModal } from '@/components/admin/dashboard/TodoModal'
 import {
   aspectsForEvent,
   archiveCustomAspect,
@@ -165,19 +167,31 @@ export const AdminFeedback = () => {
     }
   }
 
-  const makeTodo = async (row: FeedbackRow) => {
-    try {
-      await createTodo({
-        title: t('Förbättra: ', 'Improve: ') + (row.improve ?? '').slice(0, 80),
-        details: row.improve,
-        event_id: selectedEventId,
-      })
-      await patchRow(row.id, { is_actioned: true })
-      toast.success(t('Att göra-punkt skapad.', 'To-do created.'))
-    } catch (err) {
-      console.error(err)
-      toast.error(t('Kunde inte skapa att göra-punkt.', 'Could not create the to-do.'))
-    }
+  // "Make a to-do" opens the normal new-task form, with the comment as the details to start from,
+  // so the task gets its own name and an optional deadline. Saving also marks the comment handled.
+  const [todoDraft, setTodoDraft] = useState<{
+    row: FeedbackRow
+    initial: { title: string; details: string | null }
+  } | null>(null)
+
+  const saveTodo = async (
+    title: string,
+    dueDate: string | null,
+    details: string | null,
+    isRecurring: boolean
+  ) => {
+    if (!todoDraft) return
+    await createTodo({
+      title,
+      details,
+      due_date: dueDate,
+      is_recurring: isRecurring,
+      event_id: selectedEventId,
+      // shown in the Dashboard's Feedback list, not in the event's own list
+      source: 'feedback',
+    })
+    await patchRow(todoDraft.row.id, { is_actioned: true })
+    toast.success(t('Att göra-punkt skapad.', 'To-do created.'))
   }
 
   const saveSettings = async (
@@ -310,6 +324,10 @@ export const AdminFeedback = () => {
   const showImprovePart = filter === 'all' || filter === 'improve' || filter === 'open'
   const showReviewPart = filter === 'all'
 
+  // The starred reviews come first on the event page: at most three per event
+  const MAX_FEATURED = 3
+  const featuredCount = rows.filter((r) => r.is_featured && r.is_quote_approved).length
+
   const aspectLabel = (key: string) => {
     const aspect = resolveAspect(key, allCustoms)
     return aspect ? t(aspect.sv, aspect.eng) : key
@@ -333,6 +351,13 @@ export const AdminFeedback = () => {
       <div className="gold-divider" />
 
       <EventPicker />
+
+      <TodoModal
+        isOpen={todoDraft !== null}
+        initial={todoDraft?.initial}
+        onClose={() => setTodoDraft(null)}
+        onSave={saveTodo}
+      />
 
       {selectedEventId && settings && (
         <div className="max-w-5xl mx-auto px-4 space-y-8 mb-12">
@@ -671,7 +696,9 @@ export const AdminFeedback = () => {
                           )}
                           {row.source !== 'site' && (
                             <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/20 text-foreground/50">
-                              {t('Gammalt formulär', 'Old form')}
+                              {row.source === 'diversia'
+                                ? 'Diversia'
+                                : t('Gammalt formulär', 'Old form')}
                               {row.rating === null && ` · ${t('inget betyg', 'no rating')}`}
                             </span>
                           )}
@@ -681,17 +708,36 @@ export const AdminFeedback = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          {row.improve && (
+                          {(row.improve || !!row.improve_aspects?.length) && (
                             <button
                               type="button"
                               title={t('Gör till att göra-punkt', 'Make a to-do')}
-                              onClick={() => void makeTodo(row)}
+                              onClick={() =>
+                                setTodoDraft({
+                                  row,
+                                  // The comment itself goes into the details, so it is in front of
+                                  // you while you choose the task's name
+                                  initial: {
+                                    title: '',
+                                    details:
+                                      [
+                                        row.improve,
+                                        row.improve_aspects?.length
+                                          ? `${t('Områden', 'Areas')}: ${row.improve_aspects.map(aspectLabel).join(', ')}`
+                                          : null,
+                                        row.extra_comment,
+                                      ]
+                                        .filter(Boolean)
+                                        .join('\n\n') || null,
+                                  },
+                                })
+                              }
                               className="p-2 hover:text-accent"
                             >
                               <ListPlus size={16} />
                             </button>
                           )}
-                          {row.improve && (
+                          {(row.improve || !!row.improve_aspects?.length) && (
                             <button
                               type="button"
                               title={t('Markera som hanterad', 'Mark as handled')}
@@ -703,16 +749,85 @@ export const AdminFeedback = () => {
                               <CheckCheck size={16} />
                             </button>
                           )}
-                          {row.review && row.may_quote && (
+                          {(() => {
+                            // What can be shown on the website: a review written for that on the review
+                            // page, or one copied from Diversia, and for answers from the old forms
+                            // (no review field there) what they liked. What guests write in the
+                            // private "help us get better" part on the site is never shown.
+                            const quoteText =
+                              row.review ?? (row.source !== 'site' ? row.liked : null)
+                            if (!quoteText) return null
+                            // a guest who wrote a review but chose not to show it stays hidden
+                            const guestDeclined = row.source === 'site' && !row.may_quote
+                            return (
+                              <button
+                                type="button"
+                                disabled={guestDeclined}
+                                title={
+                                  guestDeclined
+                                    ? t(
+                                        'Gästen ville inte att recensionen visas',
+                                        'The guest chose not to show this review'
+                                      )
+                                    : row.is_quote_approved
+                                      ? t(
+                                          'Visas på sidan, klicka för att ta bort',
+                                          'Shown on the site, click to remove'
+                                        )
+                                      : t('Visa på sidan', 'Show on the site')
+                                }
+                                onClick={() =>
+                                  void patchRow(
+                                    row.id,
+                                    row.is_quote_approved
+                                      ? { is_quote_approved: false, is_featured: false }
+                                      : {
+                                          review: quoteText,
+                                          may_quote: true,
+                                          is_quote_approved: true,
+                                        }
+                                  )
+                                }
+                                className={`p-2 hover:text-accent disabled:opacity-25 disabled:hover:text-inherit ${
+                                  row.is_quote_approved ? 'text-accent' : ''
+                                }`}
+                              >
+                                <Quote
+                                  size={16}
+                                  className={row.is_quote_approved ? 'fill-accent/40' : ''}
+                                />
+                              </button>
+                            )
+                          })()}
+                          {row.is_quote_approved && (
                             <button
                               type="button"
-                              title={t('Visa recensionen på sidan', 'Show the review on the page')}
-                              onClick={() =>
-                                void patchRow(row.id, { is_quote_approved: !row.is_quote_approved })
+                              title={
+                                row.is_featured
+                                  ? t(
+                                      'Fastnålad som en av de första tre, klicka för att ta bort',
+                                      'Pinned as one of the first three, click to unpin'
+                                    )
+                                  : t(
+                                      'Visa bland de tre första på sidan',
+                                      'Show among the first three on the page'
+                                    )
                               }
-                              className={`p-2 hover:text-accent ${row.is_quote_approved ? 'text-accent' : ''}`}
+                              onClick={() => {
+                                if (!row.is_featured && featuredCount >= MAX_FEATURED) {
+                                  toast.error(
+                                    t(
+                                      `Högst ${MAX_FEATURED} kan stjärnmärkas. Ta bort en först.`,
+                                      `At most ${MAX_FEATURED} can be starred. Unstar one first.`
+                                    )
+                                  )
+                                  return
+                                }
+                                void patchRow(row.id, { is_featured: !row.is_featured })
+                              }}
+                              className={`p-2 hover:text-accent ${row.is_featured ? 'text-accent' : ''}`}
                             >
-                              <Quote size={16} />
+                              <Star size={16} className={row.is_featured ? 'fill-accent' : ''} />
                             </button>
                           )}
                           <button

@@ -82,9 +82,10 @@ export const deleteTodo = async (id: string): Promise<void> => {
 }
 
 // Clears a whole event's checklist at once — used once the event is over and its leftover
-// tasks no longer matter.
+// tasks no longer matter. To-dos made from guest feedback (source 'feedback') live in the
+// Dashboard's own Feedback section and are not part of this list, so they are left alone.
 export const deleteTodosForEvent = async (eventId: string): Promise<void> => {
-  const { error } = await supabase.from('todos').delete().eq('event_id', eventId)
+  const { error } = await supabase.from('todos').delete().eq('event_id', eventId).is('source', null)
 
   if (error) throw error
 }

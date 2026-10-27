@@ -55,10 +55,14 @@ import { StaffingCoverageStrip } from '@/components/admin/event-plan/StaffingCov
 import { DocumentsMenu } from '@/components/admin/event-plan/DocumentsMenu'
 import { InfoHubTab } from '@/components/admin/event-plan/InfoHubTab'
 import { FoodTab } from '@/components/admin/event-plan/FoodTab'
+import { ArtistShowTravelTab } from '@/components/admin/event-plan/ArtistShowTravelTab'
+import { CastingTab } from '@/pages/admin/AdminCasting'
 import {
   STANDING_ORGANIZERS,
   ROLE_ORDER,
   STAFF_ROLE_MIN,
+  ARTIST_TABS,
+  EVENT_TABS,
   type EventPlanTab,
 } from '@/components/admin/event-plan/constants'
 import type {
@@ -82,17 +86,25 @@ const blankVipEntry = (eventId: string): VipManualEntry => ({
 // escaped so a stray "&"/"<" in someone's name can't break the markup.
 export const AdminEventPlan = () => {
   const { t } = useLanguage()
-  const { selectedEventId, upcomingEvents } = useCurrentEvent()
+  const { selectedEventId, selectedEvent } = useCurrentEvent()
   // Lets the Dashboard's highlight cards deep-link straight to a specific tab (e.g. "show"
   // for the stage-notes card) via navigate(path, { state: { tab } }) instead of always
   // landing on the default Bemanning tab.
   const location = useLocation()
   const [activeTab, setActiveTab] = useRememberedTab<EventPlanTab>(
     'event-plan',
-    ['staff', 'sponsors', 'food', 'info'],
+    [...ARTIST_TABS, ...EVENT_TABS],
     'staff',
     (location.state as { tab?: EventPlanTab } | null)?.tab
   )
+  // Links from this page itself (the Documents menu hints) or other pages while it is open switch
+  // tab the same way: a new navigation key means a new state.tab to follow.
+  const [seenLocationKey, setSeenLocationKey] = useState(location.key)
+  if (seenLocationKey !== location.key) {
+    setSeenLocationKey(location.key)
+    const linkedTab = (location.state as { tab?: EventPlanTab } | null)?.tab
+    if (linkedTab) setActiveTab(linkedTab)
+  }
   const [performers, setPerformers] = useState<AdminEventPerformerRow[]>([])
   const [acts, setActs] = useState<AdminEventActRow[]>([])
   const [staffRows, setStaffRows] = useState<AdminEventStaffRow[]>([])
@@ -478,8 +490,8 @@ export const AdminEventPlan = () => {
   // summary, progress overview) reads from this instead of raw staffRows.
   const groupedStaff = groupStaffRowsByPerson(staffRows)
 
-  const eventTitle = upcomingEvents.find((e) => e.id === selectedEventId)?.title ?? 'Event'
-  const eventStart = upcomingEvents.find((e) => e.id === selectedEventId)?.event_start
+  const eventTitle = selectedEvent?.title ?? 'Event'
+  const eventStart = selectedEvent?.event_start
   const docContext: EventDocContext = {
     t,
     eventTitle,
@@ -502,60 +514,72 @@ export const AdminEventPlan = () => {
       {selectedEventId && (
         <>
           <div className="max-w-5xl mx-auto mt-6 mb-6">
-            <div className="flex gap-2 justify-center flex-wrap">
-              <button
-                type="button"
-                onClick={() => setActiveTab('staff')}
-                className={
-                  activeTab === 'staff'
-                    ? 'btn-gold text-xs py-2 px-4'
-                    : 'btn-gold-outline text-xs py-2 px-4'
-                }
-              >
-                {t('Bemanning', 'Staffing')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('sponsors')}
-                className={
-                  activeTab === 'sponsors'
-                    ? 'btn-gold text-xs py-2 px-4'
-                    : 'btn-gold-outline text-xs py-2 px-4'
-                }
-              >
-                {t('Sponsorer', 'Sponsors')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('food')}
-                className={
-                  activeTab === 'food'
-                    ? 'btn-gold text-xs py-2 px-4'
-                    : 'btn-gold-outline text-xs py-2 px-4'
-                }
-              >
-                {t('Mat & VIP', 'Food & VIP')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('info')}
-                className={
-                  activeTab === 'info'
-                    ? 'btn-gold text-xs py-2 px-4'
-                    : 'btn-gold-outline text-xs py-2 px-4'
-                }
-              >
-                {t('Info & länkar', 'Info & links')}
-              </button>
-              <DocumentsMenu
-                eventId={selectedEventId}
-                ids={['vipList', 'foodList', 'doorShifts']}
-                load={async () => ({ context: docContext })}
-              />
+            {/* Two rows of four: who and what is on the programme (casting, show planning, staffing,
+                sponsors) above the logistics (travel, food & VIP, info) and the Documents menu */}
+            <div className="space-y-3">
+              {(
+                [
+                  [
+                    ['casting', t('Casting', 'Casting')],
+                    ['show', t('Showplanering', 'Show planning')],
+                    ['staff', t('Bemanning', 'Staffing')],
+                    ['sponsors', t('Sponsorer', 'Sponsors')],
+                  ],
+                  [
+                    ['travel', t('Resa & boende', 'Travel & accommodation')],
+                    ['food', t('Mat & VIP', 'Food & VIP')],
+                    ['info', t('Info & länkar', 'Info & links')],
+                  ],
+                ] as [EventPlanTab, string][][]
+              ).map((tabs, rowIndex) => (
+                <div key={rowIndex} className="flex flex-wrap items-center justify-center gap-2">
+                  {tabs.map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setActiveTab(tab)}
+                      className={
+                        activeTab === tab
+                          ? 'btn-gold text-xs py-2 px-4'
+                          : 'btn-gold-outline text-xs py-2 px-4'
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {rowIndex === 1 && (
+                    <DocumentsMenu
+                      eventId={selectedEventId}
+                      ids={[
+                        'runOfShow',
+                        'setList',
+                        'soundLight',
+                        'artistContacts',
+                        'vipList',
+                        'foodList',
+                        'doorShifts',
+                      ]}
+                      load={async () => ({ context: docContext, acts })}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
-          {loading ? (
+          {activeTab === 'casting' ? (
+            // Loads its own applications, so it doesn't wait for the rest of the event plan
+            <CastingTab key={selectedEventId} onOpenTab={(tab) => setActiveTab(tab)} />
+          ) : activeTab === 'show' || activeTab === 'travel' ? (
+            <div className="max-w-5xl mx-auto space-y-4">
+              <ArtistShowTravelTab
+                key={selectedEventId}
+                tab={activeTab}
+                eventId={selectedEventId}
+                eventTitle={eventTitle}
+              />
+            </div>
+          ) : loading ? (
             <div className="loading-container">
               <div className="loading-text">{t('Öppnar ridån...', 'Opening the curtain...')}</div>
             </div>

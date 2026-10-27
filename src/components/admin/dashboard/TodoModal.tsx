@@ -10,36 +10,54 @@ interface TodoModalProps {
   // Presence of an existing todo switches this into edit mode (prefilled fields, "Save"
   // instead of "Add") — one modal for both, since the fields are identical either way.
   editingTodo?: Todo | null
+  // Starting values for a NEW task (e.g. the guest comment a to-do is made from). Pass a stable
+  // object, not a fresh one on every render, or the fields reset while typing.
+  initial?: { title?: string; details?: string | null }
+  // When given, the form asks which event the task belongs to (the Feedback list, where tasks are
+  // added by hand for feedback given in person or in the guestbook)
+  eventChoices?: { id: string; label: string }[]
   onClose: () => void
   onSave: (
     title: string,
     dueDate: string | null,
     details: string | null,
-    isRecurring: boolean
+    isRecurring: boolean,
+    eventId?: string
   ) => Promise<void>
 }
 
 // Portaled overlay, not an inline expansion — same reasoning as InlineAddPicker's own
 // rewrite: expanding a form in place inside a card pushes every card below it down the page.
-export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalProps) => {
+export const TodoModal = ({
+  isOpen,
+  editingTodo,
+  initial,
+  eventChoices,
+  onClose,
+  onSave,
+}: TodoModalProps) => {
   const { t } = useLanguage()
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [details, setDetails] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [eventId, setEventId] = useState('')
 
   useEffect(() => {
     const resetDraft = () => {
       if (isOpen) {
-        setTitle(editingTodo?.title ?? '')
+        setTitle(editingTodo?.title ?? initial?.title ?? '')
         setDueDate(editingTodo?.due_date ?? '')
-        setDetails(editingTodo?.details ?? '')
+        setDetails(editingTodo?.details ?? initial?.details ?? '')
         setIsRecurring(editingTodo?.is_recurring ?? false)
+        setEventId(eventChoices?.[0]?.id ?? '')
       }
     }
     resetDraft()
-  }, [isOpen, editingTodo])
+    // eventChoices is rebuilt every render by its caller; the first one is only the default
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingTodo, initial])
 
   const handleSave = async () => {
     const trimmed = title.trim()
@@ -48,7 +66,13 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
     try {
       // No anchor date to recur from without a deadline — cleared alongside it rather than
       // silently kept true with nothing to roll forward.
-      await onSave(trimmed, dueDate || null, details.trim() || null, dueDate ? isRecurring : false)
+      await onSave(
+        trimmed,
+        dueDate || null,
+        details.trim() || null,
+        dueDate ? isRecurring : false,
+        eventChoices ? eventId : undefined
+      )
       onClose()
     } catch (err) {
       toast.error(t('Kunde inte spara.', 'Could not save.'))
@@ -73,6 +97,23 @@ export const TodoModal = ({ isOpen, editingTodo, onClose, onSave }: TodoModalPro
         <h4 className="font-decorative text-base text-accent text-center">
           {editingTodo ? t('Redigera uppgift', 'Edit task') : t('Ny uppgift', 'New task')}
         </h4>
+
+        {eventChoices && !editingTodo && (
+          <div className="space-y-1.5">
+            <label className="form-label-gold block">{t('Event', 'Event')}</label>
+            <select
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+              className="velvet-select"
+            >
+              {eventChoices.map((choice) => (
+                <option key={choice.id} value={choice.id}>
+                  {choice.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <label className="form-label-gold block">{t('Uppgift', 'Task')}</label>

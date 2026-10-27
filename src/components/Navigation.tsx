@@ -7,13 +7,13 @@ import {
   Settings,
   LogOut,
   BarChart3,
-  Sparkles,
   Users,
   Menu,
   X,
   LogIn,
   Megaphone,
   Star,
+  Wallet,
 } from 'lucide-react'
 import { MyLinksMenu } from '@/components/MyLinksMenu'
 import logoFull from '@/assets/header-logo.png'
@@ -54,10 +54,11 @@ export const Navigation = () => {
   const adminSubLinks = [
     { to: '/admin', label: 'Dashboard', icon: BarChart3 },
     { to: '/admin/marketing', label: t('Marknadsföring', 'Marketing'), icon: Megaphone },
-    { to: '/admin/casting', label: t('Artistbokning', 'Artist booking'), icon: Sparkles },
     { to: '/admin/event-plan', label: t('Eventplanering', 'Event Planning'), icon: Settings },
+    { to: '/admin/economy', label: t('Ekonomi', 'Economy'), icon: Wallet },
     { to: '/admin/feedback', label: t('Omdömen', 'Feedback'), icon: Star },
-    { to: '/admin/contacts', label: t('Kontakter', 'Contacts'), icon: Users },
+    // Icon only in the desktop bar (label kept for the tooltip, screen readers and the phone menu)
+    { to: '/admin/contacts', label: t('Kontakter', 'Contacts'), icon: Users, iconOnly: true },
   ]
 
   return (
@@ -151,10 +152,12 @@ export const Navigation = () => {
                   <Link
                     key={link.to}
                     to={link.to}
+                    title={link.iconOnly ? link.label : undefined}
+                    aria-label={link.label}
                     className={`flex items-center gap-2.5 admin-label-link ${isActive(link.to) ? 'admin-label-link-active' : ''}`}
                   >
-                    <Icon size={14} strokeWidth={1.2} />
-                    {link.label}
+                    <Icon size={link.iconOnly ? 17 : 14} strokeWidth={1.2} />
+                    {!link.iconOnly && link.label}
                   </Link>
                 )
               })}

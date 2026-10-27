@@ -457,7 +457,7 @@ export const InfoHubTab = ({
                   {language === 'sv' ? def.title_sv : def.title_eng}
                   {hint && (
                     <Link
-                      to="/admin/casting"
+                      to="/admin/event-plan"
                       state={{ tab: 'show' }}
                       title={t('Öppna showplaneringen', 'Open show planning')}
                       className="ml-1.5 text-xs text-amber-400 hover:underline"

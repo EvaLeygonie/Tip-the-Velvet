@@ -119,7 +119,7 @@ export const DocumentsMenu = ({ eventId, ids, load, extras = [] }: DocumentsMenu
                     <div className="text-xs text-foreground/50">{doc.description[idx]}</div>
                     {hint && (
                       <Link
-                        to="/admin/casting"
+                        to="/admin/event-plan"
                         state={{ tab: 'show' }}
                         onClick={() => setOpen(false)}
                         title={t('Öppna showplaneringen', 'Open show planning')}

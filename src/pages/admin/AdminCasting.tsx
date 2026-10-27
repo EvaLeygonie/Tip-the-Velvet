@@ -1,5 +1,4 @@
-import { useRememberedTab } from '@/hooks/useRememberedTab'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import {
@@ -16,41 +15,22 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import type { CastingApplication, CastingApplicationWithActs } from '@/types/types'
 import { CastingApplicationRow } from '@/components/admin/CastingApplicationRow'
-import { EventPicker } from '@/components/admin/EventPicker'
-import { ArtistShowTravelTab } from '@/components/admin/event-plan/ArtistShowTravelTab'
-import { DocumentsMenu } from '@/components/admin/event-plan/DocumentsMenu'
-import {
-  getEventActsForAdmin,
-  getEventPerformersForAdmin,
-  getEventStaffForAdmin,
-} from '@/services/eventService'
-import { groupStaffRowsByPerson } from '@/lib/staffRowGrouping'
 import { DollarSign, Music, Users, Mail, Loader2 } from 'lucide-react'
 import { withTimeout } from '@/lib/utils'
 import { toast } from 'sonner'
 
-export const AdminCasting = () => {
+// The casting tab of the Event plan page (it used to be the Artist booking page): the applications
+// for the selected event, sorted into unsorted / yes / maybe / no. The page around it (event
+// picker, tabs, Documents menu) lives in AdminEventPlan; onOpenTab lets an application jump to the
+// show planning or travel tab there.
+export const CastingTab = ({ onOpenTab }: { onOpenTab: (tab: 'show' | 'travel') => void }) => {
   const { t } = useLanguage()
   const actLabel = (count: number) => t(count === 1 ? 'akt' : 'akter', count === 1 ? 'act' : 'acts')
   const artistLabel = (count: number) =>
     t(count === 1 ? 'artist' : 'artister', count === 1 ? 'artist' : 'artists')
   const { selectedEventId, selectedEvent } = useCurrentEvent()
-  // The Dashboard's cards deep-link to a tab via navigate(path, { state: { tab } }).
+  // The Dashboard's "New applications" rows link here with an application id (see below).
   const location = useLocation()
-  const [activeTab, setActiveTab] = useRememberedTab(
-    'casting',
-    ['casting', 'show', 'travel'] as const,
-    'casting',
-    (location.state as { tab?: 'casting' | 'show' | 'travel' } | null)?.tab
-  )
-  // Links from other pages (or from the Documents menu on this one) switch tab the same way:
-  // a new navigation key means a new state.tab to follow.
-  const [seenLocationKey, setSeenLocationKey] = useState(location.key)
-  if (seenLocationKey !== location.key) {
-    setSeenLocationKey(location.key)
-    const linkedTab = (location.state as { tab?: 'casting' | 'show' | 'travel' } | null)?.tab
-    if (linkedTab) setActiveTab(linkedTab)
-  }
   const [applications, setApplications] = useState<CastingApplicationWithActs[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,6 +66,26 @@ export const AdminCasting = () => {
     }
     loadApplications()
   }, [selectedEventId])
+
+  // The Dashboard's "New applications" rows link here with the application's id: scroll to it once
+  // the list has loaded and outline it for a few seconds so it is easy to spot. Done on the DOM
+  // element directly, so no extra state is needed.
+  const linkedApplicationId =
+    (location.state as { applicationId?: string } | null)?.applicationId ?? null
+  const handledLinkKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (!linkedApplicationId || loading) return
+    // once per visit, so editing the application doesn't scroll back to it
+    if (handledLinkKey.current === location.key) return
+    const el = document.getElementById(`application-${linkedApplicationId}`)
+    if (!el) return
+    handledLinkKey.current = location.key
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const outline = ['ring-2', 'ring-accent/70', 'ring-offset-2', 'ring-offset-background']
+    el.classList.add(...outline)
+    const timer = window.setTimeout(() => el.classList.remove(...outline), 4000)
+    return () => window.clearTimeout(timer)
+  }, [linkedApplicationId, applications, loading, location.key])
 
   const handleStatusChange = async (id: string, newStatus: CastingApplication['review_status']) => {
     const previousStatus = applications.find((app) => app.id === id)?.review_status
@@ -431,20 +431,22 @@ export const AdminCasting = () => {
         </div>
         <div className="space-y-3">
           {appsList.map((app) => (
-            <CastingApplicationRow
-              key={app.id}
-              application={app}
-              eventTitle={selectedEvent?.title ?? ''}
-              onOpenTab={(tab) => {
-                setActiveTab(tab)
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-              }}
-              onStatusChange={handleStatusChange}
-              onSaveNotes={handleSaveNotes}
-              onUpdateLogistics={handleUpdateLogisticsStatus}
-              onToggleActSelected={handleToggleActSelected}
-              onCancelConfirmedBooking={handleCancelConfirmedBooking}
-            />
+            // The id is the target of the Dashboard's "New applications" links (see the effect above)
+            <div key={app.id} id={`application-${app.id}`} className="scroll-mt-32 rounded-xl">
+              <CastingApplicationRow
+                application={app}
+                eventTitle={selectedEvent?.title ?? ''}
+                onOpenTab={(tab) => {
+                  onOpenTab(tab)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                onStatusChange={handleStatusChange}
+                onSaveNotes={handleSaveNotes}
+                onUpdateLogistics={handleUpdateLogisticsStatus}
+                onToggleActSelected={handleToggleActSelected}
+                onCancelConfirmedBooking={handleCancelConfirmedBooking}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -453,82 +455,9 @@ export const AdminCasting = () => {
 
   const hasAnyApplications = applications.length > 0
 
-  // What the Documents menu needs, fetched when it opens so it is current.
-  const loadDocumentData = async () => {
-    const [performersData, acts, staff] = await Promise.all([
-      getEventPerformersForAdmin(selectedEventId),
-      getEventActsForAdmin(selectedEventId),
-      getEventStaffForAdmin(selectedEventId),
-    ])
-    return {
-      acts,
-      context: {
-        t,
-        eventTitle: selectedEvent?.title ?? 'Event',
-        eventStart: selectedEvent?.event_start ?? undefined,
-        acts,
-        performers: performersData.performers,
-        groupedStaff: groupStaffRowsByPerson(staff),
-      },
-    }
-  }
-
-  const documentsMenu = selectedEventId ? (
-    <DocumentsMenu
-      eventId={selectedEventId}
-      ids={['runOfShow', 'setList', 'soundLight', 'artistContacts']}
-      load={loadDocumentData}
-    />
-  ) : null
-
   return (
-    <div className="page-shell">
-      <div className="bg-glow-spot" />
-      <h1>{t('Artistbokning', 'Artist booking')}</h1>
-      <div className="gold-divider" />
-
-      <EventPicker />
-
-      {selectedEventId && (
-        <div className="max-w-5xl mx-auto mt-6 mb-6">
-          <div className="flex gap-2 justify-center flex-wrap">
-            {(
-              [
-                ['casting', t('Casting', 'Casting')],
-                ['show', t('Showplanering', 'Show planning')],
-                ['travel', t('Resa & boende', 'Travel & accommodation')],
-              ] as const
-            ).map(([tab, label]) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={
-                  activeTab === tab
-                    ? 'btn-gold text-xs py-2 px-4'
-                    : 'btn-gold-outline text-xs py-2 px-4'
-                }
-              >
-                {label}
-              </button>
-            ))}
-            {documentsMenu}
-          </div>
-        </div>
-      )}
-
-      {selectedEventId && activeTab !== 'casting' && (
-        <div className="max-w-5xl mx-auto space-y-4">
-          <ArtistShowTravelTab
-            key={selectedEventId}
-            tab={activeTab}
-            eventId={selectedEventId}
-            eventTitle={selectedEvent?.title ?? 'Event'}
-          />
-        </div>
-      )}
-
-      {activeTab === 'casting' && hasAnyApplications && (
+    <>
+      {hasAnyApplications && (
         <div className="flex items-center justify-center gap-6 text-base text-foreground/70 font-body mt-10 mb-2 relative z-10">
           <span className="flex items-center gap-1.5">
             <Users className="h-5 w-5 text-accent" />
@@ -544,13 +473,13 @@ export const AdminCasting = () => {
         </div>
       )}
 
-      {activeTab === 'casting' && error && (
+      {error && (
         <div className="velvet-warning-box max-w-2xl mx-auto my-4">
           <span className="p-clean text-red-200">{error}</span>
         </div>
       )}
 
-      {activeTab !== 'casting' ? null : loading ? (
+      {loading ? (
         <div className="loading-container">
           <div className="loading-text">{t('Öppnar ridån...', 'Opening the curtain...')}</div>
         </div>
@@ -735,6 +664,6 @@ export const AdminCasting = () => {
           </div>,
           document.body
         )}
-    </div>
+    </>
   )
 }

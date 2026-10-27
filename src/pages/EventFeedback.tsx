@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { Seo } from '@/components/Seo'
 import { StarRating } from '@/components/feedback/StarRating'
+import { EmojiPicker } from '@/components/feedback/EmojiPicker'
 import {
   aspectsForEvent,
   getFeedbackEventBySlug,
@@ -44,6 +45,20 @@ export const EventFeedback = () => {
   const [sentReview, setSentReview] = useState('')
   const [autoSaved, setAutoSaved] = useState(false)
   const detailsRef = useRef<HTMLDivElement>(null)
+  const reviewRef = useRef<HTMLTextAreaElement>(null)
+
+  // Puts an emoji from the picker into the review where the cursor is (or at the end)
+  const insertEmoji = (emoji: string) => {
+    const el = reviewRef.current
+    const start = el?.selectionStart ?? review.length
+    const end = el?.selectionEnd ?? review.length
+    setReview((review.slice(0, start) + emoji + review.slice(end)).slice(0, 2000))
+    setAutoSaved(false)
+    window.setTimeout(() => {
+      el?.focus()
+      el?.setSelectionRange(start + emoji.length, start + emoji.length)
+    }, 0)
+  }
   // Honeypot: real guests never see or fill this; bots that fill every field are dropped.
   const [website, setWebsite] = useState('')
 
@@ -211,23 +226,24 @@ export const EventFeedback = () => {
               <label className="form-label-gold block">
                 {t('Din recension (valfritt)', 'Your review (optional)')}
               </label>
-              <textarea
-                className="velvet-textarea"
-                rows={3}
-                maxLength={2000}
-                value={review}
-                onChange={(e) => {
-                  setReview(e.target.value)
-                  setAutoSaved(false)
-                }}
-                onBlur={() => {
-                  if (review.trim() && review.trim() !== sentReview) void send('autosave')
-                }}
-                placeholder={t(
-                  'Hur var kvällen för dig, med dina egna ord?',
-                  'How was the night for you, in your own words?'
-                )}
-              />
+              <div className="relative">
+                <textarea
+                  ref={reviewRef}
+                  className="velvet-textarea pr-10"
+                  rows={3}
+                  maxLength={2000}
+                  value={review}
+                  onChange={(e) => {
+                    setReview(e.target.value)
+                    setAutoSaved(false)
+                  }}
+                  onBlur={() => {
+                    if (review.trim() && review.trim() !== sentReview) void send('autosave')
+                  }}
+                  placeholder={t('Hur var kvällen för dig?', 'How was the night for you?')}
+                />
+                <EmojiPicker onPick={insertEmoji} />
+              </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"

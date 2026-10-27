@@ -39,6 +39,8 @@ export interface FeedbackRow {
   source: string
   is_hidden: boolean
   is_quote_approved: boolean
+  // Starred: one of the first (up to three) reviews shown on the event page
+  is_featured: boolean
   is_actioned: boolean
   created_at: string
 }
@@ -284,7 +286,12 @@ export const listFeedback = async (eventId: string): Promise<FeedbackRow[]> => {
 
 export const updateFeedback = async (
   id: string,
-  patch: Partial<Pick<FeedbackRow, 'is_hidden' | 'is_quote_approved' | 'is_actioned'>>
+  patch: Partial<
+    Pick<
+      FeedbackRow,
+      'is_hidden' | 'is_quote_approved' | 'is_actioned' | 'is_featured' | 'review' | 'may_quote'
+    >
+  >
 ): Promise<void> => {
   const { error } = await supabase.from('event_feedback').update(patch).eq('id', id)
   if (error) throw error

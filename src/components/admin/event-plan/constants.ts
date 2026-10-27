@@ -113,5 +113,9 @@ export const SHOW_CONSTANT_SEGMENTS: { key: string; title: string; setNumber: 1 
 ]
 
 // The Event Plan page's tabs (the Dashboard deep-links into them). 'food' is the combined
-// Food & VIP tab. Show planning and Travel & accommodation live on the Artist booking page.
-export type EventPlanTab = 'staff' | 'sponsors' | 'food' | 'info'
+// Food & VIP tab. The first three are the artist side (casting, show planning, travel & housing),
+// which used to be the separate Artist booking page.
+export type EventPlanTab = 'casting' | 'show' | 'travel' | 'staff' | 'sponsors' | 'food' | 'info'
+
+export const ARTIST_TABS = ['casting', 'show', 'travel'] as const
+export const EVENT_TABS = ['staff', 'sponsors', 'food', 'info'] as const

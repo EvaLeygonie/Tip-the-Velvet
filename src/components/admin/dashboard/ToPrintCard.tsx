@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Archive, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
@@ -16,9 +16,14 @@ import {
 } from '@/services/printListService'
 
 interface ToPrintCardProps {
-  eventId: string
+  // null = the general list (things to print that belong to no event)
+  eventId: string | null
   title: string
+  // Only passed for a past event's list: hides it from the dashboard (its rows are kept)
+  onArchive?: () => void
 }
+
+const PAGE_SIZES = ['A6', 'A5', 'A4', 'A3', 'A2', 'A1']
 
 const NO_SPIN =
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
@@ -26,22 +31,26 @@ const NO_SPIN =
 interface RowModalProps {
   // The row being edited, or null when adding a new one.
   row: PrintRow | null
+  // False on the general list, which has no standard rows to repeat on every event
+  allowStandard: boolean
   onClose: () => void
   onSave: (values: {
     label: string
     copies: number
     professional: boolean
+    pageSize: string | null
     makeStandard: boolean
   }) => Promise<void>
 }
 
 // One modal for both adding and editing a row. Copies and "how it's printed" are this event's
 // own choice; the text of a standard row is shared by every event.
-const RowModal = ({ row, onClose, onSave }: RowModalProps) => {
+const RowModal = ({ row, allowStandard, onClose, onSave }: RowModalProps) => {
   const { t } = useLanguage()
   const [label, setLabel] = useState(row?.label ?? '')
   const [copies, setCopies] = useState(String(row?.copies ?? 1))
   const [professional, setProfessional] = useState(row?.professional ?? false)
+  const [pageSize, setPageSize] = useState(row?.pageSize ?? '')
   const [makeStandard, setMakeStandard] = useState(row?.standardId ? true : false)
   const [saving, setSaving] = useState(false)
 
@@ -53,7 +62,8 @@ const RowModal = ({ row, onClose, onSave }: RowModalProps) => {
         label: label.trim(),
         copies: Math.max(1, Number(copies) || 1),
         professional,
-        makeStandard,
+        pageSize: pageSize || null,
+        makeStandard: allowStandard && makeStandard,
       })
     } finally {
       setSaving(false)
@@ -91,28 +101,46 @@ const RowModal = ({ row, onClose, onSave }: RowModalProps) => {
           />
         </div>
 
-        <div className="space-y-1.5">
-          <label className="form-label-gold block">{t('Antal exemplar', 'Copies')}</label>
-          <div className="flex items-center gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="form-label-gold block">{t('Antal exemplar', 'Copies')}</label>
             <input
               type="number"
               min={1}
               max={999}
               value={copies}
               onChange={(e) => setCopies(e.target.value)}
-              className={`velvet-input !w-20 text-center ${NO_SPIN}`}
+              className={`velvet-input text-center ${NO_SPIN}`}
             />
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground/70">
-              <input
-                type="checkbox"
-                checked={makeStandard}
-                onChange={(e) => setMakeStandard(e.target.checked)}
-                className="h-3.5 w-3.5 accent-accent"
-              />
-              {t('Upprepas på alla event', 'Repeats on all events')}
-            </label>
+          </div>
+          <div className="space-y-1.5">
+            <label className="form-label-gold block">{t('Sidstorlek', 'Page size')}</label>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(e.target.value)}
+              className="velvet-select"
+            >
+              <option value="">{t('Ej angiven', 'Not set')}</option>
+              {PAGE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
+
+        {allowStandard && (
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground/70">
+            <input
+              type="checkbox"
+              checked={makeStandard}
+              onChange={(e) => setMakeStandard(e.target.checked)}
+              className="h-3.5 w-3.5 accent-accent"
+            />
+            {t('Upprepas på alla event', 'Repeats on all events')}
+          </label>
+        )}
 
         <div className="space-y-1.5">
           <label className="form-label-gold block">
@@ -169,7 +197,7 @@ const RowModal = ({ row, onClose, onSave }: RowModalProps) => {
 // One event's "to print" checklist: the standard rows every event starts with, plus custom rows,
 // split into what we print ourselves and what goes to a print shop. Ticks are per event, so a new
 // event starts unticked on its own; the reset button unticks by hand.
-export const ToPrintCard = ({ eventId, title }: ToPrintCardProps) => {
+export const ToPrintCard = ({ eventId, title, onArchive }: ToPrintCardProps) => {
   const { t } = useLanguage()
   const confirm = useConfirm()
   const [rows, setRows] = useState<PrintRow[] | null>(null)
@@ -224,13 +252,15 @@ export const ToPrintCard = ({ eventId, title }: ToPrintCardProps) => {
           values.label,
           values.makeStandard,
           values.professional,
-          values.copies
+          values.copies,
+          values.pageSize
         )
       } else {
         await updatePrintRow(eventId, modal, {
           label: values.label,
           copies: values.copies,
           professional: values.professional,
+          pageSize: values.pageSize,
           repeats: values.makeStandard,
         })
       }
@@ -240,9 +270,23 @@ export const ToPrintCard = ({ eventId, title }: ToPrintCardProps) => {
 
   const handleReset = async () => {
     const ok = await confirm({
-      message: t('Bocka ur alla rader för det här eventet?', 'Untick every row for this event?'),
+      message:
+        eventId === null
+          ? t('Bocka ur alla rader i listan?', 'Untick every row in the list?')
+          : t('Bocka ur alla rader för det här eventet?', 'Untick every row for this event?'),
     })
     if (ok) run(() => resetPrintRows(eventId))
+  }
+
+  const handleArchive = async () => {
+    const ok = await confirm({
+      message: t(
+        `Arkivera utskriftslistan för ${title}? Den försvinner från Dashboarden.`,
+        `Archive the print list for ${title}? It disappears from the Dashboard.`
+      ),
+      confirmLabel: t('Arkivera', 'Archive'),
+    })
+    if (ok) onArchive?.()
   }
 
   const doneCount = rows?.filter((r) => r.done).length ?? 0
@@ -272,11 +316,16 @@ export const ToPrintCard = ({ eventId, title }: ToPrintCardProps) => {
           className={`flex-1 min-w-0 truncate text-sm leading-5 ${
             row.done ? 'text-foreground/40 line-through' : 'text-foreground'
           }`}
-          title={`${row.copies}x ${row.label}`}
+          title={`${row.copies}x ${row.pageSize ? `${row.pageSize} ` : ''}${row.label}`}
         >
           <span className="mr-1.5 font-mono text-base font-semibold text-accent">
             {row.copies}x
           </span>
+          {row.pageSize && (
+            <span className="mr-1.5 rounded border border-accent/30 px-1 py-px font-mono text-[10px] text-accent/80">
+              {row.pageSize}
+            </span>
+          )}
           {row.label}
         </span>
         <button
@@ -311,7 +360,9 @@ export const ToPrintCard = ({ eventId, title }: ToPrintCardProps) => {
             }
             className="rounded border border-red-500/40 px-2 py-0.5 text-red-300 hover:bg-red-900/40"
           >
-            {t('Bara det här eventet', 'This event only')}
+            {eventId === null
+              ? t('Ta bort raden', 'Delete the row')
+              : t('Bara det här eventet', 'This event only')}
           </button>
           {row.standardId && (
             <button
@@ -367,6 +418,17 @@ export const ToPrintCard = ({ eventId, title }: ToPrintCardProps) => {
         >
           <RotateCcw className="h-3.5 w-3.5" />
         </button>
+        {onArchive && (
+          <button
+            type="button"
+            onClick={() => void handleArchive()}
+            title={t('Arkivera listan', 'Archive the list')}
+            aria-label={t('Arkivera listan', 'Archive the list')}
+            className="p-1 text-foreground/40 hover:text-accent"
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setModal('new')}
@@ -402,6 +464,7 @@ export const ToPrintCard = ({ eventId, title }: ToPrintCardProps) => {
         <RowModal
           key={modal === 'new' ? 'new' : modal.key}
           row={modal === 'new' ? null : modal}
+          allowStandard={eventId !== null}
           onClose={() => setModal(null)}
           onSave={handleSaveModal}
         />

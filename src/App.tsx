@@ -1,6 +1,6 @@
 import './App.css'
 import { Toaster } from 'sonner'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { LanguageProvider } from './contexts/LanguageContext'
@@ -34,9 +34,9 @@ import { AdminEventPlan } from '@/pages/admin/AdminEventPlan'
 import { AdminMarketing } from '@/pages/admin/AdminMarketing'
 import { Performers } from '@/pages/Performers'
 import { PerformerDetail } from '@/pages/PerformerDetail'
-import { AdminCasting } from '@/pages/admin/AdminCasting'
 import { AdminContacts } from '@/pages/admin/AdminContacts'
 import { AdminFeedback } from '@/pages/admin/AdminFeedback'
+import { AdminEconomy } from '@/pages/admin/AdminEconomy'
 import { EventFeedback } from '@/pages/EventFeedback'
 import { AddPerformer } from '@/pages/admin/AddPerformer'
 
@@ -149,19 +149,24 @@ export const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                  {/* Artist booking is now part of Event planning; old links and bookmarks land there */}
                   <Route
                     path="/admin/casting"
-                    element={
-                      <ProtectedRoute>
-                        <AdminCasting />
-                      </ProtectedRoute>
-                    }
+                    element={<Navigate to="/admin/event-plan" replace state={{ tab: 'casting' }} />}
                   />
                   <Route
                     path="/admin/contacts"
                     element={
                       <ProtectedRoute>
                         <AdminContacts />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/economy"
+                    element={
+                      <ProtectedRoute>
+                        <AdminEconomy />
                       </ProtectedRoute>
                     }
                   />

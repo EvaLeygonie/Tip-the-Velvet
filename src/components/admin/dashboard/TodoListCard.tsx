@@ -1,18 +1,24 @@
 import { useState } from 'react'
 import { Plus, X, Pencil, Repeat, ChevronsUp, ChevronsDown, Archive } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import { TodoModal } from './TodoModal'
 import type { Todo } from '@/types/types'
 
 interface TodoListCardProps {
   title: string
   todos: Todo[]
-  onAdd: (
+  // Left out for lists that only collect tasks made elsewhere (the Feedback list), which hides
+  // the "new task" button.
+  onAdd?: (
     title: string,
     dueDate: string | null,
     details: string | null,
-    isRecurring: boolean
+    isRecurring: boolean,
+    eventId?: string
   ) => Promise<void>
+  // With onAdd: the new-task form also asks which event the task belongs to
+  eventChoices?: { id: string; label: string }[]
   onEdit: (
     id: string,
     title: string,
@@ -27,6 +33,9 @@ interface TodoListCardProps {
   onDelete: (id: string) => Promise<void>
   // Only passed for event lists — removes the whole list once the event is over.
   onClearList?: () => Promise<void>
+  // Splits the list into labelled subsections (the Feedback list: one per event), each under a
+  // golden divider with its name. `todos` still holds every task of the card.
+  groups?: { key: string; label: string; todos: Todo[] }[]
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -190,47 +199,150 @@ export const TodoListCard = ({
   onMoveDown,
   onDelete,
   onClearList,
+  groups,
+  eventChoices,
 }: TodoListCardProps) => {
   const { t } = useLanguage()
+  const confirm = useConfirm()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
-
-  const pending = todos.filter((td) => !td.is_done && !isRecurringDormant(td))
-  // Sorted by (date, display_order) — different dates never compete with each other, but
-  // tasks sharing the exact same date (e.g. several tasks for the same event) use
-  // display_order as a tiebreak, which the arrows below can move within that one date's
-  // group. Direct feedback 2026-09-21.
-  const datedPending = [...pending.filter((td) => td.due_date)].sort((a, b) => {
-    const dateCompare = (a.due_date as string).localeCompare(b.due_date as string)
-    return dateCompare !== 0 ? dateCompare : a.display_order - b.display_order
-  })
-  const datedGroups: Todo[][] = []
-  for (const todo of datedPending) {
-    const lastGroup = datedGroups[datedGroups.length - 1]
-    if (lastGroup && lastGroup[0].due_date === todo.due_date) {
-      lastGroup.push(todo)
-    } else {
-      datedGroups.push([todo])
-    }
-  }
-  const datelessPending = [...pending.filter((td) => !td.due_date)].sort(
-    (a, b) => a.display_order - b.display_order
-  )
-  const done = [...todos.filter((td) => td.is_done)].sort(
-    (a, b) => a.display_order - b.display_order
-  )
 
   const handleSave = async (
     todoTitle: string,
     dueDate: string | null,
     details: string | null,
-    isRecurring: boolean
+    isRecurring: boolean,
+    eventId?: string
   ) => {
     if (editingTodo) {
       await onEdit(editingTodo.id, todoTitle, dueDate, details, isRecurring)
     } else {
-      await onAdd(todoTitle, dueDate, details, isRecurring)
+      await onAdd?.(todoTitle, dueDate, details, isRecurring, eventId)
     }
+  }
+
+  const handleClearList = async () => {
+    if (!onClearList) return
+    const ok = await confirm({
+      title: t('Ta bort listan?', 'Delete the list?'),
+      message: t(
+        `Hela listan för ${title} tas bort och alla uppgifter raderas för alltid. Det går inte att ångra.`,
+        `The whole list for ${title} is removed and all its tasks are deleted for good. This cannot be undone.`
+      ),
+      confirmLabel: t('Ta bort listan', 'Delete the list'),
+      destructive: true,
+    })
+    if (ok) await onClearList()
+  }
+
+  // The tasks of one list (or one subsection of it) as dated groups, then undated ones, then done.
+  const renderBody = (list: Todo[]) => {
+    const pending = list.filter((td) => !td.is_done && !isRecurringDormant(td))
+    // Sorted by (date, display_order) — different dates never compete with each other, but
+    // tasks sharing the exact same date (e.g. several tasks for the same event) use
+    // display_order as a tiebreak, which the arrows below can move within that one date's
+    // group. Direct feedback 2026-09-21.
+    const datedPending = [...pending.filter((td) => td.due_date)].sort((a, b) => {
+      const dateCompare = (a.due_date as string).localeCompare(b.due_date as string)
+      return dateCompare !== 0 ? dateCompare : a.display_order - b.display_order
+    })
+    const datedGroups: Todo[][] = []
+    for (const todo of datedPending) {
+      const lastGroup = datedGroups[datedGroups.length - 1]
+      if (lastGroup && lastGroup[0].due_date === todo.due_date) {
+        lastGroup.push(todo)
+      } else {
+        datedGroups.push([todo])
+      }
+    }
+    const datelessPending = [...pending.filter((td) => !td.due_date)].sort(
+      (a, b) => a.display_order - b.display_order
+    )
+    const done = [...list.filter((td) => td.is_done)].sort(
+      (a, b) => a.display_order - b.display_order
+    )
+
+    if (datedPending.length === 0 && datelessPending.length === 0 && done.length === 0) {
+      // Every task here is a dormant recurring one, not due for a while — same
+      // "nothing to show" shape as the empty state, but a distinct message so it
+      // doesn't read as if the tasks vanished.
+      return (
+        <p className="text-xs text-foreground/40 italic text-left">
+          {t(
+            'Inga aktuella uppgifter — återkommande uppgifter dyker upp igen närmare sitt datum.',
+            'No current tasks — recurring tasks reappear closer to their date.'
+          )}
+        </p>
+      )
+    }
+
+    return (
+      <div className="space-y-2">
+        {datedPending.length > 0 && (
+          <div className="space-y-1.5">
+            {datedGroups.map((group) =>
+              group.map((todo, index) => (
+                <TodoRow
+                  key={todo.id}
+                  todo={todo}
+                  showArrows={group.length > 1}
+                  isFirst={index === 0}
+                  isLast={index === group.length - 1}
+                  onToggle={onToggle}
+                  onSetDueDate={onSetDueDate}
+                  onMoveUp={onMoveUp}
+                  onMoveDown={onMoveDown}
+                  onDelete={onDelete}
+                  onEditClick={setEditingTodo}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {datelessPending.length > 0 && (
+          <div
+            className={`space-y-1.5 ${datedPending.length > 0 ? 'pt-1.5 border-t border-accent/10' : ''}`}
+          >
+            {datelessPending.map((todo, index) => (
+              <TodoRow
+                key={todo.id}
+                todo={todo}
+                showArrows
+                isFirst={index === 0}
+                isLast={index === datelessPending.length - 1}
+                onToggle={onToggle}
+                onSetDueDate={onSetDueDate}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+                onDelete={onDelete}
+                onEditClick={setEditingTodo}
+              />
+            ))}
+          </div>
+        )}
+
+        {done.length > 0 && (
+          <div className="space-y-1.5 pt-1.5 border-t border-accent/10">
+            {done.map((todo) => (
+              <TodoRow
+                key={todo.id}
+                todo={todo}
+                showArrows={false}
+                isFirst
+                isLast
+                onToggle={onToggle}
+                onSetDueDate={onSetDueDate}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+                onDelete={onDelete}
+                onEditClick={setEditingTodo}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -241,120 +353,54 @@ export const TodoListCard = ({
           {onClearList && (
             <button
               type="button"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    t(
-                      `Ta bort hela listan för ${title}? Alla uppgifter raderas.`,
-                      `Remove the whole list for ${title}? All its tasks will be deleted.`
-                    )
-                  )
-                ) {
-                  onClearList()
-                }
-              }}
-              title={t('Arkivera lista', 'Archive list')}
-              className="text-foreground/30 hover:text-accent transition-colors shrink-0"
+              onClick={() => void handleClearList()}
+              title={t('Arkivera lista (raderar uppgifterna)', 'Archive list (deletes the tasks)')}
+              aria-label={t('Arkivera lista', 'Archive list')}
+              className="text-foreground/30 hover:text-red-400 transition-colors shrink-0"
             >
               <Archive className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setIsAddOpen(true)}
-          title={t('Ny uppgift', 'New task')}
-          className="p-1 rounded-full border border-accent/20 text-accent/70 hover:text-accent hover:border-accent/50 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={() => setIsAddOpen(true)}
+            title={t('Ny uppgift', 'New task')}
+            className="p-1 rounded-full border border-accent/20 text-accent/70 hover:text-accent hover:border-accent/50 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {todos.length === 0 ? (
         <p className="text-xs text-foreground/40 italic text-left">
           {t('Inga uppgifter ännu.', 'No tasks yet.')}
         </p>
-      ) : datedPending.length === 0 && datelessPending.length === 0 && done.length === 0 ? (
-        // Every task here is a dormant recurring one, not due for a while — same
-        // "nothing to show" shape as the empty state above, but a distinct message so it
-        // doesn't read as if the tasks vanished.
-        <p className="text-xs text-foreground/40 italic text-left">
-          {t(
-            'Inga aktuella uppgifter — återkommande uppgifter dyker upp igen närmare sitt datum.',
-            'No current tasks — recurring tasks reappear closer to their date.'
-          )}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {datedPending.length > 0 && (
-            <div className="space-y-1.5">
-              {datedGroups.map((group) =>
-                group.map((todo, index) => (
-                  <TodoRow
-                    key={todo.id}
-                    todo={todo}
-                    showArrows={group.length > 1}
-                    isFirst={index === 0}
-                    isLast={index === group.length - 1}
-                    onToggle={onToggle}
-                    onSetDueDate={onSetDueDate}
-                    onMoveUp={onMoveUp}
-                    onMoveDown={onMoveDown}
-                    onDelete={onDelete}
-                    onEditClick={setEditingTodo}
-                  />
-                ))
-              )}
+      ) : groups ? (
+        <div className="space-y-3">
+          {groups.map((group) => (
+            <div key={group.key} className="space-y-2">
+              <div className="flex items-center gap-3 pt-1">
+                <div className="h-px flex-1 bg-accent/30" />
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-accent">
+                  {group.label}
+                </span>
+                <div className="h-px flex-1 bg-accent/30" />
+              </div>
+              {renderBody(group.todos)}
             </div>
-          )}
-
-          {datelessPending.length > 0 && (
-            <div
-              className={`space-y-1.5 ${datedPending.length > 0 ? 'pt-1.5 border-t border-accent/10' : ''}`}
-            >
-              {datelessPending.map((todo, index) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  showArrows
-                  isFirst={index === 0}
-                  isLast={index === datelessPending.length - 1}
-                  onToggle={onToggle}
-                  onSetDueDate={onSetDueDate}
-                  onMoveUp={onMoveUp}
-                  onMoveDown={onMoveDown}
-                  onDelete={onDelete}
-                  onEditClick={setEditingTodo}
-                />
-              ))}
-            </div>
-          )}
-
-          {done.length > 0 && (
-            <div className="space-y-1.5 pt-1.5 border-t border-accent/10">
-              {done.map((todo) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  showArrows={false}
-                  isFirst
-                  isLast
-                  onToggle={onToggle}
-                  onSetDueDate={onSetDueDate}
-                  onMoveUp={onMoveUp}
-                  onMoveDown={onMoveDown}
-                  onDelete={onDelete}
-                  onEditClick={setEditingTodo}
-                />
-              ))}
-            </div>
-          )}
+          ))}
         </div>
+      ) : (
+        renderBody(todos)
       )}
 
       <TodoModal
         isOpen={isAddOpen || editingTodo !== null}
         editingTodo={editingTodo}
+        eventChoices={eventChoices}
         onClose={() => {
           setIsAddOpen(false)
           setEditingTodo(null)
