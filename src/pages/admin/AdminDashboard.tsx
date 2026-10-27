@@ -53,6 +53,8 @@ import {
   getUnarchivedPastEvents,
   type PrintEvent,
 } from '@/services/printListService'
+import { getRecentFeedback, type RecentFeedback } from '@/services/feedbackService'
+import { StarRating } from '@/components/feedback/StarRating'
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { ToPrintCard } from '@/components/admin/dashboard/ToPrintCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
@@ -149,6 +151,8 @@ export const AdminDashboard = () => {
   const [eventOverviews, setEventOverviews] = useState<EventOverviewData[]>([])
   const [eventOverviewsLoading, setEventOverviewsLoading] = useState(true)
   const [todos, setTodos] = useState<Todo[]>([])
+  // The newest ratings and reviews guests left on the feedback page
+  const [recentFeedback, setRecentFeedback] = useState<RecentFeedback[]>([])
   // Past events whose "To print" list hasn't been archived yet
   const [pastPrintEvents, setPastPrintEvents] = useState<PrintEvent[]>([])
   const [docsTarget, setDocsTarget] = useState<EventOverviewData | null>(null)
@@ -163,19 +167,22 @@ export const AdminDashboard = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [staff, sponsorRows, castingRows, todoRows, pastPrint] = await Promise.all([
-          getStaffVolunteers(),
-          getSponsors(),
-          getRecentCastingApplications(),
-          getTodos(),
-          // Optional: never let the print lists stop the rest of the Dashboard from loading
-          getUnarchivedPastEvents().catch(() => [] as PrintEvent[]),
-        ])
+        const [staff, sponsorRows, castingRows, todoRows, pastPrint, feedbackRows] =
+          await Promise.all([
+            getStaffVolunteers(),
+            getSponsors(),
+            getRecentCastingApplications(),
+            getTodos(),
+            // Optional: never let the print lists stop the rest of the Dashboard from loading
+            getUnarchivedPastEvents().catch(() => [] as PrintEvent[]),
+            getRecentFeedback().catch(() => [] as RecentFeedback[]),
+          ])
         setStaffVolunteers(staff)
         setSponsors(sponsorRows)
         setCastingApplications(castingRows)
         setTodos(todoRows)
         setPastPrintEvents(pastPrint)
+        setRecentFeedback(feedbackRows)
       } catch (err) {
         console.error('Kunde inte hämta nya ansökningar:', err)
       } finally {
@@ -937,6 +944,53 @@ export const AdminDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {!loading && (
+        <div className="max-w-5xl mx-auto mt-8 space-y-3">
+          <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
+            {t('Nya omdömen', 'New ratings & reviews')}
+          </h2>
+          <div className="admin-panel velvet-surface p-4 space-y-1.5">
+            {recentFeedback.length === 0 ? (
+              <p className="text-sm text-foreground/40 italic text-center">
+                {t('Inga nya ännu.', 'None yet.')}
+              </p>
+            ) : (
+              recentFeedback.map((row) => (
+                <button
+                  type="button"
+                  key={row.id}
+                  onClick={() => {
+                    setSelectedEventId(row.event_id)
+                    navigate('/admin/feedback')
+                  }}
+                  title={t('Öppna omdömen', 'Open the feedback')}
+                  className="flex w-full items-center gap-3 rounded border border-transparent p-2 text-left text-sm transition-colors hover:border-accent/30 hover:bg-accent/5"
+                >
+                  {row.rating !== null && (
+                    <StarRating value={row.rating} size={14} label={`${row.rating}/5`} />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-foreground/90">
+                    {row.review ?? (
+                      <span className="italic text-foreground/40">
+                        {t('Bara betyg', 'Rating only')}
+                      </span>
+                    )}
+                  </span>
+                  {row.events && (
+                    <span className="max-w-[120px] shrink-0 truncate text-xs italic text-accent">
+                      {row.events.title}
+                    </span>
+                  )}
+                  <span className="shrink-0 text-xs text-foreground/40">
+                    {formatDate(language, row.created_at)}
+                  </span>
+                </button>
+              ))
+            )}
           </div>
         </div>
       )}

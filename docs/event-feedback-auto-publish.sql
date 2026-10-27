@@ -1,0 +1,94 @@
+-- Run once in the Supabase SQL editor. Safe to run again. Afterwards regenerate
+-- src/types/database.types.ts (nothing changes in it, but check) and commit with the code.
+--
+-- A review the guest ticked "show my review anonymously" for goes live on the event page straight away;
+-- the board can take it off afterwards with the quote icon on /admin/feedback.
+--   * First time a review (with the tick) arrives: it is approved at once.
+--   * If the guest edits it later: the approval stays as the board left it, so a review the board
+--     removed is not put back by the guest. (Unticking the box always takes it off.)
+-- Reviews already in the database are left as they are.
+create or replace function public.submit_event_feedback(
+  p_event_id uuid,
+  p_token text,
+  p_rating numeric,
+  p_aspects jsonb default '{}'::jsonb,
+  p_review text default null,
+  p_liked text default null,
+  p_improve text default null,
+  p_how_found text default null,
+  p_would_recommend text default null,
+  p_may_quote boolean default false,
+  p_language text default null,
+  p_extra_comment text default null,
+  p_how_found_note text default null,
+  p_would_recommend_note text default null,
+  p_been_before text default null
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_review text := nullif(left(trim(coalesce(p_review, '')), 2000), '');
+  v_may_quote boolean := coalesce(p_may_quote, false);
+begin
+  if p_token is null or length(p_token) < 8 or length(p_token) > 100 then
+    raise exception 'invalid token';
+  end if;
+  if p_rating is null or p_rating < 0.5 or p_rating > 5 or (p_rating * 2) <> trunc(p_rating * 2) then
+    raise exception 'invalid rating';
+  end if;
+  if not public.event_feedback_is_open(p_event_id) then
+    raise exception 'feedback is closed';
+  end if;
+
+  insert into public.event_feedback as f (
+    event_id, rating, aspect_ratings, review, liked, improve, how_found, would_recommend,
+    may_quote, is_quote_approved, voter_token, language, extra_comment, how_found_note,
+    would_recommend_note, been_before
+  ) values (
+    p_event_id,
+    p_rating,
+    coalesce(p_aspects, '{}'::jsonb),
+    v_review,
+    nullif(left(trim(coalesce(p_liked, '')), 2000), ''),
+    nullif(left(trim(coalesce(p_improve, '')), 2000), ''),
+    nullif(left(trim(coalesce(p_how_found, '')), 200), ''),
+    case when p_would_recommend in ('yes', 'maybe', 'no') then p_would_recommend end,
+    v_may_quote,
+    v_review is not null and v_may_quote,
+    p_token,
+    left(p_language, 8),
+    nullif(left(trim(coalesce(p_extra_comment, '')), 2000), ''),
+    nullif(left(trim(coalesce(p_how_found_note, '')), 200), ''),
+    nullif(left(trim(coalesce(p_would_recommend_note, '')), 500), ''),
+    case when p_been_before in ('yes', 'no', 'maybe') then p_been_before end
+  )
+  on conflict (event_id, voter_token) do update set
+    rating = excluded.rating,
+    aspect_ratings = excluded.aspect_ratings,
+    review = excluded.review,
+    liked = excluded.liked,
+    improve = excluded.improve,
+    how_found = excluded.how_found,
+    would_recommend = excluded.would_recommend,
+    may_quote = excluded.may_quote,
+    is_quote_approved = case
+      when excluded.review is null or not excluded.may_quote then false
+      when f.review is null then true
+      else f.is_quote_approved
+    end,
+    is_featured = case
+      when excluded.review is null or not excluded.may_quote then false
+      else f.is_featured
+    end,
+    language = excluded.language,
+    extra_comment = excluded.extra_comment,
+    how_found_note = excluded.how_found_note,
+    would_recommend_note = excluded.would_recommend_note,
+    been_before = excluded.been_before,
+    updated_at = now();
+end;
+$$;
+
+grant execute on function public.submit_event_feedback(uuid, text, numeric, jsonb, text, text, text, text, text, boolean, text, text, text, text, text) to anon, authenticated;

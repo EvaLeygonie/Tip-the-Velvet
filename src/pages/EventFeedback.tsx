@@ -13,6 +13,9 @@ import {
 } from '@/services/feedbackService'
 import { HOW_FOUND_OPTIONS, resolveAspect } from '@/lib/feedbackAspects'
 
+// The private answers as they look before anything is filled in (same order as privateKey below)
+const EMPTY_PRIVATE = JSON.stringify([{}, '', '', '', '', '', '', ''])
+
 // Radio questions laid out as one grid, so the four answers of every question line up in the same
 // columns whatever the question's length. "Not specified" is the last, empty-valued answer and is
 // selected by default, so no question ever stands in the way of sending. On a phone each question
@@ -110,6 +113,9 @@ export const EventFeedback = () => {
     howFoundNote,
     wouldRecommend,
   ])
+  // The private answers last stored (by the Send button or automatically): they save themselves a
+  // moment after the guest stops typing, so nothing is lost if they never press Send
+  const [storedPrivate, setStoredPrivate] = useState(EMPTY_PRIVATE)
   const reviewSent = sentReview !== '' && review.trim() === sentReview
   const privateSent = sentPrivate !== null && sentPrivate === privateKey
   const detailsRef = useRef<HTMLDivElement>(null)
@@ -147,6 +153,7 @@ export const EventFeedback = () => {
     if (!event || website || nextRating < 0.5) return
     const markSent = () => {
       setSentReview(review.trim())
+      setStoredPrivate(privateKey)
       if (stage === 'all') setSentPrivate(privateKey)
       setSaved(stage === 'autosave' ? 'review' : stage)
     }
@@ -179,6 +186,16 @@ export const EventFeedback = () => {
       setSaving(false)
     }
   }
+
+  // Saves the private section by itself 1.5 s after the last change (the review, the tick-box and the
+  // rating are re-sent along with it, as every send carries the whole answer)
+  useEffect(() => {
+    if (rating === 0 || privateKey === storedPrivate) return
+    const timer = window.setTimeout(() => void send('autosave'), 1500)
+    return () => window.clearTimeout(timer)
+    // send is rebuilt on every render; the values it reads are the ones listed here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [privateKey, storedPrivate, rating, review, mayQuote])
 
   const pickRating = (value: number) => {
     setRating(value)
@@ -317,10 +334,7 @@ export const EventFeedback = () => {
                         : t('Skicka recension', 'Send review')}
                 </button>
               </div>
-              <p
-                className="text-center text-[13px] text-emerald-400 sm:text-left"
-                aria-live="polite"
-              >
+              <p className="text-center text-[13px] text-emerald-400" aria-live="polite">
                 {reviewSent && t('✓ Recensionen är skickad. Tack!', '✓ Review sent. Thank you!')}
               </p>
               {(failedStage === 'review' || failedStage === 'autosave') && (
@@ -529,7 +543,12 @@ export const EventFeedback = () => {
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-center sm:justify-end">
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:justify-end">
+                  {storedPrivate === privateKey && privateKey !== EMPTY_PRIVATE && (
+                    <span className="text-[13px] text-emerald-400">
+                      {t('✓ Sparat automatiskt', '✓ Saved automatically')}
+                    </span>
+                  )}
                   <button type="submit" disabled={saving} className="btn-gold">
                     {saving
                       ? t('Skickar...', 'Sending...')

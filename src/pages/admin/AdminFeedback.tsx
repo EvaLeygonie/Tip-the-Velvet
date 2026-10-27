@@ -46,7 +46,7 @@ import {
   type CustomAspect,
 } from '@/lib/feedbackAspects'
 
-type CommentFilter = 'all' | 'improve' | 'liked' | 'open'
+type CommentFilter = 'all' | 'reviews' | 'details'
 
 const average = (nums: number[]) =>
   nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : 0
@@ -61,6 +61,7 @@ export const AdminFeedback = () => {
   // loading is derived, so the load effect never has to set state before its first await
   const [loadedEventId, setLoadedEventId] = useState('')
   const [filter, setFilter] = useState<CommentFilter>('all')
+  const [hideHandled, setHideHandled] = useState(false)
   const [minStars, setMinStars] = useState(0)
   const [maxStars, setMaxStars] = useState(5)
   const [search, setSearch] = useState('')
@@ -107,6 +108,20 @@ export const AdminFeedback = () => {
     void load()
   }, [load])
 
+  // New answers come in while this page is open: reload when the tab is looked at again (switching
+  // back to the browser, or from another window), so it never shows an old list
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [load])
+
   const loading = loadedEventId !== selectedEventId
   const visible = rows.filter((r) => !r.is_hidden)
   const stats = useMemo(() => {
@@ -138,7 +153,7 @@ export const AdminFeedback = () => {
     return events
       .filter((e) => byEvent.has(e.id))
       .map((e) => ({ event: e, avg: average(byEvent.get(e.id)!), n: byEvent.get(e.id)!.length }))
-      .sort((a, b) => (a.event.event_start ?? '').localeCompare(b.event.event_start ?? ''))
+      .sort((a, b) => (b.event.event_start ?? '').localeCompare(a.event.event_start ?? ''))
   }, [allRatings, events])
 
   const patchRow = async (id: string, patch: Partial<FeedbackRow>) => {
@@ -287,24 +302,29 @@ export const AdminFeedback = () => {
     }
   }
 
-  // What each comment type means (a guest often fills in both "liked" and "can do better", so a
-  // card shows only the part the chosen filter is about):
-  //   all     everything a guest wrote
-  //   improve what they think we can do better
-  //   open    "can do better" you haven't marked as handled (check mark or "make a to-do") yet
-  //   liked   what they liked
-  const hasImprove = (r: FeedbackRow) => !!r.improve || !!r.improve_aspects?.length
-  const hasLiked = (r: FeedbackRow) => !!r.liked || !!r.liked_aspects?.length
-  const hasAnyText = (r: FeedbackRow) =>
-    hasImprove(r) || hasLiked(r) || !!r.review || !!r.extra_comment
+  // An answer has two parts, matching the two sections of the guest form:
+  //   reviews  the first section: the stars and the written review (what can be shown on the site)
+  //   details  the second section, for us: category scores, liked / can do better, extra comment,
+  //            first time or not, recommend, how they found us
+  //   all      both, one card per guest, with a golden divider between the parts
+  const hasReviewPart = (r: FeedbackRow) => !!r.review
+  const hasDetailPart = (r: FeedbackRow) =>
+    !!r.liked ||
+    !!r.improve ||
+    !!r.extra_comment ||
+    !!r.liked_aspects?.length ||
+    !!r.improve_aspects?.length ||
+    !!r.been_before ||
+    !!r.would_recommend ||
+    !!r.how_found ||
+    !!r.how_found_note ||
+    Object.keys(r.aspect_ratings ?? {}).length > 0
   const matchesType = (r: FeedbackRow, type: CommentFilter) =>
-    type === 'improve'
-      ? hasImprove(r)
-      : type === 'liked'
-        ? hasLiked(r)
-        : type === 'open'
-          ? hasImprove(r) && !r.is_actioned
-          : hasAnyText(r)
+    type === 'reviews'
+      ? hasReviewPart(r)
+      : type === 'details'
+        ? hasDetailPart(r) && !(hideHandled && r.is_actioned)
+        : true
 
   const query = search.trim().toLowerCase()
   // Star range and search apply to every filter; the counts on the buttons use the same two
@@ -323,9 +343,8 @@ export const AdminFeedback = () => {
   const comments = rows.filter((r) => matchesStarsAndSearch(r) && matchesType(r, filter))
   const countFor = (type: CommentFilter) =>
     rows.filter((r) => matchesStarsAndSearch(r) && matchesType(r, type)).length
-  const showLikedPart = filter === 'all' || filter === 'liked'
-  const showImprovePart = filter === 'all' || filter === 'improve' || filter === 'open'
-  const showReviewPart = filter === 'all'
+  const showReviewPart = filter !== 'details'
+  const showDetailPart = filter !== 'reviews'
 
   // The starred reviews come first on the event page: at most three per event
   const MAX_FEATURED = 3
@@ -365,7 +384,7 @@ export const AdminFeedback = () => {
       {selectedEventId && settings && (
         <div className="max-w-5xl mx-auto px-4 space-y-8 mb-12">
           <section className="admin-panel p-5 sm:p-6 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap">
               <div className="flex items-center gap-3">
                 <label className="form-label-gold whitespace-nowrap">
                   {t('Omdömen öppnar', 'Feedback opens')}
@@ -407,12 +426,12 @@ export const AdminFeedback = () => {
                   }`}
                 />
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-3 ml-auto">
+              <div className="flex flex-wrap items-center justify-end gap-3 ml-auto lg:flex-nowrap">
                 <a
                   href={`/events/event/${settings.slug}/feedback?preview=1`}
                   target="_blank"
                   rel="noreferrer"
-                  className="btn-gold-outline text-xs py-2 px-4"
+                  className="btn-gold-outline text-xs py-2 px-4 whitespace-nowrap"
                 >
                   <Eye size={14} className="inline mr-2" />
                   {t('Förhandsvisa', 'Preview')}
@@ -420,7 +439,7 @@ export const AdminFeedback = () => {
                 <button
                   type="button"
                   onClick={copyLink}
-                  className="btn-gold-outline text-xs py-2 px-4"
+                  className="btn-gold-outline text-xs py-2 px-4 whitespace-nowrap"
                 >
                   <Copy size={14} className="inline mr-2" />
                   {t('Kopiera länk', 'Copy link')}
@@ -428,10 +447,12 @@ export const AdminFeedback = () => {
                 <button
                   type="button"
                   onClick={() => void downloadQr()}
-                  className="btn-gold-outline text-xs py-2 px-4"
+                  title={t('Ladda ner QR-kod', 'Download QR code')}
+                  aria-label={t('Ladda ner QR-kod', 'Download QR code')}
+                  className="btn-gold-outline text-xs py-2 px-4 whitespace-nowrap"
                 >
                   <Download size={14} className="inline mr-2" />
-                  {t('Ladda ner QR-kod', 'Download QR code')}
+                  {t('QR-kod', 'QR code')}
                 </button>
               </div>
             </div>
@@ -637,23 +658,14 @@ export const AdminFeedback = () => {
                   {(
                     [
                       ['all', t('Alla', 'All')],
-                      ['liked', t('Gillade', 'Liked')],
-                      ['improve', t('Kan göras bättre', 'Can do better')],
-                      ['open', t('Att hantera', 'To handle')],
+                      ['reviews', t('Recensioner', 'Reviews')],
+                      ['details', t('Detaljerade svar', 'Detailed answers')],
                     ] as const
                   ).map(([key, label]) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => setFilter(key)}
-                      title={
-                        key === 'open'
-                          ? t(
-                              'Kan göras bättre-kommentarer som du inte markerat som hanterade än',
-                              'Can-do-better comments you have not marked as handled yet'
-                            )
-                          : undefined
-                      }
                       className={
                         filter === key
                           ? 'btn-gold text-xs py-2 px-3 shrink-0 whitespace-nowrap !min-w-0'
@@ -685,6 +697,18 @@ export const AdminFeedback = () => {
                   />
                 </div>
 
+                {filter === 'details' && (
+                  <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground/70">
+                    <input
+                      type="checkbox"
+                      checked={hideHandled}
+                      onChange={(e) => setHideHandled(e.target.checked)}
+                      className="accent-accent"
+                    />
+                    {t('Dölj hanterade', 'Hide handled')}
+                  </label>
+                )}
+
                 {comments.length === 0 ? (
                   <p className="empty-state">{t('Inga kommentarer här.', 'No comments here.')}</p>
                 ) : (
@@ -713,8 +737,6 @@ export const AdminFeedback = () => {
                           )}
                           <span className="text-xs text-foreground/50">
                             {new Date(row.created_at).toLocaleDateString()}
-                            {howFoundLabel(row.how_found) && ` · ${howFoundLabel(row.how_found)}`}
-                            {row.how_found_note && ` · “${row.how_found_note}”`}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -858,6 +880,7 @@ export const AdminFeedback = () => {
                           </button>
                         </div>
                       </div>
+                      {/* FIRST SECTION: the stars (above) and the written review */}
                       {showReviewPart && row.review && (
                         <p className="text-sm">
                           <span className="form-label-gold mr-2">
@@ -868,55 +891,127 @@ export const AdminFeedback = () => {
                           {row.review}
                         </p>
                       )}
-                      {showLikedPart && !!row.liked_aspects?.length && (
-                        <p className="flex flex-wrap items-center gap-1.5 text-sm">
-                          <span className="form-label-gold mr-1">{t('Gillade', 'Liked')}</span>
-                          {row.liked_aspects.map((key) => (
-                            <span
-                              key={key}
-                              className="text-xs px-2 py-0.5 rounded-full border border-emerald-500/30 text-emerald-300"
-                            >
-                              {aspectLabel(key)}
-                            </span>
-                          ))}
-                        </p>
+
+                      {filter === 'all' && hasDetailPart(row) && (
+                        <div className="my-2 h-px bg-accent/40" />
                       )}
-                      {showLikedPart && row.liked && (
-                        <p className="text-sm">
-                          <span className="form-label-gold mr-2">{t('Gillade', 'Liked')}</span>
-                          {row.liked}
-                        </p>
-                      )}
-                      {showImprovePart && !!row.improve_aspects?.length && (
-                        <p className="flex flex-wrap items-center gap-1.5 text-sm">
-                          <span className="form-label-gold mr-1">
-                            {t('Kan göras bättre', 'Can do better')}
-                          </span>
-                          {row.improve_aspects.map((key) => (
-                            <span
-                              key={key}
-                              className="text-xs px-2 py-0.5 rounded-full border border-amber-500/30 text-amber-300"
-                            >
-                              {aspectLabel(key)}
-                            </span>
-                          ))}
-                        </p>
-                      )}
-                      {showImprovePart && row.improve && (
-                        <p className="text-sm">
-                          <span className="form-label-gold mr-2">
-                            {t('Kan göras bättre', 'Can do better')}
-                          </span>
-                          {row.improve}
-                        </p>
-                      )}
-                      {showReviewPart && row.extra_comment && (
-                        <p className="text-sm">
-                          <span className="form-label-gold mr-2">
-                            {t('Extra kommentar', 'Extra comment')}
-                          </span>
-                          {row.extra_comment}
-                        </p>
+
+                      {/* SECOND SECTION: the detailed answers, for us */}
+                      {showDetailPart && (
+                        <>
+                          {Object.keys(row.aspect_ratings ?? {}).length > 0 && (
+                            <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs">
+                              {Object.entries(row.aspect_ratings ?? {}).map(([key, value]) => (
+                                <span
+                                  key={key}
+                                  className="rounded-full border border-accent/25 px-2 py-0.5 text-foreground/80"
+                                >
+                                  {aspectLabel(key)} <span className="text-accent">{value}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {(row.been_before ||
+                            row.would_recommend ||
+                            howFoundLabel(row.how_found) ||
+                            row.how_found_note) && (
+                            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+                              {row.been_before && (
+                                <span className="rounded-full border border-accent/50 bg-accent/10 px-2.5 py-0.5 text-accent">
+                                  {
+                                    {
+                                      no: t('Första gången', 'First time'),
+                                      yes: t('Har varit här förut', 'Been before'),
+                                      maybe: t('Kanske varit här förut', 'Maybe been before'),
+                                    }[row.been_before]
+                                  }
+                                </span>
+                              )}
+                              {row.would_recommend && (
+                                <span
+                                  className={`rounded-full border px-2.5 py-0.5 ${
+                                    {
+                                      yes: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
+                                      maybe:
+                                        'border-orange-400/40 bg-orange-400/10 text-orange-300',
+                                      no: 'border-red-400/40 bg-red-400/10 text-red-300',
+                                    }[row.would_recommend]
+                                  }`}
+                                >
+                                  {t('Rekommenderar', 'Recommends')}:{' '}
+                                  {
+                                    {
+                                      yes: t('ja', 'yes'),
+                                      maybe: t('kanske', 'maybe'),
+                                      no: t('nej', 'no'),
+                                    }[row.would_recommend]
+                                  }
+                                </span>
+                              )}
+                              {(howFoundLabel(row.how_found) || row.how_found_note) && (
+                                <span className="rounded-full border border-violet-400/40 bg-violet-400/10 px-2.5 py-0.5 text-violet-300">
+                                  {t('Hittade oss via', 'Found us via')}:{' '}
+                                  {[
+                                    howFoundLabel(row.how_found),
+                                    row.how_found_note ? `“${row.how_found_note}”` : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {!!row.liked_aspects?.length && (
+                            <p className="flex flex-wrap items-center gap-1.5 text-sm">
+                              <span className="form-label-gold mr-1">{t('Gillade', 'Liked')}</span>
+                              {row.liked_aspects.map((key) => (
+                                <span
+                                  key={key}
+                                  className="text-xs px-2 py-0.5 rounded-full border border-emerald-500/30 text-emerald-300"
+                                >
+                                  {aspectLabel(key)}
+                                </span>
+                              ))}
+                            </p>
+                          )}
+                          {row.liked && (
+                            <p className="text-sm">
+                              <span className="form-label-gold mr-2">{t('Gillade', 'Liked')}</span>
+                              {row.liked}
+                            </p>
+                          )}
+                          {!!row.improve_aspects?.length && (
+                            <p className="flex flex-wrap items-center gap-1.5 text-sm">
+                              <span className="form-label-gold mr-1">
+                                {t('Kan göras bättre', 'Can do better')}
+                              </span>
+                              {row.improve_aspects.map((key) => (
+                                <span
+                                  key={key}
+                                  className="text-xs px-2 py-0.5 rounded-full border border-amber-500/30 text-amber-300"
+                                >
+                                  {aspectLabel(key)}
+                                </span>
+                              ))}
+                            </p>
+                          )}
+                          {row.improve && (
+                            <p className="text-sm">
+                              <span className="form-label-gold mr-2">
+                                {t('Kan göras bättre', 'Can do better')}
+                              </span>
+                              {row.improve}
+                            </p>
+                          )}
+                          {row.extra_comment && (
+                            <p className="text-sm">
+                              <span className="form-label-gold mr-2">
+                                {t('Extra kommentar', 'Extra comment')}
+                              </span>
+                              {row.extra_comment}
+                            </p>
+                          )}
+                        </>
                       )}
                     </article>
                   ))

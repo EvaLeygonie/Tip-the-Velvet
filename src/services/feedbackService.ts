@@ -327,3 +327,27 @@ export const listAllRatings = async (): Promise<EventRatingRow[]> => {
   if (error) throw error
   return (data ?? []) as EventRatingRow[]
 }
+
+// The newest answers from the site's own feedback page (not the imported ones), for the Dashboard's
+// "New ratings & reviews". Imports are left out on purpose: they were all added on one day.
+export interface RecentFeedback {
+  id: string
+  event_id: string
+  rating: number | null
+  review: string | null
+  created_at: string
+  events: { title: string } | null
+}
+
+export const getRecentFeedback = async (days = 7, limit = 8): Promise<RecentFeedback[]> => {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const { data, error } = await supabase
+    .from('event_feedback')
+    .select('id, event_id, rating, review, created_at, events(title)')
+    .eq('source', 'site')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as unknown as RecentFeedback[]
+}
