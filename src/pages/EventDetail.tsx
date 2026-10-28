@@ -75,9 +75,16 @@ export const EventDetail = () => {
       ? sortedImages
       : sortedImages.filter((img) => groupOf(img) === photoFilter)
 
+  // Only the first batch of thumbnails is rendered until the visitor asks for more — every
+  // thumbnail is bandwidth on Cloudinary's free plan, and most visitors never scroll through
+  // hundreds of photos. Reset to one batch whenever the filter changes.
+  const PAGE_SIZE = 40
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const pagedImages = shownImages.slice(0, visibleCount)
+
   // Lightbox slides are served resized + auto format/quality instead of the full uploaded file:
   // Cloudinary's free plan is capped on bandwidth (credits), and the lightbox preloads neighbours.
-  const lightBoxSlides = shownImages.map((img) => ({
+  const lightBoxSlides = pagedImages.map((img) => ({
     src: getImageSrc(`f_auto,q_auto,c_limit,w_1600/${img.image_id}`),
     alt: img.event_slug || '',
   }))
@@ -324,7 +331,10 @@ export const EventDetail = () => {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setPhotoFilter(key)}
+                  onClick={() => {
+                    setPhotoFilter(key)
+                    setVisibleCount(PAGE_SIZE)
+                  }}
                   className={`${
                     photoFilter === key ? 'btn-gold' : 'btn-gold-outline'
                   } text-xs py-1.5 px-4 ${count === 0 && photoFilter !== key ? 'opacity-60' : ''}`}
@@ -348,7 +358,7 @@ export const EventDetail = () => {
 
         {!user && images.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-w-6xl mx-auto">
-            {shownImages.map((img, idx) => (
+            {pagedImages.map((img, idx) => (
               <div
                 key={img.id}
                 onClick={() => setIndex(idx)}
@@ -363,6 +373,18 @@ export const EventDetail = () => {
                 />
               </div>
             ))}
+          </div>
+        )}
+
+        {!user && shownImages.length > visibleCount && (
+          <div className="flex justify-center mt-6">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              className="btn-gold-outline"
+            >
+              {t('Visa fler bilder', 'Show more photos')} ({shownImages.length - visibleCount})
+            </button>
           </div>
         )}
       </section>
