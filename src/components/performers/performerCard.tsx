@@ -3,9 +3,17 @@ import { Link } from 'react-router-dom'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import type { Performer } from '@/types/types'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 
 export const PerformerCard = ({ performer }: { performer: Performer }) => {
   const { t } = useLanguage()
+  const { user } = useAuth()
+  const siteSettings = useSiteSettings()
+  // The board can hide the Hall of Fame's images (Dashboard) when Cloudinary's credits run low;
+  // the profile text stays. Nothing loads until the setting is known. Logged-in admins still see them.
+  const imagesHidden = siteSettings.hallOfFameImagesHidden && !user
+  const promoImageId = siteSettings.ready && !imagesHidden ? performer.promo_image_id : null
 
   const bioKey = t('bio_sv', 'bio_eng') as keyof Performer
   const description = performer[bioKey] as string
@@ -16,11 +24,11 @@ export const PerformerCard = ({ performer }: { performer: Performer }) => {
       className="group event-showcase-card flex flex-col h-full hover:-translate-y-2 transition-all duration-300"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-black/40">
-        {performer.promo_image_id ? (
+        {promoImageId ? (
           <>
             <div className="w-full h-full transform group-hover:scale-105 transition-transform duration-700 ease-out">
               <CloudinaryImage
-                publicId={performer.promo_image_id}
+                publicId={promoImageId}
                 width={600}
                 height={800}
                 alt={performer.performer_name}
@@ -33,9 +41,19 @@ export const PerformerCard = ({ performer }: { performer: Performer }) => {
         ) : (
           <div className="h-full w-full flex items-center justify-center bg-gradient-to-b from-accent/5 to-transparent">
             <div className="text-center space-y-2">
-              <Sparkles className="w-10 h-10 text-accent/20 mx-auto" />
-              <span className="block font-decorative text-[9px] tracking-widest text-accent/30 uppercase">
-                {t('Ingen bild', 'No image')}
+              <Sparkles
+                className={`w-10 h-10 mx-auto ${imagesHidden ? 'text-accent' : 'text-accent/20'}`}
+              />
+              <span
+                className={`block font-decorative tracking-widest uppercase ${
+                  imagesHidden ? 'text-xs text-white' : 'text-[9px] text-accent/30'
+                }`}
+              >
+                {imagesHidden
+                  ? t('Bild kommer snart', 'Image coming soon')
+                  : !performer.promo_image_id
+                    ? t('Ingen bild', 'No image')
+                    : ''}
               </span>
             </div>
           </div>

@@ -8,6 +8,8 @@ import { ArchivedEventCard } from '@/components/events/archivedEventCard'
 import { fetchEvents } from '@/services/eventService'
 import { getFeedbackAverages } from '@/services/feedbackService'
 import { Seo } from '@/components/Seo'
+import { ShowMoreButton } from '@/components/ShowMoreButton'
+import { useShowMore } from '@/hooks/useShowMore'
 
 export const Events = () => {
   const [oldEvents, setOldEvents] = useState<OldEvent[]>([])
@@ -43,6 +45,8 @@ export const Events = () => {
 
   const upcomingEvents = events.filter((e) => e.status === 'published')
   const pastNewEvents = events.filter((e) => e.status === 'archived')
+  const pastPaging = useShowMore(pastNewEvents, 12)
+  const archivePaging = useShowMore(oldEvents, 12)
 
   if (loading)
     return (
@@ -121,10 +125,11 @@ export const Events = () => {
           <h2 className="!pb-0">{t('Tidigare event', 'Past Events')}</h2>
           <div className="gold-divider" />
           <div className="card-grid">
-            {pastNewEvents.map((e) => (
+            {pastPaging.visible.map((e) => (
               <ArchivedEventCard key={e.id} event={e} rating={ratings[e.id]} />
             ))}
           </div>
+          <ShowMoreButton remaining={pastPaging.remaining} onClick={pastPaging.showMore} />
         </section>
 
         <section className="container-wide page-section">
@@ -140,10 +145,11 @@ export const Events = () => {
           <div className="gold-divider" />
 
           <div className="card-grid">
-            {oldEvents.map((e) => (
+            {archivePaging.visible.map((e) => (
               <ArchivedEventCard key={e.id} event={e as unknown as Event} />
             ))}
           </div>
+          <ShowMoreButton remaining={archivePaging.remaining} onClick={archivePaging.showMore} />
         </section>
       </div>
     </>

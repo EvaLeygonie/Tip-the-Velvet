@@ -57,6 +57,7 @@ import { getRecentFeedback, type RecentFeedback } from '@/services/feedbackServi
 import { StarRating } from '@/components/feedback/StarRating'
 import { TodoListCard } from '@/components/admin/dashboard/TodoListCard'
 import { ToPrintCard } from '@/components/admin/dashboard/ToPrintCard'
+import { SiteImagesCard } from '@/components/admin/dashboard/SiteImagesCard'
 import { EventHighlightCard } from '@/components/admin/dashboard/EventHighlightCard'
 import { MissingInfoModal, type MissingInfoFilter } from '@/components/admin/MissingInfoModal'
 import { actHasMusic } from '@/lib/actMusic'
@@ -1117,6 +1118,8 @@ export const AdminDashboard = () => {
               {/* Things to print that belong to no event: always here, all year */}
               <ToPrintCard eventId={null} title={t('Allmänt', 'General')} />
             </div>
+
+            <SiteImagesCard />
           </div>
         </div>
       )}

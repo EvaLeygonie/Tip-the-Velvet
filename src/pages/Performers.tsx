@@ -13,6 +13,9 @@ import { supabase } from '@/lib/supabase'
 import { Images, Eye, EyeOff, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Seo } from '@/components/Seo'
+import { ShowMoreButton } from '@/components/ShowMoreButton'
+import { useShowMore } from '@/hooks/useShowMore'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useConfirm } from '@/contexts/ConfirmContext'
 
 export const Performers = () => {
@@ -21,6 +24,8 @@ export const Performers = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
   const confirm = useConfirm()
+  const siteSettings = useSiteSettings()
+  const { visible: visiblePerformers, remaining, showMore } = useShowMore(performers, 12)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,9 +164,18 @@ export const Performers = () => {
             </div>
           )}
 
+          {siteSettings.hallOfFameImagesHidden && !user && (
+            <p className="text-center text-base text-white mb-6">
+              {t(
+                'Vi gör tekniskt underhåll på vår bildhantering, så bilderna är tillfälligt borta – tillbaka snart!',
+                'We are doing technical maintenance on our image hosting, so the photos are temporarily unavailable – back soon!'
+              )}
+            </p>
+          )}
+
           {performers.length > 0 && (
             <div className="card-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {performers.map((e) => {
+              {visiblePerformers.map((e) => {
                 const performerItem = e as Performer | PublicPerformer
 
                 return (
@@ -202,6 +216,7 @@ export const Performers = () => {
               })}
             </div>
           )}
+          <ShowMoreButton remaining={remaining} onClick={showMore} />
         </section>
       </div>
     </>

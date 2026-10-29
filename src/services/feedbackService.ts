@@ -107,7 +107,8 @@ export const getFeedbackSummary = async (eventId: string): Promise<FeedbackSumma
   return data as unknown as FeedbackSummary
 }
 
-// The approved public reviews of an event, a page at a time (newest first).
+// The approved public reviews of an event, a page at a time (starred ones
+// first, then oldest first — see get_event_feedback_reviews).
 export interface PublicReviews {
   total: number
   reviews: { review: string; created_at: string }[]

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import CloudinaryImage from '@/components/CloudinaryImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { ShowMoreButton } from '@/components/ShowMoreButton'
+import { useShowMore } from '@/hooks/useShowMore'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useParams, Link, useLocation } from 'react-router-dom'
 import type { Performer, PublicPerformer } from '@/types/types'
 import { fetchPerformerBySlug } from '@/services/performerService'
@@ -91,6 +94,12 @@ export const PerformerDetail = () => {
   }, [slug, user])
 
   const sortedImages = images.sort((a, b) => a.id.localeCompare(b.id))
+  const { visible: pagedImages, remaining, showMore } = useShowMore(sortedImages, 20)
+  // The board can hide the Hall of Fame's images (Dashboard) when Cloudinary's credits run low;
+  // the profile text stays. Nothing loads until the setting is known. Logged-in admins still see them.
+  const siteSettings = useSiteSettings()
+  const imagesHidden = siteSettings.hallOfFameImagesHidden && !user
+  const imagesShown = siteSettings.ready && !imagesHidden
 
   if (loading) {
     return (
@@ -120,8 +129,9 @@ export const PerformerDetail = () => {
     )
   }
 
-  const lightboxSlides = sortedImages.map((img) => ({
-    src: getImageSrc(img.id),
+  // Served resized + auto format/quality instead of the full uploaded file (Cloudinary bandwidth)
+  const lightboxSlides = pagedImages.map((img) => ({
+    src: getImageSrc(`f_auto,q_auto,c_limit,w_1600/${img.id}`),
     alt: performer.performer_name || '',
     description: img.photographer
       ? `${t('Fotograf:', 'Photographer:')} ${img.photographer}`
@@ -249,7 +259,7 @@ export const PerformerDetail = () => {
         {/* Profilinnehåll */}
         <div className="max-w-2xl mx-auto flex flex-col items-center space-y-6 relative z-10 px-4">
           {/* PROFILBILD */}
-          {performer.promo_image_id && (
+          {performer.promo_image_id && imagesShown && (
             <div className="w-full max-w-sm aspect-[3/4] rounded-lg overflow-hidden border border-accent/20 shadow-[0_0_30px_rgba(0,0,0,0.8)] bg-black/40 group relative">
               <CloudinaryImage
                 publicId={performer.promo_image_id}
@@ -262,7 +272,7 @@ export const PerformerDetail = () => {
             </div>
           )}
 
-          {performer.photographer && (
+          {performer.photographer && imagesShown && (
             <div className="meta-row justify-center text-xs text-foreground/70 italic">
               <Camera size={13} className="text-accent/60 mr-1" />
               <span>{t('Fotograf:', 'Photographer:')} </span>
@@ -289,7 +299,17 @@ export const PerformerDetail = () => {
             </h2>
           </div>
 
-          {images.length === 0 ? (
+          {imagesHidden ? (
+            <div className="w-full max-w-4xl mx-auto border-2 border-dashed border-accent/10 rounded-xl p-12 bg-black/10 text-center flex flex-col items-center justify-center">
+              <Images className="w-10 h-10 text-accent mb-3" />
+              <p className="text-base text-white m-0">
+                {t(
+                  'Vi gör tekniskt underhåll på hemsidans bildhantering, så bilderna är tillfälligt borta. De är tillbaka snart!',
+                  'We are doing technical maintenance on the website’s image hosting, so the photos are temporarily unavailable. They will be back soon!'
+                )}
+              </p>
+            </div>
+          ) : !siteSettings.ready ? null : images.length === 0 ? (
             <div className="w-full max-w-4xl mx-auto border-2 border-dashed border-accent/10 rounded-xl p-12 bg-black/10 text-center flex flex-col items-center justify-center">
               <Images className="w-10 h-10 text-accent/20 mb-3" />
               <p className="text-xs font-mono uppercase tracking-widest text-foreground/40 m-0">
@@ -301,7 +321,7 @@ export const PerformerDetail = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-              {sortedImages.map((img, imgIndex) => (
+              {pagedImages.map((img, imgIndex) => (
                 <div
                   key={img.id}
                   onClick={() => setIndex(imgIndex)}
@@ -327,6 +347,7 @@ export const PerformerDetail = () => {
               ))}
             </div>
           )}
+          {imagesShown && <ShowMoreButton remaining={remaining} onClick={showMore} />}
         </section>
       </div>{' '}
       <Lightbox

@@ -23,6 +23,7 @@ import { getPublicEventEntertainers } from '@/services/entertainerService'
 import { Seo } from '@/components/Seo'
 import { FeedbackBadge, FeedbackSummary } from '@/components/feedback/FeedbackSummary'
 import { useFeedbackSummary } from '@/hooks/useFeedbackSummary'
+import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { PHOTO_GROUPS, publicPhotoGroup, type PhotoGroup } from '@/lib/photoGroups'
 
 type ExtendedEvent = Event & {
@@ -35,6 +36,11 @@ type ExtendedEvent = Event & {
 
 export const EventDetail = () => {
   const { user } = useAuth()
+  const siteSettings = useSiteSettings()
+  // The board can switch every event gallery off (Dashboard) when Cloudinary's credits run low.
+  // Nothing renders until the setting is known, so a hidden gallery never loads its images.
+  const galleryHidden = siteSettings.ready && siteSettings.eventGalleriesHidden
+  const galleryShown = siteSettings.ready && !siteSettings.eventGalleriesHidden
   const { t, language } = useLanguage()
   const { slug, type } = useParams()
   const isOldEvent = type === 'old'
@@ -78,7 +84,7 @@ export const EventDetail = () => {
   // Only the first batch of thumbnails is rendered until the visitor asks for more — every
   // thumbnail is bandwidth on Cloudinary's free plan, and most visitors never scroll through
   // hundreds of photos. Reset to one batch whenever the filter changes.
-  const PAGE_SIZE = 40
+  const PAGE_SIZE = 20
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const pagedImages = shownImages.slice(0, visibleCount)
 
@@ -211,58 +217,27 @@ export const EventDetail = () => {
           </>
         )}
 
-        {(event?.fb_album_url || photoboothUrl) && (
-          <div className="flex flex-wrap justify-center gap-4">
-            {event?.fb_album_url && (
-              <a
-                href={event?.fb_album_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-gold-outline"
-              >
-                <ExternalLink size={14} />
-                {t('Se Facebook-album', 'View Facebook Album')}
-              </a>
-            )}
-            {photoboothUrl && (
-              <a
-                href={photoboothUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-gold-outline"
-              >
-                <Camera size={14} />
-                {t('Hämta alla fotohörnebilder', 'Get all your photobooth photos')}
-              </a>
-            )}
+        {/* FACEBOOK LÄNK */}
+        {event && 'facebook_event' in event && event.facebook_event && !event.fb_album_url && (
+          <div className="flex justify-center">
+            <a
+              href={event.facebook_event}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-gold-outline"
+            >
+              <ExternalLink size={14} />
+              {t('Se Facebook-event', 'View Facebook Event')}
+            </a>
           </div>
         )}
-
-        {/* FACEBOOK LÄNK */}
-        {event &&
-          'facebook_event' in event &&
-          event.facebook_event &&
-          !event.fb_album_url &&
-          !event.photobooth_url && (
-            <div className="flex justify-center">
-              <a
-                href={event.facebook_event}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-gold-outline"
-              >
-                <ExternalLink size={14} />
-                {t('Se Facebook-event', 'View Facebook Event')}
-              </a>
-            </div>
-          )}
       </div>
 
       <div className="gold-divider" />
 
       {/* GALLERY */}
       <section className="page-section-gallery">
-        <div className="editor-container text-center space-y-1 mb-4">
+        <div className="editor-container text-center space-y-1 mb-2">
           <h2 className="m-0 p-0">{t('Bilder', 'Photos')}</h2>
           {/* FOTOGRAPHER */}
           {isOldEvent
@@ -292,6 +267,33 @@ export const EventDetail = () => {
               )}
         </div>
 
+        {(event?.fb_album_url || photoboothUrl) && (
+          <div className="flex flex-wrap justify-center gap-4 mb-6">
+            {event?.fb_album_url && (
+              <a
+                href={event.fb_album_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold-outline"
+              >
+                <ExternalLink size={14} />
+                {t('Se Facebook-album', 'View Facebook Album')}
+              </a>
+            )}
+            {photoboothUrl && (
+              <a
+                href={photoboothUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold-outline"
+              >
+                <Camera size={14} />
+                {t('Alla fotohörnebilder', 'All photobooth photos')}
+              </a>
+            )}
+          </div>
+        )}
+
         {user && event && (
           <GalleryEditor
             images={images}
@@ -302,7 +304,7 @@ export const EventDetail = () => {
           />
         )}
 
-        {images.length === 0 && (
+        {galleryShown && images.length === 0 && (
           <div className="empty-state py-6">
             <Images className="w-12 h-12" />
             <p className="font-decorative uppercase tracking-widest text-sm">
@@ -319,7 +321,7 @@ export const EventDetail = () => {
           </div>
         )}
 
-        {!user && !isOldEvent && images.length > 0 && (
+        {galleryShown && !user && !isOldEvent && images.length > 0 && (
           <div className="flex flex-wrap justify-center gap-2 mb-5">
             {(['all', ...PHOTO_GROUPS.map((g) => g.key)] as const).map((key) => {
               const group = PHOTO_GROUPS.find((g) => g.key === key)
@@ -347,7 +349,7 @@ export const EventDetail = () => {
           </div>
         )}
 
-        {!user && images.length > 0 && shownImages.length === 0 && (
+        {galleryShown && !user && images.length > 0 && shownImages.length === 0 && (
           <p className="text-center text-sm text-foreground/70 mb-6">
             {t(
               'Bilderna i den här kategorin kommer snart – håll utkik!',
@@ -356,7 +358,7 @@ export const EventDetail = () => {
           </p>
         )}
 
-        {!user && images.length > 0 && (
+        {galleryShown && !user && images.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-w-6xl mx-auto">
             {pagedImages.map((img, idx) => (
               <div
@@ -376,7 +378,7 @@ export const EventDetail = () => {
           </div>
         )}
 
-        {!user && shownImages.length > visibleCount && (
+        {galleryShown && !user && shownImages.length > visibleCount && (
           <div className="flex justify-center mt-6">
             <button
               type="button"
@@ -385,6 +387,26 @@ export const EventDetail = () => {
             >
               {t('Visa fler bilder', 'Show more photos')} ({shownImages.length - visibleCount})
             </button>
+          </div>
+        )}
+
+        {galleryHidden && !user && (
+          <div className="empty-state py-6 !text-white">
+            <Images className="w-12 h-12 text-accent" />
+            <p className="font-decorative uppercase tracking-widest text-base">
+              {t('Bilderna tar en liten paus', 'The photos are taking a short break')}
+            </p>
+            <p className="max-w-md text-center text-base normal-case tracking-normal">
+              {t(
+                'Vi gör tekniskt underhåll på hemsidans bildhantering, så bilderna är tillfälligt borta. De är tillbaka snart!',
+                'We are doing technical maintenance on the website’s image hosting, so the photos are temporarily unavailable. They will be back soon!'
+              )}{' '}
+              {event?.fb_album_url &&
+                t(
+                  'Under tiden hittar du dem i vårt Facebook-album via länken ovan.',
+                  'In the meantime you can find them in our Facebook album via the link above.'
+                )}
+            </p>
           </div>
         )}
       </section>
