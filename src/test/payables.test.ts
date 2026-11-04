@@ -2,14 +2,20 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildLines,
+  dueBadge,
+  effectiveRoute,
   exceedsPrivateLimit,
   expectedPayables,
   isGeneratedNote,
   payableStatus,
   planPayablesSync,
+  paidTogglePatches,
+  rowFiles,
+  summarizeLine,
   summarizePayables,
   todayIso,
   UBER_SOURCE_ID,
+  vatPart,
   type PayableSources,
   type PayableWithFiles,
 } from '../lib/payables'
@@ -87,11 +93,10 @@ describe('expectedPayables', () => {
     expect(find('staff', 's4')?.agreed_amount).toBe(500)
   })
 
-  it('adds the venue and the standard Uber row, both tagged', () => {
+  it('adds the venue, tagged, and no standard Uber row', () => {
     expect(find('venue', 'v1')?.agreed_amount).toBe(30000)
     expect(find('venue', 'v1')?.tag).toBe('Venue')
-    expect(find('standard', UBER_SOURCE_ID)?.section).toBe('transport')
-    expect(find('standard', UBER_SOURCE_ID)?.tag).toBe('Transport')
+    expect(find('standard', UBER_SOURCE_ID)).toBeUndefined()
   })
 
   it('has no venue row when the event has no venue', () => {
@@ -345,7 +350,7 @@ describe('private payment limit', () => {
   it('flags a private payment above 999 kr only', () => {
     expect(exceedsPrivateLimit('private', 1000)).toBe(true)
     expect(exceedsPrivateLimit('private', 999)).toBe(false)
-    expect(exceedsPrivateLimit('frilansfinans', 5000)).toBe(false)
+    expect(exceedsPrivateLimit('invoice', 5000)).toBe(false)
     expect(exceedsPrivateLimit('private', null)).toBe(false)
   })
 })
@@ -353,5 +358,194 @@ describe('private payment limit', () => {
 describe('todayIso', () => {
   it('formats the local date with leading zeros', () => {
     expect(todayIso(new Date(2026, 9, 5))).toBe('2026-10-05')
+  })
+})
+
+describe('summarizeLine', () => {
+  const part = (over: Record<string, unknown>) =>
+    ({
+      id: 'p',
+      amount: 1000,
+      paid_on: null,
+      dismissed: false,
+      advanced_by: null,
+      repaid_on: null,
+      files: [],
+      ...over,
+    }) as never
+  const line = (main: unknown, travel: unknown = null) =>
+    ({ main, travel, hasTravelSlot: true }) as never
+
+  it('adds the job and the travel together and ignores hidden travel', () => {
+    expect(summarizeLine(line(part({}), part({ id: 't', amount: 700 }))).total).toBe(1700)
+    expect(
+      summarizeLine(line(part({}), part({ id: 't', amount: 700, dismissed: true }))).total
+    ).toBe(1000)
+  })
+
+  it('shows one badge: money owed to someone beats progress, paid is paid', () => {
+    const owed = part({ advanced_by: 'Eva' })
+    expect(summarizeLine(line(owed)).badge).toBe('owed')
+    expect(summarizeLine(line(owed)).repayName).toBe('Eva')
+    // once paid back it is simply paid, with no name on the badge
+    const settled = summarizeLine(line(part({ advanced_by: 'Eva', paid_on: '2026-11-04' })))
+    expect(settled.badge).toBe('paid')
+    expect(settled.repayName).toBe('')
+    expect(summarizeLine(line(part({ paid_on: '2026-11-04' }))).badge).toBe('paid')
+    expect(summarizeLine(line(part({ paid_on: '2026-11-04' }), part({ id: 't' }))).badge).toBe(
+      'partial'
+    )
+    expect(summarizeLine(line(part({ files: [{}] }))).badge).toBe('invoice')
+    expect(summarizeLine(line(part({}))).badge).toBe('awaiting')
+  })
+
+  it('does not call an invoice owed just because a name is left in the field', () => {
+    const invoice = part({ section: 'artists', advanced_by: 'Eva', payment_route: 'invoice' })
+    expect(summarizeLine(line(invoice)).badge).toBe('awaiting')
+  })
+
+  it('a personal payment needs no invoice, only an account to pay into', () => {
+    const priv = { payment_route: 'private' }
+    expect(summarizeLine(line(part(priv))).badge).toBe('details')
+    expect(summarizeLine(line(part({ ...priv, payment_account: '  ' }))).badge).toBe('details')
+    expect(summarizeLine(line(part({ ...priv, payment_account: '1234-5' }))).badge).toBe('topay')
+    // a file does not replace the account
+    expect(summarizeLine(line(part({ ...priv, files: [{}] }))).badge).toBe('details')
+    // one part that still needs an invoice keeps the line waiting for it
+    expect(
+      summarizeLine(
+        line(
+          part({ ...priv, payment_account: '1234-5' }),
+          part({ id: 't', payment_route: 'invoice' })
+        )
+      ).badge
+    ).toBe('awaiting')
+    expect(summarizeLine(line(part({ ...priv, paid_on: '2026-11-04' }))).badge).toBe('paid')
+  })
+
+  it('the tick marks the unpaid parts, or clears them when all are paid', () => {
+    const open = summarizeLine(line(part({ id: 'a' }), part({ id: 'b', paid_on: '2026-11-01' })))
+    expect(paidTogglePatches(open, '2026-11-06')).toEqual([
+      { id: 'a', patch: { paid_on: '2026-11-06' } },
+    ])
+    const done = summarizeLine(line(part({ id: 'a', paid_on: '2026-11-01' })))
+    expect(paidTogglePatches(done, '2026-11-06')).toEqual([{ id: 'a', patch: { paid_on: null } }])
+  })
+
+  it("counts the artist's own receipts as files on the travel row", () => {
+    const travel = part({
+      id: 't',
+      files: [{ id: 'f', name: null, path: 'a/b.pdf' }],
+      artist: { byCar: false, receipts: [{ id: 'r', name: 'tag.pdf', url: 'https://x/tag.pdf' }] },
+    })
+    expect(rowFiles(travel).map((f) => f.origin)).toEqual(['board', 'artist'])
+    expect(summarizeLine(line(part({}), travel)).files).toBe(2)
+    expect(summarizeLine(line(part({}), travel)).badge).toBe('invoice')
+  })
+})
+
+describe('legacy Uber row', () => {
+  const stored = (over: Record<string, unknown>) =>
+    ({
+      id: 'u',
+      source_type: 'standard',
+      source_id: UBER_SOURCE_ID,
+      label: 'Uber home with all the packing',
+      tag: 'Transport',
+      note: null,
+      amount: null,
+      agreed_amount: null,
+      paid_on: null,
+      dismissed: false,
+      fileCount: 0,
+      ...over,
+    }) as never
+
+  it("removes an unused one and keeps a used one as the board's own row", () => {
+    expect(planPayablesSync([], [stored({})]).remove).toEqual(['u'])
+    expect(planPayablesSync([], [stored({ amount: 438 })])).toMatchObject({
+      remove: [],
+      convert: ['u'],
+    })
+    expect(planPayablesSync([], [stored({ fileCount: 1 })]).convert).toEqual(['u'])
+    expect(planPayablesSync([], [stored({ paid_on: '2026-11-01' })]).convert).toEqual(['u'])
+  })
+})
+
+describe('vatPart', () => {
+  it('takes the VAT out of an amount that includes it', () => {
+    expect(vatPart(3375, 25)).toBe(675)
+    expect(vatPart(1665, 6)).toBe(94.25)
+    expect(vatPart(100, 0)).toBe(0)
+    expect(vatPart(null, 25)).toBeNull()
+    expect(vatPart(100, null)).toBeNull()
+  })
+})
+
+describe('effectiveRoute', () => {
+  const r = (over: Record<string, unknown>) =>
+    ({ payment_route: null, section: 'decor', advanced_by: null, ...over }) as never
+
+  it('defaults to invoice for artists, staff and venue, and receipt for the rest', () => {
+    for (const section of ['artists', 'staff', 'venue']) {
+      expect(effectiveRoute(r({ section }))).toBe('invoice')
+    }
+    for (const section of ['decor', 'print', 'transport', 'other']) {
+      expect(effectiveRoute(r({ section }))).toBe('receipt')
+    }
+  })
+
+  it('keeps a chosen route, and reads the old invoice kinds as invoice', () => {
+    expect(effectiveRoute(r({ section: 'artists', payment_route: 'private' }))).toBe('private')
+    expect(effectiveRoute(r({ section: 'decor', payment_route: 'invoice' }))).toBe('invoice')
+    expect(effectiveRoute(r({ payment_route: 'frilansfinans' }))).toBe('invoice')
+    expect(effectiveRoute(r({ payment_route: 'company_invoice' }))).toBe('invoice')
+  })
+
+  it('treats a row that already has someone to repay as a receipt', () => {
+    expect(effectiveRoute(r({ section: 'artists', advanced_by: 'Eva' }))).toBe('receipt')
+  })
+})
+
+describe('dueBadge', () => {
+  const part = (over: Record<string, unknown>) =>
+    ({
+      id: 'p',
+      section: 'artists',
+      payment_route: 'invoice',
+      due_on: null,
+      paid_on: null,
+      advanced_by: null,
+      dismissed: false,
+      files: [],
+      ...over,
+    }) as never
+  const line = (main: unknown, travel: unknown = null) =>
+    ({ main, travel, hasTravelSlot: true }) as never
+
+  it('shows the earliest deadline and turns urgent at a week or less', () => {
+    expect(dueBadge(line(part({})), '2026-11-10')).toBeNull()
+    expect(dueBadge(line(part({ due_on: '2026-11-30' })), '2026-11-10')).toEqual({
+      dueOn: '2026-11-30',
+      daysLeft: 20,
+      urgent: false,
+    })
+    expect(dueBadge(line(part({ due_on: '2026-11-17' })), '2026-11-10')?.urgent).toBe(true)
+    expect(dueBadge(line(part({ due_on: '2026-11-18' })), '2026-11-10')?.urgent).toBe(false)
+    expect(dueBadge(line(part({ due_on: '2026-11-05' })), '2026-11-10')?.daysLeft).toBe(-5)
+    const both = dueBadge(
+      line(part({ due_on: '2026-12-01' }), part({ id: 't', due_on: '2026-11-20' })),
+      '2026-11-10'
+    )
+    expect(both?.dueOn).toBe('2026-11-20')
+  })
+
+  it('has no badge once paid, or for receipts and personal payments', () => {
+    expect(
+      dueBadge(line(part({ due_on: '2026-11-12', paid_on: '2026-11-11' })), '2026-11-10')
+    ).toBeNull()
+    expect(
+      dueBadge(line(part({ due_on: '2026-11-12', payment_route: 'receipt' })), '2026-11-10')
+    ).toBeNull()
   })
 })

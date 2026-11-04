@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Plus, RotateCcw } from 'lucide-react'
+import { Download, Loader2, Plus, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
+import { downloadBlob } from '@/lib/utils'
 import { PayableLineRow } from '@/components/admin/economy/PayableLineRow'
-import { PART_CELL_WIDTH } from '@/components/admin/economy/PartCell'
 import {
   PAYABLE_SECTIONS,
-  PERSON_SECTIONS,
   TRAVEL_SUFFIX,
   buildLines,
   formatKr,
   isTravelRow,
   payableStatus,
+  rowFiles,
   summarizePayables,
   type PayableLine,
   type PayableSection,
   type PayableWithFiles,
+  type RowFile,
 } from '@/lib/payables'
 import {
   addTravelRow,
@@ -24,9 +25,11 @@ import {
   createPayable,
   deletePayable,
   deletePayableFile,
+  fetchRowFileBlob,
   getEventPayables,
   getInvoiceUrl,
   syncEventPayables,
+  zipRowFiles,
   updatePayable,
   type PayablePatchInput,
 } from '@/services/payablesService'
@@ -161,14 +164,43 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
     }
   }
 
-  const handleOpenFile = async (file: PayableFile) => {
+  const handleOpenFile = async (file: RowFile) => {
     try {
-      window.open(await getInvoiceUrl(file.path), '_blank', 'noopener')
+      const url = file.origin === 'board' && file.path ? await getInvoiceUrl(file.path) : file.url
+      if (url) window.open(url, '_blank', 'noopener')
     } catch (err) {
       console.error(err)
       toast.error(t('Kunde inte öppna filen.', 'Could not open the file.'))
     }
   }
+
+  const handleDownloadFile = async (file: RowFile) => {
+    try {
+      downloadBlob(await fetchRowFileBlob(file), file.name)
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte ladda ner filen.', 'Could not download the file.'))
+    }
+  }
+
+  // Every file of a list of rows in one zip, each name starting with the row it belongs to
+  const downloadZip = async (targets: PayableWithFiles[], zipName: string) => {
+    const entries = targets.flatMap((row) =>
+      rowFiles(row).map((file) => ({ prefix: row.label || t('Rad', 'Row'), file }))
+    )
+    if (entries.length === 0) {
+      toast.error(t('Inga filer att ladda ner.', 'No files to download.'))
+      return
+    }
+    try {
+      downloadBlob(await zipRowFiles(entries), zipName)
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte ladda ner filerna.', 'Could not download the files.'))
+    }
+  }
+
+  const handleDownloadMany = (row: PayableWithFiles) => downloadZip([row], 'fakturor-kvitton.zip')
 
   const handleDeleteFile = async (row: PayableWithFiles, file: PayableFile) => {
     const ok = await confirm({
@@ -254,6 +286,7 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
   }
 
   const { all, bySection } = useMemo(() => summarizePayables(rows), [rows])
+  const totalFiles = rows.filter((r) => !r.dismissed).reduce((n, r) => n + rowFiles(r).length, 0)
   const hiddenRows = rows.filter((r) => r.dismissed && !isTravelRow(r))
 
   if (loading) {
@@ -310,7 +343,7 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
             </div>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-foreground/70">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-foreground/70 text-center">
           <span>
             {t(
               `${all.paidRows} av ${all.rows} betalningar gjorda`,
@@ -332,6 +365,21 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
             />
             {t('Dölj betalda rader', 'Hide paid rows')}
           </label>
+          {totalFiles > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                void downloadZip(
+                  rows.filter((r) => !r.dismissed),
+                  'fakturor-och-kvitton.zip'
+                )
+              }
+              className="flex items-center gap-2 text-accent hover:underline"
+            >
+              <Download className="h-4 w-4" />
+              {t(`Ladda ner alla filer (${totalFiles})`, `Download all files (${totalFiles})`)}
+            </button>
+          )}
         </div>
       </section>
 
@@ -342,19 +390,29 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
         )
         const shown = hidePaid ? lines.filter((l) => !isLineSettled(l)) : lines
         const totals = bySection[section.key]
-        const isPersonSection = PERSON_SECTIONS.includes(section.key)
         return (
           <section key={section.key} className="space-y-3" aria-label={t(section.sv, section.eng)}>
-            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-accent/20 pb-2">
+            <div className="flex items-center justify-between gap-3 border-b border-accent/20 pb-2">
               <h3 className="font-decorative text-lg text-accent uppercase tracking-wider">
                 {t(section.sv, section.eng)}
               </h3>
-              {totals && (
-                <span className="text-sm text-foreground/70">
-                  {t('Kvar', 'Left')} {formatKr(totals.outstanding)} {t('av', 'of')}{' '}
-                  {formatKr(totals.total)}
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {totals && (
+                  <span className="text-sm text-foreground/70">
+                    {t('Kvar', 'Left')} {formatKr(totals.outstanding)} {t('av', 'of')}{' '}
+                    {formatKr(totals.total)}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleAdd(section.key)}
+                  title={t('Lägg till rad', 'Add a row')}
+                  aria-label={t(`Lägg till rad i ${section.sv}`, `Add a row to ${section.eng}`)}
+                  className="h-8 w-8 shrink-0 rounded-full bg-accent/90 text-black flex items-center justify-center hover:bg-accent transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {lines.length === 0 && (
@@ -366,17 +424,6 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
               </p>
             )}
 
-            {isPersonSection && shown.length > 0 && (
-              <div
-                className="hidden sm:flex gap-x-4 px-3 text-[10px] uppercase tracking-widest text-foreground/50"
-                aria-hidden="true"
-              >
-                <div className="flex-1 min-w-[180px]" />
-                <div className={PART_CELL_WIDTH}>{t('Jobb', 'Job')}</div>
-                <div className={PART_CELL_WIDTH}>{t('Resa', 'Travel')}</div>
-              </div>
-            )}
-
             <div className="space-y-2">
               {shown.map((line) => (
                 <PayableLineRow
@@ -385,6 +432,8 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
                   onPatch={handlePatch}
                   onUpload={handleUpload}
                   onOpenFile={handleOpenFile}
+                  onDownloadFile={handleDownloadFile}
+                  onDownloadMany={handleDownloadMany}
                   onDeleteFile={handleDeleteFile}
                   onRemoveLine={handleRemoveLine}
                   onRemoveTravel={handleRemoveTravel}
@@ -393,15 +442,6 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
                 />
               ))}
             </div>
-
-            <button
-              type="button"
-              onClick={() => void handleAdd(section.key)}
-              className="flex items-center gap-2 text-xs uppercase tracking-widest text-accent/80 border border-dashed border-accent/30 rounded-xl px-4 py-2.5 hover:text-accent hover:border-accent/60"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t('Lägg till rad', 'Add a row')}
-            </button>
           </section>
         )
       })}

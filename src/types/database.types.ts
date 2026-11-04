@@ -508,11 +508,13 @@ export type Database = {
           amount: number | null
           created_at: string
           dismissed: boolean
+          due_on: string | null
           event_id: string
           id: string
           label: string
           note: string | null
           paid_on: string | null
+          payment_account: string | null
           payment_route: string | null
           section: string
           sort_order: number
@@ -521,6 +523,7 @@ export type Database = {
           tag: string | null
           updated_at: string
           vat_amount: number | null
+          vat_rate: number | null
         }
         Insert: {
           advanced_by?: string | null
@@ -528,11 +531,13 @@ export type Database = {
           amount?: number | null
           created_at?: string
           dismissed?: boolean
+          due_on?: string | null
           event_id: string
           id?: string
           label: string
           note?: string | null
           paid_on?: string | null
+          payment_account?: string | null
           payment_route?: string | null
           section?: string
           sort_order?: number
@@ -541,6 +546,7 @@ export type Database = {
           tag?: string | null
           updated_at?: string
           vat_amount?: number | null
+          vat_rate?: number | null
         }
         Update: {
           advanced_by?: string | null
@@ -548,11 +554,13 @@ export type Database = {
           amount?: number | null
           created_at?: string
           dismissed?: boolean
+          due_on?: string | null
           event_id?: string
           id?: string
           label?: string
           note?: string | null
           paid_on?: string | null
+          payment_account?: string | null
           payment_route?: string | null
           section?: string
           sort_order?: number
@@ -561,6 +569,7 @@ export type Database = {
           tag?: string | null
           updated_at?: string
           vat_amount?: number | null
+          vat_rate?: number | null
         }
         Relationships: [
           {

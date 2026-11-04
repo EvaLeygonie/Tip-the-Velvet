@@ -1489,6 +1489,21 @@ Two related but distinct pieces, per the user's description:
 No schema or UI design done yet — this section exists to mark it as a near-term priority,
 not to plan it.
 
+### Later: unpaid invoices on the Dashboard + back-filling past events — noted 2026-11-04
+
+- **Dashboard card "Unpaid invoices"** (not built yet): list invoice rows that are not paid, from
+  `event_payables`, soonest deadline first. `due_on` now exists (set in the open row under
+  "Förfaller") and the Economy rows already show a due-date badge: gold, and red when a week
+  or less is left or the date has passed (`URGENT_DAYS` and `dueBadge` in `src/lib/payables.ts`).
+  Reuse those two so the Dashboard and the Economy page agree on what is urgent, and show a
+  warning banner like the other deadline warnings when anything is red. Receipts have no
+  deadline; list them separately as "to pay back" (who and how much).
+- **Back-filling past events**: for now only the Pandaemonium invoices and receipts are
+  uploaded; every earlier event's invoices follow later. Storage is not the constraint
+  (Supabase Storage was 0.206 / 1 GB on 2026-11-04). Compress receipt photos before upload
+  (phone photos are 2-3 MB each, PDFs only 30-500 KB) so the whole history fits comfortably.
+  The Google Drive "Kvitton och fakturor" folder stays the original archive.
+
 ## Dashboard tab (last, by design)
 
 Correctly sequenced last — it's a pure rollup over data that only exists once the tabs

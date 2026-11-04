@@ -1,7 +1,41 @@
 import type { EventPayable, PayableFile } from '@/types/types'
 
-// A bill with the invoices and receipts attached to it (there can be several per bill)
-export type PayableWithFiles = EventPayable & { files: PayableFile[] }
+// What an artist filled in on their booking page about their own travel: whether they drive (the
+// amount then covers fuel, with no receipt) and the receipts they uploaded.
+export interface ArtistTravelInfo {
+  byCar: boolean
+  receipts: { id: string; name: string; url: string }[]
+}
+
+// A bill with the invoices and receipts attached to it (there can be several per bill). A travel
+// row of an artist also carries what the artist uploaded themselves.
+export type PayableWithFiles = EventPayable & { files: PayableFile[]; artist?: ArtistTravelInfo }
+
+// One file on a bill, whoever added it: the board (private bucket) or the artist (a link).
+export interface RowFile {
+  id: string
+  name: string
+  origin: 'board' | 'artist'
+  path?: string
+  url?: string
+  file?: PayableFile
+}
+
+export const rowFiles = (row: PayableWithFiles): RowFile[] => [
+  ...row.files.map((f) => ({
+    id: f.id,
+    name: f.name ?? f.path,
+    origin: 'board' as const,
+    path: f.path,
+    file: f,
+  })),
+  ...(row.artist?.receipts ?? []).map((r) => ({
+    id: `artist-${r.id}`,
+    name: r.name,
+    origin: 'artist' as const,
+    url: r.url,
+  })),
+]
 
 // The Economy page's "One event" tab: every bill to pay out after a show. Pure helpers only
 // (no Supabase, no React), so the rules below can be tested on their own.
@@ -19,6 +53,9 @@ export interface PayableSectionInfo {
   key: PayableSection
   sv: string
   eng: string
+  // The short gold badge before the name of a row that has no label of its own
+  badgeSv: string
+  badgeEng: string
   // Shown under the title while the section is empty
   emptySv: string
   emptyEng: string
@@ -29,6 +66,8 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
     key: 'artists',
     sv: 'Artister',
     eng: 'Artists',
+    badgeSv: 'Artist',
+    badgeEng: 'Artist',
     emptySv: 'Inga artister i line-upen än.',
     emptyEng: 'No artists in the lineup yet.',
   },
@@ -36,6 +75,8 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
     key: 'staff',
     sv: 'Personal',
     eng: 'Staff and crew',
+    badgeSv: 'Personal',
+    badgeEng: 'Staff',
     emptySv: 'Ingen betald personal än.',
     emptyEng: 'No paid staff yet.',
   },
@@ -43,6 +84,8 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
     key: 'venue',
     sv: 'Lokal',
     eng: 'Venue',
+    badgeSv: 'Lokal',
+    badgeEng: 'Venue',
     emptySv: 'Ingen lokal vald för eventet.',
     emptyEng: 'No venue chosen for the event.',
   },
@@ -50,6 +93,8 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
     key: 'decor',
     sv: 'Dekorationer och extra',
     eng: 'Decorations and extras',
+    badgeSv: 'Dekor',
+    badgeEng: 'Decor',
     emptySv: 'Lägg till kvitton för dekor, kostym, godis och annat extra.',
     emptyEng: 'Add receipts for decor, costume, sweets and other extras.',
   },
@@ -57,6 +102,8 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
     key: 'print',
     sv: 'Tryck',
     eng: 'Printing',
+    badgeSv: 'Tryck',
+    badgeEng: 'Printing',
     emptySv: 'Lägg till tryckkostnader, till exempel affischer och skyltar.',
     emptyEng: 'Add printing costs, such as posters and signs.',
   },
@@ -64,6 +111,8 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
     key: 'transport',
     sv: 'Transport',
     eng: 'Transport',
+    badgeSv: 'Transport',
+    badgeEng: 'Transport',
     emptySv: 'Lägg till resor, till exempel Uber hem med packningen.',
     emptyEng: 'Add trips, such as the Uber home with the packing.',
   },
@@ -71,22 +120,41 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
     key: 'other',
     sv: 'Övrigt',
     eng: 'Other',
+    badgeSv: 'Övrigt',
+    badgeEng: 'Other',
     emptySv: 'Allt annat som ska betalas.',
     emptyEng: 'Anything else that has to be paid.',
   },
 ]
 
-export type PaymentRoute = 'company_invoice' | 'frilansfinans' | 'private' | 'receipt'
+export type PaymentRoute = 'invoice' | 'receipt' | 'private'
 
 export const PAYMENT_ROUTES: { key: PaymentRoute; sv: string; eng: string }[] = [
-  { key: 'company_invoice', sv: 'Faktura från eget företag', eng: 'Own company invoice' },
-  { key: 'frilansfinans', sv: 'FrilansFinans', eng: 'FrilansFinans' },
-  { key: 'private', sv: 'Privat betalning, max 999 kr', eng: 'Private payment, up to 999 kr' },
-  { key: 'receipt', sv: 'Kvitto', eng: 'Receipt' },
+  { key: 'invoice', sv: 'Faktura', eng: 'Invoice' },
+  { key: 'receipt', sv: 'Kvitto (betalas tillbaka)', eng: 'Receipt (to repay)' },
+  { key: 'private', sv: 'Privat betalning, max 999 kr', eng: 'Personal payment, up to 999 kr' },
 ]
 
+// Artists, the venue and paid staff send invoices; everything else is bought by someone and repaid
+// against a receipt.
+const INVOICE_SECTIONS = ['artists', 'staff', 'venue']
+
+// The route a row follows: what was chosen, or else a sensible default. The two old invoice kinds
+// count as invoice. A row that already has someone to repay is a receipt.
+export const effectiveRoute = (
+  row: Pick<EventPayable, 'payment_route' | 'section' | 'advanced_by'>
+): PaymentRoute => {
+  const saved = row.payment_route
+  if (saved === 'invoice' || saved === 'company_invoice' || saved === 'frilansfinans') {
+    return 'invoice'
+  }
+  if (saved === 'receipt' || saved === 'private') return saved
+  if (row.advanced_by?.trim()) return 'receipt'
+  return INVOICE_SECTIONS.includes(row.section) ? 'invoice' : 'receipt'
+}
+
 // A private person can only be paid up to this amount without an invoice (the "Mall betalning
-// max 999" template). Above it the row needs an invoice from a company or FrilansFinans.
+// max 999" template). Above it the row needs an invoice.
 export const PRIVATE_PAYMENT_LIMIT = 999
 
 export const exceedsPrivateLimit = (route: string | null, amount: number | null): boolean =>
@@ -158,6 +226,8 @@ const ROLE_TAG: Record<string, string> = {
   board: 'Board',
 }
 
+// The Uber home used to be added to every event. It is a row the board adds by hand now, since the
+// way home varies; old Uber rows are tidied up by planPayablesSync.
 export const UBER_SOURCE_ID = 'uber-after-show'
 
 export const TRAVEL_SUFFIX = '_travel'
@@ -232,18 +302,6 @@ export const expectedPayables = (sources: PayableSources): ExpectedPayable[] => 
     })
   }
 
-  // The Uber home with all the packing is booked after every show.
-  rows.push({
-    section: 'transport',
-    source_type: 'standard',
-    source_id: UBER_SOURCE_ID,
-    label: 'Uber home with all the packing',
-    tag: 'Transport',
-    note: null,
-    agreed_amount: null,
-    sort_order: 0,
-  })
-
   return rows
 }
 
@@ -279,6 +337,8 @@ export interface PayableSyncPlan {
   update: { id: string; patch: PayablePatch }[]
   // Ids of rows the system made that it no longer expects and nobody has touched
   remove: string[]
+  // Old standard Uber rows someone has used: kept, but turned into rows the board owns
+  convert: string[]
 }
 
 const sourceKey = (type: string | null, id: string | null) => `${type}:${id}`
@@ -302,7 +362,17 @@ export const planPayablesSync = (
   stored: StoredPayable[]
 ): PayableSyncPlan => {
   const byKey = new Map(stored.map((r) => [sourceKey(r.source_type, r.source_id), r]))
-  const plan: PayableSyncPlan = { insert: [], update: [], remove: [] }
+  const plan: PayableSyncPlan = { insert: [], update: [], remove: [], convert: [] }
+
+  // The standard Uber row is gone: an unused one is removed, a used one becomes a row of the board's own.
+  const isLegacyUber = (r: StoredPayable) =>
+    r.source_type === 'standard' && r.source_id === UBER_SOURCE_ID
+  for (const r of stored.filter(isLegacyUber)) {
+    const unused =
+      !r.paid_on && (r.fileCount ?? 0) === 0 && (r.amount === null || r.amount === r.agreed_amount)
+    if (unused) plan.remove.push(r.id)
+    else plan.convert.push(r.id)
+  }
 
   for (const e of expected) {
     const existing = byKey.get(sourceKey(e.source_type, e.source_id))
@@ -338,7 +408,7 @@ export const planPayablesSync = (
   // attached a file. Travel rows the board added by hand have no agreed amount and are left alone.
   const expectedKeys = new Set(expected.map((e) => sourceKey(e.source_type, e.source_id)))
   for (const r of stored) {
-    if (r.dismissed || r.paid_on || (r.fileCount ?? 0) > 0) continue
+    if (isLegacyUber(r) || r.dismissed || r.paid_on || (r.fileCount ?? 0) > 0) continue
     if (expectedKeys.has(sourceKey(r.source_type, r.source_id))) continue
     const systemMade =
       r.source_type === 'performer' ||
@@ -438,6 +508,82 @@ export const summarizePayables = (
   }
   return { all, bySection }
 }
+
+// The one badge a closed row shows, worked out from its job and travel together.
+export type LineBadge = 'awaiting' | 'invoice' | 'partial' | 'paid' | 'owed' | 'topay' | 'details'
+
+export interface LineSummary {
+  // Everything to pay on the line: the job and the travel added together
+  total: number
+  files: number
+  badge: LineBadge
+  // Who paid out of pocket and is still to be paid back, for the 'owed' badge
+  repayName: string
+  parts: PayableWithFiles[]
+}
+
+export const activeParts = (line: PayableLine): PayableWithFiles[] => [
+  line.main,
+  ...(line.travel && !line.travel.dismissed ? [line.travel] : []),
+]
+
+// Money still owed to someone who paid out of pocket shows before progress, since it is the thing
+// to do; otherwise the badge follows how far the payments have come.
+export const summarizeLine = (line: PayableLine): LineSummary => {
+  const parts = activeParts(line)
+  const total = parts.reduce((sum, p) => sum + Number(p.amount ?? 0), 0)
+  const files = parts.reduce((sum, p) => sum + rowFiles(p).length, 0)
+  // Someone paid out of pocket: the row is paid once the association has paid them back
+  const owed = parts.find(
+    (p) => !p.paid_on && p.advanced_by?.trim() && effectiveRoute(p) === 'receipt'
+  )
+  const paidCount = parts.filter((p) => p.paid_on).length
+
+  let badge: LineBadge
+  if (paidCount === parts.length) badge = 'paid'
+  else if (owed) badge = 'owed'
+  else if (paidCount > 0) badge = 'partial'
+  // A personal payment needs no invoice, only the account to pay into; then it waits for the payment
+  else if (parts.every((p) => effectiveRoute(p) === 'private')) {
+    badge = parts.some((p) => p.payment_account?.trim()) ? 'topay' : 'details'
+  } else badge = files > 0 ? 'invoice' : 'awaiting'
+
+  return { total, files, badge, repayName: owed?.advanced_by?.trim() ?? '', parts }
+}
+
+// The tick on a closed row: marks every unpaid part of the line paid, or takes the marks away when
+// all of it is already paid.
+export const paidTogglePatches = (
+  summary: LineSummary,
+  today: string
+): { id: string; patch: Pick<EventPayable, 'paid_on'> }[] => {
+  const { parts } = summary
+  if (parts.every((p) => p.paid_on))
+    return parts.map((p) => ({ id: p.id, patch: { paid_on: null } }))
+  return parts.filter((p) => !p.paid_on).map((p) => ({ id: p.id, patch: { paid_on: today } }))
+}
+
+// An invoice that is still to be paid and has a deadline: the earliest such deadline on a line, and
+// how long is left. A week or less (or already past) counts as urgent.
+export const URGENT_DAYS = 7
+
+export const dueBadge = (
+  line: PayableLine,
+  today: string
+): { dueOn: string; daysLeft: number; urgent: boolean } | null => {
+  const dates = activeParts(line)
+    .filter((p) => !p.paid_on && p.due_on && effectiveRoute(p) === 'invoice')
+    .map((p) => p.due_on as string)
+    .sort()
+  if (dates.length === 0) return null
+  const day = 24 * 60 * 60 * 1000
+  const daysLeft = Math.round((Date.parse(dates[0]) - Date.parse(today)) / day)
+  return { dueOn: dates[0], daysLeft, urgent: daysLeft <= URGENT_DAYS }
+}
+
+// The amount on a bill includes its VAT, so the VAT part is amount * rate / (100 + rate).
+export const vatPart = (amount: number | null, rate: number | null): number | null =>
+  amount == null || rate == null ? null : Math.round(((amount * rate) / (100 + rate)) * 100) / 100
 
 export const formatKr = (amount: number): string =>
   `${Math.round(amount).toLocaleString('sv-SE')} kr`

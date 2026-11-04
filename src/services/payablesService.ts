@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import JSZip from 'jszip'
+import { compressReceipt } from '@/lib/receiptCompression'
 import { deleteRow, updateRow, uploadStorageFile } from '@/services/databaseService'
 import {
   expectedPayables,
@@ -6,7 +8,9 @@ import {
   type PayableSection,
   TRAVEL_SUFFIX,
   type PayableSources,
+  type ArtistTravelInfo,
   type PayableWithFiles,
+  type RowFile,
 } from '@/lib/payables'
 import type { EventPayable, PayableFile } from '@/types/types'
 
@@ -63,17 +67,47 @@ const fetchPayableSources = async (eventId: string): Promise<PayableSources> => 
   }
 }
 
-export const getEventPayables = async (eventId: string): Promise<PayableWithFiles[]> => {
+// What each artist said about their own travel on the booking page, by performer id.
+const fetchArtistTravel = async (eventId: string): Promise<Map<string, ArtistTravelInfo>> => {
   const { data, error } = await supabase
-    .from('event_payables')
-    .select('*, files:event_payable_files(*)')
+    .from('event_performers')
+    .select('performer_id, travels_by_car, travel_receipts')
     .eq('event_id', eventId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true })
+  // The page works without it, so a failure here only hides the artists' own files
+  if (error) {
+    console.error('Kunde inte hämta artisternas resekvitton:', error)
+    return new Map()
+  }
+  return new Map(
+    (data ?? []).map((row) => {
+      const receipts = Array.isArray(row.travel_receipts)
+        ? (row.travel_receipts as unknown as ArtistTravelInfo['receipts']).filter(
+            (r) => r && typeof r.url === 'string'
+          )
+        : []
+      return [row.performer_id, { byCar: row.travels_by_car, receipts }]
+    })
+  )
+}
+
+export const getEventPayables = async (eventId: string): Promise<PayableWithFiles[]> => {
+  const [{ data, error }, artistTravel] = await Promise.all([
+    supabase
+      .from('event_payables')
+      .select('*, files:event_payable_files(*)')
+      .eq('event_id', eventId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+    fetchArtistTravel(eventId),
+  ])
   if (error) throw error
   return (data ?? []).map((row) => ({
     ...row,
     files: [...(row.files ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    artist:
+      row.source_type === 'performer_travel' && row.source_id
+        ? artistTravel.get(row.source_id)
+        : undefined,
   }))
 }
 
@@ -112,6 +146,14 @@ export const syncEventPayables = async (eventId: string): Promise<void> => {
     await deleteRow('event_payables', id)
   }
 
+  for (const id of plan.convert) {
+    await updateRow('event_payables', id, {
+      source_type: null,
+      source_id: null,
+      updated_at: new Date().toISOString(),
+    })
+  }
+
   for (const u of plan.update) {
     await updateRow('event_payables', u.id, { ...u.patch, updated_at: new Date().toISOString() })
   }
@@ -137,8 +179,10 @@ export type PayablePatchInput = Partial<
     | 'label'
     | 'note'
     | 'amount'
-    | 'vat_amount'
+    | 'vat_rate'
     | 'payment_route'
+    | 'payment_account'
+    | 'due_on'
     | 'advanced_by'
     | 'tag'
     | 'paid_on'
@@ -194,8 +238,9 @@ export const uploadInvoice = (eventId: string, file: File): Promise<string> =>
 export const attachPayableFile = async (
   eventId: string,
   payableId: string,
-  file: File
+  original: File
 ): Promise<PayableFile> => {
+  const file = await compressReceipt(original)
   const path = await uploadInvoice(eventId, file)
   const { data, error } = await supabase
     .from('event_payable_files')
@@ -224,4 +269,32 @@ export const getInvoiceUrl = async (path: string): Promise<string> => {
   const { data, error } = await supabase.storage.from(INVOICE_BUCKET).createSignedUrl(path, 3600)
   if (error) throw error
   return data.signedUrl
+}
+
+// The bytes of one file, from the private bucket or from the artist's link.
+export const fetchRowFileBlob = async (file: RowFile): Promise<Blob> => {
+  if (file.origin === 'board' && file.path) {
+    const { data, error } = await supabase.storage.from(INVOICE_BUCKET).download(file.path)
+    if (error) throw error
+    return data
+  }
+  const response = await fetch(file.url ?? '')
+  if (!response.ok) throw new Error(`Could not fetch ${file.name}`)
+  return response.blob()
+}
+
+// Several files in one zip. A prefix (who the file belongs to) keeps the names apart and readable,
+// and a number is added if two files still end up with the same name.
+export const zipRowFiles = async (entries: { prefix: string; file: RowFile }[]): Promise<Blob> => {
+  const zip = new JSZip()
+  const used = new Set<string>()
+  const blobs = await Promise.all(entries.map((e) => fetchRowFileBlob(e.file)))
+  entries.forEach((entry, index) => {
+    const base = `${entry.prefix} - ${entry.file.name}`.replace(/[\\/:*?"<>|]/g, '_')
+    let name = base
+    for (let n = 2; used.has(name); n += 1) name = base.replace(/(\.[^.]*)?$/, ` (${n})$1`)
+    used.add(name)
+    zip.file(name, blobs[index])
+  })
+  return zip.generateAsync({ type: 'blob' })
 }
