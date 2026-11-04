@@ -59,8 +59,8 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
               <div className="w-full h-full overflow-hidden">
                 <CloudinaryImage
                   publicId={event.image_id}
-                  width={800}
-                  height={800}
+                  width={600}
+                  height={600}
                   alt={event.title}
                   className="media-cover transform group-hover:scale-105 transition-transform duration-1000 ease-out"
                 />

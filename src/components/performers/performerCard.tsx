@@ -29,8 +29,8 @@ export const PerformerCard = ({ performer }: { performer: Performer }) => {
             <div className="w-full h-full transform group-hover:scale-105 transition-transform duration-700 ease-out">
               <CloudinaryImage
                 publicId={promoImageId}
-                width={600}
-                height={800}
+                width={450}
+                height={600}
                 alt={performer.performer_name}
                 className="object-cover w-full h-full"
               />

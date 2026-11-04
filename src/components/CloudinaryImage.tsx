@@ -14,6 +14,8 @@ interface CloudinaryImageProps {
   alt?: string
   fit?: boolean
   gravityFace?: boolean
+  // 'auto:eco' trades a little sharpness for smaller files (Cloudinary credits are bandwidth)
+  quality?: 'auto' | 'auto:eco'
 }
 
 export default function CloudinaryImage({
@@ -24,6 +26,7 @@ export default function CloudinaryImage({
   alt = '',
   fit = false,
   gravityFace = false,
+  quality = 'auto:eco',
 }: CloudinaryImageProps) {
   // AdvancedImage sets `src` asynchronously (componentDidMount/componentDidUpdate calls
   // into the SDK's HtmlImageLayer, which resolves a promise before setAttribute('src', …)
@@ -56,10 +59,10 @@ export default function CloudinaryImage({
       image.resize(fillAction)
     }
 
-    image.format('auto').quality('auto')
+    image.format('auto').quality(quality)
 
     return image
-  }, [publicId, width, height, fit, gravityFace])
+  }, [publicId, width, height, fit, gravityFace, quality])
 
   return <AdvancedImage cldImg={myImage} className={className} alt={alt} loading="lazy" />
 }

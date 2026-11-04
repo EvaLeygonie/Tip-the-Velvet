@@ -50,7 +50,7 @@ export const EventLineup = ({ performers }: EventLineupProps) => {
               <div className="w-full aspect-[3/4] rounded-lg overflow-hidden border border-accent/10 bg-black/60 mb-3 shrink-0">
                 {artist.promo_image_id ? (
                   <img
-                    src={getImageSrc(artist.promo_image_id)}
+                    src={getImageSrc(`f_auto,q_auto:eco,c_fill,w_450,h_600/${artist.promo_image_id}`)}
                     alt={artist.performer_name}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />

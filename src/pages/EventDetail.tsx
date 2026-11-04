@@ -368,8 +368,8 @@ export const EventDetail = () => {
               >
                 <CloudinaryImage
                   publicId={img.image_id}
-                  width={600}
-                  height={600}
+                  width={400}
+                  height={400}
                   alt={`${event?.title ?? 'Tip the Velvet'} – ${t('bild', 'image')} ${idx + 1}`}
                   className="media-cover"
                 />

@@ -267,6 +267,7 @@ export const PerformerDetail = () => {
                 height={666}
                 alt={performer.performer_name ?? ''}
                 gravityFace={true}
+                quality="auto"
                 className="media-cover group-hover:scale-102 transition-transform duration-700"
               />
             </div>
@@ -329,8 +330,8 @@ export const PerformerDetail = () => {
                 >
                   <CloudinaryImage
                     publicId={img.id}
-                    width={400}
-                    height={400}
+                    width={350}
+                    height={350}
                     alt={`${performer.performer_name} – ${t('foto', 'photo')} ${imgIndex + 1}`}
                     className="media-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                   />

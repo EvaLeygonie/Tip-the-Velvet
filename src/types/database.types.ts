@@ -469,6 +469,109 @@ export type Database = {
           },
         ]
       }
+      event_payable_files: {
+        Row: {
+          created_at: string
+          id: string
+          name: string | null
+          path: string
+          payable_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string | null
+          path: string
+          payable_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string | null
+          path?: string
+          payable_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_payable_files_payable_id_fkey'
+            columns: ['payable_id']
+            isOneToOne: false
+            referencedRelation: 'event_payables'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      event_payables: {
+        Row: {
+          advanced_by: string | null
+          agreed_amount: number | null
+          amount: number | null
+          created_at: string
+          dismissed: boolean
+          event_id: string
+          id: string
+          label: string
+          note: string | null
+          paid_on: string | null
+          payment_route: string | null
+          section: string
+          sort_order: number
+          source_id: string | null
+          source_type: string | null
+          tag: string | null
+          updated_at: string
+          vat_amount: number | null
+        }
+        Insert: {
+          advanced_by?: string | null
+          agreed_amount?: number | null
+          amount?: number | null
+          created_at?: string
+          dismissed?: boolean
+          event_id: string
+          id?: string
+          label: string
+          note?: string | null
+          paid_on?: string | null
+          payment_route?: string | null
+          section?: string
+          sort_order?: number
+          source_id?: string | null
+          source_type?: string | null
+          tag?: string | null
+          updated_at?: string
+          vat_amount?: number | null
+        }
+        Update: {
+          advanced_by?: string | null
+          agreed_amount?: number | null
+          amount?: number | null
+          created_at?: string
+          dismissed?: boolean
+          event_id?: string
+          id?: string
+          label?: string
+          note?: string | null
+          paid_on?: string | null
+          payment_route?: string | null
+          section?: string
+          sort_order?: number
+          source_id?: string | null
+          source_type?: string | null
+          tag?: string | null
+          updated_at?: string
+          vat_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_payables_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       event_performers: {
         Row: {
           accommodation: string | null

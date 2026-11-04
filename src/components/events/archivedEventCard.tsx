@@ -29,8 +29,8 @@ export const ArchivedEventCard = ({
             <div className="w-full h-full transform group-hover:scale-105 transition-transform duration-700 ease-out">
               <CloudinaryImage
                 publicId={event.image_id}
-                width={800}
-                height={600}
+                width={500}
+                height={375}
                 alt={event.title}
                 className="object-cover w-full h-full"
               />
