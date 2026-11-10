@@ -65,6 +65,26 @@
   status = 404
 
 [[redirects]]
+  from = "/bilder/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/hem/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/*_0_webb-*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/photobooth_*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
   from = "/wp-*"
   to = "/index.html"
   status = 404

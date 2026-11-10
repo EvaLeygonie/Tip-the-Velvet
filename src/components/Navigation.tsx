@@ -126,6 +126,7 @@ export const Navigation = () => {
               {!user ? (
                 <Link
                   to={`/admin/login?redirectTo=${encodeURIComponent(location.pathname)}`}
+                  rel="nofollow"
                   className="text-accent/80 hover:text-accent transition-all p-2"
                 >
                   <LogIn size={22} strokeWidth={1.8} />
