@@ -1,7 +1,8 @@
+# Private routes (/admin, /casting/confirm, /hall-of-fame-form, /info) are intentionally NOT
+# disallowed here: they carry <meta name="robots" content="noindex">, and Google can only
+# see that tag if it is allowed to crawl the page. Blocking them causes
+# "Indexed, though blocked by robots.txt".
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /casting/confirm
-Disallow: /hall-of-fame-form
 
 Sitemap: https://www.tipthevelvet.nu/sitemap.xml
