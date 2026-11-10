@@ -104,6 +104,7 @@ export const PerformerDetail = () => {
   if (loading) {
     return (
       <div className="loading-container">
+        <Seo path={`/performers/${slug}`} title="Tip the Velvet" />
         <p className="loading-text">
           {t('Laddar artistprofil...', 'Loading performer profile...')}
         </p>

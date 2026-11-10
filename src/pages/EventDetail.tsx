@@ -140,7 +140,13 @@ export const EventDetail = () => {
     }
   }, [loadEventData])
 
-  if (loading) return <p>{t('Laddar...', 'Loading...')}</p>
+  if (loading)
+    return (
+      <>
+        <Seo path={`/events/${type}/${slug}`} title="Tip the Velvet" />
+        <p>{t('Laddar...', 'Loading...')}</p>
+      </>
+    )
 
   return (
     <div className="page-shell">
@@ -154,8 +160,8 @@ export const EventDetail = () => {
               ? (event as { description_sv?: string | null }).description_sv
               : (event as { description_eng?: string | null }).description_eng)) ||
           t(
-            'Burlesque-show av Tip the Velvet i Göteborg.',
-            'A burlesque show by Tip the Velvet in Gothenburg.'
+            `${event?.title ?? 'Burlesque-show'} – burlesque-show av Tip the Velvet i Göteborg.`,
+            `${event?.title ?? 'Burlesque show'} – a burlesque show by Tip the Velvet in Gothenburg.`
           )
         ).slice(0, 150)}
       />
