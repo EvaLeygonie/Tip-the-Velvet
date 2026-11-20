@@ -110,11 +110,6 @@
   status = 404
 
 [[redirects]]
-  from = "/dresscode/*"
-  to = "/index.html"
-  status = 404
-
-[[redirects]]
   from = "/kontakt/*"
   to = "/index.html"
   status = 404

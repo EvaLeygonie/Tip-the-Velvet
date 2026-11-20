@@ -127,11 +127,12 @@ export const PAYABLE_SECTIONS: PayableSectionInfo[] = [
   },
 ]
 
-export type PaymentRoute = 'invoice' | 'receipt' | 'private'
+export type PaymentRoute = 'invoice' | 'receipt' | 'card' | 'private'
 
 export const PAYMENT_ROUTES: { key: PaymentRoute; sv: string; eng: string }[] = [
   { key: 'invoice', sv: 'Faktura', eng: 'Invoice' },
   { key: 'receipt', sv: 'Kvitto (betalas tillbaka)', eng: 'Receipt (to repay)' },
+  { key: 'card', sv: 'Föreningens bankkort', eng: 'Organisation bank card' },
   { key: 'private', sv: 'Privat betalning, max 999 kr', eng: 'Personal payment, up to 999 kr' },
 ]
 
@@ -148,7 +149,7 @@ export const effectiveRoute = (
   if (saved === 'invoice' || saved === 'company_invoice' || saved === 'frilansfinans') {
     return 'invoice'
   }
-  if (saved === 'receipt' || saved === 'private') return saved
+  if (saved === 'receipt' || saved === 'card' || saved === 'private') return saved
   if (row.advanced_by?.trim()) return 'receipt'
   return INVOICE_SECTIONS.includes(row.section) ? 'invoice' : 'receipt'
 }
@@ -543,9 +544,13 @@ export const summarizeLine = (line: PayableLine): LineSummary => {
   if (paidCount === parts.length) badge = 'paid'
   else if (owed) badge = 'owed'
   else if (paidCount > 0) badge = 'partial'
-  // A personal payment needs no invoice, only the account to pay into; then it waits for the payment
-  else if (parts.every((p) => effectiveRoute(p) === 'private')) {
-    badge = parts.some((p) => p.payment_account?.trim()) ? 'topay' : 'details'
+  // A personal payment or the association's own card needs no invoice. A personal payment still
+  // needs the account to pay into; then it waits for the payment.
+  else if (parts.every((p) => ['private', 'card'].includes(effectiveRoute(p)))) {
+    const needsAccount =
+      parts.some((p) => effectiveRoute(p) === 'private') &&
+      !parts.some((p) => p.payment_account?.trim())
+    badge = needsAccount ? 'details' : 'topay'
   } else badge = files > 0 ? 'invoice' : 'awaiting'
 
   return { total, files, badge, repayName: owed?.advanced_by?.trim() ?? '', parts }

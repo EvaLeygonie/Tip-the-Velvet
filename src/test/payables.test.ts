@@ -423,6 +423,14 @@ describe('summarizeLine', () => {
     expect(summarizeLine(line(part({ ...priv, paid_on: '2026-11-04' }))).badge).toBe('paid')
   })
 
+  it('the association card needs no invoice or account, and is paid when chosen', () => {
+    expect(summarizeLine(line(part({ payment_route: 'card', paid_on: '2026-11-04' }))).badge).toBe(
+      'paid'
+    )
+    // unticked, it only waits for the payment to be marked: no invoice, no account
+    expect(summarizeLine(line(part({ payment_route: 'card' }))).badge).toBe('topay')
+  })
+
   it('the tick marks the unpaid parts, or clears them when all are paid', () => {
     const open = summarizeLine(line(part({ id: 'a' }), part({ id: 'b', paid_on: '2026-11-01' })))
     expect(paidTogglePatches(open, '2026-11-06')).toEqual([
@@ -500,6 +508,7 @@ describe('effectiveRoute', () => {
     expect(effectiveRoute(r({ section: 'decor', payment_route: 'invoice' }))).toBe('invoice')
     expect(effectiveRoute(r({ payment_route: 'frilansfinans' }))).toBe('invoice')
     expect(effectiveRoute(r({ payment_route: 'company_invoice' }))).toBe('invoice')
+    expect(effectiveRoute(r({ section: 'artists', payment_route: 'card' }))).toBe('card')
   })
 
   it('treats a row that already has someone to repay as a receipt', () => {

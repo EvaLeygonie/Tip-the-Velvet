@@ -205,7 +205,13 @@ export const PartPanel = ({
           <select
             id={`route-${row.id}`}
             value={route}
-            onChange={(e) => void onPatch(row.id, { payment_route: e.target.value })}
+            onChange={(e) =>
+              // Paying with the association's card means it is already paid; the date can be fixed
+              void onPatch(row.id, {
+                payment_route: e.target.value,
+                ...(e.target.value === 'card' && !row.paid_on ? { paid_on: todayIso() } : {}),
+              })
+            }
             className={FIELD}
           >
             {PAYMENT_ROUTES.map((r) => (
