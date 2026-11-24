@@ -152,7 +152,7 @@ export const EventDetail = () => {
     <div className="page-shell">
       <Seo
         path={`/events/${type}/${slug}`}
-        noindex={!event}
+        noindex={!event || (!isOldEvent && (event as Event).status === 'draft')}
         title={`${event?.title ?? t('Event', 'Event')} | Tip the Velvet`.slice(0, 60)}
         description={(
           (event &&
@@ -172,6 +172,14 @@ export const EventDetail = () => {
           label={t('Tillbaka till events', 'Back to events')}
           alignTo={titleRef}
         />
+        {event && !isOldEvent && (event as Event).status === 'draft' && (
+          <p className="text-center text-sm text-amber-400 border border-amber-500/40 rounded-lg py-2 px-3 mb-4">
+            {t(
+              'Utkast – det här eventet syns bara för inloggade admins.',
+              'Draft – this event is only visible to logged-in admins.'
+            )}
+          </p>
+        )}
         {/* items-start: the title and the Edit button share one top line instead of centring the
             button on the whole title block (subtitle and rating included) */}
         <div className="section-header-triad md:!items-start">

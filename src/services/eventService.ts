@@ -44,7 +44,9 @@ export async function fetchEvents(isOldEvent: boolean): Promise<Event[] | OldEve
 export async function fetchEventsForAdmin(): Promise<Event[]> {
   const { data, error } = await supabase
     .from('events')
-    .select('id, title, event_start')
+    .select(
+      'id, title, slug, status, event_start, venue_id, image_id, description_sv, description_eng, has_casting_call'
+    )
     .order('event_start', { ascending: false })
 
   if (error) throw error
@@ -713,6 +715,35 @@ export const getEventVenueId = async (eventId: string): Promise<string | null> =
 
   if (error) throw error
   return data?.venue_id ?? null
+}
+
+export interface EventTicketSales {
+  tickets_sold: number | null
+  // How many tickets the venue allows for the show, to set the sales against
+  available_tickets: number | null
+  // The price of one ticket in SEK — the same column as the Price field in the event editor
+  tickets_price: number | null
+  // What the ticket sales brought into the account, in SEK, typed in by hand after the show
+  // (see docs/event-ticket-payout.sql)
+  ticket_payout: number | null
+}
+
+// Its own read for the same reason as getEventVenueId above: the shared event list only carries
+// id, title and date.
+export const getEventTicketSales = async (eventId: string): Promise<EventTicketSales> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('tickets_sold, available_tickets, tickets_price, ticket_payout')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (error) throw error
+  return {
+    tickets_sold: data?.tickets_sold ?? null,
+    available_tickets: data?.available_tickets ?? null,
+    tickets_price: data?.tickets_price == null ? null : Number(data.tickets_price),
+    ticket_payout: data?.ticket_payout == null ? null : Number(data.ticket_payout),
+  }
 }
 
 export interface EventPlaylists {

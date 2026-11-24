@@ -7,6 +7,7 @@ import {
   PRIVATE_PAYMENT_LIMIT,
   effectiveRoute,
   exceedsPrivateLimit,
+  parseAmount,
   vatPart,
   rowFiles,
   todayIso,
@@ -29,13 +30,6 @@ interface PartPanelProps {
   onDeleteFile: (row: PayableWithFiles, file: PayableFile) => Promise<void>
   onRemove: () => Promise<void>
   removeLabel: string
-}
-
-const parseAmount = (text: string): number | null => {
-  const cleaned = text.replace(/\s/g, '').replace(',', '.')
-  if (cleaned === '') return null
-  const n = Number(cleaned)
-  return Number.isFinite(n) && n >= 0 ? n : null
 }
 
 // Compact inputs: the global field style is roomy, and an open row has a lot of them.

@@ -45,7 +45,12 @@ export const FeaturedEventCard = ({ event }: { event: Event }) => {
   }
 
   return (
-    <div className="featured-card-shell p-4 sm:p-6 md:p-10 group" style={glowVars}>
+    <div className="featured-card-shell p-4 sm:p-6 md:p-10 group relative" style={glowVars}>
+      {event.status === 'draft' && (
+        <span className="absolute top-3 right-3 z-10 text-xs px-2 py-0.5 rounded-full border border-amber-500/40 bg-black/60 text-amber-400">
+          {t('Utkast – syns bara för admin', 'Draft – only visible to admins')}
+        </span>
+      )}
       <div className="flex flex-col md:flex-row items-center gap-8 md:gap-16">
         {/* Image Container */}
         <div className="w-full md:w-1/2 shrink-0 flex justify-center md:justify-start">

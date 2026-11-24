@@ -1,15 +1,18 @@
+import { useState } from 'react'
 import { Wallet } from 'lucide-react'
 import { EventPicker } from '@/components/admin/EventPicker'
+import { EconomyOverviewTab } from '@/components/admin/economy/EconomyOverviewTab'
 import { EventPayablesTab } from '@/components/admin/economy/EventPayablesTab'
 import { useCurrentEvent } from '@/contexts/CurrentEventContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 
-// Economy. For now one tab: every bill to pay out for the selected event. The side-by-side
-// overview of all shows comes later (see docs/ticket-sales.md and the invoice report) and gets
-// its own tab next to this one.
+// Economy. The list at the top picks what to look at: one event (every bill to pay out, and what its
+// tickets brought in) or "all events", the overview of every show side by side.
 export const AdminEconomy = () => {
   const { t } = useLanguage()
-  const { selectedEventId } = useCurrentEvent()
+  const { selectedEventId, setSelectedEventId } = useCurrentEvent()
+  // Whether the page shows every show side by side, instead of the one picked in the list
+  const [showAll, setShowAll] = useState(false)
 
   return (
     <div className="page-shell">
@@ -17,22 +20,24 @@ export const AdminEconomy = () => {
       <h1>{t('Ekonomi', 'Economy')}</h1>
       <div className="gold-divider" />
 
-      <EventPicker />
+      <EventPicker
+        allOption={{
+          label: t('Alla event (översikt)', 'All events (overview)'),
+          buttonLabel: t('Visa alla', 'Show all'),
+          backLabel: t('Visa en', 'Show one'),
+          active: showAll,
+          onChange: setShowAll,
+        }}
+      />
 
-      <div className="flex flex-wrap items-center justify-center gap-2 mt-2 mb-8">
-        <span className="btn-gold text-xs py-2 px-4" aria-current="page">
-          {t('Ett event', 'One event')}
-        </span>
-        <span
-          className="btn-gold-inactive text-xs py-2 px-4"
-          title={t('Kommer senare', 'Coming later')}
-          aria-disabled="true"
-        >
-          {t('Översikt', 'Overview')}
-        </span>
-      </div>
-
-      {selectedEventId ? (
+      {showAll ? (
+        <EconomyOverviewTab
+          onOpenEvent={(id) => {
+            setSelectedEventId(id)
+            setShowAll(false)
+          }}
+        />
+      ) : selectedEventId ? (
         // Keyed on the event so switching show starts from a clean list
         <EventPayablesTab key={selectedEventId} eventId={selectedEventId} />
       ) : (

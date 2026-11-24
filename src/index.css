@@ -723,6 +723,12 @@ body {
     @apply max-w-6xl mx-auto space-y-12;
   }
 
+  /* The floating back arrow is position:fixed but still the first child, so space-y-12 would
+     push whatever follows it (the page title) 3rem lower than on every other page. */
+  .editor-container > .floating-back-link + * {
+    @apply !mt-0;
+  }
+
   .input-slug-inline {
     @apply bg-transparent border-none outline-none text-[10px] font-mono p-0 w-full;
     color: rgba(212, 175, 55, 0.8);
@@ -963,6 +969,11 @@ body {
   .panel-row .editor-input,
   .panel-row .admin-select {
     @apply w-full sm:w-auto sm:max-w-[55%] !text-left sm:!text-right;
+  }
+
+  /* keep the label clear of the dropdown arrow */
+  .panel-row .admin-select {
+    @apply !pr-9 sm:min-w-[10.5rem];
   }
 
   .field-row {

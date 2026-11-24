@@ -590,6 +590,14 @@ export const dueBadge = (
 export const vatPart = (amount: number | null, rate: number | null): number | null =>
   amount == null || rate == null ? null : Math.round(((amount * rate) / (100 + rate)) * 100) / 100
 
+// A typed amount ("1 250,50") as a number; empty or invalid text is null
+export const parseAmount = (text: string): number | null => {
+  const cleaned = text.replace(/\s/g, '').replace(',', '.')
+  if (cleaned === '') return null
+  const n = Number(cleaned)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
 export const formatKr = (amount: number): string =>
   `${Math.round(amount).toLocaleString('sv-SE')} kr`
 
@@ -598,3 +606,56 @@ export const todayIso = (now: Date = new Date()): string => {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
+
+// ---- Overview of all shows ----------------------------------------------------------------
+
+export interface OverviewEvent {
+  id: string
+  title: string
+  event_start: string | null
+  tickets_sold: number | null
+  tickets_price: number | null
+  ticket_payout: number | null
+}
+
+export type OverviewBill = Pick<
+  EventPayable,
+  'event_id' | 'section' | 'amount' | 'paid_on' | 'dismissed'
+>
+
+export interface OverviewRow {
+  event: OverviewEvent
+  income: number | null
+  costs: number
+  // null while no bill exists, so a show without costs entered never looks profitable
+  result: number | null
+  costsBySection: Record<string, number>
+  bills: number
+  unpaidBills: number
+  billsWithoutAmount: number
+}
+
+// One row per show for the side-by-side view, newest first. A show is only given a result once it
+// has both an income figure and at least one bill; anything less would be a misleading profit.
+export const summarizeEvents = (events: OverviewEvent[], bills: OverviewBill[]): OverviewRow[] =>
+  [...events]
+    .sort((a, b) => (b.event_start ?? '').localeCompare(a.event_start ?? ''))
+    .map((event) => {
+      const own = bills.filter((b) => b.event_id === event.id && !b.dismissed)
+      const costsBySection: Record<string, number> = {}
+      for (const b of own) {
+        costsBySection[b.section] = (costsBySection[b.section] ?? 0) + Number(b.amount ?? 0)
+      }
+      const costs = own.reduce((sum, b) => sum + Number(b.amount ?? 0), 0)
+      const income = event.ticket_payout
+      return {
+        event,
+        income,
+        costs,
+        result: income !== null && own.length > 0 ? income - costs : null,
+        costsBySection,
+        bills: own.length,
+        unpaidBills: own.filter((b) => !b.paid_on).length,
+        billsWithoutAmount: own.filter((b) => b.amount === null).length,
+      }
+    })

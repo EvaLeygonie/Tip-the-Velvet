@@ -11,6 +11,8 @@ import {
   type ArtistTravelInfo,
   type PayableWithFiles,
   type RowFile,
+  type OverviewBill,
+  type OverviewEvent,
 } from '@/lib/payables'
 import type { EventPayable, PayableFile } from '@/types/types'
 
@@ -297,4 +299,28 @@ export const zipRowFiles = async (entries: { prefix: string; file: RowFile }[]):
     zip.file(name, blobs[index])
   })
   return zip.generateAsync({ type: 'blob' })
+}
+
+// Everything the side-by-side overview needs, in two reads: the shows with their ticket income,
+// and every bill (only the columns the totals use).
+export const getEconomyOverviewData = async (): Promise<{
+  events: OverviewEvent[]
+  bills: OverviewBill[]
+}> => {
+  const [events, bills] = await Promise.all([
+    supabase
+      .from('events')
+      .select('id, title, event_start, tickets_sold, tickets_price, ticket_payout'),
+    supabase.from('event_payables').select('event_id, section, amount, paid_on, dismissed'),
+  ])
+  if (events.error) throw events.error
+  if (bills.error) throw bills.error
+  return {
+    events: (events.data ?? []).map((e) => ({
+      ...e,
+      tickets_price: e.tickets_price === null ? null : Number(e.tickets_price),
+      ticket_payout: e.ticket_payout === null ? null : Number(e.ticket_payout),
+    })),
+    bills: bills.data ?? [],
+  }
 }

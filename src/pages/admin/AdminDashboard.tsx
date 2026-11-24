@@ -14,6 +14,7 @@ import {
   Mail,
   Download,
   DoorOpen,
+  PencilLine,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -144,7 +145,7 @@ const chunk = <T,>(items: T[], size: number): T[][] => {
 export const AdminDashboard = () => {
   const { t, language } = useLanguage()
   const navigate = useNavigate()
-  const { upcomingEvents, archivedEvents, setSelectedEventId } = useCurrentEvent()
+  const { upcomingEvents, archivedEvents, draftEvents, setSelectedEventId } = useCurrentEvent()
   const [staffVolunteers, setStaffVolunteers] = useState<StaffVolunteers[]>([])
   const [sponsors, setSponsors] = useState<Sponsors[]>([])
   const [castingApplications, setCastingApplications] = useState<CastingApplicationWithEvent[]>([])
@@ -519,6 +520,9 @@ export const AdminDashboard = () => {
     .filter((row) => isRecent(row.created_at))
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
+  const noNewApplications =
+    newCastingApplications.length + newStaff.length + newSponsors.length === 0
+
   return (
     <div className="page-shell">
       <div className="bg-glow-spot" />
@@ -545,6 +549,48 @@ export const AdminDashboard = () => {
             <AlertTriangle className="h-5 w-5 shrink-0" />
             {t('Deadlines', 'Deadlines')}
           </button>
+        </div>
+      )}
+
+      {draftEvents.length > 0 && (
+        <div className="max-w-5xl mx-auto mt-8 space-y-3">
+          <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
+            {t('Utkast', 'Drafts')}
+          </h2>
+          <div className="admin-panel velvet-surface p-4 space-y-2">
+            {draftEvents.map((evt) => {
+              // What's still missing before the event can be announced
+              const missing = [
+                !evt.event_start && t('datum', 'date'),
+                !evt.venue_id && t('plats', 'venue'),
+                !evt.image_id && t('bild', 'image'),
+                !evt.description_sv?.trim() &&
+                  !evt.description_eng?.trim() &&
+                  t('beskrivning', 'description'),
+              ].filter(Boolean) as string[]
+              return (
+                <button
+                  key={evt.id}
+                  type="button"
+                  onClick={() => navigate(`/admin/event-editor/${evt.slug}`)}
+                  className="w-full flex flex-wrap items-center gap-x-3 gap-y-1 text-left py-2 px-3 rounded border border-accent/20 hover:bg-accent/10 transition-colors"
+                >
+                  <PencilLine className="h-4 w-4 shrink-0 text-accent/70" />
+                  <span className="text-foreground">{evt.title}</span>
+                  <span className="text-xs text-foreground/50">
+                    {evt.event_start
+                      ? evt.event_start.split('T')[0]
+                      : t('Inget datum ännu', 'No date yet')}
+                  </span>
+                  <span className="text-xs text-amber-400 ml-auto">
+                    {missing.length > 0
+                      ? t(`Saknas: ${missing.join(', ')}`, `Missing: ${missing.join(', ')}`)
+                      : t('Redo att publicera', 'Ready to publish')}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -779,6 +825,11 @@ export const AdminDashboard = () => {
               <div key={ov.eventId} className="space-y-2">
                 <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
                   {ov.eventTitle}
+                  {draftEvents.some((d) => d.id === ov.eventId) && (
+                    <span className="ml-2 align-middle text-xs font-sans px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-400">
+                      {t('Utkast', 'Draft')}
+                    </span>
+                  )}
                 </h2>
                 <div className="flex flex-wrap justify-center gap-2">
                   {cards.some((c) => c.onEmailAll) && (
@@ -828,7 +879,7 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {!loading && (
+      {!loading && !noNewApplications && (
         <div className="max-w-5xl mx-auto mt-8 space-y-3">
           <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
             {t('Nya ansökningar', 'New applications')}
@@ -949,49 +1000,43 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {!loading && (
+      {!loading && recentFeedback.length > 0 && (
         <div className="max-w-5xl mx-auto mt-8 space-y-3">
           <h2 className="font-decorative text-2xl text-accent text-center whitespace-nowrap">
             {t('Nya omdömen', 'New ratings & reviews')}
           </h2>
           <div className="admin-panel velvet-surface p-4 space-y-1.5">
-            {recentFeedback.length === 0 ? (
-              <p className="text-sm text-foreground/40 italic text-center">
-                {t('Inga nya ännu.', 'None yet.')}
-              </p>
-            ) : (
-              recentFeedback.map((row) => (
-                <button
-                  type="button"
-                  key={row.id}
-                  onClick={() => {
-                    setSelectedEventId(row.event_id)
-                    navigate('/admin/feedback')
-                  }}
-                  title={t('Öppna omdömen', 'Open the feedback')}
-                  className="flex w-full items-center gap-3 rounded border border-transparent p-2 text-left text-sm transition-colors hover:border-accent/30 hover:bg-accent/5"
-                >
-                  {row.rating !== null && (
-                    <StarRating value={row.rating} size={14} label={`${row.rating}/5`} />
-                  )}
-                  <span className="min-w-0 flex-1 truncate text-foreground/90">
-                    {row.review ?? (
-                      <span className="italic text-foreground/40">
-                        {t('Bara betyg', 'Rating only')}
-                      </span>
-                    )}
-                  </span>
-                  {row.events && (
-                    <span className="max-w-[120px] shrink-0 truncate text-xs italic text-accent">
-                      {row.events.title}
+            {recentFeedback.map((row) => (
+              <button
+                type="button"
+                key={row.id}
+                onClick={() => {
+                  setSelectedEventId(row.event_id)
+                  navigate('/admin/feedback')
+                }}
+                title={t('Öppna omdömen', 'Open the feedback')}
+                className="flex w-full items-center gap-3 rounded border border-transparent p-2 text-left text-sm transition-colors hover:border-accent/30 hover:bg-accent/5"
+              >
+                {row.rating !== null && (
+                  <StarRating value={row.rating} size={14} label={`${row.rating}/5`} />
+                )}
+                <span className="min-w-0 flex-1 truncate text-foreground/90">
+                  {row.review ?? (
+                    <span className="italic text-foreground/40">
+                      {t('Bara betyg', 'Rating only')}
                     </span>
                   )}
-                  <span className="shrink-0 text-xs text-foreground/40">
-                    {formatDate(language, row.created_at)}
+                </span>
+                {row.events && (
+                  <span className="max-w-[120px] shrink-0 truncate text-xs italic text-accent">
+                    {row.events.title}
                   </span>
-                </button>
-              ))
-            )}
+                )}
+                <span className="shrink-0 text-xs text-foreground/40">
+                  {formatDate(language, row.created_at)}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       )}

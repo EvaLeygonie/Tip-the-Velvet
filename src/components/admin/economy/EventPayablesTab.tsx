@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import { downloadBlob } from '@/lib/utils'
 import { PayableLineRow } from '@/components/admin/economy/PayableLineRow'
+import { TicketSalesFields } from '@/components/admin/economy/TicketSalesFields'
 import {
   PAYABLE_SECTIONS,
   TRAVEL_SUFFIX,
@@ -19,6 +20,7 @@ import {
   type PayableWithFiles,
   type RowFile,
 } from '@/lib/payables'
+import { getEventTicketSales, updateEvent, type EventTicketSales } from '@/services/eventService'
 import {
   addTravelRow,
   attachPayableFile,
@@ -53,6 +55,7 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
   const { t } = useLanguage()
   const confirm = useConfirm()
   const [rows, setRows] = useState<PayableWithFiles[]>([])
+  const [ticketSales, setTicketSales] = useState<EventTicketSales | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [hidePaid, setHidePaid] = useState(false)
@@ -65,9 +68,17 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
     const run = async () => {
       try {
         await syncEventPayables(eventId)
-        const data = await getEventPayables(eventId)
+        const [data, payout] = await Promise.all([
+          getEventPayables(eventId),
+          // Its own column (docs/event-ticket-payout.sql): until that is run, the bills still load
+          getEventTicketSales(eventId).catch((err) => {
+            console.error('Kunde inte hämta biljettintäkten:', err)
+            return null
+          }),
+        ])
         if (!cancelled) {
           setRows(data)
+          setTicketSales(payout)
           setFailed(false)
         }
       } catch (err) {
@@ -104,6 +115,19 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
       console.error(err)
       toast.error(t('Kunde inte spara.', 'Could not save.'))
       setRows((prev) => prev.map((r) => (r.id === id ? before : r)))
+    }
+  }
+
+  // Same optimistic pattern as the bills: the screen follows at once, and is put back on failure
+  const handleSaveTicketSales = async (next: EventTicketSales) => {
+    const before = ticketSales
+    setTicketSales(next)
+    try {
+      await updateEvent(eventId, next)
+    } catch (err) {
+      console.error(err)
+      toast.error(t('Kunde inte spara.', 'Could not save.'))
+      setTicketSales(before)
     }
   }
 
@@ -315,9 +339,30 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 space-y-8 pb-16">
+    <div className="max-w-5xl mx-auto px-4 space-y-8 pb-16">
       <section className="admin-panel p-5 sm:p-6" aria-label={t('Sammanfattning', 'Summary')}>
-        <div className="grid grid-cols-3 gap-4 text-center">
+        {ticketSales && <TicketSalesFields value={ticketSales} onSave={handleSaveTicketSales} />}
+        <div
+          className={`grid grid-cols-2 sm:grid-cols-4 gap-4 text-center ${ticketSales ? 'mt-5 border-t border-accent/10 pt-5' : ''}`}
+        >
+          {ticketSales && (
+            <div>
+              <div className="text-xs uppercase tracking-widest text-foreground/60">
+                {t('Biljettintäkt', 'Ticket income')}
+              </div>
+              <div className="font-decorative text-2xl sm:text-3xl text-foreground mt-1">
+                {ticketSales.ticket_payout === null ? '–' : formatKr(ticketSales.ticket_payout)}
+              </div>
+            </div>
+          )}
+          <div>
+            <div className="text-xs uppercase tracking-widest text-foreground/60">
+              {t('Kostnader', 'Costs')}
+            </div>
+            <div className="font-decorative text-2xl sm:text-3xl text-foreground mt-1">
+              {formatKr(all.total)}
+            </div>
+          </div>
           <div>
             <div className="text-xs uppercase tracking-widest text-foreground/60">
               {t('Kvar att betala', 'Left to pay')}
@@ -326,22 +371,31 @@ export const EventPayablesTab = ({ eventId }: EventPayablesTabProps) => {
               {formatKr(all.outstanding)}
             </div>
           </div>
-          <div>
-            <div className="text-xs uppercase tracking-widest text-foreground/60">
-              {t('Betalt', 'Paid')}
+          {ticketSales && (
+            <div>
+              <div className="text-xs uppercase tracking-widest text-foreground/60">
+                {t('Resultat', 'Result')}
+              </div>
+              {ticketSales.ticket_payout === null ? (
+                <div className="font-decorative text-2xl sm:text-3xl text-foreground/50 mt-1">
+                  –
+                </div>
+              ) : (
+                <div
+                  className={`font-decorative text-2xl sm:text-3xl mt-1 ${
+                    ticketSales.ticket_payout - all.total >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  {formatKr(ticketSales.ticket_payout - all.total)}
+                </div>
+              )}
+              {ticketSales.ticket_payout !== null && all.withoutAmount > 0 && (
+                <div className="text-xs text-amber-400 mt-1">
+                  {t('inte slutgiltigt', 'not final')}
+                </div>
+              )}
             </div>
-            <div className="font-decorative text-2xl sm:text-3xl text-emerald-400 mt-1">
-              {formatKr(all.paid)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-widest text-foreground/60">
-              {t('Totalt', 'Total')}
-            </div>
-            <div className="font-decorative text-2xl sm:text-3xl text-foreground mt-1">
-              {formatKr(all.total)}
-            </div>
-          </div>
+          )}
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-foreground/70 text-center">
           <span>

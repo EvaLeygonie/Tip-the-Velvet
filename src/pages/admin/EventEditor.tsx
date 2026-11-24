@@ -5,6 +5,8 @@ import { Eye, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import useEyeDropper from 'use-eye-dropper'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useCurrentEvent } from '@/contexts/CurrentEventContext'
+import { DateTimeFields } from '@/components/admin/DateTimeFields'
 import { FloatingBackLink } from '@/components/FloatingBackLink'
 import type { Event, CreateEventInput } from '@/types/types'
 import {
@@ -27,6 +29,7 @@ interface DropdownOption {
 
 export const EventEditor = () => {
   const { t } = useLanguage()
+  const { refreshEvents } = useCurrentEvent()
   const confirm = useConfirm()
   const navigate = useNavigate()
   const { slug } = useParams()
@@ -115,6 +118,53 @@ export const EventEditor = () => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
+  // Start/end are 'YYYY-MM-DDTHH:mm' strings, edited as a separate date and time. Choosing a
+  // start date defaults the time to 19:00 and the end to 02:00 the next day; the end follows
+  // the start date only while it still has that default, so a manually set end is never touched.
+  const DEFAULT_START_TIME = '19:00'
+  const DEFAULT_END_TIME = '02:00'
+  const nextDay = (date: string) => {
+    const d = new Date(`${date}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + 1)
+    return d.toISOString().slice(0, 10)
+  }
+
+  const handleStartDateChange = (date: string) => {
+    setFormData((prev) => {
+      if (!date) return { ...prev, event_start: null }
+      const time = prev.event_start?.slice(11, 16) || DEFAULT_START_TIME
+      const prevDate = prev.event_start?.slice(0, 10)
+      const endIsDefault =
+        !prev.event_end ||
+        (prevDate && prev.event_end === `${nextDay(prevDate)}T${DEFAULT_END_TIME}`)
+      return {
+        ...prev,
+        event_start: `${date}T${time}`,
+        event_end: endIsDefault ? `${nextDay(date)}T${DEFAULT_END_TIME}` : prev.event_end,
+      }
+    })
+  }
+
+  const handleStartTimeChange = (time: string) =>
+    setFormData((prev) =>
+      prev.event_start
+        ? { ...prev, event_start: `${prev.event_start.slice(0, 10)}T${time || DEFAULT_START_TIME}` }
+        : prev
+    )
+
+  const handleEndDateChange = (date: string) =>
+    setFormData((prev) => ({
+      ...prev,
+      event_end: date ? `${date}T${prev.event_end?.slice(11, 16) || DEFAULT_END_TIME}` : null,
+    }))
+
+  const handleEndTimeChange = (time: string) =>
+    setFormData((prev) =>
+      prev.event_end
+        ? { ...prev, event_end: `${prev.event_end.slice(0, 10)}T${time || DEFAULT_END_TIME}` }
+        : prev
+    )
+
   const handleVenueChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value || null
     const selectedVenue = venues.find((v) => v.id === selectedId)
@@ -195,8 +245,6 @@ export const EventEditor = () => {
       afterparty_playlist: formData.afterparty_playlist || null,
       ticket_release_date: formData.ticket_release_date || null,
       tickets_price: formData.tickets_price || null,
-      tickets_sold: formData.tickets_sold || null,
-      available_tickets: formData.available_tickets || null,
       pinterest_link: formData.pinterest_link || null,
       facebook_event: formData.facebook_event || null,
       fb_album_url: formData.fb_album_url || null,
@@ -213,6 +261,7 @@ export const EventEditor = () => {
       if (error) throw error
 
       toast.success(slug ? t('Uppdaterat!', 'Updated!') : t('Skapat!', 'Created!'))
+      await refreshEvents()
 
       if (!slug) navigate(`/admin/event-editor/${finalSlug}`)
     } catch (err) {
@@ -249,6 +298,7 @@ export const EventEditor = () => {
       await deleteRow('events', formData.id || '')
 
       toast.success(t('Event raderat!', 'Event deleted!'))
+      await refreshEvents()
       navigate('/events')
     } catch (err) {
       toast.error(t('Kunde inte radera eventet', 'Failed to delete event'))
@@ -373,22 +423,18 @@ export const EventEditor = () => {
             {/* TIME & PLACE */}
             <div className="panel-row">
               <label className="form-label-gold">{t('Startar:', 'Starts:')}</label>
-              <input
-                type="datetime-local"
-                name="event_start"
-                value={formData.event_start || ''}
-                onChange={handleChange}
-                className="editor-input !border-none !py-0 !text-right text-xs"
+              <DateTimeFields
+                value={formData.event_start}
+                onDateChange={handleStartDateChange}
+                onTimeChange={handleStartTimeChange}
               />
             </div>
             <div className="panel-row">
               <label className="form-label-gold">{t('Slutar:', 'Ends:')}</label>
-              <input
-                type="datetime-local"
-                name="event_end"
-                value={formData.event_end || ''}
-                onChange={handleChange}
-                className="editor-input !border-none !py-0 !text-right text-xs"
+              <DateTimeFields
+                value={formData.event_end}
+                onDateChange={handleEndDateChange}
+                onTimeChange={handleEndTimeChange}
               />
             </div>
             {/* PLATS (DROPDOWN) */}
@@ -606,8 +652,8 @@ export const EventEditor = () => {
             </div>
           </div>
 
-          {/* TICKET LINK, RELEASE DATE & GUEST LIST */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
+          {/* TICKET LINK, RELEASE DATE, GUEST LIST & PRICE */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
             <div className="field-row">
               <label className="form-label-gold">{t('Biljettlänk', 'Ticket Link')}</label>
               <input
@@ -642,10 +688,6 @@ export const EventEditor = () => {
                 onChange={handleChange}
               />
             </div>
-          </div>
-
-          {/* TICKET NUMBERS */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
             <div className="field-row">
               <label className="form-label-gold">{t('Pris (SEK)', 'Price (SEK)')}</label>
               <input
@@ -655,28 +697,6 @@ export const EventEditor = () => {
                 value={formData.tickets_price || ''}
                 onChange={(e) =>
                   setFormData({ ...formData, tickets_price: Number(e.target.value) })
-                }
-              />
-            </div>
-            <div className="field-row">
-              <label className="form-label-gold">{t('Sålda biljetter', 'Tickets Sold')}</label>
-              <input
-                type="number"
-                className="editor-input"
-                value={formData.tickets_sold || ''}
-                onChange={(e) => setFormData({ ...formData, tickets_sold: Number(e.target.value) })}
-              />
-            </div>
-            <div className="field-row">
-              <label className="form-label-gold">
-                {t('Tillgängliga biljetter', 'Available Tickets')}
-              </label>
-              <input
-                type="number"
-                className="editor-input"
-                value={formData.available_tickets || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, available_tickets: Number(e.target.value) })
                 }
               />
             </div>

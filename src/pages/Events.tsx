@@ -43,7 +43,10 @@ export const Events = () => {
       .catch((err) => console.error(err))
   }, [])
 
-  const upcomingEvents = events.filter((e) => e.status === 'published')
+  // Logged-in admins also see drafts here, marked as such on the card
+  const upcomingEvents = events.filter(
+    (e) => e.status === 'published' || (user && e.status === 'draft')
+  )
   const pastNewEvents = events.filter((e) => e.status === 'archived')
   const pastPaging = useShowMore(pastNewEvents, 12)
   const archivePaging = useShowMore(oldEvents, 12)

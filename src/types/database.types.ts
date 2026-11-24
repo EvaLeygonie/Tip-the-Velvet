@@ -1033,6 +1033,7 @@ export type Database = {
           staff_recruitment_open: boolean
           status: Database['public']['Enums']['event_status']
           subtitle: string | null
+          ticket_payout: number | null
           ticket_release_date: string | null
           ticket_url: string | null
           tickets_price: number | null
@@ -1080,6 +1081,7 @@ export type Database = {
           staff_recruitment_open?: boolean
           status?: Database['public']['Enums']['event_status']
           subtitle?: string | null
+          ticket_payout?: number | null
           ticket_release_date?: string | null
           ticket_url?: string | null
           tickets_price?: number | null
@@ -1127,6 +1129,7 @@ export type Database = {
           staff_recruitment_open?: boolean
           status?: Database['public']['Enums']['event_status']
           subtitle?: string | null
+          ticket_payout?: number | null
           ticket_release_date?: string | null
           ticket_url?: string | null
           tickets_price?: number | null
