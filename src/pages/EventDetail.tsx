@@ -65,11 +65,18 @@ export const EventDetail = () => {
     const rank = CATEGORY_ORDER.indexOf(img.category ?? '')
     return rank === -1 ? CATEGORY_ORDER.length : rank
   }
+  // One-off: Pandaemonium's Stage photos are held back from visitors (Dashboard switch) until
+  // they are announced; the filter then shows 0 / "coming soon"
+  const isHeldBack = (img: EventImage) =>
+    siteSettings.pandaemoniumShowPhotosHidden &&
+    slug === 'pandaemonium' &&
+    !user &&
+    publicPhotoGroup(img.category) === 'stage'
   const sortedImages = [...images]
     .sort(
       (a, b) => categoryRank(a) - categoryRank(b) || (a.display_order ?? 0) - (b.display_order ?? 0)
     )
-    .filter((img) => img.is_visible)
+    .filter((img) => img.is_visible && !isHeldBack(img))
 
   // Stage / Mingle / Photobooth filter badges: always all three once any photo exists, so a 0
   // tells visitors that group's photos are still on their way (events only; each photo's

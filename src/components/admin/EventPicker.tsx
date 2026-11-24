@@ -43,51 +43,52 @@ export const EventPicker = ({ className, allOption }: EventPickerProps) => {
       <label className="form-label-gold block">
         {t('Välj show / event', 'Select show / event')}
       </label>
-      <div className={allOption ? 'flex items-stretch gap-2' : undefined}>
-        <select
-          value={allOption?.active ? ALL_VALUE : selectedEventId}
-          onChange={handleChange}
-          className={allOption ? 'text-center flex-1 min-w-0' : 'text-center'}
-        >
-          {allOption && <option value={ALL_VALUE}>{allOption.label}</option>}
-          {upcomingEvents.length > 0 && (
-            <optgroup label={t('✨ Kommande Event', '✨ Upcoming Events')}>
-              {upcomingEvents.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.status === 'draft' ? `${t('Utkast', 'Draft')}: ` : ''}
-                  {evt.title} ({evt.event_start?.split('T')[0] ?? t('datum ej satt', 'no date yet')}
-                  )
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {archivedEvents.length > 0 && (
-            <optgroup label={t('📜 Arkiverade Event', '📜 Archived Events')}>
-              {archivedEvents.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.title} ({evt.event_start?.split('T')[0]})
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
-        {allOption && (
-          <button
-            type="button"
-            onClick={() => allOption.onChange(!allOption.active)}
-            className="btn-gold-outline text-xs !px-4 whitespace-nowrap justify-center min-w-[6.5rem]"
-          >
-            {allOption.active ? allOption.backLabel : allOption.buttonLabel}
-          </button>
+      <select
+        value={allOption?.active ? ALL_VALUE : selectedEventId}
+        onChange={handleChange}
+        className="text-center"
+      >
+        {allOption && <option value={ALL_VALUE}>{allOption.label}</option>}
+        {upcomingEvents.length > 0 && (
+          <optgroup label={t('✨ Kommande Event', '✨ Upcoming Events')}>
+            {upcomingEvents.map((evt) => (
+              <option key={evt.id} value={evt.id}>
+                {evt.status === 'draft' ? `${t('Utkast', 'Draft')}: ` : ''}
+                {evt.title} ({evt.event_start?.split('T')[0] ?? t('datum ej satt', 'no date yet')})
+              </option>
+            ))}
+          </optgroup>
         )}
-      </div>
-      {selectedEvent?.slug && !allOption?.active && (
-        <Link
-          to={`/admin/event-editor/${selectedEvent.slug}`}
-          className="inline-block text-xs text-foreground/50 hover:text-accent underline"
-        >
-          {t('Redigera eventet', 'Edit the event')}
-        </Link>
+        {archivedEvents.length > 0 && (
+          <optgroup label={t('📜 Arkiverade Event', '📜 Archived Events')}>
+            {archivedEvents.map((evt) => (
+              <option key={evt.id} value={evt.id}>
+                {evt.title} ({evt.event_start?.split('T')[0]})
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+      {(allOption || selectedEvent?.slug) && (
+        <div className="flex items-center justify-center gap-4">
+          {allOption && (
+            <button
+              type="button"
+              onClick={() => allOption.onChange(!allOption.active)}
+              className="btn-gold-outline text-xs !px-4 !py-1.5 whitespace-nowrap"
+            >
+              {allOption.active ? allOption.backLabel : allOption.buttonLabel}
+            </button>
+          )}
+          {selectedEvent?.slug && !allOption?.active && (
+            <Link
+              to={`/admin/event-editor/${selectedEvent.slug}`}
+              className="text-xs text-foreground/50 hover:text-accent underline"
+            >
+              {t('Redigera eventet', 'Edit the event')}
+            </Link>
+          )}
+        </div>
       )}
     </div>
   )

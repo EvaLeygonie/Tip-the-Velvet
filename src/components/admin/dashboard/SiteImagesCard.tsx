@@ -2,7 +2,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { SITE_SETTINGS_QUERY_KEY, useSiteSettings } from '@/hooks/useSiteSettings'
-import { setSiteSetting, type SiteSettings } from '@/services/siteSettingsService'
+import {
+  DEFAULT_SITE_SETTINGS,
+  setSiteSetting,
+  type SiteSettings,
+} from '@/services/siteSettingsService'
 
 // Emergency brake for Cloudinary's free plan (25 credits per rolling 30 days, mostly bandwidth):
 // hides the image-heavy parts of the public site until usage has come down again.
@@ -14,8 +18,7 @@ export const SiteImagesCard = () => {
   const handleToggle = async (setting: keyof SiteSettings, value: boolean) => {
     const previous = queryClient.getQueryData<SiteSettings>(SITE_SETTINGS_QUERY_KEY)
     queryClient.setQueryData<SiteSettings>(SITE_SETTINGS_QUERY_KEY, (old) => ({
-      eventGalleriesHidden: false,
-      hallOfFameImagesHidden: false,
+      ...DEFAULT_SITE_SETTINGS,
       ...old,
       [setting]: value,
     }))
@@ -38,6 +41,11 @@ export const SiteImagesCard = () => {
       setting: 'hallOfFameImagesHidden',
       sv: 'Dölj bilderna i Hall of Fame (profilerna visas kvar)',
       eng: 'Hide the images in the Hall of Fame (profiles stay)',
+    },
+    {
+      setting: 'pandaemoniumShowPhotosHidden',
+      sv: 'Dölj showbilderna (Scen) för Pandaemonium tills de släpps',
+      eng: 'Hide the show (Stage) photos for Pandaemonium until they are released',
     },
   ]
 

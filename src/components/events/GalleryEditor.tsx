@@ -1,10 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
 import type { Event, OldEvent, EventImage } from '@/types/types'
 import {
   createEventImage,
   toggleImageVisibility,
   deleteEventImage,
   setEventImageCategory,
+  getEventActsForAdmin,
+  type AdminEventActRow,
   type EventPerformerRow,
 } from '@/services/eventService'
 import { uploadToCloudinary } from '@/services/cloudinaryService'
@@ -38,6 +40,13 @@ interface PerformanceSelection {
   actName: string
 }
 
+interface PerformerSlot {
+  performerId: string
+  actName: string
+}
+
+const EMPTY_SLOT: PerformerSlot = { performerId: '', actName: '' }
+
 export const GalleryEditor = ({
   images,
   event,
@@ -54,31 +63,86 @@ export const GalleryEditor = ({
   const [progress, setProgress] = useState({ current: 0, total: 0 })
 
   const [selectedType, setSelectedType] = useState<string>('')
-  const [selectedPerformers, setSelectedPerformers] = useState<PerformanceSelection[]>([])
+  // The performer/act pickers for the NEXT batch. Live, with no "add" step: whatever is
+  // selected here is what the batch gets tagged with. Normally one slot (one act per batch);
+  // more only for a group shot ("add another performer").
+  const [slots, setSlots] = useState<PerformerSlot[]>([EMPTY_SLOT])
 
-  const [activePerformerName, setActivePerformerName] = useState<string>('')
-  const [currentActInput, setCurrentActInput] = useState('')
+  // The show's running order (performer_acts), used to suggest the right act for each performer
+  // and, since photos are uploaded in show order, to jump to the next act after each batch.
+  const [acts, setActs] = useState<AdminEventActRow[]>([])
+  const [uploadedActKeys, setUploadedActKeys] = useState<string[]>([])
+
+  useEffect(() => {
+    if (isOldEvent) return
+    let cancelled = false
+    getEventActsForAdmin(event.id)
+      .then((rows) => {
+        if (!cancelled) setActs(rows)
+      })
+      .catch((err) => console.error('Could not load running order for gallery:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [event.id, isOldEvent])
+
+  // Real acts only (manual/constant segments have no performer), in show order.
+  const lineup = useMemo(
+    () => acts.filter((a) => a.performer_id && a.act_name.trim() && a.performer),
+    [acts]
+  )
+
+  const actKey = (performerId: string, actName: string) => `${performerId}|${actName}`
+
+  // Lineup performers in running order (first act decides), approved ones only — the same
+  // filter the old dropdown applied.
+  const orderedPerformers = useMemo(() => {
+    const rows = eventPerformers.filter((row) => row.performer)
+    const firstIndex = (id: string) => {
+      const i = lineup.findIndex((a) => a.performer_id === id)
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i
+    }
+    return [...rows].sort((a, b) => firstIndex(a.performer.id) - firstIndex(b.performer.id))
+  }, [eventPerformers, lineup])
+
+  const actsForPerformer = (performerId: string) =>
+    lineup.filter((a) => a.performer_id === performerId)
+
+  // Smart pick: the performer's first act that hasn't been uploaded yet this session.
+  const suggestAct = (performerId: string) => {
+    const list = actsForPerformer(performerId)
+    return list.find((a) => !uploadedActKeys.includes(actKey(performerId, a.act_name))) ?? list[0]
+  }
+
+  const slotFromAct = (a: AdminEventActRow): PerformerSlot => ({
+    performerId: a.performer_id!,
+    actName: a.act_name.trim(),
+  })
+
+  const performerById = (id: string) =>
+    eventPerformers.find((row) => row.performer?.id === id)?.performer
+
+  const updateSlot = (index: number, patch: PerformerSlot) =>
+    setSlots((prev) => prev.map((s, i) => (i === index ? patch : s)))
+
+  const handleSlotPerformerChange = (index: number, id: string) =>
+    updateSlot(index, {
+      performerId: id,
+      actName: id ? (suggestAct(id)?.act_name.trim() ?? '') : '',
+    })
+
+  // What the next batch is tagged with, derived live from the pickers.
+  const selectedPerformers: PerformanceSelection[] = slots.flatMap((slot) => {
+    const performer = performerById(slot.performerId)
+    return performer
+      ? [{ performerName: performer.performer_name, actName: slots[0].actName.trim() }]
+      : []
+  })
 
   const [tagInput, setTagInput] = useState('')
   const [customTags, setCustomTags] = useState<string[]>([])
 
   const baseTags = [event.slug].filter(Boolean)
-
-  const handleAddPerformer = () => {
-    if (!activePerformerName) return
-
-    if (
-      !selectedPerformers.some((p: PerformanceSelection) => p.performerName === activePerformerName)
-    ) {
-      setSelectedPerformers([
-        ...selectedPerformers,
-        { performerName: activePerformerName, actName: currentActInput.trim() },
-      ])
-    }
-
-    setActivePerformerName('')
-    setCurrentActInput('')
-  }
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -104,6 +168,19 @@ export const GalleryEditor = ({
     return 'event_start' in event ? event.event_start : null
   }
 
+  // Every tag the next batch will get: event, category, the selected performers/acts, and the
+  // custom tags (which stay between batches). Shown to the user before uploading.
+  const buildTags = () => {
+    const performerTags: string[] = []
+    selectedPerformers.forEach((p) => {
+      performerTags.push(createSlug(p.performerName))
+      if (p.actName) performerTags.push(createSlug(p.actName))
+    })
+    return [event.slug, selectedType, ...performerTags, ...customTags].filter(
+      (tag): tag is string => Boolean(tag)
+    )
+  }
+
   const isUploadDisabled = () => {
     if (!selectedType) return true
     if (selectedType === ImageCategory.PERFORMANCE && selectedPerformers.length === 0) return true
@@ -120,16 +197,7 @@ export const GalleryEditor = ({
     const fileArray = Array.from(files)
     const folder = `${base}/${eventFolder}`
 
-    // Tags
-    const performerTags: string[] = []
-    selectedPerformers.forEach((p) => {
-      performerTags.push(createSlug(p.performerName))
-      if (p.actName) performerTags.push(createSlug(p.actName))
-    })
-
-    const cloudinaryTags = [event.slug, selectedType, ...performerTags, ...customTags].filter(
-      Boolean
-    )
+    const cloudinaryTags = buildTags()
 
     const formattedPerformers = selectedPerformers.map((p) =>
       p.actName ? `${p.performerName} (${p.actName})` : p.performerName
@@ -195,6 +263,21 @@ export const GalleryEditor = ({
       toast.success(t(`${succeeded} bilder uppladdade!`, `${succeeded} images uploaded!`))
     if (failed > 0) toast.error(t(`${failed} misslyckades`, `${failed} failed`))
 
+    // Each batch has its own tags: nothing carries over. Photos are uploaded in show order, so
+    // the pickers move on to the next act in the running order (or empty, without one).
+    if (succeeded > 0 && selectedType === ImageCategory.PERFORMANCE) {
+      // extra performers share the first row's act
+      const doneKeys = slots[0].performerId ? [actKey(slots[0].performerId, slots[0].actName)] : []
+      const allDone = [...uploadedActKeys, ...doneKeys]
+      setUploadedActKeys(allDone)
+      const keyOf = (a: AdminEventActRow) => actKey(a.performer_id!, a.act_name.trim())
+      const lastIdx = Math.max(-1, ...doneKeys.map((k) => lineup.findIndex((a) => keyOf(a) === k)))
+      const next =
+        lineup.slice(lastIdx + 1).find((a) => !allDone.includes(keyOf(a))) ??
+        lineup.find((a) => !allDone.includes(keyOf(a)))
+      setSlots([next ? slotFromAct(next) : EMPTY_SLOT])
+    }
+
     setUploading(false)
     setProgress({ current: 0, total: 0 })
     onUpdate()
@@ -242,7 +325,7 @@ export const GalleryEditor = ({
     <div className="space-y-6">
       <div className="editor-container">
         {/* TYPE SELECTION */}
-        <div className="grid grid-cols-1 md:flex md:items-end gap-4 bg-black/20 p-4 rounded-xl border border-white/5 mb-4 text-left">
+        <div className="grid grid-cols-1 md:flex md:items-end gap-4 bg-black/20 p-4 rounded-xl border border-white/5 mb-2 text-left">
           <div className="form-field w-full md:w-64">
             <label className="form-label-gold text-xs block mb-1">
               {t('Bildtyp *', 'Image Type *')}
@@ -252,9 +335,13 @@ export const GalleryEditor = ({
               onChange={(e) => {
                 setSelectedType(e.target.value)
                 if (e.target.value !== ImageCategory.PERFORMANCE) {
-                  setSelectedPerformers([])
-                  setActivePerformerName('')
-                  setCurrentActInput('')
+                  setSlots([EMPTY_SLOT])
+                } else if (slots.every((slot) => !slot.performerId)) {
+                  // Start with the first act not uploaded yet (the opening act, at first)
+                  const first = lineup.find(
+                    (a) => !uploadedActKeys.includes(actKey(a.performer_id!, a.act_name.trim()))
+                  )
+                  if (first) setSlots([slotFromAct(first)])
                 }
               }}
               className="admin-select !w-full h-[46px]"
@@ -274,64 +361,108 @@ export const GalleryEditor = ({
             </select>
           </div>
 
-          {/* DYNAMISK ARTISTVÄLJARE */}
+          {/* PERFORMER + ACT PICKERS — live. The first row picks performer and act; extra
+              performers (group act) join the SAME act, so they only need a performer. */}
           {selectedType === ImageCategory.PERFORMANCE && (
-            <div className="animate-fade-in flex-1 grid grid-cols-1 sm:flex sm:items-end gap-3 w-full">
-              <div className="form-field flex-1">
-                <label className="form-label-gold text-xs block mb-1">
-                  {t('1. Välj Artist *', '1. Select Performer *')}
-                </label>
-                <select
-                  value={activePerformerName}
-                  onChange={(e) => setActivePerformerName(e.target.value)}
-                  className="admin-select !w-full h-[46px]"
-                >
-                  <option value="">-- {t('Välj artist...', 'Select artist...')} --</option>
-                  {eventPerformers
-                    // performer is null for a lineup row whose performer isn't approved yet
-                    // (public_performers, which this list is built from, only includes
-                    // is_approved: true rows) — same null case EventLineup.tsx already
-                    // guards against on the public side; this dropdown just skips them too
-                    // rather than crashing on row.performer.performer_name.
-                    .filter((row) => row.performer)
-                    .map((row) => (
-                      <option key={row.performer!.id} value={row.performer!.performer_name}>
-                        {row.performer!.performer_name}
-                      </option>
-                    ))}
-                </select>
-              </div>
+            <div className="animate-fade-in flex-1 w-full grid grid-cols-1 sm:grid-cols-[1fr_1fr_46px] items-end gap-3">
+              {slots.map((slot, index) => {
+                const slotActs = actsForPerformer(slot.performerId)
+                return (
+                  <Fragment key={index}>
+                    <div className="form-field">
+                      {index === 0 && (
+                        <label className="form-label-gold text-xs block mb-1">
+                          {t('1. Välj Artist *', '1. Select Performer *')}
+                        </label>
+                      )}
+                      <select
+                        value={slot.performerId}
+                        onChange={(e) => handleSlotPerformerChange(index, e.target.value)}
+                        className="admin-select !w-full h-[46px]"
+                      >
+                        <option value="">-- {t('Välj artist...', 'Select artist...')} --</option>
+                        {/* orderedPerformers skips lineup rows whose performer isn't approved
+                          yet (performer is null there, see EventLineup.tsx) and sorts by show
+                          order */}
+                        {orderedPerformers.map((row) => (
+                          <option key={row.performer.id} value={row.performer.id}>
+                            {row.performer.performer_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              {/* AKT INPUT - VISAS BARA OM EN ARTIST ÄR VALD FÖRST */}
-              <div
-                className={`form-field transition-all duration-200 flex-1 ${activePerformerName ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
-              >
-                <label className="form-label-gold text-xs block mb-1">
-                  {t('2. Akt / Nummer (Frivillig)', '2. Act Name (Optional)')}
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={currentActInput}
-                    onChange={(e) => setCurrentActInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddPerformer()}
-                    placeholder={t(
-                      't.ex. Silk, Eld... (Klicka Enter)',
-                      'e.g. Silk, Fire... (Press Enter)'
+                    {index === 0 ? (
+                      <div
+                        className={`form-field transition-all duration-200 ${slot.performerId ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
+                      >
+                        <label className="form-label-gold text-xs block mb-1">
+                          {t('2. Akt / Nummer (Frivillig)', '2. Act Name (Optional)')}
+                        </label>
+                        {slotActs.length > 1 ? (
+                          <select
+                            value={slot.actName}
+                            onChange={(e) =>
+                              updateSlot(index, { ...slot, actName: e.target.value })
+                            }
+                            className="admin-select !w-full h-[46px]"
+                          >
+                            <option value="">-- {t('Ingen akt', 'No act')} --</option>
+                            {slotActs.map((a) => (
+                              <option key={a.id} value={a.act_name.trim()}>
+                                {a.act_name.trim()}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={slot.actName}
+                            onChange={(e) =>
+                              updateSlot(index, { ...slot, actName: e.target.value })
+                            }
+                            placeholder={t('t.ex. Silk, Eld...', 'e.g. Silk, Fire...')}
+                            className="w-full bg-background p-3 rounded-lg border text-sm h-[46px]"
+                            style={{ borderColor: 'rgba(212, 175, 55, 0.2)' }}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-foreground/40 h-[46px] flex items-center">
+                        {t('Samma akt', 'Same act')}
+                      </p>
                     )}
-                    className="w-full bg-background p-3 pr-10 rounded-lg border text-sm h-[46px]"
-                    style={{ borderColor: 'rgba(212, 175, 55, 0.2)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddPerformer}
-                    disabled={!activePerformerName}
-                    className="absolute right-2 p-1.5 rounded-md bg-accent text-black hover:bg-white transition-all disabled:opacity-50"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
+
+                    {index === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setSlots((prev) => [...prev, EMPTY_SLOT])}
+                        disabled={!slots[slots.length - 1].performerId}
+                        title={t(
+                          'Lägg till en artist till i samma akt',
+                          'Add another performer to the same act'
+                        )}
+                        aria-label={t(
+                          'Lägg till en artist till i samma akt',
+                          'Add another performer to the same act'
+                        )}
+                        className="h-[46px] w-[46px] flex items-center justify-center rounded-lg bg-accent text-black hover:bg-white transition-all disabled:opacity-30 disabled:pointer-events-none"
+                      >
+                        <Plus size={18} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSlots((prev) => prev.filter((_, i) => i !== index))}
+                        className="h-[46px] w-[46px] flex items-center justify-center text-foreground/40 hover:text-foreground"
+                        aria-label={t('Ta bort artist', 'Remove performer')}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </Fragment>
+                )
+              })}
             </div>
           )}
         </div>
@@ -348,7 +479,7 @@ export const GalleryEditor = ({
             </span>
           ))}
 
-          {/* Valda artister renderas som guld-taggar */}
+          {/* Selected performers/acts (from the pickers above) as gold tags */}
           {selectedPerformers.map((p) => (
             <span
               key={p.performerName}
@@ -356,17 +487,6 @@ export const GalleryEditor = ({
             >
               <span className="font-semibold uppercase tracking-wider">{p.performerName}</span>
               {p.actName && <span className="opacity-70 text-[11px]">({p.actName})</span>}
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedPerformers(
-                    selectedPerformers.filter((item) => item.performerName !== p.performerName)
-                  )
-                }
-                className="text-black hover:text-red-800 ml-1.5 font-bold"
-              >
-                <X size={12} />
-              </button>
             </span>
           ))}
 
@@ -420,14 +540,17 @@ export const GalleryEditor = ({
             {!selectedType
               ? t('VÄLJ BILDTYP OVAN FÖRST', 'SELECT IMAGE TYPE ABOVE FIRST')
               : selectedType === ImageCategory.PERFORMANCE && selectedPerformers.length === 0
-                ? t(
-                    'VÄLJ OCH LÄGG TILL MINST EN ARTIST HÄR OVAN',
-                    'ADD AT LEAST ONE PERFORMER ABOVE'
-                  )
+                ? t('VÄLJ EN ARTIST HÄR OVAN', 'SELECT A PERFORMER ABOVE')
                 : uploading
                   ? t(`Laddar upp ${progress.current} av ${progress.total}...`, `Uploading...`)
                   : t('Dra hit eller klicka för att ladda upp', 'Drag here or click to upload')}
           </p>
+
+          {!isUploadDisabled() && (
+            <p className="text-xs font-mono text-accent/80 pb-2 px-2 break-words">
+              {t('Taggas som:', 'Tagging as:')} {buildTags().join(' · ')}
+            </p>
+          )}
 
           {uploading && progress.total > 0 && (
             <div className="progress-track">
