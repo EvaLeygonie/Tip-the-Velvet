@@ -6,20 +6,16 @@ import { supabase } from '@/lib/supabase'
 export interface SiteSettings {
   eventGalleriesHidden: boolean
   hallOfFameImagesHidden: boolean
-  // One-off: holds back Pandaemonium's Stage photos until they are announced
-  pandaemoniumShowPhotosHidden: boolean
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   eventGalleriesHidden: false,
   hallOfFameImagesHidden: false,
-  pandaemoniumShowPhotosHidden: false,
 }
 
 const DB_KEYS: Record<keyof SiteSettings, string> = {
   eventGalleriesHidden: 'event_galleries_hidden',
   hallOfFameImagesHidden: 'hall_of_fame_images_hidden',
-  pandaemoniumShowPhotosHidden: 'pandaemonium_show_photos_hidden',
 }
 
 export const getSiteSettings = async (): Promise<SiteSettings> => {
@@ -32,7 +28,6 @@ export const getSiteSettings = async (): Promise<SiteSettings> => {
   return {
     eventGalleriesHidden: valueOf('eventGalleriesHidden'),
     hallOfFameImagesHidden: valueOf('hallOfFameImagesHidden'),
-    pandaemoniumShowPhotosHidden: valueOf('pandaemoniumShowPhotosHidden'),
   }
 }
 

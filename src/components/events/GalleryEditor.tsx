@@ -1,10 +1,28 @@
-import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
+import { useState, useRef, useEffect, useMemo, Fragment, type ReactNode } from 'react'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { Event, OldEvent, EventImage } from '@/types/types'
 import {
   createEventImage,
   toggleImageVisibility,
   deleteEventImage,
   setEventImageCategory,
+  setEventImageOrder,
   getEventActsForAdmin,
   type AdminEventActRow,
   type EventPerformerRow,
@@ -15,7 +33,7 @@ import { buildEventFolderName, compressImage, createSlug } from '@/lib/utils'
 import { ImageCategory } from '@/types/media'
 import { photoGroup } from '@/lib/photoGroups'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { Eye, EyeOff, Upload, Trash2, X, Plus } from 'lucide-react'
+import { Eye, EyeOff, Upload, Trash2, X, Plus, GripVertical } from 'lucide-react'
 import { toast } from 'sonner'
 import { useConfirm } from '@/contexts/ConfirmContext'
 
@@ -46,6 +64,43 @@ interface PerformerSlot {
 }
 
 const EMPTY_SLOT: PerformerSlot = { performerId: '', actName: '' }
+
+// One draggable thumbnail; only the grip handle starts a drag so the buttons and the category
+// select on the thumbnail keep working.
+const SortableThumb = ({
+  id,
+  className,
+  handleLabel,
+  children,
+}: {
+  id: string
+  className: string
+  handleLabel: string
+  children: ReactNode
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`${className} ${isDragging ? 'z-20 opacity-80' : ''}`}
+    >
+      {children}
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={handleLabel}
+        title={handleLabel}
+        className="absolute top-2 left-1/2 -translate-x-1/2 p-1 rounded-full bg-black/60 text-white/70 hover:text-white cursor-grab active:cursor-grabbing touch-none"
+      >
+        <GripVertical size={14} />
+      </button>
+    </div>
+  )
+}
 
 export const GalleryEditor = ({
   images,
@@ -139,6 +194,34 @@ export const GalleryEditor = ({
       : []
   })
 
+  // The batch uploaded last (Cloudinary ids): shown first in the grid and highlighted until the
+  // next batch replaces it or the page is left. Plus a filter on the stored image category.
+  const [lastBatch, setLastBatch] = useState<string[]>([])
+  const [gridFilter, setGridFilter] = useState<string>('all')
+
+  // Reordering: the display order is renumbered to match the grid after a drag. The new order is
+  // shown right away (tied to the images array it was made from) until the reload brings it back.
+  const [orderOverride, setOrderOverride] = useState<{
+    source: EventImage[]
+    orders: Record<string, number>
+  } | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const orderedAll = useMemo(() => {
+    const overrides = orderOverride?.source === images ? orderOverride.orders : null
+    return images
+      .map((img, i) => ({
+        img: overrides ? { ...img, display_order: overrides[img.id] ?? img.display_order } : img,
+        i,
+      }))
+      .sort((a, b) => (a.img.display_order ?? 0) - (b.img.display_order ?? 0) || a.i - b.i)
+      .map((x) => x.img)
+  }, [images, orderOverride])
+
   const [tagInput, setTagInput] = useState('')
   const [customTags, setCustomTags] = useState<string[]>([])
 
@@ -220,6 +303,7 @@ export const GalleryEditor = ({
 
     let succeeded = 0
     let failed = 0
+    const uploadedIds: string[] = []
     const baseOrder = images.length
     const uploadCategory = (PHOTO_CATEGORIES as readonly string[]).includes(selectedType)
       ? selectedType
@@ -249,6 +333,7 @@ export const GalleryEditor = ({
             },
             isOldEvent
           )
+          uploadedIds.push(publicId)
           succeeded++
         } catch (err) {
           console.error('Failed:', file.name, err)
@@ -258,6 +343,8 @@ export const GalleryEditor = ({
         }
       })
     )
+
+    if (uploadedIds.length > 0) setLastBatch(uploadedIds)
 
     if (succeeded > 0)
       toast.success(t(`${succeeded} bilder uppladdade!`, `${succeeded} images uploaded!`))
@@ -280,6 +367,39 @@ export const GalleryEditor = ({
 
     setUploading(false)
     setProgress({ current: 0, total: 0 })
+    onUpdate()
+  }
+
+  // Dragging within a group (the latest batch, or everything else) only rearranges that group's own
+  // slots in the overall order, so moving the new batch never pushes it ahead of older photos.
+  const handleDragEnd = async (group: EventImage[], e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const from = group.findIndex((img) => img.id === active.id)
+    const to = group.findIndex((img) => img.id === over.id)
+    if (from < 0 || to < 0) return
+
+    const reordered = arrayMove(group, from, to)
+    const inGroup = new Set(group.map((img) => img.id))
+    let k = 0
+    const full = orderedAll.map((img) => (inGroup.has(img.id) ? reordered[k++] : img))
+    const changed = full
+      .map((img, order) => ({ img, order }))
+      .filter(({ img, order }) => (img.display_order ?? 0) !== order)
+
+    setOrderOverride({
+      source: images,
+      orders: Object.fromEntries(full.map((img, order) => [img.id, order])),
+    })
+    try {
+      await Promise.all(
+        changed.map(({ img, order }) => setEventImageOrder(img.id, order, isOldEvent))
+      )
+    } catch (err) {
+      console.error('Reorder error:', err)
+      toast.error(t('Kunde inte spara ordningen', 'Could not save the order'))
+      setOrderOverride(null)
+    }
     onUpdate()
   }
 
@@ -578,49 +698,129 @@ export const GalleryEditor = ({
 
         {/* Image grid */}
         {images.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            {images.map((img: EventImage) => (
-              <div key={img.id} className="gallery-thumb relative">
-                <CloudinaryImage
-                  publicId={img.image_id}
-                  width={400}
-                  height={400}
-                  className={'media-cover' + (img.is_visible ? '' : ' opacity-30')}
-                />
-
-                <button
-                  onClick={() => handleToggle(img)}
-                  className={`absolute top-2 right-2 p-1 rounded-full transition-all ${
-                    img.is_visible ? 'bg-accent text-black' : 'bg-black/60 text-white/40'
-                  }`}
-                >
-                  {img.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                </button>
-
-                {!isOldEvent && (
-                  <select
-                    value={photoGroup(img.category) ?? ''}
-                    onChange={(e) => void handleCategory(img, e.target.value)}
-                    className="absolute bottom-1 left-1 right-1 !w-auto !p-1 !text-[11px] !rounded bg-black/70"
-                    aria-label={t('Bildkategori', 'Photo category')}
-                  >
-                    <option value="">{t('Ingen kategori', 'No category')}</option>
-                    <option value="stage">Stage</option>
-                    <option value="party">{t('Mingel', 'Mingle')}</option>
-                    <option value="photobooth">Photobooth</option>
-                  </select>
-                )}
-
-                <button
-                  onClick={() => handleDelete(img)}
-                  className="absolute top-2 left-2 p-1 rounded-full transition-all bg-red-900/80 hover:bg-red-600 text-red-200"
-                >
-                  <Trash2 size={16} />
-                </button>
+          <div className="mt-6 space-y-3">
+            {!isOldEvent && (
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  { key: 'all', label: t('Alla', 'All') },
+                  { key: 'performance', label: 'Performance' },
+                  { key: 'stage', label: 'Stage' },
+                  { key: 'party', label: t('Mingel', 'Party') },
+                  { key: 'photobooth', label: 'Photobooth' },
+                  { key: 'none', label: t('Ingen kategori', 'No category') },
+                ].map((f) => {
+                  const count =
+                    f.key === 'all'
+                      ? images.length
+                      : images.filter((img) => (img.category ?? 'none') === f.key).length
+                  if (f.key !== 'all' && count === 0) return null
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setGridFilter(f.key)}
+                      className={`px-3 py-1 rounded-full text-xs font-mono border transition-all ${
+                        gridFilter === f.key
+                          ? 'bg-accent text-black border-accent'
+                          : 'bg-black/30 text-foreground/60 border-white/10 hover:text-foreground'
+                      }`}
+                    >
+                      {f.label} ({count})
+                    </button>
+                  )
+                })}
               </div>
-            ))}
+            )}
+            {lastBatch.length > 0 && (
+              <p className="text-xs text-accent/80 text-left">
+                {t(
+                  `Senast uppladdade (${lastBatch.length}) visas först. Dra i greppet överst på en bild för att ändra ordning.`,
+                  `Latest upload (${lastBatch.length}) is shown first. Drag the grip at the top of an image to reorder.`
+                )}
+              </p>
+            )}
           </div>
         )}
+        {images.length > 0 &&
+          (() => {
+            const passesFilter = (img: EventImage) =>
+              isOldEvent || gridFilter === 'all' || (img.category ?? 'none') === gridFilter
+            const batchItems = orderedAll.filter(
+              (img) => lastBatch.includes(img.image_id) && passesFilter(img)
+            )
+            const restItems = orderedAll.filter(
+              (img) => !lastBatch.includes(img.image_id) && passesFilter(img)
+            )
+
+            const renderGrid = (items: EventImage[], highlight: boolean) =>
+              items.length === 0 ? null : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(e) => void handleDragEnd(items, e)}
+                >
+                  <SortableContext
+                    items={items.map((img) => img.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                      {items.map((img) => (
+                        <SortableThumb
+                          key={img.id}
+                          id={img.id}
+                          handleLabel={t('Dra för att ändra ordning', 'Drag to reorder')}
+                          className={`gallery-thumb relative ${highlight ? 'ring-2 ring-accent' : ''}`}
+                        >
+                          <CloudinaryImage
+                            publicId={img.image_id}
+                            width={400}
+                            height={400}
+                            className={'media-cover' + (img.is_visible ? '' : ' opacity-30')}
+                          />
+
+                          <button
+                            onClick={() => handleToggle(img)}
+                            className={`absolute top-2 right-2 p-1 rounded-full transition-all ${
+                              img.is_visible ? 'bg-accent text-black' : 'bg-black/60 text-white/40'
+                            }`}
+                          >
+                            {img.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                          </button>
+
+                          {!isOldEvent && (
+                            <select
+                              value={photoGroup(img.category) ?? ''}
+                              onChange={(e) => void handleCategory(img, e.target.value)}
+                              className="absolute bottom-1 left-1 right-1 !w-auto !p-1 !text-[11px] !rounded bg-black/70"
+                              aria-label={t('Bildkategori', 'Photo category')}
+                            >
+                              <option value="">{t('Ingen kategori', 'No category')}</option>
+                              <option value="stage">Stage</option>
+                              <option value="party">{t('Mingel', 'Mingle')}</option>
+                              <option value="photobooth">Photobooth</option>
+                            </select>
+                          )}
+
+                          <button
+                            onClick={() => handleDelete(img)}
+                            className="absolute top-2 left-2 p-1 rounded-full transition-all bg-red-900/80 hover:bg-red-600 text-red-200"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </SortableThumb>
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )
+
+            return (
+              <>
+                {renderGrid(batchItems, true)}
+                {renderGrid(restItems, false)}
+              </>
+            )
+          })()}
       </div>
     </div>
   )

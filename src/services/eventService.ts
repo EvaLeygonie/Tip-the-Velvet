@@ -866,6 +866,9 @@ export const updateEvent = (id: string, updatedData: Partial<CreateEventInput>) 
 export const toggleImageVisibility = (id: string, isVisible: boolean, isOldEvent: boolean) =>
   updateRow(isOldEvent ? 'old_event_images' : 'event_images', id, { is_visible: isVisible })
 
+export const setEventImageOrder = (id: string, displayOrder: number, isOldEvent: boolean) =>
+  updateRow(isOldEvent ? 'old_event_images' : 'event_images', id, { display_order: displayOrder })
+
 // Photo category for the Stage / Mingle / Photobooth filter on the public event page (events only —
 // the old board's archive has no category column).
 export const setEventImageCategory = (id: string, category: string | null) =>

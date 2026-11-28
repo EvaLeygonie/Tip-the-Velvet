@@ -57,26 +57,20 @@ export const EventDetail = () => {
   const [images, setImages] = useState<EventImage[]>([])
   const [index, setIndex] = useState<number>(-1)
 
-  // "All" shows performance, then stage, mingle and photobooth (uncategorised last); within each
-  // category the gallery editor's display order applies. Old events have no category, so they
-  // keep plain display order.
-  const CATEGORY_ORDER = ['performance', 'stage', 'party', 'photobooth']
+  // "All" follows the gallery editor's category dropdown: performance, stage, party, then
+  // photobooth last (uncategorised photos sit just before it, so photobooth always closes the
+  // list); within each category the gallery editor's display order applies. Old events have no
+  // category, so they keep plain display order.
+  const CATEGORY_ORDER = ['performance', 'stage', 'party', '', 'photobooth']
   const categoryRank = (img: EventImage) => {
     const rank = CATEGORY_ORDER.indexOf(img.category ?? '')
-    return rank === -1 ? CATEGORY_ORDER.length : rank
+    return rank === -1 ? CATEGORY_ORDER.indexOf('') : rank
   }
-  // One-off: Pandaemonium's Stage photos are held back from visitors (Dashboard switch) until
-  // they are announced; the filter then shows 0 / "coming soon"
-  const isHeldBack = (img: EventImage) =>
-    siteSettings.pandaemoniumShowPhotosHidden &&
-    slug === 'pandaemonium' &&
-    !user &&
-    publicPhotoGroup(img.category) === 'stage'
   const sortedImages = [...images]
     .sort(
       (a, b) => categoryRank(a) - categoryRank(b) || (a.display_order ?? 0) - (b.display_order ?? 0)
     )
-    .filter((img) => img.is_visible && !isHeldBack(img))
+    .filter((img) => img.is_visible)
 
   // Stage / Mingle / Photobooth filter badges: always all three once any photo exists, so a 0
   // tells visitors that group's photos are still on their way (events only; each photo's

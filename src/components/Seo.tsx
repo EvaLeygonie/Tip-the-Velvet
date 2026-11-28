@@ -14,23 +14,36 @@ interface SeoProps {
   noindex?: boolean
 }
 
-export const Seo = ({ title, description, path, noindex = false }: SeoProps) => (
-  <>
-    <title>{title}</title>
-    {description && <meta name="description" content={description} />}
-    {noindex ? (
-      <meta name="robots" content="noindex, nofollow" />
-    ) : (
-      path !== undefined && <link rel="canonical" href={`${SITE_URL}${path === '/' ? '' : path}`} />
-    )}
-    <meta property="og:title" content={title} />
-    {description && <meta property="og:description" content={description} />}
-    <meta property="og:type" content="website" />
-    {!noindex && path !== undefined && (
-      <meta property="og:url" content={`${SITE_URL}${path === '/' ? '' : path}`} />
-    )}
-  </>
-)
+// The description in index.html stays first in <head>, so it would outrank the page's own.
+const useReplaceStaticDescription = (description?: string) => {
+  useEffect(() => {
+    if (description) document.querySelector('meta[name="description"][data-static]')?.remove()
+  }, [description])
+}
+
+export const Seo = ({ title, description, path, noindex = false }: SeoProps) => {
+  useReplaceStaticDescription(description)
+
+  return (
+    <>
+      <title>{title}</title>
+      {description && <meta name="description" content={description} />}
+      {noindex ? (
+        <meta name="robots" content="noindex, nofollow" />
+      ) : (
+        path !== undefined && (
+          <link rel="canonical" href={`${SITE_URL}${path === '/' ? '' : path}`} />
+        )
+      )}
+      <meta property="og:title" content={title} />
+      {description && <meta property="og:description" content={description} />}
+      <meta property="og:type" content="website" />
+      {!noindex && path !== undefined && (
+        <meta property="og:url" content={`${SITE_URL}${path === '/' ? '' : path}`} />
+      )}
+    </>
+  )
+}
 
 // Board-only and token-authenticated routes must never be indexed.
 const PRIVATE_PREFIXES = ['/admin', '/hall-of-fame-form', '/casting/confirm', '/info']

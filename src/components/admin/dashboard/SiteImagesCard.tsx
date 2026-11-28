@@ -42,26 +42,13 @@ export const SiteImagesCard = () => {
       sv: 'Dölj bilderna i Hall of Fame (profilerna visas kvar)',
       eng: 'Hide the images in the Hall of Fame (profiles stay)',
     },
-    {
-      setting: 'pandaemoniumShowPhotosHidden',
-      sv: 'Dölj showbilderna (Scen) för Pandaemonium tills de släpps',
-      eng: 'Hide the show (Stage) photos for Pandaemonium until they are released',
-    },
   ]
 
   return (
     <div className="admin-card-bg p-4 space-y-3">
-      <div>
-        <h3 className="font-decorative text-lg text-accent">
-          {t('Bilder på hemsidan', 'Website images')}
-        </h3>
-        <p className="text-xs text-foreground/60">
-          {t(
-            'Cloudinary-krediterna är nästan slut. Stäng av bilder här tills förbrukningen har gått ner.',
-            'The Cloudinary credits are almost used up. Turn images off here until usage has come down.'
-          )}
-        </p>
-      </div>
+      <h3 className="font-decorative text-lg text-accent">
+        {t('Bilder på hemsidan', 'Website images')}
+      </h3>
       {switches.map(({ setting, sv, eng }) => (
         <label
           key={setting}
